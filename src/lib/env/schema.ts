@@ -61,16 +61,16 @@ export function formatEnvIssues(error: z.ZodError): string {
   return `Invalid environment configuration: ${[...new Set(paths)].join(", ")}. Values are not logged. See docs/09-env-contract.md.`;
 }
 
+type EnvSource = Record<string, string | undefined>;
+
 function pick(
-  source: NodeJS.ProcessEnv,
+  source: EnvSource,
   keys: readonly string[],
 ): Record<string, string | undefined> {
   return Object.fromEntries(keys.map((key) => [key, source[key]]));
 }
 
-export function parsePublicEnv(
-  source: NodeJS.ProcessEnv = process.env,
-): PublicEnv {
+export function parsePublicEnv(source: EnvSource = process.env): PublicEnv {
   const parsed = publicEnvSchema.safeParse(pick(source, PUBLIC_ENV_KEYS));
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
@@ -78,9 +78,7 @@ export function parsePublicEnv(
   return parsed.data;
 }
 
-export function parseServerEnv(
-  source: NodeJS.ProcessEnv = process.env,
-): ServerEnv {
+export function parseServerEnv(source: EnvSource = process.env): ServerEnv {
   const parsed = serverEnvSchema.safeParse(
     pick(source, [...PUBLIC_ENV_KEYS, ...SERVER_ONLY_ENV_KEYS]),
   );
