@@ -1,11 +1,11 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { parsePublicEnv } from "../../src/lib/env/schema";
 import {
-  parsePublicEnv,
   parseServerEnv,
   SERVER_ONLY_ENV_KEYS,
-} from "../../src/lib/env/schema";
+} from "../../src/lib/env/server-schema";
 
 const ROOT = path.resolve(__dirname, "../..");
 

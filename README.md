@@ -85,7 +85,7 @@ A logo oficial está em `public/brand/Logo SerenaPsi em Gradiente Sereno(2).png`
 
 Os textos completos de atuação da IA fazem parte deste mesmo projeto. Leia `RUNTIME_AI_PROMPTS.md` e `docs/14-runtime-ai-architecture.md`. O Cursor implementa esses contratos, mas não deve alterar silenciosamente o comportamento clínico durante refactors.
 
-## Execução local — Fase 0
+## Execução local
 
 Requisitos: Node.js 22+ e [pnpm](https://pnpm.io) 10.
 
@@ -108,10 +108,13 @@ Chaves server-only permanecem vazias até as fases correspondentes. O schema Zod
 pnpm dev          # http://localhost:3000
 pnpm lint
 pnpm typecheck
-pnpm test         # Vitest: env, arquitetura, contratos
+pnpm test         # Vitest: env, arquitetura, contratos, componentes de UI
 pnpm build
-pnpm test:e2e     # Playwright smoke da fundação
+pnpm scan:client-bundle  # garante que nenhum segredo server-only vaza no bundle do client
+pnpm test:e2e     # Playwright: login, shell, dark mode, design system (desktop + mobile)
 ```
+
+Sem um projeto Supabase real ligado, o login autenticado do Playwright usa um stub local do Auth REST (`tests/e2e/support/auth-stub-server.mjs`), iniciado automaticamente pelo `playwright.config.ts`. Ele prova a navegação/gate do shell, não segurança de RLS/JWT — os testes adversariais de auth real acontecem no gate da Fase 2, contra um Supabase real.
 
 Supabase CLI está instalado como devDependency. Ainda não há migrations de produto (Fase 2). Para preparar o ambiente local depois da Fase 2:
 
@@ -120,4 +123,16 @@ pnpm exec supabase --version
 pnpm exec supabase start
 ```
 
-O gate da Fase 0 é: `pnpm lint && pnpm typecheck && pnpm test && pnpm build` mais o scan de arquitetura (já incluído em `pnpm test`). Não avance para a Fase 1 sem esse gate em PASS.
+O gate base (`pnpm gate`) roda `lint && typecheck && test && build && scan:client-bundle`. `pnpm test:e2e` roda à parte. Não avance de fase sem o gate correspondente em PASS.
+
+## Fase 1 — Design system, auth e shell
+
+Entregue nesta fase:
+- tokens SerenaPsi (paleta sage/bone, Inter, Playfair Display, JetBrains Mono) e dark mode automático via `prefers-color-scheme`;
+- os onze primitivos canônicos de `docs/02-visual-spec.md` em `src/components/ui/` — referência mínima navegável em `/design-system`;
+- login e-mail/senha + Google (Supabase Auth), recuperação e redefinição de senha, sem revelar existência de conta;
+- `src/proxy.ts` (Next.js 16 renomeou `middleware.ts`) protege `/app/**` e `/session/**` e usa `auth.getUser()` (nunca decode-only) via `@supabase/ssr`;
+- shell desktop (sidebar 256px) e mobile (top bar + bottom nav + drawer "Mais"), com bloqueio de tela manual e por inatividade;
+- placeholders dos oito módulos, todos consumindo os primitivos canônicos.
+
+Fora de escopo, propositalmente: Google Calendar OAuth, RLS/multi-tenant (Fase 2), e qualquer dado clínico real.

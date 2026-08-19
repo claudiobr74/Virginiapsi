@@ -40,6 +40,9 @@ jobs:
       - name: Production build
         run: pnpm build
 
+      - name: Scan client bundle for server-only secrets
+        run: pnpm scan:client-bundle
+
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 

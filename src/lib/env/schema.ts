@@ -9,51 +9,12 @@ export const publicEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: httpUrl,
 });
 
-export const serverEnvSchema = publicEnvSchema.extend({
-  SUPABASE_SECRET_KEY: nonEmpty.startsWith("sb_secret_"),
-  GOOGLE_CLIENT_ID: nonEmpty,
-  GOOGLE_CLIENT_SECRET: nonEmpty,
-  GOOGLE_OAUTH_REDIRECT_URI: httpUrl,
-  GOOGLE_TOKEN_ENCRYPTION_KEY: nonEmpty,
-  TWILIO_ACCOUNT_SID: nonEmpty,
-  TWILIO_AUTH_TOKEN: nonEmpty,
-  TWILIO_WHATSAPP_FROM: nonEmpty,
-  TWILIO_MESSAGING_SERVICE_SID: nonEmpty,
-  DEEPGRAM_API_KEY: nonEmpty,
-  GEMINI_API_KEY: nonEmpty,
-  GEMINI_MODEL_SESSION: nonEmpty,
-  GEMINI_MODEL_SUPERVISOR: nonEmpty,
-  GEMINI_MODEL_KNOWLEDGE: nonEmpty,
-  GEMINI_EMBEDDING_MODEL: nonEmpty,
-  CRON_SECRET: nonEmpty,
-});
-
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
-export type ServerEnv = z.infer<typeof serverEnvSchema>;
 
 export const PUBLIC_ENV_KEYS = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   "NEXT_PUBLIC_APP_URL",
-] as const;
-
-export const SERVER_ONLY_ENV_KEYS = [
-  "SUPABASE_SECRET_KEY",
-  "GOOGLE_CLIENT_ID",
-  "GOOGLE_CLIENT_SECRET",
-  "GOOGLE_OAUTH_REDIRECT_URI",
-  "GOOGLE_TOKEN_ENCRYPTION_KEY",
-  "TWILIO_ACCOUNT_SID",
-  "TWILIO_AUTH_TOKEN",
-  "TWILIO_WHATSAPP_FROM",
-  "TWILIO_MESSAGING_SERVICE_SID",
-  "DEEPGRAM_API_KEY",
-  "GEMINI_API_KEY",
-  "GEMINI_MODEL_SESSION",
-  "GEMINI_MODEL_SUPERVISOR",
-  "GEMINI_MODEL_KNOWLEDGE",
-  "GEMINI_EMBEDDING_MODEL",
-  "CRON_SECRET",
 ] as const;
 
 export function formatEnvIssues(error: z.ZodError): string {
@@ -63,25 +24,30 @@ export function formatEnvIssues(error: z.ZodError): string {
 
 type EnvSource = Record<string, string | undefined>;
 
-function pick(
-  source: EnvSource,
-  keys: readonly string[],
-): Record<string, string | undefined> {
-  return Object.fromEntries(keys.map((key) => [key, source[key]]));
+/**
+ * Next.js inlines `process.env.NEXT_PUBLIC_*` into the client bundle only
+ * when the fully-qualified member expression appears literally in the
+ * source. Reading through a variable/array (`source[key]`) defeats that
+ * static analysis, so every public var is accessed by its literal path here
+ * — do not refactor this into a loop or a shared "pick by key" helper.
+ *
+ * This module must stay free of server-only env names: it is imported by
+ * `src/lib/env/public.ts`, which client components use directly. Server-only
+ * schema/parsing lives in `src/lib/env/server.ts` behind `import "server-only"`.
+ */
+function readPublicEnvFromProcess(): EnvSource {
+  return {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  };
 }
 
-export function parsePublicEnv(source: EnvSource = process.env): PublicEnv {
-  const parsed = publicEnvSchema.safeParse(pick(source, PUBLIC_ENV_KEYS));
-  if (!parsed.success) {
-    throw new Error(formatEnvIssues(parsed.error));
-  }
-  return parsed.data;
-}
-
-export function parseServerEnv(source: EnvSource = process.env): ServerEnv {
-  const parsed = serverEnvSchema.safeParse(
-    pick(source, [...PUBLIC_ENV_KEYS, ...SERVER_ONLY_ENV_KEYS]),
-  );
+export function parsePublicEnv(
+  source: EnvSource = readPublicEnvFromProcess(),
+): PublicEnv {
+  const parsed = publicEnvSchema.safeParse(source);
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
   }
