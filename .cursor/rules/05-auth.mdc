@@ -1,0 +1,14 @@
+---
+description: Authentication/session rules including forged-token and multi-membership protections.
+globs: "src/features/auth/**/*,src/lib/supabase/**/*,src/app/**/auth/**/*,tests/**/*auth*"
+alwaysApply: false
+---
+# Auth
+
+- Use `@supabase/ssr` for server/browser session handling.
+- Do not accept decode-only JWT validation.
+- No synthetic unsigned JWT fallback in tests or runtime.
+- Sensitive server handlers validate the authenticated user through the real Supabase session/user path.
+- Google social login is optional and separate from Google Calendar authorization.
+- Password recovery must not reveal whether an account exists.
+- Multi-membership must prompt/select active organization; never select first membership as authorization logic.

@@ -1,0 +1,15 @@
+---
+description: Deepgram live transcription and fallback architecture.
+globs: "src/**/*deepgram*,src/**/*transcri*,src/features/sessions/**/*"
+alwaysApply: false
+---
+# Deepgram
+
+- Master API key is server-only.
+- Browser obtains a fresh short-lived temporary token from an authenticated endpoint immediately before every initial connection/reconnection and connects directly to Deepgram WebSocket. Use the 30s default TTL and consume immediately; never reuse a previous token for reconnect.
+- The same server-side recording/transcription ConsentState gate applies before issuing either a Deepgram token or any fallback signed-upload capability. Revoked/invalid consent must deny both.
+- Persist final transcript segments incrementally and idempotently.
+- Implement reconnect states without duplicating text.
+- Never send full audio/base64 through Next.js/Vercel.
+- Batch fallback uploads directly to private Supabase Storage only after a server-issued upload grant; do not allow generic membership-only INSERT into the fallback-audio bucket. Backend receives object path/metadata only and transcribes by signed URL.
+- Add retention/cleanup for fallback audio.

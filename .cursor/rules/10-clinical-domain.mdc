@@ -1,0 +1,18 @@
+---
+description: Clinical sessions, DPEP, clinical working notes, consent and patient privacy.
+globs: "src/features/sessions/**/*,src/features/patients/**/*,src/features/supervisor/**/*"
+alwaysApply: false
+---
+# Clinical domain
+
+- DPEP fields: Demanda, Procedimentos, Evolução, Plano/Encaminhamentos.
+- Clinical working notes/formulation are stored separately from administrative patient data.
+- Do not describe a separate clinical area as automatically or legally "inaccessible"; access/governance follows purpose and applicable professional rules.
+- Secretary endpoints/DTOs must never serialize clinical fields.
+- Session finalization is idempotent and auditable.
+- Do not overwrite a finalized clinical record silently; use versioning/amendment semantics.
+- Active session UX is distraction-free and optimized for few clicks.
+- Recording/transcription/AI processing require technical consent gates before provider calls.
+- Refusal of recording/transcription/AI must not be represented as resistance and must not impair access to care.
+- Never infer that a suggested intervention was performed; procedures require clinician-confirmed evidence.
+- Child/adolescent and couple/family/group contexts require source-of-information and modality awareness.

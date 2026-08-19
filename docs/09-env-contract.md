@@ -1,0 +1,55 @@
+# Contrato de Variáveis de Ambiente
+
+Nunca commitar valores reais.
+
+Verificado em documentação oficial em 18/08/2026: as chaves legadas `anon`/`service_role` (JWT) estão marcadas para deprecação até o fim de 2026. Este projeto usa a geração nova desde o início — `sb_publishable_...` substitui `anon`, `sb_secret_...` substitui `service_role`. Ambas trafegam no header `apikey`, nunca em `Authorization: Bearer`.
+
+## Browser-safe
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+## Server-only
+
+```env
+SUPABASE_SECRET_KEY=
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/api/integrations/google/callback
+GOOGLE_TOKEN_ENCRYPTION_KEY=
+
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_WHATSAPP_FROM=
+TWILIO_MESSAGING_SERVICE_SID=
+
+DEEPGRAM_API_KEY=
+
+GEMINI_API_KEY=
+GEMINI_MODEL_SESSION=
+GEMINI_MODEL_SUPERVISOR=
+GEMINI_MODEL_KNOWLEDGE=
+GEMINI_EMBEDDING_MODEL=
+
+CRON_SECRET=
+```
+
+## Supabase Vault para scheduler
+
+O scheduler de lembretes usa Supabase Cron + `pg_net`. No Supabase Vault, provisionar fora do versionamento:
+- `serenapsi_app_url`: URL HTTPS canônica do app/endpoint de job;
+- `serenapsi_cron_secret`: mesmo valor de `CRON_SECRET` configurado no Vercel/ambiente server-side.
+
+Não gravar valores do Vault em migrations, fixtures, logs ou documentação. Rotação do segredo deve atualizar ambos os lados.
+
+## Regras
+
+- validar env no boot/server boundary com Zod;
+- variáveis server-only não podem ser importadas por módulos client;
+- criar teste que procura secrets conhecidos no client build quando possível;
+- não usar chaves “fallback” entre provedores;
+- se variável necessária não existir, falhar de forma explícita e segura.

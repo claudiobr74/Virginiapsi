@@ -1,0 +1,19 @@
+---
+description: Supabase schema, migrations, Auth, Storage, tenant isolation and RLS guidance.
+globs: "supabase/**/*.sql,src/lib/supabase/**/*,src/**/server/**/*,src/app/api/**/*"
+alwaysApply: false
+---
+# Supabase / RLS
+
+- Every tenant table has `organization_id` unless it is auth-global by design.
+- Enable RLS and create explicit policies in the same migration or immediately following migration.
+- Authorization derives from `auth.uid()` membership and role, never `members[0]`.
+- A client-supplied organization id is only context; membership/RLS must still authorize it.
+- Secretary must have no SELECT policy on clinical-only tables.
+- Prefer Supabase generated TypeScript types after migrations.
+- service-role client exists only in server-only module and is used narrowly.
+- Storage bucket policies must mirror tenant/role rules.
+- Write RLS adversarial tests with a real/local Supabase Auth path.
+
+- RLS membership helpers that use SECURITY DEFINER must be STABLE, use `SET search_path = ''`, schema-qualify referenced objects, use `auth.uid()` internally, and expose only minimal EXECUTE privileges.
+- `practice_settings.secretary_finance_access` (`none|view|manage`) is enforced in financial RLS; UI visibility is never the enforcement.

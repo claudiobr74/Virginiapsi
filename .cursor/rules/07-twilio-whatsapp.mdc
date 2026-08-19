@@ -1,0 +1,19 @@
+---
+description: Twilio WhatsApp outbound, templates, callbacks and inbound security.
+globs: "src/**/*twilio*,src/**/*whatsapp*,src/app/api/**/twilio/**/*,src/app/api/**/whatsapp/**/*"
+alwaysApply: false
+---
+# Twilio / WhatsApp
+
+- Twilio credentials are server-only.
+- Validate Twilio signatures on every inbound/status webhook before processing.
+- Deduplicate by MessageSid/event key.
+- Normalize phones to E.164.
+- Respect communication preference/consent.
+- Use approved WhatsApp templates when provider rules require them.
+- Keep message contents out of generic logs.
+- Appointment confirmation parsing must be conservative; ambiguous inbound messages do not silently reschedule.
+
+- Reminder scheduling uses Supabase Cron/pg_cron every 5 minutes, invoking the authenticated Next.js job endpoint via pg_net; do not depend on Vercel Cron for sub-daily reminders.
+- Use `whatsapp_reminder_outbox` with atomic claims, retry states, and `unique(appointment_id, reminder_type)` before calling Twilio.
+- Validate `CRON_SECRET` before the reminder job performs any side effect; the scheduler copy of the secret is stored in Supabase Vault.

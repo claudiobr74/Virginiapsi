@@ -1,0 +1,16 @@
+---
+description: Security, privacy and LGPD constraints; always apply.
+alwaysApply: true
+---
+# Security and privacy
+
+- Clinical data is sensitive. Minimize data in responses, logs and external providers.
+- UI hiding is never authorization.
+- No secrets in client modules or NEXT_PUBLIC variables.
+- Never log transcripts, clinical working notes, AI clinical prompt bodies, Google refresh tokens or Twilio auth tokens.
+- Sensitive mutations require authenticated user, authorization and audit where applicable.
+- Use signed short-lived Storage URLs.
+- Before recording/transcription/clinical-AI provider calls, enforce server-side consent state as defined by the product.
+- Refusal/revocation of AI/recording/transcription must block the applicable provider flow without impairing ordinary clinical care.
+- Do not auto-write AI output into the clinical record without explicit human action.
+- Destructive/LGPD flows require explicit confirmation and documented retention behavior.

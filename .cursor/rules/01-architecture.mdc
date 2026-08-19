@@ -1,0 +1,15 @@
+---
+description: Core architecture boundaries for Next.js, Supabase and feature-oriented code.
+alwaysApply: true
+---
+# Architecture
+
+- Next.js App Router is the single web/server application.
+- Supabase is the persistence/auth/storage backend.
+- Schema source of truth is `supabase/migrations/*.sql`.
+- Prefer feature folders and small components/services.
+- Use Zod at external/server boundaries.
+- Integrations are adapters under `src/lib/integrations` or feature server modules, never SDK calls inside React components.
+- Keep business rules out of presentation components.
+- Preserve stable HTTP/server contracts so a future Flutter client can reuse the backend.
+- Use timestamptz and organization timezone; never scatter ad-hoc local date parsing.

@@ -1,0 +1,12 @@
+---
+description: SerenaPsi project foundation; always apply to all work.
+alwaysApply: true
+---
+# SerenaPsi foundation rule
+
+- Specs in `docs/` are authoritative.
+- Keep a single Next.js + Supabase application architecture.
+- Do not add Firebase/Firestore/Drive/Docs/Sheets/NotebookLM operational dependencies.
+- Do not create a parallel Express/Nest backend or duplicate ORM schema.
+- Reject shortcuts that violate the architecture, security model or data boundaries defined in this repository.
+- Work only on the current phase. Never silently continue to the next phase.

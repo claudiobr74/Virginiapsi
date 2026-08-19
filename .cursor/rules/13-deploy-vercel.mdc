@@ -1,0 +1,13 @@
+---
+description: Vercel deployment, payload and production safety.
+globs: "vercel.json,src/app/api/**/*,next.config.*,package.json,.github/**/*"
+alwaysApply: false
+---
+# Vercel / production
+
+- Avoid request/response payload designs near platform body limits; uploads go direct to Supabase Storage.
+- Server routes return small JSON payloads.
+- Use Node runtime for SDKs requiring Node APIs.
+- Validate production env at deploy/start boundaries without exposing values.
+- Preview deployments must not point to production destructive resources unless explicitly designed.
+- Production release requires full gate and rollback notes.
