@@ -39,7 +39,7 @@ export function TranscriptPanel({
     })),
   );
 
-  const { state, errorMessage, model, start, stop } = useLocalTranscription({
+  const { state, errorMessage, model, downloadPercent, start, stop } = useLocalTranscription({
     sessionId,
     patientId,
     onSegment: (segment) => setSegments((prev) => [...prev, segment]),
@@ -82,6 +82,20 @@ export function TranscriptPanel({
         final é enviado para o prontuário
         {model ? ` (modelo local, WER aproximado ${model.approxWerLabel}).` : "."}
       </p>
+
+      {downloadPercent !== null ? (
+        <div className="flex flex-col gap-1" role="status">
+          <span className="text-xs text-muted-foreground">
+            Preparando transcrição local — baixando modelo ({downloadPercent}%)…
+          </span>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${downloadPercent}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {state === "degraded" ? (
         <p className="flex items-center gap-2 rounded-xl border border-attention/30 bg-attention-bg px-4 py-3 text-sm text-attention">

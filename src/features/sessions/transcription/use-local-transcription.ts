@@ -6,6 +6,7 @@ import { resampleToMono16k } from "@/features/sessions/transcription/audio-resam
 import { detectTranscriptionDevice } from "@/features/sessions/transcription/device-capability";
 import { loadLocalTranscriber, type LocalTranscriber } from "@/features/sessions/transcription/local-pipeline";
 import { selectLocalModel, type LocalModelConfig } from "@/features/sessions/transcription/model-catalog";
+import type { TranscriptSegmentOutput } from "@/features/sessions/transcription/provider";
 
 // Vocabulary matches docs/06-integrations.md §3 "Estados de captura".
 export type CaptureState =
@@ -17,13 +18,12 @@ export type CaptureState =
   | "completed"
   | "error";
 
-export interface TranscriptSegmentResult {
-  sequence: number;
-  text: string;
-  startMs: number;
-  endMs: number;
+// The local adapters' slice of the shared TranscriptionProvider port output
+// (src/features/sessions/transcription/provider.ts) — never "groq-batch"
+// here, since this hook only ever runs the on-device path.
+export type TranscriptSegmentResult = TranscriptSegmentOutput & {
   provider: "local-webgpu" | "local-wasm";
-}
+};
 
 export interface UseLocalTranscriptionOptions {
   sessionId: string;
@@ -38,6 +38,8 @@ export interface UseLocalTranscriptionResult {
   state: CaptureState;
   errorMessage: string | null;
   model: LocalModelConfig | null;
+  /** 0-100 while the model/runtime download is in progress, otherwise null. */
+  downloadPercent: number | null;
   start: () => Promise<void>;
   stop: () => void;
 }
@@ -62,6 +64,7 @@ export function useLocalTranscription({
   const [state, setState] = useState<CaptureState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [model, setModel] = useState<LocalModelConfig | null>(null);
+  const [downloadPercent, setDownloadPercent] = useState<number | null>(null);
 
   const captureRef = useRef<ChunkedMicCapture | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -188,12 +191,17 @@ export function useLocalTranscription({
     streamRef.current = stream;
 
     try {
-      transcriberRef.current = await loadLocalTranscriber(selected);
+      setDownloadPercent(0);
+      transcriberRef.current = await loadLocalTranscriber(selected, {
+        onProgress: ({ percent }) => setDownloadPercent(percent),
+      });
     } catch {
       stream.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
       setState("degraded");
       return;
+    } finally {
+      setDownloadPercent(null);
     }
 
     modelRef.current = selected;
@@ -221,5 +229,5 @@ export function useLocalTranscription({
     setState("completed");
   }, []);
 
-  return { state, errorMessage, model, start, stop };
+  return { state, errorMessage, model, downloadPercent, start, stop };
 }

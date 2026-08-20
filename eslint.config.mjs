@@ -17,6 +17,9 @@ const eslintConfig = defineConfig([
     // Spikes são investigações isoladas, com dependências próprias e fora do
     // bundle do app. Ver spikes/*/README.
     "spikes/**",
+    // Gerado por scripts/copy-onnx-wasm.mjs a partir de node_modules —
+    // vendor code, nunca editado aqui e nunca versionado (.gitignore).
+    "public/ort/**",
   ]),
 ]);
 

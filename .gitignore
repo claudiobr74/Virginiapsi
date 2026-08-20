@@ -21,6 +21,10 @@
 /.next/
 /out/
 
+# Generated at install-time by scripts/copy-onnx-wasm.mjs (Fase 6: local
+# transcription) — never commit ONNX Runtime Web's binaries to git.
+/public/ort/
+
 # production
 /build
 
