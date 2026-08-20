@@ -21,7 +21,7 @@ Campos contextuais devem ser enviados somente quando relevantes e autorizados.
 ```
 
 Regras:
-- Session Live/transcrição exigem os estados aplicáveis como `true`. O mesmo gate é obrigatório antes de emitir **qualquer capability de captura**, inclusive temporary token Deepgram e signed upload grant para fallback de áudio.
+- Session Live/transcrição exigem os estados aplicáveis como `true`. O mesmo gate é obrigatório antes de emitir **qualquer capability de captura**, inclusive o grant de captura de sessão (transcrição local) e o signed upload grant para fallback de áudio.
 - O modelo não decide se consentimento é válido.
 - Recusa de IA/gravação/transcrição não entra na formulação clínica como "resistência".
 

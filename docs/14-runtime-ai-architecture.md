@@ -72,7 +72,7 @@ Antes de qualquer chamada que utilize gravação/transcrição/IA clínica:
 3. validar autorização/anuência adicional quando prevista para criança/adolescente;
 4. somente então montar o DTO minimizado e chamar o provider.
 
-Se o gate falhar, não chamar Deepgram/Gemini e retornar estado de UI apropriado.
+Se o gate falhar, não iniciar captura nem chamar Gemini, e retornar estado de UI apropriado.
 
 A recusa do paciente não entra no contexto de formulação como resistência.
 

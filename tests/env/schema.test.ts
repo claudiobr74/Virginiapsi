@@ -27,7 +27,6 @@ const validServer = {
   TWILIO_AUTH_TOKEN: "twilio-auth-token",
   TWILIO_WHATSAPP_FROM: "whatsapp:+5500000000000",
   TWILIO_MESSAGING_SERVICE_SID: "MG00000000000000000000000000000000",
-  DEEPGRAM_API_KEY: "deepgram-key",
   GEMINI_API_KEY: "gemini-key",
   GEMINI_MODEL_SESSION: "gemini-session-model",
   GEMINI_MODEL_SUPERVISOR: "gemini-supervisor-model",
@@ -90,6 +89,15 @@ describe("contrato de ambiente", () => {
     expect(parseServerEnv(validServer).SUPABASE_SECRET_KEY).toBe(
       "sb_secret_ci_placeholder",
     );
+  });
+
+  it("aceita o contrato servidor sem GROQ_API_KEY", () => {
+    // A transcrição padrão roda no dispositivo: sem provider de fallback
+    // configurado o app continua completo (docs/22).
+    expect(parseServerEnv(validServer).GROQ_API_KEY).toBeUndefined();
+    expect(
+      parseServerEnv({ ...validServer, GROQ_API_KEY: "groq-key" }).GROQ_API_KEY,
+    ).toBe("groq-key");
   });
 
   it("rejeita service_role legado no lugar da secret key", () => {

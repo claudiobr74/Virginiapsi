@@ -19,7 +19,11 @@ export const serverEnvSchema = publicEnvSchema.extend({
   TWILIO_AUTH_TOKEN: nonEmpty,
   TWILIO_WHATSAPP_FROM: nonEmpty,
   TWILIO_MESSAGING_SERVICE_SID: nonEmpty,
-  DEEPGRAM_API_KEY: nonEmpty,
+  // Optional on purpose: transcription runs on-device by default, so the app
+  // is fully functional without a transcription provider. This key only exists
+  // for organizations that enable the fallback
+  // (docs/22-transcription-provider-decision.md).
+  GROQ_API_KEY: nonEmpty.optional(),
   GEMINI_API_KEY: nonEmpty,
   GEMINI_MODEL_SESSION: nonEmpty,
   GEMINI_MODEL_SUPERVISOR: nonEmpty,
@@ -40,7 +44,7 @@ export const SERVER_ONLY_ENV_KEYS = [
   "TWILIO_AUTH_TOKEN",
   "TWILIO_WHATSAPP_FROM",
   "TWILIO_MESSAGING_SERVICE_SID",
-  "DEEPGRAM_API_KEY",
+  "GROQ_API_KEY",
   "GEMINI_API_KEY",
   "GEMINI_MODEL_SESSION",
   "GEMINI_MODEL_SUPERVISOR",
@@ -66,7 +70,7 @@ function readServerEnvFromProcess(): EnvSource {
     TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
     TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM,
     TWILIO_MESSAGING_SERVICE_SID: process.env.TWILIO_MESSAGING_SERVICE_SID,
-    DEEPGRAM_API_KEY: process.env.DEEPGRAM_API_KEY,
+    GROQ_API_KEY: process.env.GROQ_API_KEY,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     GEMINI_MODEL_SESSION: process.env.GEMINI_MODEL_SESSION,
     GEMINI_MODEL_SUPERVISOR: process.env.GEMINI_MODEL_SUPERVISOR,

@@ -79,13 +79,15 @@ Capture network response: não basta verificar que a UI esconde a aba. DTO/endpo
 - execuções sobrepostas não duplicam reminder (`unique appointment_id + reminder_type`);
 - retryable failure respeita `attempt_count/next_attempt_at` e não cria segundo outbox.
 
-### Deepgram
+### Transcrição
 
-- token endpoint sem auth 401;
-- master key não aparece no client bundle;
-- reconnect solicita token novo e não duplica segmentos;
-- token expirado no handshake é recuperável e força novo token;
-- consentimento revogado/ausente nega signed upload grant do fallback;
+- endpoint de grant sem auth 401;
+- consentimento ausente/revogado nega `session_capture_grant` **e** signed upload grant do fallback;
+- servidor recusa persistir segmento de transcrição sem grant de captura válido;
+- caminho local não emite nenhuma requisição de rede com áudio (verificar por captura de rede);
+- nenhuma chave de provider aparece no client bundle;
+- reconexão/retomada não duplica segmentos;
+- adapter sem diarização não produz rótulo de falante inventado;
 - batch fallback envia somente object path ao servidor;
 - teste garante payload da route abaixo de limite definido.
 

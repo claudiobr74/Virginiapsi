@@ -94,55 +94,57 @@ Texto configurável no consultório, mas uso deve respeitar exigências de templ
 - `unique(appointment_id, reminder_type)` impede duplicidade dos lembretes 24h/2h;
 - cancelamento/remarcação de appointment cancela/reagenda outbox de forma idempotente.
 
-## 3. Deepgram
+## 3. Transcrição
 
-### Live
+Decisão de provider e rationale completo em `docs/22-transcription-provider-decision.md`. Resumo: **local-first no navegador, com fallback opcional no Groq**. Deepgram não faz mais parte da arquitetura.
 
-Fluxo recomendado:
+`TranscriptionProvider` é uma porta com adapters. Provider é configuração, não arquitetura.
+
+### Caminho padrão — local no navegador
 
 1. sessão clínica autenticada valida tenant/paciente e consentimentos aplicáveis;
-2. se consent gate falhar, não chamar Deepgram e oferecer sessão sem gravação/transcrição;
-3. imediatamente antes de cada conexão, sessão pede `/api/integrations/deepgram/token`;
-4. servidor gera temporary token usando API key protegida; usar o TTL padrão curto (30s) e devolvê-lo para uso imediato; TTL maior só pode ser adotado se testes reais justificarem, mantendo-o tão curto quanto possível;
-5. browser abre WebSocket direto para Deepgram imediatamente; o token só precisa estar válido no handshake inicial e não deve ser renovado durante um WebSocket saudável;
-6. envia MediaRecorder/audio chunks;
-7. recebe interim/final;
-8. UI exibe interim como provisório;
-9. finais são persistidos incrementalmente conforme política de retenção.
+2. se o consent gate falhar, não ativar microfone e oferecer sessão sem gravação/transcrição;
+3. o servidor emite um `session_capture_grant` de vida curta, ligado a organização/paciente/sessão;
+4. o navegador carrega o modelo local (WebGPU, com queda para WASM) e captura áudio;
+5. o áudio é transcrito no próprio dispositivo — **nenhum byte de áudio sai da máquina e nenhum suboperador o recebe**;
+6. a UI exibe o trecho em processamento como provisório;
+7. segmentos finais são persistidos incrementalmente, e o servidor **recusa persistir segmento sem grant de captura válido** — esse é o ponto real de enforcement do caminho local;
+8. retenção segue `practice_settings`.
 
-A transcrição não é considerada literal/infallível. O produto deve permitir lidar com erros de nomes, negações, regionalismos e termos técnicos e não consolidar automaticamente interpretações clínicas a partir de trecho ambíguo.
+O produto deve detectar capacidade do dispositivo e, quando não houver suporte suficiente, oferecer explicitamente o fallback ou seguir sem transcrição.
 
-### Reconnect
+A transcrição não é considerada literal/infalível. O produto deve permitir lidar com erros de nomes, negações, regionalismos e termos técnicos e não consolidar automaticamente interpretações clínicas a partir de trecho ambíguo.
 
-Toda tentativa de reconexão deve solicitar **um token temporário novo** ao endpoint autenticado imediatamente antes de abrir o novo WebSocket. Nunca reutilizar o token da conexão anterior. Expiração/falha de handshake deve gerar estado recuperável e não crashar a sessão.
+### Diarização
 
-Máquina de estados:
+Capacidade **opcional** do provider. Quando o adapter não a oferece, a UI não inventa falante: o segmento fica sem rótulo. Quando existe, o rótulo é tão provisório quanto o texto — nunca vira fato clínico sem confirmação, e discrepância de atribuição é sinalizada, não corrigida silenciosamente.
+
+### Estados de captura
 
 - idle
-- requesting_token
-- connecting
+- preparing (carregando modelo/obtendo grant)
 - recording
-- reconnecting
+- degraded (transcrição indisponível, sessão segue)
 - stopping
 - completed
 - error
 
 Evitar duplicação de texto por sequence/segment key.
 
-### Fallback batch
+### Fallback opcional — Groq
 
-Se live falhar:
+Só quando a organização habilita explicitamente e `GROQ_API_KEY` está configurada. Nesse modo o Groq é suboperador e precisa constar do TCLE (`docs/19-lgpd-privacy.md` §2).
 
-- antes de conceder qualquer capacidade de upload, o browser solicita ao servidor um `fallback upload grant`; o servidor revalida autenticação, tenant/paciente/sessão e o mesmo `ConsentState` de gravação/transcrição;
+- antes de conceder qualquer capacidade de upload, o browser solicita ao servidor um `audio_fallback_upload_grant`; o servidor revalida autenticação, tenant/paciente/sessão e o mesmo `ConsentState` de gravação/transcrição;
 - se consentimento estiver inválido/revogado, não emitir signed upload token/URL, não iniciar TUS e não permitir nova captura; a sessão continua sem gravação/transcrição;
 - o bucket `session-audio-fallback` não deve aceitar upload genérico baseado apenas na membership do usuário;
 - após gate válido, browser faz upload direto para bucket privado `session-audio-fallback` usando signed upload capability/TUS autorizada conforme tamanho;
 - chama backend com object path, mime e metadata (payload pequeno);
-- backend cria signed URL curta e pede transcrição pre-recorded à Deepgram;
+- backend cria signed URL curta e pede transcrição ao Groq;
 - salva texto;
 - aplica retenção/limpeza do áudio.
 
-Nunca enviar áudio completo/base64 por Vercel.
+Nunca enviar áudio completo/base64 por Vercel. A chave do provider é server-only e nunca chega ao browser.
 
 ## 4. Gemini / Runtime AI
 

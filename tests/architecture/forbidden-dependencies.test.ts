@@ -133,7 +133,7 @@ describe("arquitetura proibida", () => {
     // going through authorizeCaptureCapability(). A new route added under
     // this folder that forgets the gate fails here, not in review.
     const captureRoutes = walkFiles(
-      path.join(ROOT, "src/app/api/integrations/deepgram"),
+      path.join(ROOT, "src/app/api/session-capture"),
     ).filter((file) => file.endsWith("route.ts"));
 
     expect(captureRoutes.length).toBeGreaterThan(0);

@@ -25,7 +25,7 @@ Em caso de conflito entre uma decisão de implementação e este kit, **este kit
 - Supabase: Postgres, Auth, Storage e RLS
 - Google Calendar API + Google Meet via Calendar `conferenceData`
 - Twilio WhatsApp
-- Deepgram para transcrição em tempo real
+- Transcrição local no dispositivo (ONNX/WebGPU), com fallback opcional no Groq — ver `docs/22-transcription-provider-decision.md`
 - Gemini para Supervisor Clínico IA e apoio ao módulo de Conhecimento
 - Supabase pgvector para base de conhecimento/RAG local
 - Playwright + Vitest + TypeScript + ESLint
@@ -238,7 +238,7 @@ Migration `supabase/migrations/*_consents.sql`:
 
 Resolução do `ConsentState` (`src/features/consents/contracts.ts`, puro e testável sem banco), exatamente na forma de `docs/16-runtime-ai-data-contracts.md`. Regras de menor de idade: autorização do responsável exigida para todo menor; anuência formal exigida do adolescente (12–17, split do ECA). **Data de nascimento ausente falha fechada** — sem ela não dá para saber se o paciente é menor, e gravar um menor sem autorização é exatamente o dano que este gate existe para evitar.
 
-O gate de capability (`src/lib/consent/capability-gate.ts`) é o ponto único por onde passam as duas capabilities de captura — token temporário Deepgram e signed upload grant do fallback —, ambas exigindo o mesmo consentimento de gravação **e** transcrição. As rotas `/api/integrations/deepgram/token` e `/api/integrations/deepgram/upload-grant` já negam (403) sem tocar em provider nenhum; a emissão em si é da Fase 6 e o caminho liberado responde 501 em vez de devolver credencial fabricada. Um teste de arquitetura falha se uma rota nova sob `deepgram/` esquecer o gate.
+O gate de capability (`src/lib/consent/capability-gate.ts`) é o ponto único por onde passam as duas capabilities de captura — o grant de captura de sessão e o signed upload grant do fallback —, ambas exigindo o mesmo consentimento de gravação **e** transcrição. As rotas `/api/session-capture/grant` e `/api/session-capture/upload-grant` já negam (403) sem ativar microfone nem tocar em provider nenhum; a emissão em si é da Fase 6 e o caminho liberado responde 501 em vez de devolver credencial fabricada. Um teste de arquitetura falha se uma rota nova sob `session-capture/` esquecer o gate.
 
 Recusa não vira "resistência": o `ConsentState` exposto é só booleano/versão/data — não existe campo narrativo de motivo que pudesse viajar para a formulação clínica (`docs/17-clinical-ai-review-v1.2.md` §3.14), e há teste de contrato sobre a forma do DTO.
 

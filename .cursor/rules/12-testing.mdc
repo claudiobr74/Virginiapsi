@@ -14,4 +14,4 @@ alwaysApply: true
 - Use verifier subagent after implementation before declaring a phase complete.
 
 - Add contract regression that Session/Core/Supervisor safety severity enums are identical (`none|attention|urgent_review`).
-- Test public_code concurrency, secretary finance none/view/manage RLS, Deepgram fresh-token-on-reconnect/fallback-consent denial, Meet pending/success/failure, and overlapping reminder jobs.
+- Test public_code concurrency, secretary finance none/view/manage RLS, capture-grant/fallback-consent denial and no-audio-egress on the local transcription path, Meet pending/success/failure, and overlapping reminder jobs.

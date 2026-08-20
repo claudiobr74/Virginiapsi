@@ -21,8 +21,9 @@ APIs/integration boundaries sugeridos:
 - `/api/integrations/google/callback`
 - `/api/integrations/google/calendars`
 - `/api/integrations/google/sync`
-- `/api/integrations/deepgram/token`
-- `/api/integrations/deepgram/batch`
+- `/api/session-capture/grant`
+- `/api/session-capture/upload-grant`
+- `/api/session-capture/transcribe` (fallback server-side)
 - `/api/integrations/twilio/send`
 - `/api/webhooks/twilio/status`
 - `/api/webhooks/twilio/inbound`

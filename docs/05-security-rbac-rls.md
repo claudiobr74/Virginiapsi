@@ -110,9 +110,11 @@ Links de download são signed URLs de curta duração.
 
 ## Áudio/transcrição
 
-- master key Deepgram nunca no browser;
-- token temporário por sessão autenticada;
-- rate limit do endpoint de token;
+- no caminho padrão o áudio é transcrito no dispositivo e não trafega para nenhum provider;
+- chave de provider de fallback (`GROQ_API_KEY`) é server-only e nunca vai ao browser;
+- grant de captura de vida curta por sessão autenticada, emitido somente após o consent gate;
+- servidor recusa persistir segmento de transcrição sem grant de captura válido;
+- rate limit dos endpoints de grant;
 - fallback de áudio privado e temporário;
 - o bucket `session-audio-fallback` não pode ter INSERT genérico baseado apenas em membership: capacidade de upload deve ser emitida server-side somente após o mesmo consent gate de gravação/transcrição;
 - política de retenção configurável;

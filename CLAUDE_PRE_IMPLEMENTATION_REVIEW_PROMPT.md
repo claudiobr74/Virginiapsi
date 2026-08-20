@@ -157,14 +157,14 @@ Verifique:
 - segredo server-only;
 - vazamento de conteúdo clínico em mensagens.
 
-### G. Deepgram / transcrição
+### G. Transcrição
 
 Verifique:
-- temporary token;
-- browser → Deepgram;
-- não exposição da API key;
-- reconexão;
-- diarização/identificação de falantes somente se tecnicamente confiável e especificada;
+- grant de captura server-side de vida curta;
+- caminho padrão transcreve no dispositivo, sem áudio saindo da máquina;
+- não exposição da API key do provider de fallback;
+- retomada de captura sem duplicar segmentos;
+- diarização/identificação de falantes somente se tecnicamente confiável e especificada; sem ela, não inventar falante;
 - final/interim transcript;
 - falhas e erros de reconhecimento;
 - consentimento válido antes de gravação/transcrição;
@@ -286,7 +286,7 @@ Verifique:
 
 ## 5. VERIFICAÇÃO DE ATUALIDADE TÉCNICA
 
-Quando o projeto depender de comportamento atual de Next.js, Supabase, Vercel, Google APIs, Twilio, Deepgram, Gemini/Google GenAI ou Cursor:
+Quando o projeto depender de comportamento atual de Next.js, Supabase, Vercel, Google APIs, Twilio, provider de transcrição, Gemini/Google GenAI ou Cursor:
 
 - consulte documentação OFICIAL atual se o ambiente permitir;
 - prefira documentação primária;
@@ -341,8 +341,8 @@ Além da auditoria integral, confirme explicitamente que os achados da primeira 
 
 - Supervisor aceita `none|attention|urgent_review` e a taxonomia é única entre core, Session e Supervisor;
 - lembretes 24h/2h usam Supabase Cron/`pg_cron` + `pg_net` + outbox idempotente, sem dependência de Vercel Cron sub-diário;
-- consent gate antecede temporary token Deepgram **e** signed upload grant do fallback;
-- toda reconexão Deepgram solicita token novo imediatamente antes do handshake;
+- consent gate antecede o grant de captura de sessão **e** o signed upload grant do fallback;
+- retomada de captura não duplica segmentos de transcrição;
 - permissão financeira da Secretaria é `none|view|manage` no modelo e no enforcement RLS;
 - `public_code` é gerado atomicamente por organização e tem constraint única;
 - Meet usa `hangoutsMeet`, requestId novo e trata `pending|success|failure`;
@@ -361,8 +361,8 @@ Além dos itens acima, confirme que os achados da segunda auditoria (`docs/20-pr
 - Fase 5.5 (Consentimentos mínimos) existe, precede a Fase 6 como pré-requisito bloqueante, e nenhum gate de Fase 6 aceita `ConsentState` mockado;
 - `documents` e `patient_attachments` têm coluna `sensitivity: administrative | clinical`, imutável após criação, e a matriz de RLS/testes está escrita sobre essa coluna, não sobre visibilidade de UI;
 - os contratos de `src/lib/ai/contracts/**` permanecem no dialeto JSON Schema original; existe adapter de schema documentado para a superfície real da API e validador Zod fail-closed equivalente ao contrato;
-- `docs/19-lgpd-privacy.md` existe e nomeia os suboperadores (Supabase, Google Calendar/Meet, Twilio, Deepgram, Gemini), com retenção definida por classe de dado e colunas correspondentes em `practice_settings`/`patients`;
-- diarização do Deepgram está ativa com atribuição de falante tratada como provisória, nunca fato clínico sem confirmação;
+- `docs/19-lgpd-privacy.md` existe e nomeia os suboperadores (Supabase, Google Calendar/Meet, Twilio, Gemini, e Groq somente quando o fallback de transcrição estiver habilitado), com retenção definida por classe de dado e colunas correspondentes em `practice_settings`/`patients`;
+- quando o provider de transcrição oferecer diarização, a atribuição de falante é tratada como provisória, nunca fato clínico sem confirmação; quando não oferecer, nenhum falante é inventado (`docs/22-transcription-provider-decision.md`);
 - `clinical_sessions.version` implementa controle de concorrência otimista (409); nenhuma especificação de lock explícito de sessão foi reintroduzida sem decisão de produto registrada;
 - `audit_events` é append-only — nenhuma policy concede UPDATE/DELETE a papel de aplicação;
 - `.env.example`/`docs/09-env-contract.md` usam a geração nova de chaves Supabase (`sb_publishable_`/`sb_secret_`), não a legada.

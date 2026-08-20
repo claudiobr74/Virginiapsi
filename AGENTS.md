@@ -8,7 +8,7 @@ Always:
 - implement the SerenaPsi visual identity faithfully;
 - protect clinical data by RLS/RBAC;
 - separate Google Calendar OAuth from app login;
-- use Supabase Cron + Twilio outbox for 24h/2h reminders; use Deepgram/Gemini with server-safe patterns;
+- use Supabase Cron + Twilio outbox for 24h/2h reminders; keep transcription on-device by default and use Gemini with server-safe patterns;
 - preserve approved Session/Supervisor/Knowledge runtime prompts and their evidence boundaries;
 - verify work before declaring completion;
 - keep dependencies and backend boundaries consistent with the architecture specification.

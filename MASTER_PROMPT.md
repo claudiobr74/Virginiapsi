@@ -27,13 +27,13 @@ A auditoria pré-implementação é parte obrigatória do processo SerenaPsi.
 2. Não adicione Firebase, Firestore, Google Drive, Google Docs, Google Sheets ou NotebookLM como dependência operacional.
 3. Não crie um segundo backend. O app é Next.js + Supabase. Route Handlers/Server Actions do Next.js são a camada server quando necessária.
 4. O schema é governado por `supabase/migrations`. Não adicione ORM que replique a definição do banco.
-5. O frontend nunca recebe `SUPABASE_SECRET_KEY`, `GOOGLE_CLIENT_SECRET`, `TWILIO_AUTH_TOKEN`, `DEEPGRAM_API_KEY` ou `GEMINI_API_KEY`.
+5. O frontend nunca recebe `SUPABASE_SECRET_KEY`, `GOOGLE_CLIENT_SECRET`, `TWILIO_AUTH_TOKEN`, `GROQ_API_KEY` ou `GEMINI_API_KEY`.
 6. Toda tabela de tenant usa `organization_id` e RLS. Nenhuma autorização pode depender de `members[0]`.
 7. Um `organization_id` informado pelo cliente é contexto de navegação, nunca prova de autorização. A autorização é sempre validada por membership/RLS.
 8. Não aceite JWT apenas por decode. Não crie token sintético/unsigned. No servidor use primitives oficiais do Supabase Auth para validar a sessão/usuário.
 9. Google Login e Google Calendar são conexões independentes. A conta usada para Calendar pode ser diferente da conta de login.
 10. Não gere links Google Meet falsos. Meet nasce de `conferenceData.createRequest` com `conferenceSolutionKey.type="hangoutsMeet"`, `conferenceDataVersion=1`, requestId novo e tratamento pending/success/failure.
-11. O fluxo de áudio nunca envia arquivo/base64 grande por Vercel. Transcrição live conecta navegador → Deepgram com token temporário novo por conexão/reconexão; fallback usa upload direto ao Supabase Storage somente após consent-gated signed upload grant, e o servidor trabalha com URL/objeto.
+11. O fluxo de áudio nunca envia arquivo/base64 grande por Vercel. A transcrição padrão roda no dispositivo e o áudio não sai dele; o fallback opcional usa upload direto ao Supabase Storage somente após consent-gated signed upload grant, e o servidor trabalha com URL/objeto. Ver `docs/22-transcription-provider-decision.md`.
 12. Dados clínicos não podem aparecer em logs, mensagens de erro, analytics ou payloads administrativos da Secretaria.
 13. Mudanças clínicas relevantes e operações sensíveis devem ter auditoria.
 14. Sem “TODO silencioso”: se algo depende de credencial externa, implemente adapter, teste sem segredo real quando possível e documente exatamente o gate externo pendente.
@@ -53,7 +53,7 @@ Use a versão estável atual disponível no momento da implementação e registr
 - Zod para contratos e validação
 - Google APIs via OAuth 2.0 server-side
 - Twilio SDK no servidor
-- Deepgram SDK / WebSocket com temporary token
+- Transcrição local no navegador (ONNX/WebGPU com fallback WASM); Groq apenas como adapter de fallback opcional
 - Google GenAI SDK no servidor
 - Supabase pgvector para busca semântica
 - Vitest para unit/integration leves
@@ -76,7 +76,7 @@ Organize por features, não por “components gigantes”:
 - `src/features/settings/`
 - `src/features/communications/`
 - `src/lib/supabase/` — clients browser/server/admin claramente separados
-- `src/lib/integrations/` — Google/Twilio/Deepgram/Gemini
+- `src/lib/integrations/` — Google/Twilio/transcrição/Gemini
 - `src/lib/security/`
 - `src/lib/audit/`
 - `src/lib/contracts/`
@@ -147,13 +147,14 @@ Banco/Auth/Storage são a fonte de verdade. RLS é obrigatória e testada.
 - idempotência;
 - consentimento/preferência de comunicação.
 
-### Deepgram
+### Transcrição
 
-- browser solicita token temporário ao SerenaPsi;
-- WebSocket browser → Deepgram;
-- salvar apenas texto final/metadata por chunks;
-- recuperação de conexão;
-- fallback de áudio por upload direto privado ao Supabase Storage, nunca base64 via função Vercel.
+- padrão local-first: o modelo roda no dispositivo e o áudio não sai da máquina;
+- browser solicita ao SerenaPsi um grant de captura de vida curta antes de ativar o microfone;
+- salvar apenas texto final/metadata por chunks, recusando segmento sem grant válido;
+- recuperação de captura sem duplicar segmentos;
+- fallback opcional (Groq) por upload direto privado ao Supabase Storage, nunca base64 via função Vercel;
+- diarização é capacidade opcional do provider; sem ela, não inventar falante.
 
 ### Gemini / Runtime AI
 

@@ -57,15 +57,17 @@
 - [ ] scheduler de reminder usa Supabase Cron/pg_cron + pg_net, não depende de Vercel Cron sub-diário.
 - [ ] outbox/claim/retry idempotente e execuções sobrepostas não duplicam 24h/2h.
 
-## Deepgram
+## Transcrição
 
-- [ ] temporary token server-generated.
-- [ ] browser conecta direto ao Deepgram.
-- [ ] master key ausente no client.
-- [ ] reconnect solicita token temporário novo e não duplica segmentos.
-- [ ] fallback upload direto ao Storage.
+- [ ] caminho padrão transcreve no dispositivo e nenhum áudio sai da máquina.
+- [ ] grant de captura é server-generated e de vida curta.
+- [ ] servidor recusa persistir segmento de transcrição sem grant válido.
+- [ ] chave de provider de fallback ausente no client.
+- [ ] retomada de captura não duplica segmentos.
+- [ ] fallback (quando habilitado) faz upload direto ao Storage.
 - [ ] nenhum áudio/base64 grande passa por Vercel.
-- [ ] consent gate bloqueia token live **e** signed upload grant de fallback quando inválido/revogado.
+- [ ] consent gate bloqueia grant de captura **e** signed upload grant de fallback quando inválido/revogado.
+- [ ] adapter sem diarização não inventa rótulo de falante.
 - [ ] erro/ambiguidade de ASR não é tratado como fato clínico.
 
 ## Gemini/IA

@@ -27,7 +27,9 @@ TWILIO_AUTH_TOKEN=
 TWILIO_WHATSAPP_FROM=
 TWILIO_MESSAGING_SERVICE_SID=
 
-DEEPGRAM_API_KEY=
+# Opcional: só quando a organização habilita o fallback de transcrição.
+# Sem ela o app funciona inteiro com transcrição local no dispositivo.
+GROQ_API_KEY=
 
 GEMINI_API_KEY=
 GEMINI_MODEL_SESSION=

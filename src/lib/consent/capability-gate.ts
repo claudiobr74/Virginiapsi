@@ -28,15 +28,18 @@ export interface CapabilityDenial {
 export type CapabilityGateResult = CapabilityGrant | CapabilityDenial;
 
 /**
- * The single chokepoint every audio-capture capability must pass through:
- * the Deepgram temporary token and the fallback signed upload grant both call
- * this before anything is issued (docs/03-architecture.md §Clinical AI
- * boundary; docs/08-implementation-phases.md Fase 5.5).
+ * The single chokepoint every audio-capture capability must pass through: the
+ * session capture grant (which authorizes activating the microphone for
+ * on-device transcription) and the fallback signed upload grant both call this
+ * before anything is issued (docs/03-architecture.md §Clinical AI boundary;
+ * docs/08-implementation-phases.md Fase 5.5;
+ * docs/22-transcription-provider-decision.md).
  *
  * It fails closed on every unknown: missing consent, revoked consent, missing
  * birth date, minor without guardian authorization/assent, or a role that is
- * not allowed to run a clinical session. No provider is contacted and no
- * signed grant is minted before this returns `allowed: true`.
+ * not allowed to run a clinical session. No microphone is activated, no
+ * provider is contacted and no signed grant is minted before this returns
+ * `allowed: true`.
  */
 export async function authorizeCaptureCapability(
   patientId: string,

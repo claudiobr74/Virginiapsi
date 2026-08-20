@@ -32,8 +32,8 @@ OAuth Calendar, sync, eventos externos, Meet, timezone e idempotência.
 ### twilio-communications
 WhatsApp outbound/inbound, templates, webhooks, status e consentimento.
 
-### deepgram-transcription
-Live transcription, token temporário, WebSocket, reconnect, persistência incremental e fallback batch.
+### transcription
+Transcrição local no dispositivo, grant de captura, persistência incremental e fallback batch opcional.
 
 ### clinical-ai
 Session AI, Supervisor IA, Gemini, RAG, minimização clínica, structured output, citações e human-in-the-loop.
@@ -50,8 +50,8 @@ Revisor independente, read-only, para runtime prompts, fronteira de evidência, 
 - Fase 3: supabase-security + ui-fidelity → verifier.
 - Fase 4: google-calendar-meet + supabase-security quando policies mudarem → verifier.
 - Fase 5: ui-fidelity → verifier.
-- Fase 5.5: supabase-security → verifier. Pré-requisito bloqueante da Fase 6; não pular para o Deepgram/Session AI sem este gate fechado.
-- Fase 6: deepgram-transcription + clinical-ai + supabase-security → runtime-ai-governor → verifier.
+- Fase 5.5: supabase-security → verifier. Pré-requisito bloqueante da Fase 6; não pular para transcrição/Session AI sem este gate fechado.
+- Fase 6: transcription + clinical-ai + supabase-security → runtime-ai-governor → verifier.
 - Fase 7: clinical-ai + supabase-security → runtime-ai-governor → verifier.
 - Fase 8: clinical-ai + supabase-security → runtime-ai-governor → verifier.
 - Fase 9: supabase-security + ui-fidelity → verifier.

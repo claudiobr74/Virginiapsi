@@ -90,7 +90,7 @@ Escopo reduzido e obrigatório antes de qualquer capability de captura. O restan
 - registro e revogação server-side;
 - resolução do `ConsentState` (`aiProcessingAllowed`, `recordingAllowed`, `transcriptionAllowed`, `consentVersion`, `consentRecordedAt`);
 - estados de autorização do responsável e anuência da criança/adolescente quando aplicável (`minorGuardianAuthorizationValid`, `minorAssentRecorded`);
-- consentimento inválido/ausente/revogado bloqueia emissão de qualquer capability de captura, incluindo temporary token Deepgram e signed upload grant do fallback;
+- consentimento inválido/ausente/revogado bloqueia emissão de qualquer capability de captura, incluindo o grant de captura de sessão e o signed upload grant do fallback;
 - recusa não entra na formulação clínica como resistência.
 
 Gate: consentimento ausente nega emissão de token; consentimento revogado nega também o signed upload grant do fallback; menor sem autorização/anuência exigida bloqueia gravação/transcrição.
@@ -102,11 +102,12 @@ Pré-requisito: Fase 5.5 concluída — o `ConsentState` desta fase é resolvido
 - clinical session;
 - DPEP;
 - área de trabalho clínico separada;
-- consent gate + Deepgram live;
-- diarização ativa (`diarize=true`), com identificação de falante tratada como provisória com a mesma cautela do texto transcrito: sujeita a erro, nunca vira fato clínico sem confirmação, e discrepância de atribuição de fala é sinalizada como tal, não corrigida silenciosamente;
+- consent gate + transcrição local no dispositivo (`docs/22-transcription-provider-decision.md`);
+- port `TranscriptionProvider` com adapters (`local-webgpu` padrão, `groq-batch` fallback opcional);
+- diarização é capacidade opcional do provider; quando existir, identificação de falante é tratada como provisória com a mesma cautela do texto transcrito — sujeita a erro, nunca vira fato clínico sem confirmação, e discrepância de atribuição é sinalizada, não corrigida silenciosamente; quando não existir, não inventar falante;
 - incremental transcript;
 - direct-upload batch fallback somente após consent-gated signed upload grant;
-- fresh Deepgram token em toda conexão/reconexão;
+- servidor recusa persistir segmento de transcrição sem grant de captura válido;
 - controle de conflito de edição concorrente por versionamento otimista (escrita com versão desatualizada retorna 409); lock explícito de sessão fica fora do escopo desta fase — ver nota em `docs/04-data-model.md` sobre `clinical_sessions.version`;
 - close session;
 - IA ao vivo;
@@ -116,7 +117,7 @@ Pré-requisito: Fase 5.5 concluída — o `ConsentState` desta fase é resolvido
 - transcrição provisória/ASR ambiguity;
 - sem avaliação psicológica/teste restrito autônomo.
 
-Gate: privacy + payload + transcript + runtime AI tests + diarization-as-provisional test + optimistic-concurrency (409) test.
+Gate: privacy (nenhum áudio sai do dispositivo no caminho padrão) + payload + transcript + runtime AI tests + diarization-as-provisional test + optimistic-concurrency (409) test.
 
 ## Fase 7 — Supervisor IA
 

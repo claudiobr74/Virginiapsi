@@ -22,6 +22,8 @@ Decisão: Supabase Cron/`pg_cron` a cada 5 minutos → `pg_net` → endpoint Nex
 O mesmo `ConsentState` server-side é exigido antes de temporary token live e antes de qualquer signed upload capability do fallback. Bucket de fallback não aceita upload genérico apenas por membership.
 
 ### INT-005 — token Deepgram
+> **Superado em 20/08/2026 por `docs/22-transcription-provider-decision.md`.** O Deepgram deixou de ser o provider de transcrição; não há mais token temporário no caminho padrão. Registro mantido como histórico da auditoria v1.3.
+
 Manter TTL curto padrão de 30s e usar imediatamente. Cada conexão/reconexão solicita token novo; um WebSocket saudável não precisa renovar token após o handshake.
 
 ### DATA-004 — financeiro da Secretaria

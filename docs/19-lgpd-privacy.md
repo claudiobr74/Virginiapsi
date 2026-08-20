@@ -17,8 +17,10 @@ Este documento fecha o achado `LGPD-P1-004` da auditoria pré-implementação. E
 | Supabase | Todo o dado estruturado do produto (Postgres, Auth, Storage) | Persistência, autenticação, armazenamento de arquivo | Depende da região do projeto Supabase escolhida na Fase 0 — **definir região e registrar aqui antes da Fase 2** | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
 | Google (Calendar/Meet) | Nome do paciente + `PAC-###` (no título do evento), horário, modalidade | Agenda externa oficial e videochamada | Global (Google Workspace/Cloud) | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
 | Twilio | Número de telefone, conteúdo de template de mensagem | Confirmação e lembrete de consulta via WhatsApp | EUA | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
-| Deepgram | Áudio bruto da sessão (live e fallback) | Transcrição de fala em texto | EUA (confirmar região do plano contratado) | ⚠ VALIDAÇÃO JURÍDICA HUMANA — dado de saúde, exige atenção redobrada |
+| Groq — **somente se o fallback de transcrição for habilitado** | Áudio bruto da sessão (apenas no fallback) | Transcrição de fala em texto quando o dispositivo não sustenta a transcrição local | EUA | ⚠ VALIDAÇÃO JURÍDICA HUMANA — dado de saúde, exige atenção redobrada |
 | Google (Gemini) | Contexto clínico minimizado — nunca áudio bruto, nunca DPEP completo indiscriminado | Supervisor IA, Session AI, Knowledge | Global (Google Cloud) | ⚠ VALIDAÇÃO JURÍDICA HUMANA — dado de saúde |
+
+**No caminho padrão de transcrição nenhum suboperador recebe áudio de sessão**: o modelo roda no dispositivo da profissional (`docs/22-transcription-provider-decision.md`). A linha do Groq só se aplica a organizações que habilitarem explicitamente o fallback — habilitar o fallback muda o inventário e exige nova versão de consentimento.
 
 Todo suboperador desta lista precisa estar nomeado no TCLE antes da Fase 6 entrar em uso com paciente real. Adição de novo suboperador no futuro exige atualização do TCLE e nova versão de consentimento (`consents.version`).
 
@@ -26,7 +28,7 @@ Todo suboperador desta lista precisa estar nomeado no TCLE antes da Fase 6 entra
 
 | Classe | Prazo padrão | Onde é configurado | Rationale |
 |---|---|---|---|
-| Áudio bruto de fallback (`session-audio-fallback`) | 7 dias após transcrição bem-sucedida, eliminação automática | `practice_settings.session_audio_fallback_retention_days` | O áudio não tem valor após virar texto; é o dado de maior sensibilidade e maior custo de exposição em caso de vazamento |
+| Áudio bruto de fallback (`session-audio-fallback`) | 7 dias após transcrição bem-sucedida, eliminação automática | `practice_settings.session_audio_fallback_retention_days` | O áudio não tem valor após virar texto; é o dado de maior sensibilidade e maior custo de exposição em caso de vazamento. No caminho local não existe áudio persistido: ele é consumido em memória no dispositivo |
 | Segmentos de transcrição (`session_transcript_segments`) | Acompanha o prontuário por padrão; organização pode fixar prazo menor | `practice_settings.transcript_retention_policy` / `transcript_retention_fixed_days` | Transcrição é insumo do DPEP; uma vez incorporada ao registro clínico, sua retenção deveria seguir a mesma regra |
 | Prontuário/DPEP/working notes | Mínimo 5 anos (configurável só para cima) | `practice_settings.clinical_record_minimum_retention_years` | Guarda mínima de prontuário psicológico conforme norma profissional aplicável — ⚠ VALIDAÇÃO JURÍDICA HUMANA para confirmar o número exato e a norma vigente na data da Fase 6 |
 | `ai_runs` / `ai_artifacts` (metadata) | Acompanha o prontuário | — | Metadata de execução de IA é parte do histórico clínico para fins de auditoria técnica |
@@ -70,7 +72,7 @@ Não especificado em detalhe nesta versão. Mínimo a definir antes da Fase 13 (
 
 O texto final do TCLE (Fase 9, usando o registro mínimo de consentimento da Fase 5.5) deve nomear, no mínimo:
 - os suboperadores da seção 2, em linguagem acessível;
-- que áudio é processado por serviço de transcrição fora do país e é eliminado após uso conforme seção 3;
+- como o áudio é transcrito: no caminho padrão, no próprio dispositivo, sem sair dele; se a organização habilitar o fallback, que o áudio é processado por serviço de transcrição fora do país e eliminado após uso conforme seção 3;
 - que apoio de IA (Supervisor/Session AI) processa contexto clínico minimizado, nunca decide sozinho, e todo resultado passa por revisão humana antes de entrar no prontuário;
 - os prazos de retenção da seção 3, em linguagem acessível;
 - como exercer os direitos da seção 5.

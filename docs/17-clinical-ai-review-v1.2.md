@@ -116,7 +116,7 @@ A v1.2 corrige esses pontos sem mudar o papel do SerenaPsi: **IA como instrument
 
 ### 3.11 Erro de transcrição é risco clínico, não apenas técnico
 
-**Risco identificado:** Deepgram pode errar nomes, negações, regionalismos ou termos técnicos, e o modelo pode consolidar o erro como fato.
+**Risco identificado:** o ASR pode errar nomes, negações, regionalismos ou termos técnicos, e o modelo pode consolidar o erro como fato.
 
 **Correção v1.2:**
 - Session Live considera transcrição provisória e potencialmente inexata;

@@ -5,11 +5,15 @@ import { authorizeCaptureCapability } from "@/lib/consent/capability-gate";
 const bodySchema = z.object({ patientId: z.string().uuid() });
 
 /**
- * Signed upload grant for the audio fallback. It runs the *same* consent gate
- * as the live token — `session-audio-fallback` must never accept an upload
- * authorized only by membership (docs/05-security-rbac-rls.md §Áudio/
- * transcrição). Phase 5.5 delivers the denial path; minting the signed grant
- * against Storage is Phase 6.
+ * Signed upload grant for the optional audio fallback. It runs the *same*
+ * consent gate as the on-device capture grant — `session-audio-fallback` must
+ * never accept an upload authorized only by membership
+ * (docs/05-security-rbac-rls.md §Áudio/transcrição).
+ *
+ * This path only exists for organizations that explicitly enable the fallback;
+ * with it disabled the session proceeds without transcription rather than
+ * shipping clinical audio out. Phase 5.5 delivers the denial path; minting the
+ * signed grant against Storage is Phase 6.
  */
 export async function POST(request: NextRequest) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

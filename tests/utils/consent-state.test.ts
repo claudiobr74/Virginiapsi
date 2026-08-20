@@ -236,7 +236,7 @@ describe("resolveConsentStateFromRows", () => {
 });
 
 describe("evaluateCaptureCapability", () => {
-  const capabilities = ["deepgram_live_token", "audio_fallback_upload_grant"] as const;
+  const capabilities = ["session_capture_grant", "audio_fallback_upload_grant"] as const;
 
   it("nega as duas capabilities quando não há consentimento", () => {
     const resolution = resolveConsentStateFromRows({
@@ -282,7 +282,7 @@ describe("evaluateCaptureCapability", () => {
       at: NOW,
     });
 
-    const decision = evaluateCaptureCapability(resolution, "deepgram_live_token");
+    const decision = evaluateCaptureCapability(resolution, "session_capture_grant");
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe("consent_missing");
   });

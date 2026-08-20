@@ -11,7 +11,7 @@ Um único aplicativo Next.js no Vercel. Supabase é o backend persistente. Não 
 - componentes React;
 - Supabase browser client apenas para operações expressamente seguras por RLS;
 - comunicação com Route Handlers para integrações secretas e operações sensíveis;
-- Deepgram WebSocket direto com temporary token emitido somente após autorização/consentimento aplicável.
+- transcrição local no dispositivo (WebGPU/WASM), iniciada somente após autorização/consentimento aplicável; o áudio não sai da máquina no caminho padrão.
 
 ### Next.js server
 
@@ -22,7 +22,7 @@ Responsável por:
 - chamadas Google Calendar;
 - Twilio send/webhooks;
 - endpoint autenticado de processamento do outbox de lembretes (`/api/jobs/whatsapp-reminders`);
-- emissão de token temporário Deepgram somente após authorization + consent gate;
+- emissão de grant de captura (e do grant de upload do fallback) somente após authorization + consent gate;
 - chamadas Gemini server-side, com consent gate quando aplicável e runtime prompts versionados;
 - geração/coordenação de PDFs quando necessário;
 - service-role apenas para operações administrativas cuidadosamente isoladas;
@@ -119,4 +119,4 @@ A arquitetura deve permitir futuro cliente Flutter sem refazer backend:
 
 ## Clinical AI boundary
 
-Antes de gravação/transcrição/IA clínica, o server resolve autorização, tenant e consent state. Qualquer capability que permita capturar áudio — incluindo emissão de temporary token Deepgram **ou** signed upload capability para fallback — exige o mesmo gate server-side antes de ser emitida. Runtime prompts e contracts são fonte de verdade em `src/lib/ai/`; nenhuma saída clínica é auto-commit. A aplicação não automatiza avaliação psicológica/testes restritos, diagnóstico definitivo ou ajuste de medicação.
+Antes de gravação/transcrição/IA clínica, o server resolve autorização, tenant e consent state. Qualquer capability que permita capturar áudio — incluindo o `session_capture_grant` do caminho local **ou** a signed upload capability do fallback — exige o mesmo gate server-side antes de ser emitida. No caminho local o servidor não intermedia o áudio, então o enforcement se completa na persistência: segmento de transcrição sem grant válido é recusado. Runtime prompts e contracts são fonte de verdade em `src/lib/ai/`; nenhuma saída clínica é auto-commit. A aplicação não automatiza avaliação psicológica/testes restritos, diagnóstico definitivo ou ajuste de medicação.

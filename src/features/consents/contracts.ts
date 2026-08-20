@@ -283,7 +283,7 @@ export function resolveConsentStateFromRows(input: {
 // ---------------------------------------------------------------------------
 
 export const CAPTURE_CAPABILITIES = [
-  "deepgram_live_token",
+  "session_capture_grant",
   "audio_fallback_upload_grant",
 ] as const;
 export type CaptureCapability = (typeof CAPTURE_CAPABILITIES)[number];
@@ -294,11 +294,13 @@ export interface CapabilityDecision {
 }
 
 /**
- * Both capture capabilities — the Deepgram temporary token and the fallback
- * signed upload grant — require the same recording + transcription consent
- * (docs/03-architecture.md §Clinical AI boundary,
- * docs/05-security-rbac-rls.md §Áudio/transcrição). There is intentionally no
- * capability that requires less.
+ * Both capture capabilities — the session capture grant that authorizes
+ * on-device transcription and the fallback signed upload grant — require the
+ * same recording + transcription consent (docs/03-architecture.md §Clinical AI
+ * boundary, docs/05-security-rbac-rls.md §Áudio/transcrição,
+ * docs/22-transcription-provider-decision.md). There is intentionally no
+ * capability that requires less: capturing on the device is not a lesser act
+ * than shipping the audio out.
  */
 export function evaluateCaptureCapability(
   resolution: ConsentResolution,

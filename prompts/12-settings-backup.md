@@ -12,7 +12,7 @@ Implemente Central de Configurações fiel:
 - Backup e Recuperação;
 - Zona de Risco.
 
-Integrações mostram status real para Google, Twilio, Deepgram e Gemini sem revelar secrets.
+Integrações mostram status real para Google, Twilio, transcrição (local e fallback) e Gemini sem revelar secrets.
 
 Backup: documentar backup da plataforma Supabase e implementar exportação lógica/portabilidade SerenaPsi sem Google Drive.
 

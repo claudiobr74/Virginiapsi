@@ -2,8 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { loginViaUi, signIn, STUB_SECRETARY } from "./support/fixtures";
 
 const CAPTURE_ENDPOINTS = [
-  "/api/integrations/deepgram/token",
-  "/api/integrations/deepgram/upload-grant",
+  "/api/session-capture/grant",
+  "/api/session-capture/upload-grant",
 ] as const;
 
 const CAPTURE_LABELS = [
