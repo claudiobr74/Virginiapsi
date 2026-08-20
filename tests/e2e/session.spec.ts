@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { loginViaUi, signIn, STUB_SECRETARY, STUB_USER } from "./support/fixtures";
+import { loginViaUi, signIn, STUB_SECRETARY } from "./support/fixtures";
 
 async function openPatient(page: Page, preferredName: string): Promise<string> {
   await page.goto("/app/patients");
