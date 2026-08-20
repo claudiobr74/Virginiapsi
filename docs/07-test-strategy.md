@@ -89,7 +89,16 @@ Capture network response: não basta verificar que a UI esconde a aba. DTO/endpo
 - reconexão/retomada não duplica segmentos;
 - adapter sem diarização não produz rótulo de falante inventado;
 - batch fallback envia somente object path ao servidor;
-- teste garante payload da route abaixo de limite definido.
+- teste garante payload da route abaixo de limite definido;
+- grant acima de 30/min por IP retorna 429 (unitário no limiter; HTTP coberto por invariante de arquitetura);
+- JSON/webhook acima do teto retorna 413.
+
+### Hardening / produção
+
+- skip-link e landmark `main#conteudo-principal` no shell autenticado (Playwright desktop + mobile);
+- headers `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options` em resposta pública;
+- `error.tsx` / `global-error.tsx` existem e usam primitivos canônicos;
+- preview Vercel real e restore PITR de staging são EXTERNAL_BLOCKED até evidência externa (`docs/25-release-gate.md`).
 
 ### Dados/RLS adicionais
 

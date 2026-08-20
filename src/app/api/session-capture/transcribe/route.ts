@@ -8,6 +8,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getServerEnv } from "@/lib/env/server";
 import { GroqTranscriptionClient } from "@/lib/integrations/transcription/groq-client";
 import { FALLBACK_AUDIO_BUCKET } from "@/lib/integrations/transcription/fallback-storage";
+import { BODY_LIMIT_BYTES, readLimitedJson } from "@/lib/security/request-limits";
+import { invalidJsonResponse, payloadTooLargeResponse } from "@/lib/security/http-responses";
 
 const bodySchema = z.object({
   grant: z.string().min(1),
@@ -28,7 +30,12 @@ const bodySchema = z.object({
  * grant authorizes transcribing that one object, nothing else.
  */
 export async function POST(request: NextRequest) {
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  const limited = await readLimitedJson(request, BODY_LIMIT_BYTES.jsonTranscribeMetadata);
+  if (!limited.ok) {
+    return limited.status === 413 ? payloadTooLargeResponse() : invalidJsonResponse();
+  }
+
+  const parsed = bodySchema.safeParse(limited.value);
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }

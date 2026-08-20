@@ -179,7 +179,44 @@ describe("arquitetura proibida", () => {
           source.includes("verifyCaptureGrantToken"),
         `${path.relative(ROOT, file)} não chama o consent gate`,
       ).toBe(true);
+      expect(
+        source.includes("readLimitedJson"),
+        `${path.relative(ROOT, file)} não aplica teto de payload`,
+      ).toBe(true);
     }
+  });
+
+  it("endpoints de grant aplicam rate limit antes de emitir capacidade", () => {
+    for (const file of ["grant", "upload-grant"]) {
+      const source = readFileSync(
+        path.join(ROOT, "src/app/api/session-capture", file, "route.ts"),
+        "utf8",
+      );
+      expect(source).toContain("consumeCaptureGrantRateLimit");
+    }
+  });
+
+  it("webhooks Twilio recusam payload acima do teto antes da assinatura", () => {
+    for (const file of ["inbound", "status"]) {
+      const source = readFileSync(
+        path.join(ROOT, "src/app/api/webhooks/twilio", file, "route.ts"),
+        "utf8",
+      );
+      expect(source).toContain("readLimitedText");
+      expect(source).toContain("BODY_LIMIT_BYTES.twilioWebhook");
+    }
+  });
+
+  it("declara error boundaries e headers de segurança globais", () => {
+    expect(existsSync(path.join(ROOT, "src/app/error.tsx"))).toBe(true);
+    expect(existsSync(path.join(ROOT, "src/app/global-error.tsx"))).toBe(true);
+    const nextConfig = readFileSync(path.join(ROOT, "next.config.ts"), "utf8");
+    expect(nextConfig).toContain("X-Content-Type-Options");
+    expect(nextConfig).toContain("nosniff");
+    expect(nextConfig).toContain("Referrer-Policy");
+    expect(nextConfig).toContain("X-Frame-Options");
+    expect(nextConfig).toContain("Permissions-Policy");
+    expect(nextConfig).toContain("poweredByHeader: false");
   });
 
   it("preserva o arquivo oficial da logo sem alteração de bytes", () => {

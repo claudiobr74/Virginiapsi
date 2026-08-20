@@ -61,12 +61,15 @@ Direitos cobertos pelo fluxo acima: eliminação. Os demais direitos do titular 
 
 ## 6. Resposta a incidente
 
-Não especificado em detalhe nesta versão. Mínimo a definir antes da Fase 13 (hardening/deploy):
-- processo interno de detecção e classificação de incidente envolvendo dado do produto;
-- prazo e canal de comunicação ao titular afetado quando aplicável;
-- avaliação de necessidade de notificação à ANPD.
+Mínimo operacional (Fase 13). **Não é parecer jurídico.**
 
-⚠ VALIDAÇÃO JURÍDICA HUMANA: este item inteiro.
+1. **Detecção**: alerta de plataforma (Vercel/Supabase) ou relato interno. Classificar: (a) indisponibilidade sem vazamento; (b) acesso indevido a dado de titular; (c) exposição de secret/env; (d) eliminação/restore indevido.
+2. **Contenção**: rotacionar o secret afetado (Vercel + Vault no mesmo valor); revogar sessões Auth se a conta foi comprometida; rollback de deploy se o binário for a causa (`docs/24-rollback.md`).
+3. **Registro interno**: hora UTC, SHA, sistemas atingidos, se dado de saúde pode ter saído. Sem colar transcrição, DPEP, tokens ou números na ficha.
+4. **Comunicação ao titular**: quando houver risco relevante a dado pessoal, avisar a profissional responsável pelo consultório (controladora) para contactar o titular pelos canais já usados no cuidado. Canal interno sugerido: e-mail do perfil em Configurações. Prazo alvo operacional: 72 horas após a ciência — ⚠ VALIDAÇÃO JURÍDICA HUMANA para o prazo e o conteúdo.
+5. **ANPD**: avaliar notificação quando o incidente puder acarretar risco ou dano relevante ao titular (art. 48 da LGPD). A decisão é da controladora com assessoria jurídica — o produto só fornece o registro técnico. ⚠ VALIDAÇÃO JURÍDICA HUMANA: este item inteiro.
+
+Não há ainda um canal público de “fale sobre privacidade” além do consultório. Não inventar notificação automática à ANPD.
 
 ## 7. Relação com o TCLE
 

@@ -8,6 +8,7 @@ import { logAuditEvent } from "@/lib/audit/log-audit-event";
 export interface SupervisorGrant {
   allowed: true;
   organizationId: string;
+  userId: string;
   consentState: ConsentState;
 }
 
@@ -26,7 +27,7 @@ export type SupervisorGateResult = SupervisorGrant | SupervisorDenial;
  * `aiProcessingAllowed` alone — no transcription-specific check.
  */
 export async function authorizeSupervisorAi(patientId: string): Promise<SupervisorGateResult> {
-  const { organizationId, role } = await requireOrgContext();
+  const { organizationId, role, user } = await requireOrgContext();
 
   if (role !== "psychologist_admin") {
     return {
@@ -53,5 +54,5 @@ export async function authorizeSupervisorAi(patientId: string): Promise<Supervis
     };
   }
 
-  return { allowed: true, organizationId, consentState: state };
+  return { allowed: true, organizationId, userId: user.id, consentState: state };
 }

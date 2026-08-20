@@ -55,6 +55,17 @@ O cron diário (`0 3 * * *`) chama `POST /api/jobs/audio-retention`. O de lembre
 
 Não gravar valores do Vault em migrations, fixtures, logs ou documentação. Rotação do segredo deve atualizar ambos os lados.
 
+## Produção (Vercel)
+
+Preview e Production recebem o mesmo conjunto de chaves, com URLs distintas:
+
+- `NEXT_PUBLIC_APP_URL` = origem HTTPS do ambiente;
+- `GOOGLE_OAUTH_REDIRECT_URI` = `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback` cadastrado no Google Cloud;
+- Vault `tesseli_app_url` aponta para a URL de **produção** (jobs não devem bater em Preview);
+- Twilio From/Messaging Service só quando o operador habilitar o remetente — o schema aceita os dois vazios no boot.
+
+Não criar Vercel Cron. Não marcar Preview como PASS sem um deployment real.
+
 ## Regras
 
 - validar env no boot/server boundary com Zod;

@@ -89,12 +89,14 @@
 
 ## Produção
 
+O estado honesto do release gate está em `docs/25-release-gate.md` (PASS / FAIL / EXTERNAL_BLOCKED). Não marcar Preview Vercel aqui enquanto o passo 10 do gate for EXTERNAL_BLOCKED.
+
 - [ ] lint/typecheck/unit/integration/E2E PASS.
 - [ ] build prod PASS.
 - [ ] preview Vercel PASS.
 - [ ] envs documentadas.
 - [ ] logs sem dados clínicos.
-- [ ] rollback documentado.
+- [ ] rollback documentado (`docs/24-rollback.md`).
 
 
 ## Runtime AI

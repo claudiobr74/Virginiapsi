@@ -35,6 +35,7 @@ import {
   type SessionPreparationInput,
 } from "@/features/sessions/ai/dto";
 import { authorizeSessionAi, type SessionAiPurpose } from "@/features/sessions/ai/gate";
+import { AI_RATE_LIMIT_MESSAGE, consumeAiRateLimit } from "@/lib/security/rate-limit";
 
 export interface SessionAiActionResult {
   error?: string;
@@ -136,7 +137,7 @@ export async function runSessionLiveAssist(
   sessionId: string,
   clinicianNotes?: string,
 ): Promise<SessionAiActionResult> {
-  const { organizationId } = await requireOrgContext();
+  const { organizationId, user } = await requireOrgContext();
   const session = await getClinicalSession(organizationId, sessionId);
   if (!session) {
     return { error: "Sessão não encontrada." };
@@ -145,6 +146,11 @@ export async function runSessionLiveAssist(
   const gate = await authorizeSessionAi(session.patient_id, "session_live");
   if (!gate.allowed) {
     return { error: gate.message };
+  }
+
+  const rate = consumeAiRateLimit(organizationId, user.id);
+  if (!rate.allowed) {
+    return { error: AI_RATE_LIMIT_MESSAGE };
   }
 
   const patient = await getPatient(organizationId, session.patient_id);
@@ -197,11 +203,16 @@ export async function runSessionLiveAssist(
 export async function runSessionPreparationAssist(
   patientId: string,
 ): Promise<SessionAiActionResult> {
-  const { organizationId } = await requireOrgContext();
+  const { organizationId, user } = await requireOrgContext();
 
   const gate = await authorizeSessionAi(patientId, "session_preparation");
   if (!gate.allowed) {
     return { error: gate.message };
+  }
+
+  const rate = consumeAiRateLimit(organizationId, user.id);
+  if (!rate.allowed) {
+    return { error: AI_RATE_LIMIT_MESSAGE };
   }
 
   const patient = await getPatient(organizationId, patientId);
@@ -251,7 +262,7 @@ export async function runSessionClosingAssist(
   sessionId: string,
   input: { clinicianNotes?: string; interventionsActuallyRecorded?: string },
 ): Promise<SessionAiActionResult> {
-  const { organizationId } = await requireOrgContext();
+  const { organizationId, user } = await requireOrgContext();
   const session = await getClinicalSession(organizationId, sessionId);
   if (!session) {
     return { error: "Sessão não encontrada." };
@@ -260,6 +271,11 @@ export async function runSessionClosingAssist(
   const gate = await authorizeSessionAi(session.patient_id, "session_closing");
   if (!gate.allowed) {
     return { error: gate.message };
+  }
+
+  const rate = consumeAiRateLimit(organizationId, user.id);
+  if (!rate.allowed) {
+    return { error: AI_RATE_LIMIT_MESSAGE };
   }
 
   const patient = await getPatient(organizationId, session.patient_id);

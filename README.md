@@ -72,6 +72,8 @@ Não fazem parte da arquitetura do Tesseli:
 - `docs/18-preimplementation-fixes-v1.3.md`: registro das correções técnicas derivadas da primeira auditoria.
 - `docs/19-lgpd-privacy.md`: papéis, suboperadores, retenção e fluxo de exclusão LGPD.
 - `docs/20-preimplementation-fixes-v1.4.md`: registro das correções derivadas da segunda auditoria.
+- `docs/24-rollback.md`: rollback de deploy Vercel e recuperação PITR/backup Supabase. Exportação lógica não é DR.
+- `docs/25-release-gate.md`: checklist PASS/FAIL/EXTERNAL_BLOCKED do gate de release.
 
 ## Primeiro objetivo
 
@@ -382,4 +384,20 @@ Migration `supabase/migrations/*_settings_backup.sql`:
 UI `/app/settings` (secretaria redirecionada): Meu Perfil, Consultório, Aparência, Segurança, Equipe e Acessos, Integrações (status real sem secrets), Backup e Recuperação (DR = backup Supabase; exportação lógica ZIP versionada), Zona de Risco.
 
 Testes: consistência ZIP/hashes e diagnósticos sem vazamento (`tests/utils/export-pack.test.ts`, `tests/utils/integration-diagnostics.test.ts`, `tests/utils/elimination.test.ts`), RLS/retenção/equipe (`tests/security/settings.test.ts`), E2E das oito seções + exportação + confirmação destrutiva + job 401 (`tests/e2e/settings.spec.ts`).
+
+## Fase 13 — Hardening e deploy
+
+Não declara o produto release-ready. Preview/Production Vercel, remetente Twilio, restore PITR real e validação jurídica permanecem **EXTERNAL_BLOCKED** (`docs/25-release-gate.md`).
+
+Entregue no código:
+
+- Error boundaries e 404 com primitivos canônicos (`src/app/error.tsx`, `global-error.tsx`, `not-found.tsx`).
+- Skip-link e `<main id="conteudo-principal">` no shell; sessão em modo foco também expõe o landmark.
+- Headers globais de segurança; COEP/COOP só na rota da sessão clínica.
+- Rate limit in-memory por instância: grants 30/min por IP; IA 20/min por org+usuário.
+- Teto de payload em grants/segmentos/transcribe e webhooks Twilio.
+- Rollback documentado em `docs/24-rollback.md`. Sem Vercel Cron.
+- CI com timeout de 45 min para a suíte Playwright completa.
+
+Testes: `tests/utils/rate-limit.test.ts`, `tests/utils/request-limits.test.ts`, invariantes em `tests/architecture/forbidden-dependencies.test.ts`, E2E `tests/e2e/hardening.spec.ts`.
 

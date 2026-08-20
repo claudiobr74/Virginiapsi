@@ -5,6 +5,16 @@ import {
   issueCaptureGrant,
 } from "@/lib/consent/capability-gate";
 import { CAPTURE_GRANT_TTL_MS } from "@/lib/consent/capture-grant";
+import {
+  clientIpFromHeaders,
+  consumeCaptureGrantRateLimit,
+} from "@/lib/security/rate-limit";
+import { BODY_LIMIT_BYTES, readLimitedJson } from "@/lib/security/request-limits";
+import {
+  invalidJsonResponse,
+  payloadTooLargeResponse,
+  tooManyRequestsResponse,
+} from "@/lib/security/http-responses";
 
 const bodySchema = z.object({
   patientId: z.string().uuid(),
@@ -19,7 +29,18 @@ const bodySchema = z.object({
  * persistence call.
  */
 export async function POST(request: NextRequest) {
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  const ip = clientIpFromHeaders(request.headers);
+  const rate = consumeCaptureGrantRateLimit(ip);
+  if (!rate.allowed) {
+    return tooManyRequestsResponse(rate.retryAfterSeconds);
+  }
+
+  const limited = await readLimitedJson(request, BODY_LIMIT_BYTES.jsonCapture);
+  if (!limited.ok) {
+    return limited.status === 413 ? payloadTooLargeResponse() : invalidJsonResponse();
+  }
+
+  const parsed = bodySchema.safeParse(limited.value);
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }

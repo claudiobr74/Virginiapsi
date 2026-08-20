@@ -3,6 +3,8 @@ import { transcriptSegmentInputSchema } from "@/features/sessions/contracts";
 import { verifyCaptureGrantToken } from "@/lib/consent/capability-gate";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { BODY_LIMIT_BYTES, readLimitedJson } from "@/lib/security/request-limits";
+import { invalidJsonResponse, payloadTooLargeResponse } from "@/lib/security/http-responses";
 
 /**
  * Persists one final transcript segment. This is the real server-side
@@ -12,11 +14,17 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * verify for this exact organization/session — regardless of which
  * capability (`session_capture_grant` or the fallback's) issued it, since
  * both authorize writing to this session's transcript.
+ *
+ * Rate limit of capture *grants* does not apply here: a live session emits
+ * many short segments per minute. Payload size is still capped.
  */
 export async function POST(request: NextRequest) {
-  const parsed = transcriptSegmentInputSchema.safeParse(
-    await request.json().catch(() => null),
-  );
+  const limited = await readLimitedJson(request, BODY_LIMIT_BYTES.jsonCapture);
+  if (!limited.ok) {
+    return limited.status === 413 ? payloadTooLargeResponse() : invalidJsonResponse();
+  }
+
+  const parsed = transcriptSegmentInputSchema.safeParse(limited.value);
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }

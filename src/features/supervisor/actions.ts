@@ -22,6 +22,7 @@ import {
   appendSupervisorArtifactSchema,
   supervisorFormSchema,
 } from "@/features/supervisor/contracts";
+import { AI_RATE_LIMIT_MESSAGE, consumeAiRateLimit } from "@/lib/security/rate-limit";
 
 export interface SupervisorActionResult {
   error?: string;
@@ -41,7 +42,12 @@ export async function runSupervisorAssist(input: unknown): Promise<SupervisorAct
   if (!gate.allowed) {
     return { error: gate.message };
   }
-  const { organizationId } = gate;
+  const { organizationId, userId } = gate;
+
+  const rate = consumeAiRateLimit(organizationId, userId);
+  if (!rate.allowed) {
+    return { error: AI_RATE_LIMIT_MESSAGE };
+  }
 
   const patient = await getPatient(organizationId, values.patientId);
   if (!patient) {

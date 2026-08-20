@@ -5,12 +5,18 @@ import {
   formDataToParams,
   isValidTwilioSignature,
 } from "@/lib/integrations/twilio/signature";
+import { BODY_LIMIT_BYTES, readLimitedText } from "@/lib/security/request-limits";
+import { payloadTooLargeResponse } from "@/lib/security/http-responses";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const env = getServerEnv();
-  const params = formDataToParams(new URLSearchParams(await request.text()));
+  const limited = await readLimitedText(request, BODY_LIMIT_BYTES.twilioWebhook);
+  if (!limited.ok) {
+    return payloadTooLargeResponse();
+  }
+  const params = formDataToParams(new URLSearchParams(limited.text));
   const url = `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/api/webhooks/twilio/inbound`;
   const signature = request.headers.get("x-twilio-signature");
 

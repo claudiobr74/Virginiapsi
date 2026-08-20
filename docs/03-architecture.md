@@ -104,7 +104,16 @@ Obrigatória em:
 - logs sem conteúdo clínico;
 - external provider request id/sid/event id quando seguro;
 - `audit_events` para ações sensíveis;
-- erros amigáveis para UI e detalhes técnicos somente em log seguro.
+- erros amigáveis para UI e detalhes técnicos somente em log seguro;
+- error boundaries de App Router (`error.tsx` / `global-error.tsx`) sem vazar mensagem crua na UI.
+
+## Limites de abuso (Fase 13)
+
+Rate limit in-memory por instância serverless: grants de captura 30/min por IP; ações de IA 20/min por organização+usuário. Payload de webhook/JSON tem teto explícito. Isso reduz abuso e custo; não substitui WAF nem cota global.
+
+## Rollback
+
+Procedimento em `docs/24-rollback.md`. Exportação lógica não é DR. Scheduler não usa Vercel Cron.
 
 ## Futuro Flutter
 

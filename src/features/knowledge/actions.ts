@@ -25,6 +25,7 @@ import {
   studyKnowledgeSchema,
   synthesizeKnowledgeSchema,
 } from "@/features/knowledge/contracts";
+import { AI_RATE_LIMIT_MESSAGE, consumeAiRateLimit } from "@/lib/security/rate-limit";
 
 export interface KnowledgeActionResult {
   error?: string;
@@ -35,15 +36,26 @@ export interface KnowledgeActionResult {
 }
 
 async function requireAdmin() {
-  const { organizationId, role } = await requireOrgContext();
+  const { organizationId, role, user } = await requireOrgContext();
   if (role !== "psychologist_admin") {
     throw new Error("forbidden_role");
   }
-  return organizationId;
+  return { organizationId, userId: user.id };
+}
+
+function rejectIfAiRateLimited(
+  organizationId: string,
+  userId: string,
+): KnowledgeActionResult | null {
+  const rate = consumeAiRateLimit(organizationId, userId);
+  if (!rate.allowed) {
+    return { error: AI_RATE_LIMIT_MESSAGE };
+  }
+  return null;
 }
 
 export async function createCollectionAction(input: unknown): Promise<KnowledgeActionResult> {
-  const organizationId = await requireAdmin();
+  const { organizationId } = await requireAdmin();
   const parsed = createCollectionSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -69,13 +81,13 @@ export async function createCollectionAction(input: unknown): Promise<KnowledgeA
 
 /** Path convention: knowledge-sources/{organizationId}/{uuid}/{filename}. */
 export async function buildKnowledgeUploadPath(filename: string): Promise<string> {
-  const organizationId = await requireAdmin();
+  const { organizationId } = await requireAdmin();
   const safeName = filename.replace(/[^a-zA-Z0-9.\-_]/g, "_");
   return `${organizationId}/${randomUUID()}/${safeName}`;
 }
 
 export async function registerSourceAction(input: unknown): Promise<KnowledgeActionResult> {
-  const organizationId = await requireAdmin();
+  const { organizationId } = await requireAdmin();
   const parsed = registerSourceSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -113,7 +125,7 @@ export async function registerSourceAction(input: unknown): Promise<KnowledgeAct
 }
 
 export async function retryIngestionAction(sourceId: string): Promise<KnowledgeActionResult> {
-  const organizationId = await requireAdmin();
+  const { organizationId } = await requireAdmin();
   const result = await ingestKnowledgeSource(organizationId, sourceId);
   revalidatePath("/app/knowledge");
   if (!result.ok) {
@@ -123,7 +135,7 @@ export async function retryIngestionAction(sourceId: string): Promise<KnowledgeA
 }
 
 export async function deleteSourceAction(sourceId: string): Promise<KnowledgeActionResult> {
-  const organizationId = await requireAdmin();
+  const { organizationId } = await requireAdmin();
   const supabase = await createSupabaseServerClient();
   const { data: source } = await supabase
     .from("knowledge_sources")
@@ -235,10 +247,15 @@ async function runKnowledgeCall(args: RunKnowledgeCallArgs): Promise<KnowledgeAc
 }
 
 export async function askKnowledgeAction(input: unknown): Promise<KnowledgeActionResult> {
-  const organizationId = await requireAdmin();
+  const { organizationId, userId } = await requireAdmin();
   const parsed = askKnowledgeSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const limited = rejectIfAiRateLimited(organizationId, userId);
+  if (limited) {
+    return limited;
   }
 
   const chunks = await retrieveChunks(organizationId, parsed.data.question, {
@@ -262,10 +279,15 @@ export async function askKnowledgeAction(input: unknown): Promise<KnowledgeActio
 }
 
 export async function synthesizeKnowledgeAction(input: unknown): Promise<KnowledgeActionResult> {
-  const organizationId = await requireAdmin();
+  const { organizationId, userId } = await requireAdmin();
   const parsed = synthesizeKnowledgeSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const limited = rejectIfAiRateLimited(organizationId, userId);
+  if (limited) {
+    return limited;
   }
 
   const chunks = await retrieveChunks(organizationId, parsed.data.topic, {
@@ -292,10 +314,15 @@ export async function synthesizeKnowledgeAction(input: unknown): Promise<Knowled
 export async function compareKnowledgeSourcesAction(
   input: unknown,
 ): Promise<KnowledgeActionResult> {
-  const organizationId = await requireAdmin();
+  const { organizationId, userId } = await requireAdmin();
   const parsed = compareKnowledgeSourcesSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const limited = rejectIfAiRateLimited(organizationId, userId);
+  if (limited) {
+    return limited;
   }
 
   const supabase = await createSupabaseServerClient();
@@ -348,10 +375,15 @@ export async function compareKnowledgeSourcesAction(
 }
 
 export async function studyKnowledgeAction(input: unknown): Promise<KnowledgeActionResult> {
-  const organizationId = await requireAdmin();
+  const { organizationId, userId } = await requireAdmin();
   const parsed = studyKnowledgeSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const limited = rejectIfAiRateLimited(organizationId, userId);
+  if (limited) {
+    return limited;
   }
 
   const chunks = await retrieveChunks(organizationId, parsed.data.topic, {
@@ -381,7 +413,7 @@ export async function studyKnowledgeAction(input: unknown): Promise<KnowledgeAct
  * context, and patient data never touches the library/collections.
  */
 export async function applyToCaseAction(input: unknown): Promise<KnowledgeActionResult> {
-  const organizationId = await requireAdmin();
+  const { organizationId, userId } = await requireAdmin();
   const parsed = applyToCaseSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -390,6 +422,11 @@ export async function applyToCaseAction(input: unknown): Promise<KnowledgeAction
   const gate = await authorizeSupervisorAi(parsed.data.patientId);
   if (!gate.allowed) {
     return { error: gate.message };
+  }
+
+  const limited = rejectIfAiRateLimited(organizationId, userId);
+  if (limited) {
+    return limited;
   }
 
   const patient = await getPatient(organizationId, parsed.data.patientId);

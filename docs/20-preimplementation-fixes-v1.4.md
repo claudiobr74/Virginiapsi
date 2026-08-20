@@ -7,7 +7,7 @@ Este documento registra as correções incorporadas após `PRE_IMPLEMENTATION_AU
 - P0: nenhum.
 - P1 da auditoria pré-implementação: corrigidos na especificação v1.4.
 - P2 acionáveis nesta rodada (chaves Supabase, auditoria append-only): corrigidos.
-- P2 restantes (rate limit de IA, DR/rollback, roteiro de endpoints) e P3: não bloqueiam Fase 0; endereçar nas fases correspondentes.
+- P2 restantes da auditoria (rate limit de IA, DR/rollback, roteiro de endpoints): endereçados na Fase 13 — `src/lib/security/`, `docs/24-rollback.md`, `docs/25-release-gate.md` §5. Validação jurídica e deploy Vercel real permanecem EXTERNAL_BLOCKED.
 - Próximo gate: reexecutar `CLAUDE_PRE_IMPLEMENTATION_REVIEW_PROMPT.md`. Fase 0 exige verdict `READY` + autorização explícita do usuário.
 
 ## Correções incorporadas
