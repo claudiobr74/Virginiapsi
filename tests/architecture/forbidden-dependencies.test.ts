@@ -137,9 +137,15 @@ describe("arquitetura proibida", () => {
     // src/features/communications/admin-store.ts: jobs de lembrete (pg_net
     // sem cookie) e webhooks Twilio autenticam por CRON_SECRET / assinatura
     // antes de qualquer side effect; o client service-role só é usado depois.
+    //
+    // src/features/settings/admin-store.ts: job de retenção de áudio
+    // (CRON_SECRET) e signed download da exportação lógica (depois do check
+    // psychologist_admin). Os buckets session-audio-fallback e tesseli-exports
+    // não têm GRANT genérico para anon/authenticated.
     const allowedImporters: string[] = [
       "src/app/api/session-capture/transcribe/route.ts",
       "src/features/communications/admin-store.ts",
+      "src/features/settings/admin-store.ts",
       "src/lib/documents/storage.ts",
       "src/lib/integrations/transcription/fallback-storage.ts",
     ];

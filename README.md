@@ -370,3 +370,16 @@ UI: painel WhatsApp no Patient Hub (consentimento, ativar canal, confirmação/b
 
 Testes: E.164/assinatura/status/parser (`tests/utils/*` + `tests/integrations/twilio-client.test.ts`), RLS/consentimento/claim concorrente/retry/Vault (`tests/security/whatsapp.test.ts`), E2E de preferência + rejeição de CRON_SECRET/assinatura (`tests/e2e/whatsapp.spec.ts`).
 
+## Fase 12 — Configurações, diagnósticos e portabilidade
+
+Migration `supabase/migrations/*_settings_backup.sql`:
+- `logical_exports` (escopo organização ou paciente, status `queued|packing|ready|failed|expired`, hashes SHA-256, sem DELETE). RLS admin-only.
+- Bucket privado `tesseli-exports` (zero GRANT genérico; download por signed URL curta depois do check de papel).
+- RPCs `list_organization_members` / `invite_organization_member` (e-mail em `auth.users`; convite só se a pessoa já tiver conta).
+- Job de retenção do áudio de fallback: `purge_expired_fallback_audio()` (service_role) + `pg_cron` diário `0 3 * * *` → Vault → `pg_net` POST `/api/jobs/audio-retention` (mesmo `tesseli_app_url` / `tesseli_cron_secret` da Fase 11, **sem valores na migration**). O endpoint valida `CRON_SECRET` antes de qualquer side effect.
+- Fluxo LGPD: relatório do que elimina vs retém + frase `ELIMINAR PERMANENTEMENTE PAC-###`; anonimiza identificadores; prontuário/financeiro/consentimentos ficam com `elimination_retained_reason`.
+
+UI `/app/settings` (secretaria redirecionada): Meu Perfil, Consultório, Aparência, Segurança, Equipe e Acessos, Integrações (status real sem secrets), Backup e Recuperação (DR = backup Supabase; exportação lógica ZIP versionada), Zona de Risco.
+
+Testes: consistência ZIP/hashes e diagnósticos sem vazamento (`tests/utils/export-pack.test.ts`, `tests/utils/integration-diagnostics.test.ts`, `tests/utils/elimination.test.ts`), RLS/retenção/equipe (`tests/security/settings.test.ts`), E2E das oito seções + exportação + confirmação destrutiva + job 401 (`tests/e2e/settings.spec.ts`).
+

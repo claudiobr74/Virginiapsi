@@ -47,9 +47,11 @@ CRON_SECRET=
 
 ## Supabase Vault para scheduler
 
-O scheduler de lembretes usa Supabase Cron + `pg_net`. No Supabase Vault, provisionar fora do versionamento:
+O scheduler de lembretes e o job de retenção de áudio usam Supabase Cron + `pg_net`. No Supabase Vault, provisionar fora do versionamento:
 - `tesseli_app_url`: URL HTTPS canônica do app/endpoint de job;
 - `tesseli_cron_secret`: mesmo valor de `CRON_SECRET` configurado no Vercel/ambiente server-side.
+
+O cron diário (`0 3 * * *`) chama `POST /api/jobs/audio-retention`. O de lembretes (a cada 5 min) chama `POST /api/jobs/whatsapp-reminders`. Ambos validam `CRON_SECRET` **antes de qualquer side effect**.
 
 Não gravar valores do Vault em migrations, fixtures, logs ou documentação. Rotação do segredo deve atualizar ambos os lados.
 

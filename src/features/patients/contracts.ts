@@ -8,6 +8,14 @@ export const PATIENT_STATUS_VALUES = [
 ] as const;
 export type PatientStatus = (typeof PATIENT_STATUS_VALUES)[number];
 
+export const PATIENT_ELIMINATION_STATUS_VALUES = [
+  "active",
+  "elimination_requested",
+  "partially_eliminated",
+  "eliminated",
+] as const;
+export type PatientEliminationStatus = (typeof PATIENT_ELIMINATION_STATUS_VALUES)[number];
+
 export const CONSULTATION_MODALITY_VALUES = [
   "in_person",
   "online",
@@ -150,6 +158,13 @@ export const patientRowSchema = z.object({
   status: z.enum(PATIENT_STATUS_VALUES),
   default_session_value: z.union([z.string(), z.number()]).nullable(),
   responsible_psychologist_user_id: z.string().uuid().nullable(),
+  elimination_status: z
+    .enum(PATIENT_ELIMINATION_STATUS_VALUES)
+    .optional()
+    .default("active"),
+  elimination_requested_at: z.string().nullable().optional().default(null),
+  elimination_completed_at: z.string().nullable().optional().default(null),
+  elimination_retained_reason: z.string().nullable().optional().default(null),
   created_at: z.string(),
   updated_at: z.string(),
 });

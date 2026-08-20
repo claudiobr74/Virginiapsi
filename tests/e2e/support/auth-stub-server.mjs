@@ -51,6 +51,73 @@ const memberships = new Map();
 /** organizationId -> practice_settings row */
 const practiceSettingsByOrg = new Map();
 
+function defaultPracticeSettings(organizationId, extras = {}) {
+  return {
+    organization_id: organizationId,
+    professional_name: extras.professional_name ?? "Ana Serena",
+    subtitle: extras.subtitle ?? "Psicóloga clínica",
+    crp: extras.crp ?? null,
+    tax_id: extras.tax_id ?? null,
+    pix_key: extras.pix_key ?? null,
+    clinic_name: extras.clinic_name ?? extras.name ?? "Consultório",
+    company_name: extras.company_name ?? null,
+    greeting_prefix: extras.greeting_prefix ?? "Olá",
+    quote: extras.quote ?? null,
+    session_duration_minutes: extras.session_duration_minutes ?? 50,
+    monthly_goal: extras.monthly_goal ?? null,
+    photo_path: null,
+    signature_path: null,
+    inactivity_timeout_minutes: extras.inactivity_timeout_minutes ?? 15,
+    secretary_finance_access: extras.secretary_finance_access ?? "none",
+    session_audio_fallback_retention_days:
+      extras.session_audio_fallback_retention_days ?? 7,
+    transcript_retention_policy: extras.transcript_retention_policy ?? "with_clinical_record",
+    transcript_retention_fixed_days: extras.transcript_retention_fixed_days ?? null,
+    clinical_record_minimum_retention_years:
+      extras.clinical_record_minimum_retention_years ?? 5,
+    reminder_lead_hours_24: 24,
+    reminder_lead_hours_2: 2,
+  };
+}
+
+function addMembership(userId, organizationId, role) {
+  const list = memberships.get(userId) ?? [];
+  const row = {
+    id: randomUUID(),
+    organization_id: organizationId,
+    user_id: userId,
+    role,
+    active: true,
+    created_at: "2026-01-01T00:00:00.000Z",
+  };
+  list.push(row);
+  memberships.set(userId, list);
+  return row;
+}
+
+function emailForUserId(userId) {
+  for (const user of usersByEmail.values()) {
+    if (user.id === userId) return user.email;
+  }
+  return null;
+}
+
+function membershipsForOrg(organizationId) {
+  const rows = [];
+  for (const [userId, list] of memberships.entries()) {
+    for (const row of list) {
+      if (row.organization_id === organizationId) {
+        rows.push({
+          ...row,
+          user_id: row.user_id ?? userId,
+          email: emailForUserId(row.user_id ?? userId),
+        });
+      }
+    }
+  }
+  return rows;
+}
+
 function seedOrganization({ name, slug, userId, role }) {
   const id = randomUUID();
   organizations.set(id, {
@@ -64,13 +131,8 @@ function seedOrganization({ name, slug, userId, role }) {
     inactivity_timeout_minutes: 15,
     session_duration_minutes: 50,
   });
-  const list = memberships.get(userId) ?? [];
-  list.push({ organization_id: id, role, active: true });
-  memberships.set(userId, list);
-  practiceSettingsByOrg.set(id, {
-    organization_id: id,
-    secretary_finance_access: "none",
-  });
+  addMembership(userId, id, role);
+  practiceSettingsByOrg.set(id, defaultPracticeSettings(id, { clinic_name: name }));
   return id;
 }
 
@@ -92,9 +154,10 @@ seedOrganization({
   userId: MULTI.id,
   role: "secretary",
 });
-memberships.set(SECRETARY.id, [
-  { organization_id: ADMIN_ORG_ID, role: "secretary", active: true },
-]);
+addMembership(SECRETARY.id, ADMIN_ORG_ID, "secretary");
+
+const TEAM_INVITE = makeUser("equipe@tesseli.test", "Equipe Convite");
+usersByEmail.set(TEAM_INVITE.email, TEAM_INVITE);
 
 // ------------------------------------------------------------- Patients ---
 /** organizationId -> Map<patientId, patientRow> */
@@ -128,6 +191,10 @@ function seedPatient(organizationId, overrides) {
     status: "active",
     default_session_value: null,
     responsible_psychologist_user_id: null,
+    elimination_status: "active",
+    elimination_requested_at: null,
+    elimination_completed_at: null,
+    elimination_retained_reason: null,
     created_at: now,
     updated_at: now,
     ...overrides,
@@ -204,6 +271,16 @@ seedPatient(ADMIN_ORG_ID, {
   birth_date: "1993-03-03",
   phone: "11966665555",
 });
+
+for (const name of ["Configurações Um", "Configurações Dois"]) {
+  seedPatient(ADMIN_ORG_ID, {
+    preferred_name: name,
+    full_name: `${name} Paciente`,
+    birth_date: "1989-09-09",
+    email: `${name.toLowerCase().replace(" ", ".")}@example.com`,
+    phone: "11955554444",
+  });
+}
 
 // Dedicated patients for the Fase 7 Supervisor E2E.
 for (const name of ["Supervisor Um", "Supervisor Dois", "Supervisor Tres"]) {
@@ -334,6 +411,8 @@ const financialPlansByOrg = new Map();
 const financialPlanMovementsByOrg = new Map();
 /** organizationId -> Map<closingId, row> */
 const financialClosingsByOrg = new Map();
+/** organizationId -> Map<exportId, row> */
+const logicalExportsByOrg = new Map();
 
 const FORCED_CLINICAL_KINDS = new Set(["laudo", "relatorio", "atestado", "encaminhamento"]);
 const FORCED_ADMINISTRATIVE_KINDS = new Set(["recibo"]);
@@ -776,6 +855,13 @@ const server = createServer(async (req, res) => {
       json(res, 401, { msg: "invalid JWT", error_code: "bad_jwt" });
       return;
     }
+    if (req.method === "PUT") {
+      const body = await readBody(req);
+      if (body?.data && typeof body.data === "object") {
+        user.user_metadata = { ...user.user_metadata, ...body.data };
+        user.updated_at = new Date().toISOString();
+      }
+    }
     json(res, 200, user);
     return;
   }
@@ -806,6 +892,43 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === "/rest/v1/organization_members" && (req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    if (membershipRole(user.id, organizationId) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    let updated = null;
+    for (const list of memberships.values()) {
+      const row = list.find((item) => item.id === idFilter && item.organization_id === organizationId);
+      if (row) {
+        if (row.active && body.active === false && row.role === "psychologist_admin") {
+          const remaining = membershipsForOrg(organizationId).filter(
+            (item) => item.active && item.role === "psychologist_admin" && item.id !== row.id,
+          );
+          if (remaining.length === 0) {
+            json(res, 400, {
+              message: "organization must keep at least one active psychologist_admin",
+            });
+            return;
+          }
+        }
+        Object.assign(row, body, { id: row.id, organization_id: row.organization_id });
+        updated = row;
+        break;
+      }
+    }
+    json(res, 200, wantsSingleObject(req) ? updated : updated ? [updated] : []);
+    return;
+  }
+
   if (pathname === "/rest/v1/organizations" && req.method === "GET") {
     const user = bearerUser(req);
     if (!user) {
@@ -815,7 +938,8 @@ const server = createServer(async (req, res) => {
     const allowed = new Set(
       (memberships.get(user.id) ?? []).map((row) => row.organization_id),
     );
-    const requested = parseInFilter(searchParams.get("id")) ?? [...allowed];
+    const eqId = parseEqFilter(searchParams.get("id"));
+    const requested = parseInFilter(searchParams.get("id")) ?? (eqId ? [eqId] : [...allowed]);
     const rows = requested
       .filter((id) => allowed.has(id))
       .map((id) => organizations.get(id))
@@ -827,7 +951,30 @@ const server = createServer(async (req, res) => {
         timezone,
         status,
       }));
-    json(res, 200, rows);
+    json(res, 200, wantsSingleObject(req) ? (rows[0] ?? null) : rows);
+    return;
+  }
+
+  if (pathname === "/rest/v1/organizations" && (req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    if (!idFilter || membershipRole(user.id, idFilter) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    const current = organizations.get(idFilter);
+    if (!current) {
+      json(res, 200, wantsSingleObject(req) ? null : []);
+      return;
+    }
+    const next = { ...current, ...body, id: current.id };
+    organizations.set(idFilter, next);
+    json(res, 200, wantsSingleObject(req) ? next : [next]);
     return;
   }
 
@@ -851,12 +998,19 @@ const server = createServer(async (req, res) => {
         organization_id: organization.id,
         organization_name: organization.name,
         timezone: organization.timezone,
-        professional_name: organization.professional_name,
-        clinic_name: organization.clinic_name,
-        inactivity_timeout_minutes: organization.inactivity_timeout_minutes,
-        session_duration_minutes: organization.session_duration_minutes,
-        greeting_prefix: null,
-        quote: null,
+        professional_name:
+          practiceSettingsByOrg.get(body.org_id)?.professional_name ??
+          organization.professional_name,
+        clinic_name:
+          practiceSettingsByOrg.get(body.org_id)?.clinic_name ?? organization.clinic_name,
+        inactivity_timeout_minutes:
+          practiceSettingsByOrg.get(body.org_id)?.inactivity_timeout_minutes ??
+          organization.inactivity_timeout_minutes,
+        session_duration_minutes:
+          practiceSettingsByOrg.get(body.org_id)?.session_duration_minutes ??
+          organization.session_duration_minutes,
+        greeting_prefix: practiceSettingsByOrg.get(body.org_id)?.greeting_prefix ?? null,
+        quote: practiceSettingsByOrg.get(body.org_id)?.quote ?? null,
       },
     ]);
     return;
@@ -876,6 +1030,62 @@ const server = createServer(async (req, res) => {
       role: "psychologist_admin",
     });
     json(res, 200, id);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/list_organization_members" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.p_org_id) !== "psychologist_admin") {
+      json(res, 403, { message: "not authorized", code: "42501" });
+      return;
+    }
+    json(res, 200, membershipsForOrg(body.p_org_id));
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/invite_organization_member" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.p_org_id) !== "psychologist_admin") {
+      json(res, 403, { message: "not authorized", code: "42501" });
+      return;
+    }
+    const invited = usersByEmail.get(String(body.p_email ?? "").toLowerCase())
+      ?? [...usersByEmail.values()].find(
+        (item) => item.email.toLowerCase() === String(body.p_email ?? "").toLowerCase(),
+      );
+    if (!invited) {
+      json(res, 400, { message: "user is not registered", code: "P0001" });
+      return;
+    }
+    const existing = membershipsForOrg(body.p_org_id).find((row) => row.user_id === invited.id);
+    if (existing) {
+      existing.role = body.p_role;
+      existing.active = true;
+      json(res, 200, existing.id);
+      return;
+    }
+    const row = addMembership(invited.id, body.p_org_id, body.p_role);
+    json(res, 200, row.id);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/purge_expired_fallback_audio" && req.method === "POST") {
+    json(res, 200, 0);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/expire_stale_logical_exports" && req.method === "POST") {
+    json(res, 200, 0);
     return;
   }
 
@@ -985,9 +1195,18 @@ const server = createServer(async (req, res) => {
     const idFilter = parseEqFilter(searchParams.get("id"));
     let updated = null;
     for (const [orgId, table] of patientsByOrg.entries()) {
-      const isOrgMember = (memberships.get(user.id) ?? []).some(
-        (m) => m.active && m.organization_id === orgId,
-      );
+      const role = membershipRole(user.id, orgId);
+      const isOrgMember = Boolean(role);
+      if (
+        isOrgMember &&
+        idFilter &&
+        table.has(idFilter) &&
+        body.elimination_status &&
+        role !== "psychologist_admin"
+      ) {
+        json(res, 403, { message: "only psychologist_admin may change elimination_status" });
+        return;
+      }
       if (isOrgMember && idFilter && table.has(idFilter)) {
         const current = table.get(idFilter);
         updated = {
@@ -2730,10 +2949,7 @@ const server = createServer(async (req, res) => {
     if (!organizationId || membershipRole(user.id, organizationId) !== "psychologist_admin") {
       return json(res, 200, wantsSingleObject(req) ? null : []);
     }
-    const row = practiceSettingsByOrg.get(organizationId) ?? {
-      organization_id: organizationId,
-      secretary_finance_access: "none",
-    };
+    const row = practiceSettingsByOrg.get(organizationId) ?? defaultPracticeSettings(organizationId);
     return json(res, 200, wantsSingleObject(req) ? row : [row]);
   }
 
@@ -2745,10 +2961,7 @@ const server = createServer(async (req, res) => {
     if (!organizationId || membershipRole(user.id, organizationId) !== "psychologist_admin") {
       return json(res, 403, { message: "row-level security policy violation" });
     }
-    const current = practiceSettingsByOrg.get(organizationId) ?? {
-      organization_id: organizationId,
-      secretary_finance_access: "none",
-    };
+    const current = practiceSettingsByOrg.get(organizationId) ?? defaultPracticeSettings(organizationId);
     const next = { ...current, ...body, organization_id: organizationId };
     practiceSettingsByOrg.set(organizationId, next);
     return json(res, 200, wantsSingleObject(req) ? next : [next]);
@@ -2904,6 +3117,90 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "DELETE") {
       return json(res, 403, { message: "permission denied for table" });
+    }
+  }
+
+  if (pathname === "/rest/v1/logical_exports") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+
+    if (req.method === "GET") {
+      const organizationId = parseEqFilter(searchParams.get("organization_id"));
+      const idFilter = parseEqFilter(searchParams.get("id"));
+      if (idFilter) {
+        for (const [orgId, table] of logicalExportsByOrg.entries()) {
+          if (membershipRole(user.id, orgId) !== "psychologist_admin") continue;
+          const row = table.get(idFilter);
+          if (row) {
+            return json(res, 200, wantsSingleObject(req) ? row : [row]);
+          }
+        }
+        return json(res, 200, wantsSingleObject(req) ? null : []);
+      }
+      if (!organizationId || membershipRole(user.id, organizationId) !== "psychologist_admin") {
+        return json(res, 200, []);
+      }
+      const rows = applyOrder(
+        [...(logicalExportsByOrg.get(organizationId)?.values() ?? [])],
+        searchParams,
+      );
+      return json(res, 200, applyLimit(rows, searchParams));
+    }
+
+    if (req.method === "POST") {
+      const body = await readBody(req);
+      if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+        return json(res, 403, { message: "row-level security policy violation" });
+      }
+      const now = new Date().toISOString();
+      const row = {
+        id: randomUUID(),
+        organization_id: body.organization_id,
+        actor_user_id: user.id,
+        scope: body.scope,
+        patient_id: body.patient_id ?? null,
+        schema_version: body.schema_version ?? "tesseli-export-v1",
+        status: body.status ?? "queued",
+        storage_path: null,
+        package_bytes: null,
+        file_count: null,
+        package_sha256: null,
+        manifest_sha256: null,
+        error_code: null,
+        requested_at: now,
+        ready_at: null,
+        expires_at: null,
+        created_at: now,
+        updated_at: now,
+      };
+      getOrCreateOrgMap(logicalExportsByOrg, body.organization_id).set(row.id, row);
+      return json(res, 201, wantsSingleObject(req) ? row : [row]);
+    }
+
+    if (req.method === "PATCH" || req.method === "PUT") {
+      const body = await readBody(req);
+      const idFilter = parseEqFilter(searchParams.get("id"));
+      let updated = null;
+      for (const [orgId, table] of logicalExportsByOrg.entries()) {
+        if (membershipRole(user.id, orgId) !== "psychologist_admin") continue;
+        if (idFilter && table.has(idFilter)) {
+          const current = table.get(idFilter);
+          updated = {
+            ...current,
+            ...body,
+            id: current.id,
+            organization_id: current.organization_id,
+            actor_user_id: current.actor_user_id,
+            updated_at: new Date().toISOString(),
+          };
+          table.set(idFilter, updated);
+          break;
+        }
+      }
+      if (!updated) {
+        return json(res, 200, wantsSingleObject(req) ? null : []);
+      }
+      return json(res, 200, wantsSingleObject(req) ? updated : [updated]);
     }
   }
 

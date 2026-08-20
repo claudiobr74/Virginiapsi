@@ -1,15 +1,42 @@
 import { Settings } from "lucide-react";
-import { PlaceholderModulePage } from "@/features/shell/placeholder-module-page";
+import { redirect } from "next/navigation";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
+import { SettingsConsole } from "@/features/settings/components/settings-console";
+import { getSettingsSnapshot } from "@/features/settings/queries";
+import { requireOrgContext } from "@/lib/auth/require-org-context";
 
 export const metadata = { title: "Configurações — Tesseli" };
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const { organizationId, organizationName, timezone, role, user } =
+    await requireOrgContext();
+
+  if (role !== "psychologist_admin") {
+    redirect("/app");
+  }
+
+  const metadataName =
+    typeof user.user_metadata?.full_name === "string"
+      ? user.user_metadata.full_name.trim()
+      : "";
+
+  const snapshot = await getSettingsSnapshot({
+    organizationId,
+    organizationName,
+    timezone,
+    email: user.email ?? "",
+    fullName: metadataName || organizationName,
+  });
+
   return (
-    <PlaceholderModulePage
-      icon={Settings}
-      title="Configurações"
-      subtitle="Perfil, consultório, segurança e integrações"
-      phaseNote="Perfil, equipe, integrações e backup chegam na Fase 12."
-    />
+    <PageContainer>
+      <PageHeader
+        icon={Settings}
+        title="Configurações"
+        subtitle="Perfil, consultório, segurança, integrações, backup e zona de risco"
+      />
+      <SettingsConsole snapshot={snapshot} />
+    </PageContainer>
   );
 }
