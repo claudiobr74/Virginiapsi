@@ -169,6 +169,7 @@ export function AgendaBoard({
         appointment={selectedAppointment}
         timeZone={timeZone}
         googleConnected={canSync}
+        isAdmin={canManageConnection}
         onClose={() => setSelectedAppointment(null)}
         onEdit={() => {
           if (!selectedAppointment) return;

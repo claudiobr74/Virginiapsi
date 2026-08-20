@@ -25,6 +25,9 @@ import {
   getPatient,
   getPatientClinicalProfile,
 } from "@/features/patients/queries";
+import { SessionHistoryList } from "@/features/sessions/components/session-history-list";
+import { StartSessionButton } from "@/features/sessions/components/start-session-button";
+import { listPatientSessions } from "@/features/sessions/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
 export async function generateMetadata({
@@ -40,7 +43,7 @@ export default async function PatientHubPage({
   params,
 }: PageProps<"/app/patients/[patientId]">) {
   const { patientId } = await params;
-  const { organizationId, role } = await requireOrgContext();
+  const { organizationId, role, timezone } = await requireOrgContext();
 
   const patient = await getPatient(organizationId, patientId);
   if (!patient) {
@@ -60,6 +63,8 @@ export default async function PatientHubPage({
         listPatientConsents(organizationId, patient.id),
       ])
     : [null, []];
+
+  const clinicalSessions = isAdmin ? await listPatientSessions(organizationId, patient.id) : [];
 
   return (
     <PageContainer>
@@ -165,13 +170,23 @@ export default async function PatientHubPage({
         />
       </PatientHubSection>
 
-      <PatientHubSection title="Registro Histórico de Prontuário">
-        <EmptyState
-          icon={NotebookPen}
-          title="Prontuário chega na Fase 6"
-          description="O histórico de sessões clínicas (DPEP) será exibido aqui."
-        />
-      </PatientHubSection>
+      {isAdmin ? (
+        <PatientHubSection
+          title="Registro Histórico de Prontuário"
+          description="Sessões clínicas, DPEP e transcrição — apenas psicóloga administradora."
+          actions={<StartSessionButton patientId={patient.id} />}
+        >
+          {clinicalSessions.length > 0 ? (
+            <SessionHistoryList sessions={clinicalSessions} timezone={timezone} />
+          ) : (
+            <EmptyState
+              icon={NotebookPen}
+              title="Nenhuma sessão clínica ainda"
+              description="Inicie uma sessão para registrar DPEP, transcrição e apoio de IA."
+            />
+          )}
+        </PatientHubSection>
+      ) : null}
 
       <PatientHubSection title="Documentos">
         <EmptyState

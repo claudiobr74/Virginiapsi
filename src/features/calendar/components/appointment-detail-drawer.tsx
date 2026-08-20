@@ -17,12 +17,15 @@ import {
   type AppointmentRow,
 } from "@/features/calendar/contracts";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
+import { StartSessionButton } from "@/features/sessions/components/start-session-button";
 import { formatInTimeZone } from "@/lib/utils/timezone";
 
 export interface AppointmentDetailDrawerProps {
   appointment: AppointmentRow | null;
   timeZone: string;
   googleConnected: boolean;
+  /** Clinical session mode is psychologist_admin-only (.cursor/rules/10-clinical-domain.mdc). */
+  isAdmin: boolean;
   onClose: () => void;
   onEdit: () => void;
   /** Called after an in-place update (confirm/sync/Meet) — drawer stays open. */
@@ -35,6 +38,7 @@ export function AppointmentDetailDrawer({
   appointment: appointmentProp,
   timeZone,
   googleConnected,
+  isAdmin,
   onClose,
   onEdit,
   onRefresh,
@@ -192,6 +196,13 @@ export function AppointmentDetailDrawer({
                     </p>
                   ) : null}
                 </div>
+              ) : null}
+
+              {isAdmin && appointment.patient_id && appointment.status !== "cancelled" ? (
+                <StartSessionButton
+                  patientId={appointment.patient_id}
+                  appointmentId={appointment.id}
+                />
               ) : null}
 
               <div className="flex flex-wrap gap-2">

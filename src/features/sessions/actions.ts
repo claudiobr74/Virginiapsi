@@ -17,19 +17,16 @@ export interface SessionActionResult {
   newVersion?: number;
 }
 
-async function requireAdmin() {
-  const context = await requireOrgContext();
-  if (context.role !== "psychologist_admin") {
-    throw new Error("forbidden_role");
-  }
-  return context;
-}
+const FORBIDDEN_ROLE_MESSAGE = "Somente a psicóloga administradora conduz sessão clínica.";
 
 export async function startSessionAction(
   patientId: string,
   appointmentId?: string,
 ): Promise<SessionActionResult> {
-  const { organizationId } = await requireAdmin();
+  const { organizationId, role } = await requireOrgContext();
+  if (role !== "psychologist_admin") {
+    return { error: FORBIDDEN_ROLE_MESSAGE };
+  }
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase.rpc("start_clinical_session", {
@@ -57,7 +54,10 @@ export async function saveDpepAction(
   sessionId: string,
   input: unknown,
 ): Promise<SessionActionResult> {
-  const { organizationId } = await requireAdmin();
+  const { organizationId, role } = await requireOrgContext();
+  if (role !== "psychologist_admin") {
+    return { error: FORBIDDEN_ROLE_MESSAGE };
+  }
   const parsed = dpepFormSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -102,7 +102,10 @@ export async function saveWorkingNotesAction(
   sessionId: string,
   input: unknown,
 ): Promise<SessionActionResult> {
-  const { organizationId } = await requireAdmin();
+  const { organizationId, role } = await requireOrgContext();
+  if (role !== "psychologist_admin") {
+    return { error: FORBIDDEN_ROLE_MESSAGE };
+  }
   const parsed = workingNotesFormSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -146,7 +149,10 @@ export async function finalizeSessionAction(
   sessionId: string,
   idempotencyKey?: string,
 ): Promise<SessionActionResult> {
-  const { organizationId } = await requireAdmin();
+  const { organizationId, role } = await requireOrgContext();
+  if (role !== "psychologist_admin") {
+    return { error: FORBIDDEN_ROLE_MESSAGE };
+  }
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase.rpc("finalize_clinical_session", {
@@ -174,7 +180,10 @@ export async function finalizeSessionAction(
 export async function cancelSessionAction(
   sessionId: string,
 ): Promise<SessionActionResult> {
-  const { organizationId } = await requireAdmin();
+  const { organizationId, role } = await requireOrgContext();
+  if (role !== "psychologist_admin") {
+    return { error: FORBIDDEN_ROLE_MESSAGE };
+  }
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
