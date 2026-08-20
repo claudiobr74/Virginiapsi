@@ -209,6 +209,14 @@ const transcriptSegmentsByOrg = new Map();
 const aiRunsByOrg = new Map();
 /** organizationId -> Map<artifactId, aiArtifactRow> */
 const aiArtifactsByOrg = new Map();
+/** organizationId -> Map<collectionId, row> */
+const knowledgeCollectionsByOrg = new Map();
+/** organizationId -> Map<sourceId, row> */
+const knowledgeSourcesByOrg = new Map();
+/** organizationId -> Map<documentId, row> (keyed by source_id too, 1:1) */
+const knowledgeDocumentsByOrg = new Map();
+/** organizationId -> Map<chunkId, row> */
+const knowledgeChunksByOrg = new Map();
 
 /**
  * Mirrors every clinical_sessions/session_dpep/session_clinical_working_notes
@@ -464,6 +472,21 @@ const server = createServer(async (req, res) => {
 
   if (pathname === "/health" && req.method === "GET") {
     json(res, 200, { ok: true });
+    return;
+  }
+
+  // ------------------------------------------------- Storage (Fase 8) ---
+  // Minimal stand-in for POST /storage/v1/object/{bucket}/{path...} — just
+  // enough to exercise the upload UI flow end to end. It does not persist
+  // bytes or replicate Storage RLS; that boundary is covered by
+  // tests/security/knowledge.test.ts against real PostgreSQL.
+  if (pathname.startsWith("/storage/v1/object/") && req.method === "POST") {
+    await new Promise((resolve) => {
+      req.on("data", () => {});
+      req.on("end", resolve);
+    });
+    const objectPath = pathname.replace("/storage/v1/object/", "");
+    json(res, 200, { Id: randomUUID(), Key: objectPath });
     return;
   }
 
@@ -1647,6 +1670,241 @@ const server = createServer(async (req, res) => {
     });
     row.updated_at = new Date().toISOString();
     json(res, 200, wantsSingleObject(req) ? row : [row]);
+    return;
+  }
+
+  // ------------------------------------------------ Fase 8: Conhecimento ---
+  if (pathname === "/rest/v1/knowledge_collections" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    if (!organizationId || membershipRole(user.id, organizationId) !== "psychologist_admin") {
+      json(res, 200, []);
+      return;
+    }
+    const rows = applyOrder(
+      [...(knowledgeCollectionsByOrg.get(organizationId)?.values() ?? [])],
+      searchParams,
+    );
+    json(res, 200, rows);
+    return;
+  }
+
+  if (pathname === "/rest/v1/knowledge_collections" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    const now = new Date().toISOString();
+    const row = {
+      id: randomUUID(),
+      organization_id: body.organization_id,
+      name: body.name,
+      description: body.description ?? null,
+      created_by: user.id,
+      created_at: now,
+      updated_at: now,
+    };
+    getOrCreateOrgMap(knowledgeCollectionsByOrg, body.organization_id).set(row.id, row);
+    json(res, 201, wantsSingleObject(req) ? row : [row]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/knowledge_sources" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+
+    let rows = [];
+    if (idFilter) {
+      const row = findAdminScopedRow(knowledgeSourcesByOrg, user.id, (r) => r.id === idFilter);
+      rows = row ? [row] : [];
+    } else if (organizationId && membershipRole(user.id, organizationId) === "psychologist_admin") {
+      rows = applyOrder(
+        [...(knowledgeSourcesByOrg.get(organizationId)?.values() ?? [])].filter((row) =>
+          matchesFilters(row, searchParams),
+        ),
+        searchParams,
+      );
+    }
+
+    if (wantsSingleObject(req)) {
+      if (rows.length !== 1) {
+        json(res, 406, { message: "JSON object requested, multiple (or no) rows returned" });
+        return;
+      }
+      json(res, 200, rows[0]);
+      return;
+    }
+    json(res, 200, rows);
+    return;
+  }
+
+  if (pathname === "/rest/v1/knowledge_sources" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    const now = new Date().toISOString();
+    const row = {
+      id: randomUUID(),
+      organization_id: body.organization_id,
+      collection_id: body.collection_id ?? null,
+      title: body.title ?? null,
+      authors: [],
+      year: null,
+      edition: null,
+      document_type: null,
+      study_design_or_source_role: null,
+      language: null,
+      theoretical_approaches: [],
+      population_context: [],
+      main_topics: [],
+      system_tags: [],
+      status: body.status ?? "uploaded",
+      ingestion_error: null,
+      storage_path: body.storage_path,
+      mime_type: body.mime_type,
+      byte_size: body.byte_size,
+      sha256: body.sha256,
+      uploaded_by: user.id,
+      created_at: now,
+      updated_at: now,
+    };
+    getOrCreateOrgMap(knowledgeSourcesByOrg, body.organization_id).set(row.id, row);
+    json(res, 201, wantsSingleObject(req) ? row : [row]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/knowledge_sources" && (req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    const row = findAdminScopedRow(knowledgeSourcesByOrg, user.id, (r) => r.id === idFilter);
+    if (!row) {
+      json(res, 200, wantsSingleObject(req) ? null : []);
+      return;
+    }
+    Object.assign(row, body, { id: row.id, organization_id: row.organization_id });
+    row.updated_at = new Date().toISOString();
+    json(res, 200, wantsSingleObject(req) ? row : [row]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/knowledge_sources" && req.method === "DELETE") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    for (const table of knowledgeSourcesByOrg.values()) {
+      if (table.has(idFilter)) {
+        table.delete(idFilter);
+        break;
+      }
+    }
+    json(res, 200, []);
+    return;
+  }
+
+  if (pathname === "/rest/v1/knowledge_documents" && (req.method === "POST" || req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    const table = getOrCreateOrgMap(knowledgeDocumentsByOrg, body.organization_id);
+    const existing = [...table.values()].find((row) => row.source_id === body.source_id);
+    const row = existing
+      ? Object.assign(existing, body)
+      : { id: randomUUID(), ...body, extracted_at: new Date().toISOString() };
+    table.set(row.id, row);
+    json(res, 201, wantsSingleObject(req) ? row : [row]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/knowledge_chunks" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    const rowsIn = Array.isArray(body) ? body : [body];
+    const table = getOrCreateOrgMap(knowledgeChunksByOrg, body.organization_id ?? rowsIn[0]?.organization_id);
+    const created = rowsIn.map((entry) => {
+      const row = { id: randomUUID(), ...entry };
+      table.set(row.id, row);
+      return row;
+    });
+    json(res, 201, wantsSingleObject(req) ? created[0] : created);
+    return;
+  }
+
+  if (pathname === "/rest/v1/knowledge_chunks" && req.method === "DELETE") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const documentIdFilter = parseEqFilter(searchParams.get("document_id"));
+    for (const table of knowledgeChunksByOrg.values()) {
+      for (const [id, row] of table.entries()) {
+        if (row.document_id === documentIdFilter) {
+          table.delete(id);
+        }
+      }
+    }
+    json(res, 200, []);
+    return;
+  }
+
+  if (pathname === "/rest/v1/knowledge_embeddings" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.organization_id ?? (Array.isArray(body) ? body[0]?.organization_id : undefined)) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    const rowsIn = Array.isArray(body) ? body : [body];
+    json(res, 201, wantsSingleObject(req) ? rowsIn[0] : rowsIn);
     return;
   }
 

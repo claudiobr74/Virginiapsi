@@ -21,7 +21,11 @@ jobs:
       SESSION_CAPTURE_SECRET: ci-session-capture-secret-placeholder
     services:
       postgres:
-        image: postgres:16
+        # pgvector/pgvector:pg16 = official postgres:16 + pgvector
+        # pre-installed (Fase 8: knowledge_embeddings). A real Supabase
+        # project ships pgvector by default; the vanilla postgres:16 image
+        # does not, so the security harness needs this image instead.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_PASSWORD: postgres
         ports:

@@ -1,24 +1,9 @@
 import type { ClinicalContextDescriptor, PatientRef } from "@/features/sessions/ai/dto";
 import type { PrimaryApproach, AdditionalFramework } from "@/features/supervisor/contracts";
 import { packContext } from "@/lib/ai/context-packer";
+import type { RetrievedChunk } from "@/lib/ai/retrieved-chunk";
 
-// RetrievedChunk stays undefined until Knowledge/RAG exists (Fase 8) — the
-// Supervisor input DTO already carries the field per
-// docs/16-runtime-ai-data-contracts.md, it just has nothing to populate it
-// with yet, and the prompt never cites a source that wasn't retrieved.
-export interface RetrievedChunk {
-  chunkId: string;
-  sourceId: string;
-  title?: string;
-  author?: string;
-  year?: number;
-  location?: string;
-  documentType?: string;
-  studyDesignOrSourceRole?: string;
-  populationContext?: string;
-  text: string;
-  retrievalScore: number;
-}
+export type { RetrievedChunk };
 
 export interface SupervisorInput {
   organizationId: string;

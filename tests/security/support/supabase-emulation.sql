@@ -80,6 +80,23 @@ create table if not exists storage.objects (
 
 grant usage on schema storage to anon, authenticated, service_role;
 grant select on storage.buckets to anon, authenticated, service_role;
--- No default grant on storage.objects: matches real Supabase, where all
--- object access is governed by RLS policies the project adds explicitly.
+-- Matches real Supabase's baseline: anon/authenticated get table-level
+-- GRANTs on storage.objects, and RLS policies the project adds explicitly
+-- are the actual enforcement layer (some buckets, like session-audio-fallback,
+-- deliberately add none).
+grant select, insert, update, delete on storage.objects to anon, authenticated;
 alter table storage.objects enable row level security;
+
+-- Real Supabase Storage helper used by path-based RLS policies (splits an
+-- object path into its folder segments, excluding the filename).
+create or replace function storage.foldername(name text)
+returns text[]
+language sql
+stable
+as $$
+  select case
+    when array_length(string_to_array(name, '/'), 1) > 1
+      then (string_to_array(name, '/'))[1 : array_length(string_to_array(name, '/'), 1) - 1]
+    else '{}'::text[]
+  end;
+$$;

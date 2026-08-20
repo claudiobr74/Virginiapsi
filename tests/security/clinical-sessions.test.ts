@@ -591,7 +591,7 @@ describe("ai_runs / ai_artifacts — draft até revisão explícita", () => {
 });
 
 describe("session-audio-fallback — sem INSERT genérico por membership", () => {
-  it("nenhum papel de aplicação tem GRANT em storage.objects", async () => {
+  it("nenhuma policy de RLS autoriza INSERT — só o service-role bypassa", async () => {
     const admin = await createAuthUser();
     const organizationId = await bootstrapOrganization(admin, "Consultório Fallback Storage");
     const session = await openSession({ userId: admin });
@@ -600,7 +600,7 @@ describe("session-audio-fallback — sem INSERT genérico por membership", () =>
         `insert into storage.objects (bucket_id, name) values ('session-audio-fallback', $1)`,
         [`${organizationId}/fake.webm`],
       );
-      expect(error).toMatch(/permission denied/i);
+      expect(error).toMatch(/violates row-level security/i);
     } finally {
       await session.close();
     }

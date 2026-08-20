@@ -61,7 +61,7 @@ describe("ai_runs/ai_artifacts — vocabulário 'supervisor' (Fase 7)", () => {
       const error = await session.expectError(
         `insert into public.ai_runs
            (organization_id, patient_id, purpose, model, prompt_name, prompt_version, schema_version, status)
-         values ($1, $2, 'knowledge_query', 'gemini-test', 'x', '1', '1', 'succeeded')`,
+         values ($1, $2, 'not_a_real_purpose', 'gemini-test', 'x', '1', '1', 'succeeded')`,
         [organizationId, patientId],
       );
       expect(error).toMatch(/check/i);
