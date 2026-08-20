@@ -12,6 +12,10 @@ export interface AppShellProps {
   userEmail: string;
   professionalName: string;
   professionalSubtitle: string;
+  organizationName: string;
+  roleLabel: string;
+  canSwitchOrganization: boolean;
+  inactivityTimeoutMinutes?: number;
 }
 
 export function AppShell({
@@ -19,15 +23,25 @@ export function AppShell({
   userEmail,
   professionalName,
   professionalSubtitle,
+  organizationName,
+  roleLabel,
+  canSwitchOrganization,
+  inactivityTimeoutMinutes,
 }: AppShellProps) {
   const [moreOpen, setMoreOpen] = useState(false);
 
   return (
-    <LockProvider userEmail={userEmail}>
+    <LockProvider
+      userEmail={userEmail}
+      timeoutMinutes={inactivityTimeoutMinutes}
+    >
       <div className="flex min-h-screen bg-background">
         <Sidebar
           professionalName={professionalName}
           professionalSubtitle={professionalSubtitle}
+          organizationName={organizationName}
+          roleLabel={roleLabel}
+          canSwitchOrganization={canSwitchOrganization}
         />
 
         <div className="flex min-h-screen flex-1 flex-col">
@@ -41,6 +55,9 @@ export function AppShell({
         open={moreOpen}
         onOpenChange={setMoreOpen}
         professionalName={professionalName}
+        organizationName={organizationName}
+        roleLabel={roleLabel}
+        canSwitchOrganization={canSwitchOrganization}
       />
     </LockProvider>
   );

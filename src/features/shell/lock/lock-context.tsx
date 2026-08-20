@@ -30,20 +30,22 @@ export function useLock() {
 export interface LockProviderProps {
   children: ReactNode;
   userEmail: string;
+  /** From `practice_settings.inactivity_timeout_minutes` when available. */
   timeoutMinutes?: number;
 }
 
 export function LockProvider({
   children,
   userEmail,
-  timeoutMinutes = DEFAULT_INACTIVITY_TIMEOUT_MINUTES,
+  timeoutMinutes,
 }: LockProviderProps) {
+  const effectiveTimeout = timeoutMinutes ?? DEFAULT_INACTIVITY_TIMEOUT_MINUTES;
   const [locked, setLocked] = useState(false);
 
   const lockNow = useCallback(() => setLocked(true), []);
   const unlock = useCallback(() => setLocked(false), []);
 
-  useIdleTimer(timeoutMinutes * 60 * 1000, lockNow, !locked);
+  useIdleTimer(effectiveTimeout * 60 * 1000, lockNow, !locked);
 
   const value = useMemo(() => ({ locked, lockNow }), [locked, lockNow]);
 

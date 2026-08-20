@@ -1,3 +1,5 @@
+import { Building2 } from "lucide-react";
+import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/ui/logo";
 import { LogoutButton } from "@/features/auth/components/logout-button";
@@ -9,9 +11,18 @@ import { NavLink } from "@/features/shell/nav-link";
 export interface SidebarProps {
   professionalName: string;
   professionalSubtitle: string;
+  organizationName: string;
+  roleLabel: string;
+  canSwitchOrganization: boolean;
 }
 
-export function Sidebar({ professionalName, professionalSubtitle }: SidebarProps) {
+export function Sidebar({
+  professionalName,
+  professionalSubtitle,
+  organizationName,
+  roleLabel,
+  canSwitchOrganization,
+}: SidebarProps) {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-card lg:flex">
       <div className="flex items-center gap-3 border-b border-border px-5 py-6">
@@ -22,6 +33,22 @@ export function Sidebar({ professionalName, professionalSubtitle }: SidebarProps
           </span>
           <span className="text-xs text-muted-foreground">{professionalName}</span>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1 border-b border-border px-5 py-4">
+        <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Building2 className="size-4 shrink-0 text-sage-700" aria-hidden />
+          {organizationName}
+        </span>
+        <span className="text-xs text-muted-foreground">{roleLabel}</span>
+        {canSwitchOrganization ? (
+          <Link
+            href="/select-organization"
+            className="mt-1 text-xs font-semibold text-sage-700 hover:text-primary"
+          >
+            Trocar consultório
+          </Link>
+        ) : null}
       </div>
 
       <nav

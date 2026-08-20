@@ -1,5 +1,7 @@
 "use client";
 
+import { Building2 } from "lucide-react";
+import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { LogoutButton } from "@/features/auth/components/logout-button";
@@ -12,16 +14,39 @@ export interface MobileMoreDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   professionalName: string;
+  organizationName: string;
+  roleLabel: string;
+  canSwitchOrganization: boolean;
 }
 
 export function MobileMoreDrawer({
   open,
   onOpenChange,
   professionalName,
+  organizationName,
+  roleLabel,
+  canSwitchOrganization,
 }: MobileMoreDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent title="Mais" description={professionalName}>
+        <div className="mb-5 flex flex-col gap-1 rounded-2xl border border-border bg-cream/60 px-4 py-3">
+          <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Building2 className="size-4 shrink-0 text-sage-700" aria-hidden />
+            {organizationName}
+          </span>
+          <span className="text-xs text-muted-foreground">{roleLabel}</span>
+          {canSwitchOrganization ? (
+            <Link
+              href="/select-organization"
+              onClick={() => onOpenChange(false)}
+              className="mt-1 text-xs font-semibold text-sage-700 hover:text-primary"
+            >
+              Trocar consultório
+            </Link>
+          ) : null}
+        </div>
+
         <div className="flex flex-col gap-1">
           {MOBILE_MORE_NAV.map((item) => (
             <NavLink

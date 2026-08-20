@@ -14,10 +14,12 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:security": "vitest run --config vitest.security.config.ts",
     "test:e2e": "playwright test",
+    "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
     "scan:architecture": "vitest run tests/architecture",
     "scan:client-bundle": "node scripts/check-client-bundle-secrets.mjs",
-    "gate": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm scan:client-bundle"
+    "gate": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:security && pnpm build && pnpm scan:client-bundle"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -47,12 +49,14 @@
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.2",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "jsdom": "^25.0.1",
+    "pg": "^8.23.0",
     "supabase": "^2.40.7",
     "tailwindcss": "^4",
     "typescript": "^5",

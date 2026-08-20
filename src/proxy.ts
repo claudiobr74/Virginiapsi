@@ -2,7 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { parsePublicEnv } from "@/lib/env/schema";
 
-const PROTECTED_PREFIXES = ["/app", "/session"];
+const PROTECTED_PREFIXES = [
+  "/app",
+  "/session",
+  "/onboarding",
+  "/select-organization",
+];
 const AUTH_ONLY_WHEN_ANONYMOUS = ["/login"];
 
 export async function proxy(request: NextRequest) {

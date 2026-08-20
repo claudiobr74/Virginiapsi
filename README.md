@@ -109,10 +109,27 @@ pnpm dev          # http://localhost:3000
 pnpm lint
 pnpm typecheck
 pnpm test         # Vitest: env, arquitetura, contratos, componentes de UI
+pnpm test:security  # migrations + RLS contra PostgreSQL real (ver abaixo)
 pnpm build
 pnpm scan:client-bundle  # garante que nenhum segredo server-only vaza no bundle do client
-pnpm test:e2e     # Playwright: login, shell, dark mode, design system (desktop + mobile)
+pnpm test:e2e     # Playwright: login, shell, tenancy, dark mode, design system (desktop + mobile)
 ```
+
+### Suíte de segurança (RLS)
+
+`pnpm test:security` aplica as migrations e exercita as policies contra um PostgreSQL real. Não usa Docker: o harness (`tests/security/support/`) cria os papéis `anon`/`authenticated`/`service_role` e emula o schema `auth` do Supabase (`auth.users`, `auth.uid()`, `auth.jwt()`), do mesmo modo que o PostgREST faz depois de validar o JWT. As consultas nunca rodam como superusuário ou dono das tabelas — se rodassem, a RLS seria ignorada e os testes não provariam nada.
+
+Com PostgreSQL local (Ubuntu, sem Docker):
+
+```bash
+sudo apt-get install -y postgresql-16
+sudo pg_ctlcluster 16 main start
+sudo -u postgres psql -c "create role serenapsi_admin login password 'serenapsi' superuser createdb"
+sudo -u postgres createdb -O serenapsi_admin serenapsi_test
+pnpm test:security
+```
+
+Aponte para outra instância com `TEST_DATABASE_URL`. Na CI, o job usa o serviço `postgres:16`.
 
 Sem um projeto Supabase real ligado, o login autenticado do Playwright usa um stub local do Auth REST (`tests/e2e/support/auth-stub-server.mjs`), iniciado automaticamente pelo `playwright.config.ts`. Ele prova a navegação/gate do shell, não segurança de RLS/JWT — os testes adversariais de auth real acontecem no gate da Fase 2, contra um Supabase real.
 
@@ -123,7 +140,7 @@ pnpm exec supabase --version
 pnpm exec supabase start
 ```
 
-O gate base (`pnpm gate`) roda `lint && typecheck && test && build && scan:client-bundle`. `pnpm test:e2e` roda à parte. Não avance de fase sem o gate correspondente em PASS.
+O gate base (`pnpm gate`) roda `lint && typecheck && test && test:security && build && scan:client-bundle`. `pnpm test:e2e` roda à parte. Não avance de fase sem o gate correspondente em PASS.
 
 ## Fase 1 — Design system, auth e shell
 
@@ -136,3 +153,20 @@ Entregue nesta fase:
 - placeholders dos oito módulos, todos consumindo os primitivos canônicos.
 
 Fora de escopo, propositalmente: Google Calendar OAuth, RLS/multi-tenant (Fase 2), e qualquer dado clínico real.
+
+## Fase 2 — Tenancy, RBAC, RLS e auditoria
+
+Migration `supabase/migrations/*_tenancy_core.sql`: `organizations`, `organization_members`, `practice_settings` e `audit_events`, todas com RLS habilitada.
+
+Modelo de enforcement:
+- autorização vem sempre de uma membership ativa de `auth.uid()` — nunca de um `organization_id` enviado pelo cliente e nunca de `members[0]`;
+- helpers `is_org_member`, `has_org_role`, `is_psychologist_admin` e `secretary_finance_access` são `stable security definer` com `search_path` vazio, referências schema-qualified e `EXECUTE` apenas para `authenticated` (o `SECURITY DEFINER` é o que evita recursão de policy em `organization_members`);
+- `anon` não recebe GRANT nenhum nas tabelas de tenant, então a negação é dupla: privilégio e linha;
+- a secretaria não lê `practice_settings`, `audit_events` nem a equipe; o shell recebe apenas a projeção mínima de `public.organization_shell_settings()`;
+- `secretary_finance_access` (`none`/`view`/`manage`) é resolvido no banco, base para as policies financeiras da Fase 10;
+- `audit_events` é append-only: nenhum papel tem INSERT direto, UPDATE ou DELETE — a escrita passa por `public.log_audit_event()`, que força `actor_user_id = auth.uid()` e exige membership;
+- organizações nascem só por `public.bootstrap_organization()`, que cria organização + membership admin + settings + evento de auditoria numa transação, e a organização sempre mantém pelo menos uma psicóloga administradora ativa.
+
+Camada de aplicação: `requireOrgContext()` resolve a organização ativa (cookie é apenas contexto de navegação, sempre validado contra as memberships), `/onboarding` cria o primeiro consultório e `/select-organization` exige escolha explícita em caso de múltiplas memberships.
+
+Pendente de ambiente externo (`EXTERNAL_BLOCKED`), a endereçar quando houver um projeto Supabase real: policies de Storage (buckets privados), verificação com o GoTrue real emitindo/validando JWT, e `pnpm db:types` para gerar os tipos do banco (requer Docker).

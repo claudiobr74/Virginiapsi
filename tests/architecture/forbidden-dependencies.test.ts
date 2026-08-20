@@ -110,6 +110,24 @@ describe("arquitetura proibida", () => {
     expect(forbiddenPublic).toEqual([]);
   });
 
+  it("mantém o cliente service-role server-only e sem consumidores", () => {
+    const adminClientPath = path.join(ROOT, "src/lib/supabase/admin.ts");
+    const adminClient = readFileSync(adminClientPath, "utf8");
+    expect(adminClient).toMatch(/^import "server-only";/);
+
+    // A secret key contorna a RLS, então cada consumidor futuro precisa ser
+    // adicionado aqui de propósito — nunca por acidente de import.
+    const allowedImporters: string[] = [];
+    const importers = CODE_ROOTS.flatMap((dir) => walkFiles(path.join(ROOT, dir)))
+      .filter((file) => file !== adminClientPath)
+      .filter((file) =>
+        /from\s+["']@\/lib\/supabase\/admin["']/.test(readFileSync(file, "utf8")),
+      )
+      .map((file) => path.relative(ROOT, file));
+
+    expect(importers.sort()).toEqual(allowedImporters);
+  });
+
   it("preserva o arquivo oficial da logo sem alteração de bytes", () => {
     const logoPath = path.join(
       ROOT,
