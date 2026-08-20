@@ -1,18 +1,22 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { authorizeCaptureCapability } from "@/lib/consent/capability-gate";
+import {
+  authorizeCaptureCapability,
+  issueCaptureGrant,
+} from "@/lib/consent/capability-gate";
+import { CAPTURE_GRANT_TTL_MS } from "@/lib/consent/capture-grant";
 
-const bodySchema = z.object({ patientId: z.string().uuid() });
+const bodySchema = z.object({
+  patientId: z.string().uuid(),
+  sessionId: z.string().uuid(),
+});
 
 /**
  * Session capture grant — authorizes activating the microphone for on-device
- * transcription (docs/22-transcription-provider-decision.md).
- *
- * Phase 5.5 delivers the *gate*: no capture is authorized without a valid
- * recording + transcription ConsentState. Issuing the signed, short-lived
- * grant (and the persistence check that rejects transcript segments without
- * it) is Phase 6 — until then the allowed branch reports 501 rather than
- * handing out a grant that nothing yet verifies.
+ * transcription (docs/22-transcription-provider-decision.md). The browser
+ * requests this once per active session, before loading the local
+ * transcription model, and includes the token on every transcript-segment
+ * persistence call.
  */
 export async function POST(request: NextRequest) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
@@ -22,6 +26,7 @@ export async function POST(request: NextRequest) {
 
   const gate = await authorizeCaptureCapability(
     parsed.data.patientId,
+    parsed.data.sessionId,
     "session_capture_grant",
   );
 
@@ -32,12 +37,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json(
-    {
-      error: "capability_pending_phase_6",
-      message:
-        "Consentimento válido. A emissão do grant de captura é implementada na Fase 6.",
-    },
-    { status: 501 },
-  );
+  const token = issueCaptureGrant(gate, "session_capture_grant");
+  return NextResponse.json({
+    grant: token,
+    expiresInMs: CAPTURE_GRANT_TTL_MS,
+  });
 }

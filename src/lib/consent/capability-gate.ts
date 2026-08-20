@@ -8,41 +8,76 @@ import {
   type ConsentState,
 } from "@/features/consents/contracts";
 import { resolveConsentState } from "@/features/consents/queries";
+import {
+  signCaptureGrant,
+  verifyCaptureGrant,
+  type VerifyCaptureGrantExpectedScope,
+  type VerifyCaptureGrantResult,
+} from "@/lib/consent/capture-grant";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
+import { getServerEnv } from "@/lib/env/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface CapabilityGrant {
   allowed: true;
   organizationId: string;
   patientId: string;
+  sessionId: string;
   state: ConsentState;
 }
 
 export interface CapabilityDenial {
   allowed: false;
-  status: 403;
-  reason: ConsentDenialReason | "forbidden_role";
+  status: 403 | 404;
+  reason: ConsentDenialReason | "forbidden_role" | "session_not_found";
   message: string;
 }
 
 export type CapabilityGateResult = CapabilityGrant | CapabilityDenial;
+
+const NON_CONSENT_MESSAGES = {
+  forbidden_role: "Somente a psicóloga administradora conduz sessão clínica.",
+  session_not_found: "Sessão clínica não encontrada para este paciente.",
+} as const;
+
+async function sessionBelongsToPatient(
+  organizationId: string,
+  sessionId: string,
+  patientId: string,
+): Promise<boolean> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("clinical_sessions")
+    .select("id, organization_id, patient_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  return Boolean(
+    data &&
+      data.organization_id === organizationId &&
+      data.patient_id === patientId,
+  );
+}
 
 /**
  * The single chokepoint every audio-capture capability must pass through: the
  * session capture grant (which authorizes activating the microphone for
  * on-device transcription) and the fallback signed upload grant both call this
  * before anything is issued (docs/03-architecture.md §Clinical AI boundary;
- * docs/08-implementation-phases.md Fase 5.5;
+ * docs/08-implementation-phases.md Fase 5.5/6;
  * docs/22-transcription-provider-decision.md).
  *
  * It fails closed on every unknown: missing consent, revoked consent, missing
- * birth date, minor without guardian authorization/assent, or a role that is
- * not allowed to run a clinical session. No microphone is activated, no
+ * birth date, minor without guardian authorization/assent, a role that is not
+ * allowed to run a clinical session, or a session that does not actually
+ * belong to the given patient/organization. No microphone is activated, no
  * provider is contacted and no signed grant is minted before this returns
  * `allowed: true`.
  */
 export async function authorizeCaptureCapability(
   patientId: string,
+  sessionId: string,
   capability: CaptureCapability,
 ): Promise<CapabilityGateResult> {
   const { organizationId, role } = await requireOrgContext();
@@ -52,7 +87,16 @@ export async function authorizeCaptureCapability(
       allowed: false,
       status: 403,
       reason: "forbidden_role",
-      message: "Somente a psicóloga administradora conduz sessão clínica.",
+      message: NON_CONSENT_MESSAGES.forbidden_role,
+    };
+  }
+
+  if (!(await sessionBelongsToPatient(organizationId, sessionId, patientId))) {
+    return {
+      allowed: false,
+      status: 404,
+      reason: "session_not_found",
+      message: NON_CONSENT_MESSAGES.session_not_found,
     };
   }
 
@@ -68,7 +112,7 @@ export async function authorizeCaptureCapability(
       action: "capture_capability.denied",
       resourceType: "consent",
       resourceId: patientId,
-      metadata: { capability, reason },
+      metadata: { capability, reason, sessionId },
     });
 
     return {
@@ -83,6 +127,44 @@ export async function authorizeCaptureCapability(
     allowed: true,
     organizationId,
     patientId,
+    sessionId,
     state: resolution.state,
   };
+}
+
+/**
+ * Mints the signed grant token once `authorizeCaptureCapability()` has
+ * already returned `allowed: true`. Kept as a separate step (rather than
+ * folded into the gate) so the gate's audited denial path never needs to
+ * touch the signing secret.
+ */
+export function issueCaptureGrant(
+  grant: CapabilityGrant,
+  capability: CaptureCapability,
+): string {
+  const env = getServerEnv();
+  return signCaptureGrant(
+    {
+      organizationId: grant.organizationId,
+      patientId: grant.patientId,
+      sessionId: grant.sessionId,
+      capability,
+    },
+    env.SESSION_CAPTURE_SECRET,
+  );
+}
+
+/**
+ * This is the actual server-side enforcement point for the local
+ * transcription path: since the server never sees the on-device audio, a
+ * transcript segment is only ever persisted if it carries a grant that
+ * verifies against this scope (docs/22-transcription-provider-decision.md
+ * §5 "Enforcement server-side no caminho local").
+ */
+export function verifyCaptureGrantToken(
+  token: string,
+  expectedScope: VerifyCaptureGrantExpectedScope,
+): VerifyCaptureGrantResult {
+  const env = getServerEnv();
+  return verifyCaptureGrant(token, env.SESSION_CAPTURE_SECRET, expectedScope);
 }

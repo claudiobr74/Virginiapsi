@@ -22,6 +22,10 @@ GOOGLE_CLIENT_SECRET=
 GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/api/integrations/google/callback
 GOOGLE_TOKEN_ENCRYPTION_KEY=
 
+# Assina o session_capture_grant e o audio_fallback_upload_grant (Fase 6).
+# Segredo dedicado — nunca reutilizar GOOGLE_TOKEN_ENCRYPTION_KEY aqui.
+SESSION_CAPTURE_SECRET=
+
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_WHATSAPP_FROM=

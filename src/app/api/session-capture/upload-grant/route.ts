@@ -1,8 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { authorizeCaptureCapability } from "@/lib/consent/capability-gate";
+import { createFallbackUploadGrant } from "@/lib/integrations/transcription/fallback-storage";
 
-const bodySchema = z.object({ patientId: z.string().uuid() });
+const bodySchema = z.object({
+  patientId: z.string().uuid(),
+  sessionId: z.string().uuid(),
+});
 
 /**
  * Signed upload grant for the optional audio fallback. It runs the *same*
@@ -10,10 +14,9 @@ const bodySchema = z.object({ patientId: z.string().uuid() });
  * never accept an upload authorized only by membership
  * (docs/05-security-rbac-rls.md §Áudio/transcrição).
  *
- * This path only exists for organizations that explicitly enable the fallback;
- * with it disabled the session proceeds without transcription rather than
- * shipping clinical audio out. Phase 5.5 delivers the denial path; minting the
- * signed grant against Storage is Phase 6.
+ * This path only exists for organizations that explicitly enable the
+ * fallback; with it disabled the session proceeds without transcription
+ * rather than shipping clinical audio out.
  */
 export async function POST(request: NextRequest) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
@@ -23,6 +26,7 @@ export async function POST(request: NextRequest) {
 
   const gate = await authorizeCaptureCapability(
     parsed.data.patientId,
+    parsed.data.sessionId,
     "audio_fallback_upload_grant",
   );
 
@@ -33,12 +37,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json(
-    {
-      error: "capability_pending_phase_6",
-      message:
-        "Consentimento válido. A emissão do signed upload grant é implementada na Fase 6.",
-    },
-    { status: 501 },
-  );
+  try {
+    const grant = await createFallbackUploadGrant(gate.organizationId, gate.sessionId);
+    return NextResponse.json(grant);
+  } catch {
+    return NextResponse.json(
+      { error: "upload_grant_failed", message: "Não foi possível preparar o upload agora." },
+      { status: 500 },
+    );
+  }
 }

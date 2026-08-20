@@ -23,6 +23,7 @@ const validServer = {
   GOOGLE_OAUTH_REDIRECT_URI:
     "http://localhost:3000/api/integrations/google/callback",
   GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key-placeholder",
+  SESSION_CAPTURE_SECRET: "session-capture-secret-placeholder",
   TWILIO_ACCOUNT_SID: "AC00000000000000000000000000000000",
   TWILIO_AUTH_TOKEN: "twilio-auth-token",
   TWILIO_WHATSAPP_FROM: "whatsapp:+5500000000000",

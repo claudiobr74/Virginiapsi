@@ -22,8 +22,9 @@ APIs/integration boundaries sugeridos:
 - `/api/integrations/google/calendars`
 - `/api/integrations/google/sync`
 - `/api/session-capture/grant`
+- `/api/session-capture/segment` (persiste um segmento final de transcrição; recusa sem grant válido)
 - `/api/session-capture/upload-grant`
-- `/api/session-capture/transcribe` (fallback server-side)
+- `/api/session-capture/transcribe` (fallback server-side, via Groq)
 - `/api/integrations/twilio/send`
 - `/api/webhooks/twilio/status`
 - `/api/webhooks/twilio/inbound`

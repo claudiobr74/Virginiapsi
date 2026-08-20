@@ -117,7 +117,18 @@ describe("arquitetura proibida", () => {
 
     // A secret key contorna a RLS, então cada consumidor futuro precisa ser
     // adicionado aqui de propósito — nunca por acidente de import.
-    const allowedImporters: string[] = [];
+    //
+    // src/lib/integrations/transcription/fallback-storage.ts e
+    // src/app/api/session-capture/transcribe/route.ts: o bucket
+    // session-audio-fallback não tem nenhum GRANT para anon/authenticated em
+    // storage.objects (docs/05-security-rbac-rls.md) — a única forma de
+    // emitir o signed upload URL ou baixar o áudio para mandar ao Groq é o
+    // client de service-role, e isso só acontece depois do mesmo consent
+    // gate do grant de captura local, com o path validado contra a sessão.
+    const allowedImporters: string[] = [
+      "src/app/api/session-capture/transcribe/route.ts",
+      "src/lib/integrations/transcription/fallback-storage.ts",
+    ];
     const importers = CODE_ROOTS.flatMap((dir) => walkFiles(path.join(ROOT, dir)))
       .filter((file) => file !== adminClientPath)
       .filter((file) =>
@@ -129,9 +140,12 @@ describe("arquitetura proibida", () => {
   });
 
   it("toda rota de capability de captura passa pelo consent gate", () => {
-    // Phase 5.5 invariant: no audio-capture capability may be issued without
-    // going through authorizeCaptureCapability(). A new route added under
-    // this folder that forgets the gate fails here, not in review.
+    // Phase 5.5/6 invariant: no audio-capture capability may be issued, and
+    // no transcript segment may be persisted, without going through the
+    // consent-gate machinery — either issuing a grant
+    // (authorizeCaptureCapability) or verifying one already issued
+    // (verifyCaptureGrantToken). A new route added under this folder that
+    // forgets both fails here, not in review.
     const captureRoutes = walkFiles(
       path.join(ROOT, "src/app/api/session-capture"),
     ).filter((file) => file.endsWith("route.ts"));
@@ -141,7 +155,8 @@ describe("arquitetura proibida", () => {
     for (const file of captureRoutes) {
       const source = readFileSync(file, "utf8");
       expect(
-        source.includes("authorizeCaptureCapability"),
+        source.includes("authorizeCaptureCapability") ||
+          source.includes("verifyCaptureGrantToken"),
         `${path.relative(ROOT, file)} não chama o consent gate`,
       ).toBe(true);
     }

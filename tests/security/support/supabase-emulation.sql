@@ -52,3 +52,34 @@ as $$
 $$;
 
 grant usage on schema auth to anon, authenticated, service_role;
+
+-- Minimal emulation of Supabase Storage's schema, just enough for a
+-- project migration to `insert into storage.buckets` and, if it chooses to,
+-- add RLS policies on `storage.objects`. Real Supabase manages this schema
+-- itself; this harness only needs it to exist so bucket-creation statements
+-- in project migrations do not fail against a bare PostgreSQL instance.
+create schema if not exists storage;
+
+create table if not exists storage.buckets (
+  id text primary key,
+  name text not null,
+  public boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists storage.objects (
+  id uuid primary key default gen_random_uuid(),
+  bucket_id text references storage.buckets (id),
+  name text,
+  owner uuid,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+grant usage on schema storage to anon, authenticated, service_role;
+grant select on storage.buckets to anon, authenticated, service_role;
+-- No default grant on storage.objects: matches real Supabase, where all
+-- object access is governed by RLS policies the project adds explicitly.
+alter table storage.objects enable row level security;
