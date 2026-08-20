@@ -52,16 +52,32 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref,
   ) => {
     const Comp = asChild ? Slot : "button";
+
+    // Radix Slot requires exactly one React element child to merge props
+    // onto. isLoading's spinner is only meaningful for a real <button> — an
+    // asChild caller (e.g. wrapping a Link) owns its own content, so we pass
+    // its single child through untouched instead of adding a sibling node.
+    const content = asChild ? (
+      children
+    ) : (
+      <>
+        {isLoading ? (
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+        ) : null}
+        {children}
+      </>
+    );
+
     return (
       <Comp
         ref={ref}
         className={cn(buttonVariants({ variant, size }), className)}
-        disabled={disabled || isLoading}
-        aria-busy={isLoading || undefined}
+        {...(asChild
+          ? {}
+          : { disabled: disabled || isLoading, "aria-busy": isLoading || undefined })}
         {...props}
       >
-        {isLoading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-        {children}
+        {content}
       </Comp>
     );
   },

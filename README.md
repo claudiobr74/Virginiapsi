@@ -170,3 +170,21 @@ Modelo de enforcement:
 Camada de aplicação: `requireOrgContext()` resolve a organização ativa (cookie é apenas contexto de navegação, sempre validado contra as memberships), `/onboarding` cria o primeiro consultório e `/select-organization` exige escolha explícita em caso de múltiplas memberships.
 
 Pendente de ambiente externo (`EXTERNAL_BLOCKED`), a endereçar quando houver um projeto Supabase real: policies de Storage (buckets privados), verificação com o GoTrue real emitindo/validando JWT, e `pnpm db:types` para gerar os tipos do banco (requer Docker).
+
+## Fase 3 — Pacientes
+
+Migration `supabase/migrations/*_patients.sql`: `patients` (administrativo, sem nenhum campo clínico) e `patient_clinical_profile` (somente psicóloga administradora), mais `patient_code_counters` para o código público.
+
+- `public_code` (`PAC-001`, `PAC-002`, ...) é atribuído por um trigger `BEFORE INSERT` que chama uma função `SECURITY DEFINER` com `INSERT ... ON CONFLICT ... DO UPDATE ... RETURNING` — o incremento e a inserção do paciente acontecem na mesma transação, então nunca há uma corrida entre "ler o próximo código" e "gravar o paciente". Um valor de `public_code` enviado pelo cliente é sempre descartado; o código é imutável após a criação (trigger `BEFORE UPDATE` dedicado).
+- `patients` tem a mesma policy de RLS para `psychologist_admin` e `secretary` (CRUD, sem DELETE físico) — a separação de acesso clínico não é feita por coluna nesta tabela porque ela **não tem nenhum campo clínico**; todo conteúdo clínico vive em `patient_clinical_profile`, que só tem policy para `psychologist_admin`, sem exceção.
+- `elimination_status` só muda por `psychologist_admin`, mesmo a secretaria tendo UPDATE geral em `patients` — via trigger dedicado, não apenas RLS.
+- `responsible_psychologist_user_id` é validado por trigger contra `organization_members` (precisa ser `psychologist_admin` ativo da mesma organização).
+- `organization_id` de `patient_clinical_profile` é sempre derivado do paciente por trigger, nunca aceito do cliente — mesmo se a RLS de `patients` autorizasse a escrita, não dá para apontar o perfil clínico para outro tenant.
+
+Camada de aplicação: `getPatientClinicalProfile()` só é chamada quando `role === "psychologist_admin"` — o Patient Hub nunca dispara essa query para a secretaria, então a seção "Acompanhamento" não existe no DOM (não é CSS escondendo). O DTO administrativo da secretaria é o mesmo `PatientRow` usado pela psicóloga, porque a tabela `patients` já nasceu sem campo clínico.
+
+Testes: 14 novos testes de RLS (CRUD por papel, DELETE físico negado para todos, isolamento entre tenants, `elimination_status` restrito a admin, validação do `responsible_psychologist_user_id`, `patient_clinical_profile` negado à secretaria mesmo por ID direto e mesmo tentando forjar `organization_id`) e um bloco dedicado de concorrência do `public_code` (código do cliente descartado, imutabilidade, duas organizações com `PAC-001` independentes, 25 inserções concorrentes na mesma organização sem duplicidade). Mais 12 testes E2E (lista, busca, cadastro em 4 seções, Patient Hub, isolamento clínico da secretaria com captura de rede, arquivamento com confirmação).
+
+UI: lista com busca e filtros por situação, cadastro/edição em 4 seções (Identificação; Contato & Responsáveis; Atendimento & Situação; Financeiro & Termos), Patient Hub com "Dados do Paciente" e "Acompanhamento" (admin) mais estados vazios para as seções que chegam em fases futuras (Adesão & Planos — Fase 10, Pendências — Fase 5, Prontuário — Fase 6, Documentos e TCLE — Fase 9, Extrato Financeiro — Fase 10).
+
+Durante a fase corrigimos também um bug de regressão no primitivo `Button`: `asChild` quebrava com o Radix `Slot` sempre que `isLoading` era `false`, porque o spinner condicional virava um segundo nó filho mesmo renderizando `null`. Guardado por teste de unidade (`tests/components/button.test.tsx`).

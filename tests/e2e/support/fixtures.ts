@@ -26,6 +26,12 @@ export const STUB_MULTI_ORG_USER = {
   organizations: ["Clínica Aurora", "Espaço Bem-Viver"],
 };
 
+/** Secretary of STUB_USER's organization — for role-isolation E2E checks. */
+export const STUB_SECRETARY = {
+  email: "secretaria@serenapsi.test",
+  password: PASSWORD,
+};
+
 export async function signIn(
   page: Page,
   credentials: { email: string; password: string },

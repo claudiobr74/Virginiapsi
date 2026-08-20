@@ -36,4 +36,30 @@ describe("Button", () => {
       "bg-failed",
     );
   });
+
+  it("asChild funde as props num único elemento filho (regressão do Radix Slot)", () => {
+    // Slot exige exatamente um elemento React filho. Um bug aqui já quebrou
+    // toda tela que usa <Button asChild><Link>...</Link></Button>.
+    render(
+      <Button asChild>
+        <a href="/destino">Ir</a>
+      </Button>,
+    );
+
+    const link = screen.getByRole("link", { name: "Ir" });
+    expect(link).toHaveAttribute("href", "/destino");
+    expect(link.tagName).toBe("A");
+    expect(link).toHaveClass("bg-primary");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("asChild com isLoading não injeta um spinner extra no filho", () => {
+    render(
+      <Button asChild isLoading>
+        <a href="/destino">Ir</a>
+      </Button>,
+    );
+
+    expect(screen.getByRole("link", { name: "Ir" })).toBeInTheDocument();
+  });
 });
