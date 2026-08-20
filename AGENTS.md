@@ -21,6 +21,16 @@ Use `preimplementation-auditor` with `CLAUDE_PRE_IMPLEMENTATION_REVIEW_PROMPT.md
 
 Use `docs/13-agent-orchestration.md`. Do not invoke all subagents by default; choose the smallest relevant specialist set and always finish accepted phases with `verifier`.
 
+## Cursor Cloud specific instructions
+
+Node 22 and pnpm 10 are preinstalled; the startup update script runs `pnpm install`. Standard commands live in `package.json` `scripts` and the README "Execução local" section — use those rather than reinventing them (`pnpm dev`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm gate`, `pnpm test:e2e`).
+
+Non-obvious caveats for running/testing here:
+
+- `.env.local` is gitignored and is NOT recreated by the update script, so it is absent on a fresh VM. Create it before `pnpm dev`/`pnpm build` (both boot-validate the public env via Zod and fail loudly if it is missing). The three placeholder public vars from `.env.example` are enough to boot: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (must start with `sb_publishable_`), `NEXT_PUBLIC_APP_URL`. `pnpm lint`/`pnpm typecheck`/`pnpm test` do not need it.
+- There is no real Supabase in this environment (local Supabase needs Docker, which is not installed) and there are no product migrations yet (Phase 2). To exercise the real login → shell flow in a browser without Docker, run the repo's Supabase Auth stub and point the dev server at it: start `node tests/e2e/support/auth-stub-server.mjs` (listens on `:54331`), then run `pnpm dev` with `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54331` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_local_dev` (inline env overrides `.env.local`). Stub credentials are `psicologa@serenapsi.test` / `SerenaPsi#2026`. The stub proves navigation/gate flows only, never RLS/JWT security.
+- `pnpm test:e2e` is self-contained: `playwright.config.ts` auto-starts both the auth stub and the dev server, so do not start them yourself first. It requires Playwright browsers, which are not part of `pnpm install`; install them on demand with `pnpm exec playwright install --with-deps chromium`.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
