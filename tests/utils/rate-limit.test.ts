@@ -7,7 +7,7 @@ import {
 
 describe("sliding window rate limiter", () => {
   it("aceita até o limite e recusa o excedente na mesma janela", () => {
-    let now = 1_000_000;
+    const now = 1_000_000;
     const limiter = createSlidingWindowLimiter({
       limit: 3,
       windowMs: 60_000,
