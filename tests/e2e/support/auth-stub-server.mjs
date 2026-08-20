@@ -162,6 +162,21 @@ for (const name of ["Sessão Um", "Sessão Dois", "Sessão Tres", "Sessão Quatr
   });
 }
 
+// Dedicated patients for the Fase 9 Documents/Attachments/TCLE E2E.
+for (const name of [
+  "Documentos Um",
+  "Documentos Dois",
+  "Documentos Tres",
+  "Documentos Quatro",
+  "TCLE Um",
+]) {
+  seedPatient(ADMIN_ORG_ID, {
+    preferred_name: name,
+    full_name: `${name} Paciente`,
+    birth_date: "1988-06-15",
+  });
+}
+
 // Dedicated patients for the Fase 7 Supervisor E2E.
 for (const name of ["Supervisor Um", "Supervisor Dois", "Supervisor Tres"]) {
   seedPatient(ADMIN_ORG_ID, {
@@ -217,6 +232,25 @@ const knowledgeSourcesByOrg = new Map();
 const knowledgeDocumentsByOrg = new Map();
 /** organizationId -> Map<chunkId, row> */
 const knowledgeChunksByOrg = new Map();
+/** organizationId -> Map<templateId, row> */
+const documentTemplatesByOrg = new Map();
+/** organizationId -> Map<documentId, row> */
+const documentsByOrg = new Map();
+/** organizationId -> Map<versionId, row> */
+const documentVersionsByOrg = new Map();
+/** organizationId -> Map<fileId, row> */
+const documentFilesByOrg = new Map();
+/** organizationId -> Map<attachmentId, row> */
+const patientAttachmentsByOrg = new Map();
+/** organizationId -> Map<fileId, row> */
+const consentFilesByOrg = new Map();
+
+const FORCED_CLINICAL_KINDS = new Set(["laudo", "relatorio", "atestado", "encaminhamento"]);
+const FORCED_ADMINISTRATIVE_KINDS = new Set(["recibo"]);
+
+function isSensitivityVisible(role, sensitivity) {
+  return role === "psychologist_admin" || sensitivity === "administrative";
+}
 
 /**
  * Mirrors every clinical_sessions/session_dpep/session_clinical_working_notes
@@ -441,6 +475,14 @@ function applyOrder(rows, searchParams) {
   return direction === "desc" ? sorted.reverse() : sorted;
 }
 
+function applyLimit(rows, searchParams) {
+  const raw = searchParams.get("limit");
+  if (!raw) return rows;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 0) return rows;
+  return rows.slice(0, n);
+}
+
 function embedAppointmentRelations(row, select) {
   if (!select || !select.includes("patients(") || !row.patient_id) {
     return row;
@@ -475,11 +517,40 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // ------------------------------------------------- Storage (Fase 8) ---
-  // Minimal stand-in for POST /storage/v1/object/{bucket}/{path...} — just
-  // enough to exercise the upload UI flow end to end. It does not persist
-  // bytes or replicate Storage RLS; that boundary is covered by
-  // tests/security/knowledge.test.ts against real PostgreSQL.
+  // ------------------------------------------- Storage (Fase 8/9) ---
+  // Minimal stand-ins for the Storage endpoints the admin/browser clients
+  // call — just enough to exercise upload/download UI flows end to end.
+  // They do not persist bytes or replicate Storage RLS; that boundary is
+  // covered by tests/security/*.test.ts against real PostgreSQL.
+  if (pathname.startsWith("/storage/v1/object/upload/sign/") && req.method === "POST") {
+    const objectPath = pathname.replace("/storage/v1/object/upload/sign/", "");
+    await readBody(req);
+    json(res, 200, {
+      url: `/object/upload/sign/${objectPath}?token=fake-upload-token`,
+      token: "fake-upload-token",
+    });
+    return;
+  }
+
+  // uploadToSignedUrl() PUTs the actual bytes here (create-signed-url above
+  // is a separate POST) — different HTTP method on the same path prefix.
+  if (pathname.startsWith("/storage/v1/object/upload/sign/") && req.method === "PUT") {
+    const objectPath = pathname.replace("/storage/v1/object/upload/sign/", "");
+    await new Promise((resolve) => {
+      req.on("data", () => {});
+      req.on("end", resolve);
+    });
+    json(res, 200, { Key: objectPath });
+    return;
+  }
+
+  if (pathname.startsWith("/storage/v1/object/sign/") && req.method === "POST") {
+    const objectPath = pathname.replace("/storage/v1/object/sign/", "");
+    await readBody(req);
+    json(res, 200, { signedURL: `/object/sign/${objectPath}?token=fake-download-token` });
+    return;
+  }
+
   if (pathname.startsWith("/storage/v1/object/") && req.method === "POST") {
     await new Promise((resolve) => {
       req.on("data", () => {});
@@ -487,6 +558,12 @@ const server = createServer(async (req, res) => {
     });
     const objectPath = pathname.replace("/storage/v1/object/", "");
     json(res, 200, { Id: randomUUID(), Key: objectPath });
+    return;
+  }
+
+  if (pathname.startsWith("/storage/v1/object/") && req.method === "DELETE") {
+    await readBody(req);
+    json(res, 200, []);
     return;
   }
 
@@ -1906,6 +1983,335 @@ const server = createServer(async (req, res) => {
     const rowsIn = Array.isArray(body) ? body : [body];
     json(res, 201, wantsSingleObject(req) ? rowsIn[0] : rowsIn);
     return;
+  }
+
+  // -------------------------------------------------- Fase 9: Documentos ---
+  if (pathname === "/rest/v1/document_templates" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const role = organizationId ? membershipRole(user.id, organizationId) : null;
+    if (!organizationId || !role) return json(res, 200, []);
+    const rows = [...(documentTemplatesByOrg.get(organizationId)?.values() ?? [])].filter(
+      (row) => matchesFilters(row, searchParams) && isSensitivityVisible(role, row.default_sensitivity),
+    );
+    return json(res, 200, applyOrder(rows, searchParams));
+  }
+
+  if (pathname === "/rest/v1/document_templates" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const now = new Date().toISOString();
+    const row = {
+      id: randomUUID(),
+      organization_id: body.organization_id,
+      name: body.name,
+      document_kind: body.document_kind,
+      default_sensitivity: body.default_sensitivity,
+      body_template: body.body_template ?? "",
+      active: true,
+      created_by: user.id,
+      created_at: now,
+      updated_at: now,
+    };
+    getOrCreateOrgMap(documentTemplatesByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/documents" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+
+    let rows = [];
+    if (idFilter) {
+      const row = findAdminScopedRow(documentsByOrg, user.id, (r) => r.id === idFilter);
+      const role = row ? membershipRole(user.id, row.organization_id) : null;
+      rows = row && (role === "psychologist_admin" || isSensitivityVisible(role, row.sensitivity))
+        ? [row]
+        : [];
+      // findAdminScopedRow already restricts to admin; also allow secretary
+      // for administrative-sensitivity rows explicitly.
+      if (!row) {
+        for (const [orgId, table] of documentsByOrg.entries()) {
+          const secretaryRole = membershipRole(user.id, orgId);
+          if (!secretaryRole) continue;
+          const candidate = table.get(idFilter);
+          if (candidate && isSensitivityVisible(secretaryRole, candidate.sensitivity)) {
+            rows = [candidate];
+          }
+        }
+      }
+    } else if (organizationId) {
+      const role = membershipRole(user.id, organizationId);
+      if (role) {
+        rows = applyOrder(
+          [...(documentsByOrg.get(organizationId)?.values() ?? [])].filter(
+            (row) => matchesFilters(row, searchParams) && isSensitivityVisible(role, row.sensitivity),
+          ),
+          searchParams,
+        );
+      }
+    }
+
+    if (wantsSingleObject(req)) {
+      if (rows.length !== 1) {
+        return json(res, 406, {
+          code: "PGRST116",
+          message: "JSON object requested, multiple (or no) rows returned",
+          details: rows.length === 0 ? "Results contain 0 rows" : "Results contain multiple rows",
+        });
+      }
+      return json(res, 200, rows[0]);
+    }
+    return json(res, 200, applyLimit(rows, searchParams));
+  }
+
+  if (pathname === "/rest/v1/documents" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const role = membershipRole(user.id, body.organization_id);
+    let sensitivity = body.sensitivity;
+    if (FORCED_CLINICAL_KINDS.has(body.document_kind)) sensitivity = "clinical";
+    if (FORCED_ADMINISTRATIVE_KINDS.has(body.document_kind)) sensitivity = "administrative";
+    if (!role || !isSensitivityVisible(role, sensitivity)) {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const now = new Date().toISOString();
+    const row = {
+      id: randomUUID(),
+      organization_id: body.organization_id,
+      patient_id: body.patient_id ?? null,
+      template_id: body.template_id ?? null,
+      title: body.title,
+      document_kind: body.document_kind,
+      sensitivity,
+      status: "draft",
+      current_version: 1,
+      created_by: user.id,
+      issued_at: null,
+      canceled_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+    getOrCreateOrgMap(documentsByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/documents" && (req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    let row = null;
+    for (const table of documentsByOrg.values()) {
+      if (table.has(idFilter)) {
+        row = table.get(idFilter);
+        break;
+      }
+    }
+    const role = row ? membershipRole(user.id, row.organization_id) : null;
+    if (!row || !role || !isSensitivityVisible(role, row.sensitivity)) {
+      return json(res, 200, wantsSingleObject(req) ? null : []);
+    }
+    Object.assign(row, body, { id: row.id, organization_id: row.organization_id, sensitivity: row.sensitivity });
+    row.updated_at = new Date().toISOString();
+    return json(res, 200, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_versions" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const documentId = parseEqFilter(searchParams.get("document_id"));
+    let parentDoc = null;
+    for (const table of documentsByOrg.values()) {
+      if (table.has(documentId)) {
+        parentDoc = table.get(documentId);
+        break;
+      }
+    }
+    const role = parentDoc ? membershipRole(user.id, parentDoc.organization_id) : null;
+    if (!parentDoc || !role || !isSensitivityVisible(role, parentDoc.sensitivity)) {
+      return json(res, 200, []);
+    }
+    const rows = [...(documentVersionsByOrg.get(parentDoc.organization_id)?.values() ?? [])].filter(
+      (row) => row.document_id === documentId,
+    );
+    return json(res, 200, applyOrder(rows, searchParams));
+  }
+
+  if (pathname === "/rest/v1/document_versions" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    let parentDoc = null;
+    for (const table of documentsByOrg.values()) {
+      if (table.has(body.document_id)) {
+        parentDoc = table.get(body.document_id);
+        break;
+      }
+    }
+    const role = parentDoc ? membershipRole(user.id, parentDoc.organization_id) : null;
+    if (!parentDoc || !role || !isSensitivityVisible(role, parentDoc.sensitivity)) {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const row = {
+      id: randomUUID(),
+      document_id: body.document_id,
+      organization_id: body.organization_id,
+      version: body.version,
+      body_snapshot: body.body_snapshot,
+      variables_snapshot: body.variables_snapshot ?? {},
+      created_by: user.id,
+      created_at: new Date().toISOString(),
+    };
+    getOrCreateOrgMap(documentVersionsByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_files" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const versionIdFilter = parseEqFilter(searchParams.get("document_version_id"));
+    let match = null;
+    for (const table of documentFilesByOrg.values()) {
+      for (const row of table.values()) {
+        if (row.document_version_id === versionIdFilter) match = row;
+      }
+    }
+    if (wantsSingleObject(req)) {
+      if (!match) {
+        return json(res, 406, {
+          code: "PGRST116",
+          message: "JSON object requested, multiple (or no) rows returned",
+          details: "Results contain 0 rows",
+        });
+      }
+      return json(res, 200, match);
+    }
+    return json(res, 200, match ? [match] : []);
+  }
+
+  if (pathname === "/rest/v1/document_files" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const row = {
+      id: randomUUID(),
+      mime_type: "application/pdf",
+      generated_at: new Date().toISOString(),
+      ...body,
+    };
+    getOrCreateOrgMap(documentFilesByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/patient_attachments" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const role = organizationId ? membershipRole(user.id, organizationId) : null;
+    if (!organizationId || !role) return json(res, 200, []);
+    const rows = applyOrder(
+      [...(patientAttachmentsByOrg.get(organizationId)?.values() ?? [])].filter(
+        (row) => matchesFilters(row, searchParams) && isSensitivityVisible(role, row.sensitivity),
+      ),
+      searchParams,
+    );
+    return json(res, 200, rows);
+  }
+
+  if (pathname === "/rest/v1/patient_attachments" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const role = membershipRole(user.id, body.organization_id);
+    if (!role || !isSensitivityVisible(role, body.sensitivity)) {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const row = {
+      id: randomUUID(),
+      organization_id: body.organization_id,
+      patient_id: body.patient_id,
+      sensitivity: body.sensitivity,
+      title: body.title,
+      storage_path: body.storage_path,
+      mime_type: body.mime_type,
+      byte_size: body.byte_size,
+      sha256: body.sha256,
+      uploaded_by: user.id,
+      created_at: new Date().toISOString(),
+    };
+    getOrCreateOrgMap(patientAttachmentsByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/patient_attachments" && req.method === "DELETE") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    for (const table of patientAttachmentsByOrg.values()) {
+      if (table.has(idFilter)) {
+        table.delete(idFilter);
+        break;
+      }
+    }
+    return json(res, 200, []);
+  }
+
+  if (pathname === "/rest/v1/consent_files" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const consentIdFilter = parseEqFilter(searchParams.get("consent_id"));
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    let rows = [];
+    for (const [orgId, table] of consentFilesByOrg.entries()) {
+      const role = membershipRole(user.id, orgId);
+      if (!role) continue;
+      for (const row of table.values()) {
+        if (consentIdFilter && row.consent_id !== consentIdFilter) continue;
+        if (organizationId && row.organization_id !== organizationId) continue;
+        // Mirrors the consent_files_select policy: admin sees all, others
+        // only administrative-type consents.
+        const consent = [...consentsByOrg.get(orgId)?.values() ?? []].find(
+          (c) => c.id === row.consent_id,
+        );
+        const isAdministrative = consent && ADMINISTRATIVE_CONSENT_TYPES.has(consent.type);
+        if (role === "psychologist_admin" || isAdministrative) {
+          rows.push(row);
+        }
+      }
+    }
+    rows = applyOrder(rows, searchParams);
+    if (wantsSingleObject(req)) {
+      if (rows.length !== 1) {
+        return json(res, 406, {
+          code: "PGRST116",
+          message: "JSON object requested, multiple (or no) rows returned",
+          details: rows.length === 0 ? "Results contain 0 rows" : "Results contain multiple rows",
+        });
+      }
+      return json(res, 200, rows[0]);
+    }
+    return json(res, 200, rows);
+  }
+
+  if (pathname === "/rest/v1/consent_files" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const row = { id: randomUUID(), generated_at: new Date().toISOString(), ...body };
+    getOrCreateOrgMap(consentFilesByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
   }
 
   json(res, 404, { msg: "not found" });

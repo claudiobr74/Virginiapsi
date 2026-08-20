@@ -45,9 +45,10 @@ export const CONSENT_STATUS_LABELS: Record<ConsentStatus, string> = {
 };
 
 /**
- * Version of the minimal pre-TCLE consent record. The full TCLE text and its
- * own versioning arrive in Phase 9; adding a suboperator or changing the text
- * requires a new version here (docs/19-lgpd-privacy.md §2).
+ * Version of the minimal capture-consent record (gravação/transcrição/IA).
+ * The full TCLE text lives in `tcle-content.ts` with its own `TCLE_VERSION`.
+ * Adding a suboperator or changing either text requires bumping the matching
+ * version (docs/19-lgpd-privacy.md §2).
  */
 export const MINIMAL_CONSENT_VERSION = "minimo-2026-08";
 

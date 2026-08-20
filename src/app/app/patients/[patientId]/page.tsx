@@ -1,11 +1,4 @@
-import {
-  Banknote,
-  CalendarClock,
-  FileText,
-  NotebookPen,
-  ScrollText,
-  Users,
-} from "lucide-react";
+import { Banknote, CalendarClock, NotebookPen, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -13,10 +6,19 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
 import { ConsentPanel } from "@/features/consents/components/consent-panel";
+import { TclePanel } from "@/features/consents/components/tcle-panel";
 import {
   listPatientConsents,
   resolveConsentState,
 } from "@/features/consents/queries";
+import { resolveMinorRequirement } from "@/features/consents/contracts";
+import { PatientAttachmentsPanel } from "@/features/documents/components/patient-attachments-panel";
+import { PatientDocumentsPanel } from "@/features/documents/components/patient-documents-panel";
+import {
+  listDocuments,
+  listPatientAttachments,
+  listTemplates,
+} from "@/features/documents/queries";
 import { ClinicalProfileForm } from "@/features/patients/components/clinical-profile-form";
 import { PatientHubSection } from "@/features/patients/components/patient-hub-section";
 import { PatientStatusControl } from "@/features/patients/components/patient-status-control";
@@ -65,6 +67,14 @@ export default async function PatientHubPage({
     : [null, []];
 
   const clinicalSessions = isAdmin ? await listPatientSessions(organizationId, patient.id) : [];
+
+  const [documents, templates, attachments] = await Promise.all([
+    listDocuments(organizationId, { patientId: patient.id }),
+    listTemplates(organizationId),
+    listPatientAttachments(organizationId, patient.id),
+  ]);
+
+  const minorRequirement = isAdmin ? resolveMinorRequirement(patient.birth_date) : null;
 
   return (
     <PageContainer>
@@ -193,11 +203,26 @@ export default async function PatientHubPage({
         </PatientHubSection>
       ) : null}
 
-      <PatientHubSection title="Documentos">
-        <EmptyState
-          icon={FileText}
-          title="Documentos chegam na Fase 9"
-          description="Templates, versões e PDFs assinados aparecerão aqui."
+      <PatientHubSection
+        title="Documentos"
+        description="Laudos, atestados, recibos e outros — visibilidade por classificação administrativa/clínica."
+      >
+        <PatientDocumentsPanel
+          patientId={patient.id}
+          documents={documents}
+          templates={templates}
+          isAdmin={isAdmin}
+        />
+      </PatientHubSection>
+
+      <PatientHubSection
+        title="Anexos"
+        description="Arquivos do paciente — visibilidade por classificação administrativa/clínica."
+      >
+        <PatientAttachmentsPanel
+          patientId={patient.id}
+          attachments={attachments}
+          isAdmin={isAdmin}
         />
       </PatientHubSection>
 
@@ -209,13 +234,19 @@ export default async function PatientHubPage({
         />
       </PatientHubSection>
 
-      <PatientHubSection title="Gestão de TCLE">
-        <EmptyState
-          icon={ScrollText}
-          title="TCLE chega na Fase 9"
-          description="Emissão, aceite e histórico de consentimento aparecerão aqui."
-        />
-      </PatientHubSection>
+      {isAdmin && minorRequirement ? (
+        <PatientHubSection
+          title="Gestão de TCLE"
+          description="Aceite, revogação e histórico do Termo de Consentimento Livre e Esclarecido."
+        >
+          <TclePanel
+            patientId={patient.id}
+            consents={consents}
+            isMinor={minorRequirement.isMinor}
+            requiresAssent={minorRequirement.requiresAssent}
+          />
+        </PatientHubSection>
+      ) : null}
     </PageContainer>
   );
 }

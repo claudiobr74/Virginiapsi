@@ -27,9 +27,8 @@ test.describe("Meu Dia — dashboard operacional", () => {
     await expect(
       page.getByText("Pendências financeiras chegam na Fase 10"),
     ).toBeVisible();
-    await expect(
-      page.getByText("Documentos recentes chegam na Fase 9"),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Documentos recentes" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ver todos" })).toBeVisible();
 
     await expect(
       page.getByRole("link", { name: "Lembrete WhatsApp" }).first(),

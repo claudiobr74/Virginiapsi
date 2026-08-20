@@ -7,9 +7,9 @@ import {
 } from "@/features/calendar/contracts";
 
 export const PHASE_AVAILABILITY = {
-  clinicalSessions: false, // Fase 6
+  clinicalSessions: false, // Fase 6 (widget de pendência ainda não foi ligado)
   finance: false, // Fase 10
-  documents: false, // Fase 9
+  documents: true,
   twilioReminders: false, // Fase 11
 } as const;
 
@@ -68,6 +68,14 @@ export interface MyDayGreeting {
   quote: string | null;
 }
 
+export interface RecentDocumentItem {
+  id: string;
+  title: string;
+  documentKind: string;
+  status: "draft" | "issued" | "signed" | "canceled";
+  createdAt: string;
+}
+
 export interface MyDaySnapshot {
   greeting: MyDayGreeting;
   timezone: string;
@@ -75,7 +83,7 @@ export interface MyDaySnapshot {
   timeline: MyDayAppointment[];
   sessionsToFinalize: FutureModuleSection;
   financialPending: FutureModuleSection;
-  recentDocuments: FutureModuleSection;
+  recentDocuments: RecentDocumentItem[];
   tasks: PracticeTask[];
   phases: PhaseAvailability;
 }

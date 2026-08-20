@@ -12,6 +12,7 @@ import {
   type PracticeTask,
 } from "@/features/dashboard/contracts";
 import type { ShellSettings } from "@/features/organizations/contracts";
+import { listRecentDocuments } from "@/features/documents/queries";
 import { computeAgendaWindow, todayInTimeZone } from "@/features/calendar/date-window";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -111,9 +112,10 @@ export async function getMyDaySnapshot(input: {
   professionalName: string;
   settings: ShellSettings | null;
 }): Promise<MyDaySnapshot> {
-  const [timeline, tasks] = await Promise.all([
+  const [timeline, tasks, documents] = await Promise.all([
     listTodayManagedAppointments(input.organizationId, input.timezone),
     listOpenTasks(input.organizationId),
+    listRecentDocuments(input.organizationId),
   ]);
 
   const greetingPrefix =
@@ -143,13 +145,13 @@ export async function getMyDaySnapshot(input: {
       description:
         "Cobranças do dia, recebimentos e ações rápidas de financeiro chegam na Fase 10.",
     },
-    recentDocuments: {
-      available: false,
-      phase: 9,
-      title: "Documentos recentes",
-      description:
-        "Documentos gerados, TCLE e assinaturas recentes chegam na Fase 9.",
-    },
+    recentDocuments: documents.map((document) => ({
+      id: document.id,
+      title: document.title,
+      documentKind: document.document_kind,
+      status: document.status,
+      createdAt: document.created_at,
+    })),
     tasks,
     phases: PHASE_AVAILABILITY,
   };

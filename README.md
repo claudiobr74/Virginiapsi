@@ -320,3 +320,24 @@ UI (`/app/knowledge`): coluna de coleções/fontes (upload direto do navegador p
 **`EXTERNAL_BLOCKED`**: chamadas reais ao Gemini (geração estruturada e embeddings) não são exercidas neste ambiente — mesma situação das Fases 6/7. Os adapters (`GeminiEmbeddingsClient`) são cobertos por teste de contrato com `fetch` mockado, incluindo fail-closed em contagem/dimensionalidade inesperada de embeddings.
 
 Testes: 7 novos de segurança (`tests/security/knowledge.test.ts`, incluindo `match_knowledge_chunks` filtrando por organização e a policy de Storage), unitários de chunking/validador de citação/cliente de embeddings (`tests/utils/`, `tests/integrations/`), 2 de equivalência Zod↔JSON Schema (`tests/contracts/knowledge-validators.test.ts`), e 5 E2E (`tests/e2e/knowledge.spec.ts`) cobrindo bloqueio da secretaria, criação de coleção, upload real de fonte até aparecer na lista, e negação do Aplicar ao Caso pelo gate de consentimento sem tocar a IA real.
+
+## Fase 9 — Documentos + TCLE
+
+Templates, editor com variáveis, versionamento imutável, PDF, anexos do paciente e o TCLE completo (texto, aceite eletrônico, revogação, histórico e PDF-prova) — tudo com visibilidade por `sensitivity` (`administrative` | `clinical`) e Storage privado.
+
+Migration `supabase/migrations/*_documents_tcle.sql`:
+- `document_templates`, `documents`, `document_versions` (append-only), `document_files`, `patient_attachments`, `consent_files`.
+- **Derivação e imutabilidade de `sensitivity`**: `laudo|relatorio|atestado|encaminhamento` nascem `clinical`; `recibo` nasce `administrative`; `tcle|contrato|declaracao|branco|outro` exigem escolha explícita. Depois de criado, nem a admin reclassifica — correção é cancelar e emitir outro (trigger, não só convenção).
+- **Sem DELETE em `documents`**: o fato é cancelado (`canceled_at`), nunca apagado. Versões e arquivos gerados também não têm `UPDATE`/`DELETE`.
+- RLS: psicóloga administradora vê tudo do tenant; secretaria só vê/edita `administrative`. `consent_files` espelha o split administrativo/clínico de `consents` via `consent_type_is_administrative`. Isolamento cross-tenant vale mesmo com UUID direto.
+- Buckets `clinical-documents`, `patient-attachments` e `consents`: **zero GRANT genérico** para `anon`/`authenticated` (mesmo desenho do `session-audio-fallback` da Fase 6). Autorização depende de `sensitivity`/tipo de consentimento, que o Storage RLS não expressa bem por join — todo upload/download passa por signed URL (TTL 120s) emitida pelo client de service-role **depois** da checagem de papel+sensitivity em TypeScript (`src/lib/documents/storage.ts`, consumidor excepcional documentado no teste de arquitetura).
+
+PDF (`pdf-lib`, sem Google Docs/Drive e sem Chromium headless): geração serverless-friendly a partir do corpo em texto puro. Substituição de variáveis (`{{patient.full_name}}`, `{{professional.name}}`, `{{date.today}}`, …) é texto puro — placeholder sem valor correspondente permanece visível, nunca some em silêncio. Cada arquivo gravado leva `sha256` na linha de metadados.
+
+TCLE (`src/features/consents/tcle-content.ts`): rascunho estrutural cobrindo o mínimo de `docs/19-lgpd-privacy.md` §7 (suboperadores, transcrição local vs fallback, apoio de IA, prazos de guarda, direitos do titular). **Validação jurídica humana obrigatória** antes do primeiro uso com paciente real — o aviso aparece na UI. Aceite registra `consents` + PDF em `consent_files` na mesma action; bump de `TCLE_VERSION` marca aceites anteriores como desatualizados (consentimento de um texto antigo não vale para o texto novo).
+
+UI: módulo `/app/documents` (modelos + lista), editor em `/app/documents/[id]` (rascunho → emitir PDF → baixar por signed URL), painéis de documentos/anexos/TCLE no Patient Hub, e “Documentos recentes” no Meu Dia.
+
+**`EXTERNAL_BLOCKED`**: signed URLs de verdade contra um projeto Supabase (GoTrue + Storage) — o stub de E2E cobre o fluxo de UI (upload/download/emissão) mas não replica a RLS de Storage; essa fronteira é a suíte `pnpm test:security` contra PostgreSQL real (INSERT direto em `storage.objects` negado) e fica pendente de um projeto Supabase real para o round-trip HTTP do signed URL.
+
+Testes: RLS de sensitivity/imutabilidade/isolamento de tenant/append-only/buckets (`tests/security/documents.test.ts`), unitários de template/PDF/TTL/path/sha256 e resolução do TCLE (`tests/utils/document-*.test.ts`, `tests/utils/tcle.test.ts`), e E2E (`tests/e2e/documents.spec.ts`) cobrindo emissão de PDF, papel da secretaria (só administrativo, 404 em documento clínico mesmo com o URL), anexos e aceite/revogação do TCLE.

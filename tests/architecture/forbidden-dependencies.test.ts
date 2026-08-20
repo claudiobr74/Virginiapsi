@@ -125,8 +125,16 @@ describe("arquitetura proibida", () => {
     // emitir o signed upload URL ou baixar o áudio para mandar ao Groq é o
     // client de service-role, e isso só acontece depois do mesmo consent
     // gate do grant de captura local, com o path validado contra a sessão.
+    //
+    // src/lib/documents/storage.ts: clinical-documents/patient-attachments/
+    // consents (Fase 9) também não têm GRANT genérico — autorização depende
+    // de `sensitivity`/tipo de consentimento, que RLS de Storage não
+    // expressa bem via join; toda leitura/escrita é um signed URL emitido
+    // depois que o código em src/features/documents e src/features/consents
+    // já checou role+sensitivity em TypeScript.
     const allowedImporters: string[] = [
       "src/app/api/session-capture/transcribe/route.ts",
+      "src/lib/documents/storage.ts",
       "src/lib/integrations/transcription/fallback-storage.ts",
     ];
     const importers = CODE_ROOTS.flatMap((dir) => walkFiles(path.join(ROOT, dir)))
