@@ -14,7 +14,7 @@ export function buildStoragePath(
   resourceId: string,
   filename: string,
 ): string {
-  const safeName = filename.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+  const safeName = filename.replace(/[^a-zA-Z0-9.\-_]/g, "_").replace(/\.\./g, "_");
   return `${organizationId}/${resourceId}/${randomUUID()}-${safeName}`;
 }
 
