@@ -1,4 +1,5 @@
 import type { ConsentState } from "@/features/consents/contracts";
+import { packContext } from "@/lib/ai/context-packer";
 
 // Exact shapes from docs/16-runtime-ai-data-contracts.md. These are
 // constructed server-side only, from authorized/minimized data — never
@@ -70,29 +71,6 @@ export interface SessionClosingInput {
   interventionsActuallyRecorded?: string;
   priorPlan?: string;
   itemsAlreadyConfirmedByClinician?: string[];
-}
-
-interface ContextBlock {
-  label: string;
-  value: unknown;
-}
-
-/**
- * Renders minimized, labeled context blocks (docs/14-runtime-ai-architecture.md
- * §6, docs/16-runtime-ai-data-contracts.md "Autoridade dos dados"). Blocks
- * with no value are omitted entirely rather than sent empty — "campos
- * contextuais devem ser enviados somente quando relevantes e autorizados".
- * Delimiters are inert data labels; nothing inside them can climb the
- * instruction hierarchy above the system/runtime prompt (docs/14 §5).
- */
-export function packContext(blocks: ContextBlock[]): string {
-  return blocks
-    .filter(({ value }) => value !== undefined && value !== null && value !== "")
-    .map(({ label, value }) => {
-      const rendered = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-      return `[${label}]\n${rendered}`;
-    })
-    .join("\n\n");
 }
 
 export function buildSessionLiveContext(input: SessionLiveInput): string {

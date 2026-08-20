@@ -51,7 +51,7 @@ function mockFetch() {
 }
 
 class FakeAudioContext {
-  async decodeAudioData(_buffer: ArrayBuffer) {
+  async decodeAudioData() {
     return {
       numberOfChannels: 1,
       duration: 1.5,

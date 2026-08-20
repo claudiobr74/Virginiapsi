@@ -136,6 +136,11 @@ export default async function PatientHubPage({
         <PatientHubSection
           title="Acompanhamento"
           description="Conteúdo clínico — visível apenas para a psicóloga administradora."
+          actions={
+            <Button asChild variant="secondary" size="sm">
+              <Link href={`/app/supervisor?patientId=${patient.id}`}>Supervisor Clínico IA</Link>
+            </Button>
+          }
         >
           <ClinicalProfileForm patientId={patient.id} profile={clinicalProfile} />
         </PatientHubSection>

@@ -4,8 +4,8 @@ import {
   buildSessionClosingContext,
   buildSessionLiveContext,
   buildSessionPreparationContext,
-  packContext,
 } from "@/features/sessions/ai/dto";
+import { packContext } from "@/lib/ai/context-packer";
 
 describe("composição dos prompts de Session AI (regressão contra reescrita silenciosa)", () => {
   it("sessionLive combina o núcleo clínico compartilhado com o modo de apoio ao vivo", () => {

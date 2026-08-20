@@ -161,6 +161,15 @@ for (const name of ["Sessão Um", "Sessão Dois", "Sessão Tres", "Sessão Quatr
     birth_date: "1985-01-01",
   });
 }
+
+// Dedicated patients for the Fase 7 Supervisor E2E.
+for (const name of ["Supervisor Um", "Supervisor Dois", "Supervisor Tres"]) {
+  seedPatient(ADMIN_ORG_ID, {
+    preferred_name: name,
+    full_name: `${name} Paciente`,
+    birth_date: "1982-01-01",
+  });
+}
 clinicalProfiles.set(
   [...patientsByOrg.get(ADMIN_ORG_ID).values()][0].id,
   {
@@ -196,6 +205,10 @@ const sessionDpepByOrg = new Map();
 const sessionWorkingNotesByOrg = new Map();
 /** organizationId -> Map<segmentId, segmentRow> */
 const transcriptSegmentsByOrg = new Map();
+/** organizationId -> Map<runId, aiRunRow> */
+const aiRunsByOrg = new Map();
+/** organizationId -> Map<artifactId, aiArtifactRow> */
+const aiArtifactsByOrg = new Map();
 
 /**
  * Mirrors every clinical_sessions/session_dpep/session_clinical_working_notes
@@ -1458,6 +1471,182 @@ const server = createServer(async (req, res) => {
     };
     table.set(segment.id, segment);
     json(res, 201, wantsSingleObject(req) ? segment : [segment]);
+    return;
+  }
+
+  // -------------------------------------------- Fase 6/7: ai_runs/artifacts ---
+  if (pathname === "/rest/v1/ai_runs" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+
+    let rows = [];
+    if (idFilter) {
+      const row = findAdminScopedRow(aiRunsByOrg, user.id, (r) => r.id === idFilter);
+      rows = row ? [row] : [];
+    } else if (organizationId && membershipRole(user.id, organizationId) === "psychologist_admin") {
+      rows = applyOrder(
+        [...(aiRunsByOrg.get(organizationId)?.values() ?? [])].filter((row) =>
+          matchesFilters(row, searchParams),
+        ),
+        searchParams,
+      );
+    }
+
+    if (wantsSingleObject(req)) {
+      if (rows.length !== 1) {
+        json(res, 406, { message: "JSON object requested, multiple (or no) rows returned" });
+        return;
+      }
+      json(res, 200, rows[0]);
+      return;
+    }
+    json(res, 200, rows);
+    return;
+  }
+
+  if (pathname === "/rest/v1/ai_runs" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    const now = new Date().toISOString();
+    const run = {
+      id: randomUUID(),
+      organization_id: body.organization_id,
+      patient_id: body.patient_id ?? null,
+      session_id: body.session_id ?? null,
+      actor_user_id: user.id,
+      purpose: body.purpose,
+      provider: body.provider ?? "gemini",
+      model: body.model,
+      prompt_name: body.prompt_name,
+      prompt_version: body.prompt_version,
+      schema_version: body.schema_version,
+      consent_version: body.consent_version ?? null,
+      status: body.status ?? "running",
+      source_ids: body.source_ids ?? null,
+      error_message: null,
+      created_at: now,
+      completed_at: null,
+    };
+    getOrCreateOrgMap(aiRunsByOrg, body.organization_id).set(run.id, run);
+    json(res, 201, wantsSingleObject(req) ? run : [run]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/ai_runs" && (req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    const row = findAdminScopedRow(aiRunsByOrg, user.id, (r) => r.id === idFilter);
+    if (!row) {
+      json(res, 200, wantsSingleObject(req) ? null : []);
+      return;
+    }
+    Object.assign(row, body, { id: row.id, organization_id: row.organization_id });
+    json(res, 200, wantsSingleObject(req) ? row : [row]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/ai_artifacts" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    const runIdFilter = parseEqFilter(searchParams.get("run_id"));
+
+    let rows = [];
+    if (idFilter) {
+      const row = findAdminScopedRow(aiArtifactsByOrg, user.id, (r) => r.id === idFilter);
+      rows = row ? [row] : [];
+    } else if (runIdFilter) {
+      const row = findAdminScopedRow(aiArtifactsByOrg, user.id, (r) => r.run_id === runIdFilter);
+      rows = row ? [row] : [];
+    }
+
+    if (wantsSingleObject(req)) {
+      if (rows.length !== 1) {
+        json(res, 406, { message: "JSON object requested, multiple (or no) rows returned" });
+        return;
+      }
+      json(res, 200, rows[0]);
+      return;
+    }
+    json(res, 200, rows);
+    return;
+  }
+
+  if (pathname === "/rest/v1/ai_artifacts" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    const now = new Date().toISOString();
+    const artifact = {
+      id: randomUUID(),
+      run_id: body.run_id,
+      organization_id: body.organization_id,
+      type: body.type,
+      structured_content: body.structured_content,
+      review_status: "pending",
+      reviewed_by: null,
+      reviewed_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+    getOrCreateOrgMap(aiArtifactsByOrg, body.organization_id).set(artifact.id, artifact);
+    json(res, 201, wantsSingleObject(req) ? artifact : [artifact]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/ai_artifacts" && (req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    const row = findAdminScopedRow(aiArtifactsByOrg, user.id, (r) => r.id === idFilter);
+    if (!row) {
+      json(res, 200, wantsSingleObject(req) ? null : []);
+      return;
+    }
+    if (body.review_status && row.review_status === "pending" && body.review_status !== "pending") {
+      row.reviewed_by = user.id;
+      row.reviewed_at = new Date().toISOString();
+    }
+    Object.assign(row, body, {
+      id: row.id,
+      run_id: row.run_id,
+      organization_id: row.organization_id,
+      structured_content: row.structured_content,
+    });
+    row.updated_at = new Date().toISOString();
+    json(res, 200, wantsSingleObject(req) ? row : [row]);
     return;
   }
 
