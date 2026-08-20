@@ -14,6 +14,11 @@ jobs:
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+      # Self-issued signing secret (never a third-party credential) — safe to
+      # fix in CI, unlike GOOGLE_CLIENT_ID/GEMINI_API_KEY/etc., which come
+      # from the Cursor Dashboard secret store when real integration tests
+      # need them.
+      SESSION_CAPTURE_SECRET: ci-session-capture-secret-placeholder
     services:
       postgres:
         image: postgres:16

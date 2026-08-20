@@ -150,6 +150,17 @@ for (const name of ["Consentimento Um", "Consentimento Dois", "Consentimento Tre
     birth_date: "1988-03-15",
   });
 }
+
+// Dedicated patients for the Fase 6 clinical-session E2E: each test starts
+// (and possibly finalizes/cancels) its own session, so they must not share a
+// patient with each other or with any other spec.
+for (const name of ["Sessão Um", "Sessão Dois", "Sessão Tres", "Sessão Quatro"]) {
+  seedPatient(ADMIN_ORG_ID, {
+    preferred_name: name,
+    full_name: `${name} Paciente`,
+    birth_date: "1985-01-01",
+  });
+}
 clinicalProfiles.set(
   [...patientsByOrg.get(ADMIN_ORG_ID).values()][0].id,
   {
@@ -175,6 +186,32 @@ const practiceTasksByOrg = new Map();
 const consentsByOrg = new Map();
 
 const ADMINISTRATIVE_CONSENT_TYPES = new Set(["service_terms", "whatsapp"]);
+
+// ---------------------------------------------------------- Fase 6: sessão ---
+/** organizationId -> Map<sessionId, clinicalSessionRow> */
+const clinicalSessionsByOrg = new Map();
+/** organizationId -> Map<sessionId, dpepRow> (1:1 with the session) */
+const sessionDpepByOrg = new Map();
+/** organizationId -> Map<sessionId, workingNotesRow> (1:1 with the session) */
+const sessionWorkingNotesByOrg = new Map();
+/** organizationId -> Map<segmentId, segmentRow> */
+const transcriptSegmentsByOrg = new Map();
+
+/**
+ * Mirrors every clinical_sessions/session_dpep/session_clinical_working_notes
+ * RLS policy in this stub: psychologist_admin only, any organization the
+ * caller actually belongs to as admin (queries in this feature filter by
+ * row id alone and rely on RLS — see src/features/sessions/queries.ts).
+ */
+function findAdminScopedRow(byOrgMap, userId, predicate) {
+  for (const [orgId, table] of byOrgMap.entries()) {
+    if (membershipRole(userId, orgId) !== "psychologist_admin") continue;
+    for (const row of table.values()) {
+      if (predicate(row)) return row;
+    }
+  }
+  return null;
+}
 
 function membershipRole(userId, organizationId) {
   return (
@@ -1122,6 +1159,305 @@ const server = createServer(async (req, res) => {
       }
     }
     json(res, 200, wantsSingleObject(req) ? deleted : deleted ? [deleted] : []);
+    return;
+  }
+
+  // -------------------------------------------------------- Fase 6: sessão ---
+  if (pathname === "/rest/v1/rpc/start_clinical_session" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.org_id) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+
+    const table = getOrCreateOrgMap(clinicalSessionsByOrg, body.org_id);
+    const existing = [...table.values()].find(
+      (row) =>
+        row.patient_id === body.p_patient_id &&
+        (row.status === "draft" || row.status === "in_progress"),
+    );
+    if (existing) {
+      existing.status = "in_progress";
+      existing.started_at = existing.started_at ?? new Date().toISOString();
+      json(res, 200, existing.id);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const session = {
+      id: randomUUID(),
+      organization_id: body.org_id,
+      patient_id: body.p_patient_id,
+      appointment_id: body.p_appointment_id ?? null,
+      therapist_user_id: user.id,
+      status: "in_progress",
+      started_at: now,
+      ended_at: null,
+      finalization_idempotency_key: null,
+      version: 1,
+      created_at: now,
+    };
+    table.set(session.id, session);
+    json(res, 200, session.id);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/save_session_dpep" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.org_id) !== "psychologist_admin") {
+      json(res, 200, []);
+      return;
+    }
+    const session = clinicalSessionsByOrg.get(body.org_id)?.get(body.p_session_id);
+    if (!session || session.version !== body.p_expected_version) {
+      json(res, 200, []);
+      return;
+    }
+    session.version += 1;
+    const dpepTable = getOrCreateOrgMap(sessionDpepByOrg, body.org_id);
+    const now = new Date().toISOString();
+    dpepTable.set(body.p_session_id, {
+      session_id: body.p_session_id,
+      organization_id: body.org_id,
+      demand: body.p_demand,
+      procedures: body.p_procedures,
+      evolution: body.p_evolution,
+      plan: body.p_plan,
+      version: session.version,
+      updated_by: user.id,
+      updated_at: now,
+      created_at: dpepTable.get(body.p_session_id)?.created_at ?? now,
+    });
+    json(res, 200, [{ new_version: session.version }]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/save_session_working_notes" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.org_id) !== "psychologist_admin") {
+      json(res, 200, []);
+      return;
+    }
+    const session = clinicalSessionsByOrg.get(body.org_id)?.get(body.p_session_id);
+    if (!session || session.version !== body.p_expected_version) {
+      json(res, 200, []);
+      return;
+    }
+    session.version += 1;
+    const notesTable = getOrCreateOrgMap(sessionWorkingNotesByOrg, body.org_id);
+    const now = new Date().toISOString();
+    notesTable.set(body.p_session_id, {
+      session_id: body.p_session_id,
+      organization_id: body.org_id,
+      formulation: body.p_formulation,
+      hypotheses: body.p_hypotheses,
+      working_observations: body.p_working_observations,
+      updated_by: user.id,
+      updated_at: now,
+      created_at: notesTable.get(body.p_session_id)?.created_at ?? now,
+    });
+    json(res, 200, [{ new_version: session.version }]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/finalize_clinical_session" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.org_id) !== "psychologist_admin") {
+      json(res, 200, []);
+      return;
+    }
+    const session = clinicalSessionsByOrg.get(body.org_id)?.get(body.p_session_id);
+    if (!session) {
+      json(res, 200, []);
+      return;
+    }
+    if (session.status === "finalized") {
+      if (session.finalization_idempotency_key === body.p_idempotency_key) {
+        json(res, 200, [{ out_status: session.status, out_ended_at: session.ended_at }]);
+        return;
+      }
+      json(res, 200, []);
+      return;
+    }
+    session.status = "finalized";
+    session.ended_at = new Date().toISOString();
+    session.finalization_idempotency_key = body.p_idempotency_key;
+    json(res, 200, [{ out_status: session.status, out_ended_at: session.ended_at }]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/clinical_sessions" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const patientId = parseEqFilter(searchParams.get("patient_id"));
+
+    let rows = [];
+    if (idFilter) {
+      const row = findAdminScopedRow(clinicalSessionsByOrg, user.id, (r) => r.id === idFilter);
+      rows = row ? [row] : [];
+    } else if (organizationId && membershipRole(user.id, organizationId) === "psychologist_admin") {
+      rows = [...(clinicalSessionsByOrg.get(organizationId)?.values() ?? [])];
+      if (patientId) {
+        rows = rows.filter((row) => row.patient_id === patientId);
+      }
+      rows = applyOrder(rows, searchParams);
+    }
+
+    if (wantsSingleObject(req)) {
+      if (rows.length !== 1) {
+        json(res, 406, { message: "JSON object requested, multiple (or no) rows returned" });
+        return;
+      }
+      json(res, 200, rows[0]);
+      return;
+    }
+    json(res, 200, rows);
+    return;
+  }
+
+  if (pathname === "/rest/v1/clinical_sessions" && (req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    const row = findAdminScopedRow(clinicalSessionsByOrg, user.id, (r) => r.id === idFilter);
+    if (!row || row.status === "finalized") {
+      json(res, 200, wantsSingleObject(req) ? null : []);
+      return;
+    }
+    Object.assign(row, body, { id: row.id, organization_id: row.organization_id });
+    json(res, 200, wantsSingleObject(req) ? row : [row]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/session_dpep" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const sessionId = parseEqFilter(searchParams.get("session_id"));
+    const row = findAdminScopedRow(sessionDpepByOrg, user.id, (r) => r.session_id === sessionId);
+    if (wantsSingleObject(req)) {
+      if (!row) {
+        json(res, 406, { message: "no rows" });
+        return;
+      }
+      json(res, 200, row);
+      return;
+    }
+    json(res, 200, row ? [row] : []);
+    return;
+  }
+
+  if (pathname === "/rest/v1/session_clinical_working_notes" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const sessionId = parseEqFilter(searchParams.get("session_id"));
+    const row = findAdminScopedRow(
+      sessionWorkingNotesByOrg,
+      user.id,
+      (r) => r.session_id === sessionId,
+    );
+    if (wantsSingleObject(req)) {
+      if (!row) {
+        json(res, 406, { message: "no rows" });
+        return;
+      }
+      json(res, 200, row);
+      return;
+    }
+    json(res, 200, row ? [row] : []);
+    return;
+  }
+
+  if (pathname === "/rest/v1/session_transcript_segments" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const sessionId = parseEqFilter(searchParams.get("session_id"));
+    const matches = [];
+    for (const [orgId, table] of transcriptSegmentsByOrg.entries()) {
+      if (membershipRole(user.id, orgId) !== "psychologist_admin") continue;
+      for (const row of table.values()) {
+        if (row.session_id === sessionId) matches.push(row);
+      }
+    }
+    json(res, 200, applyOrder(matches, searchParams));
+    return;
+  }
+
+  if (pathname === "/rest/v1/session_transcript_segments" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    const table = getOrCreateOrgMap(transcriptSegmentsByOrg, body.organization_id);
+    const duplicate = [...table.values()].some(
+      (row) => row.session_id === body.session_id && row.sequence === body.sequence,
+    );
+    if (duplicate) {
+      json(res, 409, {
+        code: "23505",
+        message: "duplicate key value violates unique constraint",
+      });
+      return;
+    }
+    const segment = {
+      id: randomUUID(),
+      session_id: body.session_id,
+      organization_id: body.organization_id,
+      sequence: body.sequence,
+      text: body.text,
+      is_final: body.is_final ?? true,
+      start_ms: body.start_ms ?? null,
+      end_ms: body.end_ms ?? null,
+      provider: body.provider,
+      provider_confidence: body.provider_confidence ?? null,
+      ambiguity_flags: body.ambiguity_flags ?? null,
+      created_at: new Date().toISOString(),
+    };
+    table.set(segment.id, segment);
+    json(res, 201, wantsSingleObject(req) ? segment : [segment]);
     return;
   }
 
