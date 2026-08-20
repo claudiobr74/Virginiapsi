@@ -191,8 +191,6 @@ describe("whatsapp — consentimento, outbox, claim e scheduler", () => {
       await session.close();
     }
 
-    const dueA = randomUUID();
-    const dueB = randomUUID();
     const appointmentA = await createFutureAppointment(admin, organizationId, patientId);
     const appointmentB = await createFutureAppointment(admin, organizationId, patientId);
 
@@ -200,13 +198,13 @@ describe("whatsapp — consentimento, outbox, claim e scheduler", () => {
     try {
       await writer.query(
         `insert into public.whatsapp_reminder_outbox (
-           id, organization_id, appointment_id, patient_id, reminder_type, scheduled_for, state
+           organization_id, appointment_id, patient_id, reminder_type, scheduled_for, state
          ) values
-           ($1, $4, $5, $7, 'reminder_24h', now() - interval '1 minute', 'scheduled'),
-           ($2, $4, $6, $7, 'reminder_24h', now() - interval '1 minute', 'scheduled')
+           ($1, $2, $4, 'reminder_24h', now() - interval '1 minute', 'scheduled'),
+           ($1, $3, $4, 'reminder_24h', now() - interval '1 minute', 'scheduled')
          on conflict (appointment_id, reminder_type) do update
            set scheduled_for = excluded.scheduled_for, state = 'scheduled', next_attempt_at = null`,
-        [dueA, dueB, null, organizationId, appointmentA, appointmentB, patientId],
+        [organizationId, appointmentA, appointmentB, patientId],
       );
     } finally {
       await writer.close();

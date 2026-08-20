@@ -193,14 +193,14 @@ for (const name of ["Financeiro Um", "Financeiro Dois", "Financeiro Sessão", "F
 }
 
 seedPatient(ADMIN_ORG_ID, {
-  preferred_name: "WhatsApp Um",
-  full_name: "WhatsApp Um Paciente",
+  preferred_name: "Canal Um",
+  full_name: "Canal Um Paciente",
   birth_date: "1992-02-02",
   phone: "11977776666",
 });
 seedPatient(ADMIN_ORG_ID, {
-  preferred_name: "WhatsApp Dois",
-  full_name: "WhatsApp Dois Paciente",
+  preferred_name: "Canal Dois",
+  full_name: "Canal Dois Paciente",
   birth_date: "1993-03-03",
   phone: "11966665555",
 });

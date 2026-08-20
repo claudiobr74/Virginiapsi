@@ -70,7 +70,7 @@ test.describe("Cadastro de paciente", () => {
     await expect(page.getByRole("heading", { name: "Carla Teste" })).toBeVisible();
     await expect(page.getByText(/PAC-\d{3,}/)).toBeVisible();
     await expect(page.getByText("Marta Teste")).toBeVisible();
-    await expect(page.getByText("R$ 250.00")).toBeVisible();
+    await expect(page.getByText("R$ 250,00")).toBeVisible();
   });
 });
 

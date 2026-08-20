@@ -6,6 +6,10 @@
 -- `tesseli_app_url` and `tesseli_cron_secret` in Supabase Vault; the cron
 -- function reads them at runtime.
 
+-- Hosted Supabase grants this by default; the local RLS harness only granted
+-- `anon`/`authenticated`. Jobs and webhooks run as service_role.
+grant usage on schema public to service_role;
+
 -- ---------------------------------------------------------------------------
 -- Enums
 -- ---------------------------------------------------------------------------
