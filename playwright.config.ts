@@ -18,6 +18,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
+  // One in-memory auth stub is shared by every project. Mutable org settings
+  // (e.g. secretary_finance_access) race if desktop and mobile write them at
+  // the same time — serialise workers so those tests stay deterministic.
+  workers: 1,
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL,

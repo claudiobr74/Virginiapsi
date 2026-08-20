@@ -66,6 +66,11 @@ test.describe("Financeiro", () => {
 
   test("secretária sem acesso vê a tela de bloqueio", async ({ page }) => {
     await loginViaUi(page);
+    await openFinance(page);
+    await page.getByLabel("Permissão financeira").selectOption("none");
+    await page.getByRole("button", { name: "Salvar acesso" }).click();
+    await expect(page.getByText("Acesso atualizado.")).toBeVisible();
+
     await page.context().clearCookies();
     await signIn(page, STUB_SECRETARY);
     await page.waitForURL(/\/app$/);
