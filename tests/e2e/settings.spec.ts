@@ -35,7 +35,7 @@ test.describe("Configurações", () => {
     await expect(page.getByText("Twilio WhatsApp")).toBeVisible();
     await expect(page.getByText("Transcrição")).toBeVisible();
     await expect(page.getByText("Gemini")).toBeVisible();
-    await expect(page.getByText("remetente WhatsApp ainda não provisionado")).toBeVisible();
+    await expect(page.getByText("Padrão no dispositivo")).toBeVisible();
 
     const body = await page.locator("body").innerText();
     expect(body).not.toMatch(/TWILIO_AUTH_TOKEN/);

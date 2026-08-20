@@ -10,6 +10,7 @@ export default defineConfig({
     include: ["tests/security/**/*.test.ts"],
     globalSetup: ["./tests/security/support/global-setup.ts"],
     fileParallelism: false,
+    maxWorkers: 1,
     testTimeout: 30_000,
     hookTimeout: 60_000,
   },

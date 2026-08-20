@@ -312,6 +312,9 @@ describe("whatsapp — consentimento, outbox, claim e scheduler", () => {
     await adminClient.connect();
     try {
       await adminClient.query("delete from net.http_request_queue");
+      await adminClient.query(
+        "delete from vault.secrets where name in ('tesseli_app_url', 'tesseli_cron_secret')",
+      );
       const empty = await openSession({ role: "service_role" });
       try {
         await empty.query("select public.invoke_whatsapp_reminder_job()");

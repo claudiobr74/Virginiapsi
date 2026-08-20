@@ -248,6 +248,10 @@ describe("settings — exports, equipe, retenção e eliminação", () => {
     await client.connect();
     try {
       await client.query(
+        "delete from vault.secrets where name in ('tesseli_app_url', 'tesseli_cron_secret')",
+      );
+      await client.query("delete from net.http_request_queue");
+      await client.query(
         `insert into vault.secrets (name, secret) values ('tesseli_app_url', 'http://127.0.0.1:3999'), ('tesseli_cron_secret', 'cron-from-vault')
          on conflict (name) do update set secret = excluded.secret`,
       );
@@ -258,6 +262,10 @@ describe("settings — exports, equipe, retenção e eliminação", () => {
       expect(queued.rows[0].url).toMatch(/\/api\/jobs\/audio-retention$/);
       expect(queued.rows[0].headers["x-cron-secret"]).toBe("cron-from-vault");
     } finally {
+      await client.query(
+        "delete from vault.secrets where name in ('tesseli_app_url', 'tesseli_cron_secret')",
+      );
+      await client.query("delete from net.http_request_queue");
       await client.end();
     }
   });
