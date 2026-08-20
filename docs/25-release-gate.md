@@ -8,20 +8,20 @@ Preenchido na implementação da Fase 13. Reexecutar o gate após cada mudança 
 
 | # | Passo | Resultado | Evidência / instrução |
 |---|---|---|---|
-| 1 | Clean install (`pnpm install --frozen-lockfile`) | (preencher após o gate) | CI `.github/workflows/ci.yml` + install local |
-| 2 | lint | (preencher após o gate) | `pnpm lint` |
-| 3 | typecheck | (preencher após o gate) | `pnpm typecheck` |
-| 4 | unit/integration | (preencher após o gate) | `pnpm test` |
-| 5 | RLS/security suite | (preencher após o gate) | `pnpm test:security` contra PostgreSQL local |
-| 6 | Playwright desktop/mobile | (preencher após o gate) | `pnpm test:e2e` |
-| 7 | production build | (preencher após o gate) | `pnpm build` |
-| 8 | forbidden-dependency scan | (preencher após o gate) | `tests/architecture` + `pnpm scan:client-bundle` |
-| 9 | env contract review | PASS | `docs/09-env-contract.md` e `.env.example` revisados nesta fase. Valores de produção não estão no Git — ver §3 |
+| 1 | Clean install (`pnpm install --frozen-lockfile`) | PASS | CI `.github/workflows/ci.yml` (`pnpm install --frozen-lockfile`) |
+| 2 | lint | PASS | `pnpm lint` no `pnpm gate` local |
+| 3 | typecheck | PASS | `pnpm typecheck` no gate local |
+| 4 | unit/integration | PASS | `pnpm test` — 254 testes |
+| 5 | RLS/security suite | PASS | `pnpm test:security` — 146 testes contra PostgreSQL local (emulação `auth`/`RLS`, **não** o projeto hospedado) |
+| 6 | Playwright desktop/mobile | PASS | `pnpm test:e2e` — 174 testes (`desktop-chromium` + `mobile-chromium`), 1 worker por causa do stub compartilhado |
+| 7 | production build | PASS | `pnpm build` |
+| 8 | forbidden-dependency scan | PASS | `tests/architecture/forbidden-dependencies.test.ts` + `pnpm scan:client-bundle` |
+| 9 | env contract review | PASS | `docs/09-env-contract.md` e `.env.example` revisados. Valores de produção não estão no Git — ver §3 |
 | 10 | preview deployment smoke test | EXTERNAL_BLOCKED | MCP Vercel sem autenticação neste ambiente; nenhum Preview/Production foi publicado daqui. Ver §4 |
 | 11 | integrations health sem expor secrets | PASS (código) / EXTERNAL_BLOCKED (produção) | Diagnósticos cobertos por testes. Saúde real em produção exige o Preview do passo 10 e remetente Twilio ainda não configurado |
 | 12 | document rollback | PASS | `docs/24-rollback.md` |
 
-**Release ready: não.** Os passos locais 1–8 serão preenchidos só depois do `pnpm gate` e do E2E desta branch. Os EXTERNAL_BLOCKED dos passos 10–11 (produção) bloqueiam declaração de produção mesmo com o gate local verde.
+**Release ready: não.** Passos locais 1–9 e 12 = PASS. Passos 10 e 11 (produção) = EXTERNAL_BLOCKED e bloqueiam declaração de produção.
 
 ## 2. Endurecimento entregue nesta fase
 
@@ -94,4 +94,4 @@ Server Actions (não são rotas HTTP estáveis para clientes externos) concentra
 
 ## 6. Declaração
 
-Release ready: **não** (até o gate local desta branch e enquanto o passo 10 permanecer EXTERNAL_BLOCKED).
+Release ready: **não**. PASS nos passos locais 1–9 e 12. EXTERNAL_BLOCKED nos passos 10, 11 (produção), RLS hospedado, restore DR real e validação jurídica.

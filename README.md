@@ -397,7 +397,7 @@ Entregue no código:
 - Rate limit in-memory por instância: grants 30/min por IP; IA 20/min por org+usuário.
 - Teto de payload em grants/segmentos/transcribe e webhooks Twilio.
 - Rollback documentado em `docs/24-rollback.md`. Sem Vercel Cron.
-- CI com timeout de 45 min para a suíte Playwright completa.
+- CI com timeout de 45 min para a suíte Playwright completa. E2E usa 1 worker: o auth stub in-memory é compartilhado e settings mutáveis (ex.: `secretary_finance_access`) não podem ser escritos em paralelo por desktop e mobile.
 
 Testes: `tests/utils/rate-limit.test.ts`, `tests/utils/request-limits.test.ts`, invariantes em `tests/architecture/forbidden-dependencies.test.ts`, E2E `tests/e2e/hardening.spec.ts`.
 
