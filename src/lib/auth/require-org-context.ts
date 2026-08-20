@@ -11,6 +11,7 @@ export interface OrgContext {
   user: User;
   organizationId: string;
   organizationName: string;
+  timezone: string;
   role: OrganizationRole;
   memberships: Membership[];
 }
@@ -43,6 +44,7 @@ export async function requireOrgContext(): Promise<OrgContext> {
     user,
     organizationId: membership.organizationId,
     organizationName: membership.organizationName,
+    timezone: membership.timezone,
     role: membership.role,
     memberships,
   };

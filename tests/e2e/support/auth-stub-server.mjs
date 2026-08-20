@@ -152,6 +152,104 @@ clinicalProfiles.set(
   },
 );
 
+// ---------------------------------------------------------------- Agenda ---
+/** organizationId -> Map<appointmentId, appointmentRow> */
+const appointmentsByOrg = new Map();
+/** organizationId -> connection row */
+const connectionsByOrg = new Map();
+
+function getOrCreateOrgMap(map, organizationId) {
+  const existing = map.get(organizationId);
+  if (existing) return existing;
+  const created = new Map();
+  map.set(organizationId, created);
+  return created;
+}
+
+function seedAppointment(organizationId, overrides) {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const appointment = {
+    id,
+    organization_id: organizationId,
+    patient_id: null,
+    starts_at: now,
+    ends_at: now,
+    status: "scheduled",
+    modality: "in_person",
+    origin: "SERENAPSI",
+    managed_by_serenapsi: true,
+    google_calendar_id: null,
+    google_event_id: null,
+    meet_url: null,
+    meet_status: "none",
+    summary_snapshot: null,
+    sync_status: "synced",
+    create_idempotency_key: randomUUID(),
+    created_at: now,
+    updated_at: now,
+    ...overrides,
+  };
+  getOrCreateOrgMap(appointmentsByOrg, organizationId).set(id, appointment);
+  return appointment;
+}
+
+function getConnection(organizationId) {
+  return (
+    connectionsByOrg.get(organizationId) ?? {
+      organization_id: organizationId,
+      status: "disconnected",
+      google_account_email: null,
+      calendar_id: null,
+      calendar_summary: null,
+      scopes: [],
+      last_synced_at: null,
+      last_sync_error: null,
+    }
+  );
+}
+
+// Seed: one appointment today at 09:00 America/Sao_Paulo (SERENAPSI) and one
+// external Google event later the same day, so the default day view (today)
+// has something to render without any navigation. Sao Paulo has observed no
+// DST since 2019 (fixed UTC-3), so the offset below is always correct.
+function todaySaoPauloDateStr() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${map.year}-${map.month}-${map.day}`;
+}
+
+{
+  const today = todaySaoPauloDateStr();
+  const starts = new Date(`${today}T09:00:00-03:00`);
+  const ends = new Date(starts.getTime() + 50 * 60 * 1000);
+  const [beatriz] = patientsByOrg.get(ADMIN_ORG_ID).values();
+
+  seedAppointment(ADMIN_ORG_ID, {
+    patient_id: beatriz.id,
+    starts_at: starts.toISOString(),
+    ends_at: ends.toISOString(),
+    summary_snapshot: `${beatriz.full_name} • ${beatriz.public_code}`,
+  });
+
+  const externalStart = new Date(`${today}T11:00:00-03:00`);
+  const externalEnd = new Date(externalStart.getTime() + 60 * 60 * 1000);
+  seedAppointment(ADMIN_ORG_ID, {
+    origin: "GOOGLE_EXTERNAL",
+    managed_by_serenapsi: false,
+    google_calendar_id: "primary",
+    google_event_id: "external-evt-1",
+    summary_snapshot: "Reunião do conselho regional",
+    starts_at: externalStart.toISOString(),
+    ends_at: externalEnd.toISOString(),
+  });
+}
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
@@ -224,6 +322,37 @@ function parseOrSearchTerm(value) {
 
 function wantsSingleObject(req) {
   return (req.headers["accept"] ?? "").includes("vnd.pgrst.object");
+}
+
+/** Minimal PostgREST-style operator evaluator for eq/neq/lt/gt/not.in.(...). */
+function matchesFilters(row, searchParams, ignoredKeys = new Set(["select", "order", "limit"])) {
+  for (const [key, rawValue] of searchParams.entries()) {
+    if (ignoredKeys.has(key) || !(key in row)) {
+      continue;
+    }
+    const value = row[key];
+    if (rawValue.startsWith("eq.")) {
+      if (String(value) !== rawValue.slice(3)) return false;
+    } else if (rawValue.startsWith("neq.")) {
+      if (String(value) === rawValue.slice(4)) return false;
+    } else if (rawValue.startsWith("lt.")) {
+      if (!(new Date(value).getTime() < new Date(rawValue.slice(3)).getTime())) return false;
+    } else if (rawValue.startsWith("gt.")) {
+      if (!(new Date(value).getTime() > new Date(rawValue.slice(3)).getTime())) return false;
+    } else if (rawValue.startsWith("not.in.(")) {
+      const list = rawValue.slice("not.in.(".length, -1).split(",");
+      if (list.includes(String(value))) return false;
+    }
+  }
+  return true;
+}
+
+function applyOrder(rows, searchParams) {
+  const order = searchParams.get("order");
+  if (!order) return rows;
+  const [field, direction = "asc"] = order.split(".");
+  const sorted = [...rows].sort((a, b) => (a[field] > b[field] ? 1 : a[field] < b[field] ? -1 : 0));
+  return direction === "desc" ? sorted.reverse() : sorted;
 }
 
 const server = createServer(async (req, res) => {
@@ -588,7 +717,148 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === "/rest/v1/appointments" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    const orgIds = new Set((memberships.get(user.id) ?? []).map((m) => m.organization_id));
+
+    let rows = [];
+    if (idFilter) {
+      for (const orgId of orgIds) {
+        const table = appointmentsByOrg.get(orgId);
+        if (table?.has(idFilter)) {
+          rows = [table.get(idFilter)];
+          break;
+        }
+      }
+    } else {
+      const organizationId = parseEqFilter(searchParams.get("organization_id"));
+      if (organizationId && orgIds.has(organizationId)) {
+        const table = appointmentsByOrg.get(organizationId) ?? new Map();
+        rows = applyOrder(
+          [...table.values()].filter((row) => matchesFilters(row, searchParams)),
+          searchParams,
+        );
+      }
+    }
+
+    if (wantsSingleObject(req)) {
+      if (rows.length !== 1) {
+        json(res, 406, { message: "JSON object requested, multiple (or no) rows returned" });
+        return;
+      }
+      json(res, 200, rows[0]);
+      return;
+    }
+    json(res, 200, rows);
+    return;
+  }
+
+  if (pathname === "/rest/v1/appointments" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const isMember = (memberships.get(user.id) ?? []).some(
+      (row) => row.active && row.organization_id === body.organization_id,
+    );
+    if (!isMember) {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+
+    const appointment = seedAppointment(body.organization_id, {
+      patient_id: body.patient_id ?? null,
+      starts_at: body.starts_at,
+      ends_at: body.ends_at,
+      modality: body.modality ?? "in_person",
+      summary_snapshot: body.summary_snapshot ?? null,
+      create_idempotency_key: body.create_idempotency_key ?? randomUUID(),
+    });
+
+    json(res, 201, wantsSingleObject(req) ? appointment : [appointment]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/appointments" && (req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    let updated = null;
+    for (const orgId of (memberships.get(user.id) ?? []).map((m) => m.organization_id)) {
+      const table = appointmentsByOrg.get(orgId);
+      if (table?.has(idFilter)) {
+        const current = table.get(idFilter);
+        updated = { ...current, ...body, id: current.id, updated_at: new Date().toISOString() };
+        table.set(idFilter, updated);
+        break;
+      }
+    }
+
+    if (!updated) {
+      json(res, wantsSingleObject(req) ? 406 : 200, wantsSingleObject(req) ? { message: "not found" } : []);
+      return;
+    }
+    json(res, 200, wantsSingleObject(req) ? updated : [updated]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/google_calendar_connections" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const isMember = (memberships.get(user.id) ?? []).some(
+      (row) => row.active && row.organization_id === organizationId,
+    );
+    const rows = isMember ? [getConnection(organizationId)] : [];
+    json(res, 200, wantsSingleObject(req) ? rows[0] ?? null : rows);
+    return;
+  }
+
+  if (
+    pathname === "/rest/v1/google_calendar_connections" &&
+    (req.method === "PATCH" || req.method === "PUT")
+  ) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const current = getConnection(organizationId);
+    const updated = { ...current, ...body };
+    connectionsByOrg.set(organizationId, updated);
+    json(res, 200, wantsSingleObject(req) ? updated : [updated]);
+    return;
+  }
+
   if (pathname === "/rest/v1/rpc/log_audit_event" && req.method === "POST") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    json(res, 200, randomUUID());
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/log_calendar_sync_event" && req.method === "POST") {
     const user = bearerUser(req);
     if (!user) {
       json(res, 401, { message: "invalid JWT" });

@@ -68,15 +68,15 @@ test.describe("Login autenticado", () => {
 });
 
 test.describe("Navegação entre módulos", () => {
-  test("abre o placeholder de Agenda a partir da navegação", async ({
+  test("abre o placeholder de Financeiro a partir da navegação", async ({
     page,
   }) => {
     await loginViaUi(page);
-    await openNavItem(page, "Agenda");
+    await openNavItem(page, "Financeiro");
 
-    await expect(page).toHaveURL(/\/app\/agenda$/);
+    await expect(page).toHaveURL(/\/app\/finance$/);
     await expect(
-      page.getByRole("heading", { name: "Agenda" }),
+      page.getByRole("heading", { name: "Financeiro" }),
     ).toBeVisible();
     await expect(
       page.getByText("Este módulo ainda não foi implementado"),
