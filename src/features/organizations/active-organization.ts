@@ -3,7 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import type { Membership } from "@/features/organizations/contracts";
 
-export const ACTIVE_ORGANIZATION_COOKIE = "serenapsi-active-organization";
+export const ACTIVE_ORGANIZATION_COOKIE = "tesseli-active-organization";
 
 /**
  * Resolves the active organization for the request.

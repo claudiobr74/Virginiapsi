@@ -1,7 +1,7 @@
 import { Sparkles } from "lucide-react";
 import { PlaceholderModulePage } from "@/features/shell/placeholder-module-page";
 
-export const metadata = { title: "Supervisor IA — SerenaPsi" };
+export const metadata = { title: "Supervisor IA — Tesseli" };
 
 export default function SupervisorPage() {
   return (

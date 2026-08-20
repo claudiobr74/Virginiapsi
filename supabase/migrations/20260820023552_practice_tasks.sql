@@ -1,4 +1,4 @@
--- SerenaPsi — Phase 5: practice_tasks for the Meu Dia operational dashboard.
+-- Tesseli — Phase 5: practice_tasks for the Meu Dia operational dashboard.
 -- Specs: docs/01-product-spec.md §4, docs/08-implementation-phases.md Fase 5,
 -- prompts/05-myday.md.
 --

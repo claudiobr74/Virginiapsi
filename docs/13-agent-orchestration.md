@@ -1,6 +1,6 @@
 # Orquestração dos Agents no Cursor
 
-Os subagents existem porque o SerenaPsi cruza domínios com riscos diferentes. **Não invoque todos em cada tarefa.** Use somente o menor conjunto que tenha responsabilidade clara na fase atual.
+Os subagents existem porque o Tesseli cruza domínios com riscos diferentes. **Não invoque todos em cada tarefa.** Use somente o menor conjunto que tenha responsabilidade clara na fase atual.
 
 ## Gate pré-implementação
 

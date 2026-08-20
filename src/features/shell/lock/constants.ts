@@ -5,4 +5,4 @@
  */
 export const DEFAULT_INACTIVITY_TIMEOUT_MINUTES = 15;
 
-export const INACTIVITY_STORAGE_KEY = "serenapsi-inactivity-timeout-minutes";
+export const INACTIVITY_STORAGE_KEY = "tesseli-inactivity-timeout-minutes";

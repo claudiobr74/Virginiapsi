@@ -4,7 +4,7 @@
 
 ### Objetivo
 
-Google Calendar continua sendo a agenda externa oficial nesta etapa. SerenaPsi oferece a UI e sincroniza eventos gerenciados.
+Google Calendar continua sendo a agenda externa oficial nesta etapa. Tesseli oferece a UI e sincroniza eventos gerenciados.
 
 ### OAuth
 
@@ -45,7 +45,7 @@ Nunca fabricar `meet.google.com/<random>` nem reutilizar o mesmo `requestId` par
 - upsert por google_event_id;
 - etag quando disponível;
 - external events read-only por padrão;
-- writes SerenaPsi com idempotência/audit;
+- writes Tesseli com idempotência/audit;
 - excluir/cancelar somente eventos gerenciados, salvo confirmação explícita.
 
 ## 2. Twilio WhatsApp
@@ -70,7 +70,7 @@ Webhook autenticado:
 6. inferir confirmação/remarcação apenas como estado pendente quando a mensagem for ambígua;
 7. atualizar appointment somente por regra explícita.
 
-### Templates SerenaPsi
+### Templates Tesseli
 
 - confirmação de agendamento;
 - lembrete 24h;
@@ -250,9 +250,9 @@ Uploads grandes devem ir browser → Supabase Storage, não passar por Vercel.
 Separar:
 
 - backup/recuperação da plataforma Supabase;
-- exportação lógica SerenaPsi para portabilidade/auditoria.
+- exportação lógica Tesseli para portabilidade/auditoria.
 
-### Exportação lógica SerenaPsi
+### Exportação lógica Tesseli
 
 Antes da Fase 12, implementar contrato versionado de exportação:
 - escopo: organização inteira **ou** paciente selecionado, conforme autorização;

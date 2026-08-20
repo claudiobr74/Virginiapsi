@@ -1,6 +1,6 @@
 ---
 name: feature-slice
-description: Implement one SerenaPsi feature as a complete vertical slice with schema/RLS, server boundary, UI, tests and gate.
+description: Implement one Tesseli feature as a complete vertical slice with schema/RLS, server boundary, UI, tests and gate.
 ---
 # Vertical Feature Slice
 

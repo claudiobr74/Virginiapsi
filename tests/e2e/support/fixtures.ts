@@ -1,10 +1,10 @@
 import type { Page } from "@playwright/test";
 
-const PASSWORD = "SerenaPsi#2026";
+const PASSWORD = "Tesseli#2026";
 
 /** Admin of a single organization — lands straight in the shell. */
 export const STUB_USER = {
-  email: "psicologa@serenapsi.test",
+  email: "psicologa@tesseli.test",
   password: PASSWORD,
   displayName: "Ana Serena",
   organizationName: "Consultório Serena",
@@ -16,19 +16,19 @@ export const STUB_USER = {
  */
 export function newcomerCredentials() {
   const id = Math.random().toString(36).slice(2, 10);
-  return { email: `novo-${id}@serenapsi.test`, password: PASSWORD };
+  return { email: `novo-${id}@tesseli.test`, password: PASSWORD };
 }
 
 /** Member of two organizations — must pick one explicitly. */
 export const STUB_MULTI_ORG_USER = {
-  email: "multi@serenapsi.test",
+  email: "multi@tesseli.test",
   password: PASSWORD,
   organizations: ["Clínica Aurora", "Espaço Bem-Viver"],
 };
 
 /** Secretary of STUB_USER's organization — for role-isolation E2E checks. */
 export const STUB_SECRETARY = {
-  email: "secretaria@serenapsi.test",
+  email: "secretaria@tesseli.test",
   password: PASSWORD,
 };
 

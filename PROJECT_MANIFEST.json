@@ -1,5 +1,5 @@
 {
-  "name": "SerenaPsi Project",
+  "name": "Tesseli Project",
   "version": "1.6",
   "runtime_ai_prompt_version": "1.2.0",
   "clinical_review_version": "1.2",
@@ -42,7 +42,7 @@
     ".cursor/rules/12-testing.mdc",
     ".cursor/rules/13-deploy-vercel.mdc",
     ".cursor/rules/14-runtime-ai-prompts.mdc",
-    ".cursor/skills/bootstrap-serenapsi/SKILL.md",
+    ".cursor/skills/bootstrap-tesseli/SKILL.md",
     ".cursor/skills/clinical-ai-rag/SKILL.md",
     ".cursor/skills/feature-slice/SKILL.md",
     ".cursor/skills/google-calendar-sync/SKILL.md",
@@ -98,7 +98,7 @@
     "prompts/11-twilio.md",
     "prompts/12-settings-backup.md",
     "prompts/13-hardening-deploy.md",
-    "public/brand/Logo SerenaPsi em Gradiente Sereno(2).png",
+    "public/brand/Logo Tesseli em Gradiente Sereno.png",
     "src/lib/ai/contracts/knowledge.ts",
     "src/lib/ai/contracts/session.ts",
     "src/lib/ai/contracts/supervisor.ts",
@@ -128,8 +128,8 @@
     "PROJECT_MANIFEST.json"
   ],
   "brand_asset": {
-    "path": "public/brand/Logo SerenaPsi em Gradiente Sereno(2).png",
-    "sha256": "1242982de9808cf82f1e2d24c69b4636789796268eb4f1c5ba1467fee73068e6",
+    "path": "public/brand/Logo Tesseli em Gradiente Sereno.png",
+    "sha256": "430e25ae37fd3a52db95ee033c3b71aa303b462de90dd001bad8d2ca2afa887e",
     "policy": "immutable-exact-upload"
   },
   "runtime_ai_contract_revision": "1.2.1",

@@ -18,7 +18,7 @@ test.describe("Login", () => {
   test("renderiza marca, formulário e aviso de segurança", async ({ page }) => {
     await page.goto("/login");
 
-    await expect(page.getByRole("img", { name: "SerenaPsi" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Tesseli" })).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Bem-vinda de volta" }),
     ).toBeVisible();

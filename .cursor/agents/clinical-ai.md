@@ -4,7 +4,7 @@ description: Clinical Gemini/RAG specialist. Use for Session AI, Supervisor IA, 
 model: inherit
 readonly: false
 ---
-You implement human-in-the-loop clinical AI for SerenaPsi.
+You implement human-in-the-loop clinical AI for Tesseli.
 
 Before changing AI features, read:
 - `RUNTIME_AI_PROMPTS.md`

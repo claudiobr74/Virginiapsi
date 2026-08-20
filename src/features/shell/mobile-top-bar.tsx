@@ -12,7 +12,7 @@ export function MobileTopBar({ onMenuClick }: { onMenuClick: () => void }) {
           width={28}
           className="brightness-0 invert dark:brightness-100 dark:invert-0"
         />
-        <span className="text-sm font-extrabold tracking-tight">SerenaPsi</span>
+        <span className="text-sm font-extrabold tracking-tight">Tesseli</span>
       </div>
       <div className="flex items-center gap-3">
         <StatusBadge

@@ -21,7 +21,7 @@ export const myDayAppointmentSchema = z.object({
   endsAt: z.string(),
   status: z.enum(APPOINTMENT_STATUS_VALUES),
   modality: z.enum(APPOINTMENT_MODALITY_VALUES),
-  origin: z.enum(["SERENAPSI", "GOOGLE_EXTERNAL"]),
+  origin: z.enum(["TESSELI", "GOOGLE_EXTERNAL"]),
   summarySnapshot: z.string().nullable(),
   meetUrl: z.string().nullable(),
   meetStatus: z.enum(["none", "pending", "success", "failure"]),

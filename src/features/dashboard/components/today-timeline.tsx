@@ -31,7 +31,7 @@ export function TodayTimeline({
       <SectionHeader
         id="timeline-heading"
         title="Linha do tempo de hoje"
-        description="Consultas gerenciadas pelo SerenaPsi neste dia"
+        description="Consultas gerenciadas pelo Tesseli neste dia"
       />
       {appointments.length === 0 ? (
         <EmptyState

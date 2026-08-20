@@ -43,8 +43,8 @@ CRON_SECRET=
 ## Supabase Vault para scheduler
 
 O scheduler de lembretes usa Supabase Cron + `pg_net`. No Supabase Vault, provisionar fora do versionamento:
-- `serenapsi_app_url`: URL HTTPS canônica do app/endpoint de job;
-- `serenapsi_cron_secret`: mesmo valor de `CRON_SECRET` configurado no Vercel/ambiente server-side.
+- `tesseli_app_url`: URL HTTPS canônica do app/endpoint de job;
+- `tesseli_cron_secret`: mesmo valor de `CRON_SECRET` configurado no Vercel/ambiente server-side.
 
 Não gravar valores do Vault em migrations, fixtures, logs ou documentação. Rotação do segredo deve atualizar ambos os lados.
 

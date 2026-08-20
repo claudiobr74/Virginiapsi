@@ -94,7 +94,7 @@ test.describe("Contexto de organização", () => {
 
     await browserContext.addCookies([
       {
-        name: "serenapsi-active-organization",
+        name: "tesseli-active-organization",
         value: "11111111-1111-4111-8111-999999999999",
         domain: "127.0.0.1",
         path: "/",

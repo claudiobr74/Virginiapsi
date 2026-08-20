@@ -47,7 +47,7 @@ export const APPOINTMENT_STATUS_BADGE: Record<
   no_show: "attention",
 };
 
-export const APPOINTMENT_ORIGIN_VALUES = ["SERENAPSI", "GOOGLE_EXTERNAL"] as const;
+export const APPOINTMENT_ORIGIN_VALUES = ["TESSELI", "GOOGLE_EXTERNAL"] as const;
 export type AppointmentOrigin = (typeof APPOINTMENT_ORIGIN_VALUES)[number];
 
 export const MEET_STATUS_VALUES = ["none", "pending", "success", "failure"] as const;
@@ -67,7 +67,7 @@ export const appointmentRowSchema = z.object({
   status: z.enum(APPOINTMENT_STATUS_VALUES),
   modality: z.enum(APPOINTMENT_MODALITY_VALUES),
   origin: z.enum(APPOINTMENT_ORIGIN_VALUES),
-  managed_by_serenapsi: z.boolean(),
+  managed_by_tesseli: z.boolean(),
   google_calendar_id: z.string().nullable(),
   google_event_id: z.string().nullable(),
   meet_url: z.string().nullable(),

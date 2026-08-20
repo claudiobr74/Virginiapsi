@@ -1,10 +1,10 @@
-# Master Prompt — Desenvolvimento do SerenaPsi
+# Master Prompt — Desenvolvimento do Tesseli
 
-Você está desenvolvendo o **SerenaPsi**. Este repositório contém a especificação oficial do produto, da arquitetura, da segurança e da identidade visual.
+Você está desenvolvendo o **Tesseli**. Este repositório contém a especificação oficial do produto, da arquitetura, da segurança e da identidade visual.
 
 ## Missão
 
-Construir um web app de gestão de consultório de psicologia chamado **SerenaPsi**, com experiência acolhedora, elegante, simples e altamente guiada, implementando com fidelidade a identidade visual descrita em `docs/02-visual-spec.md` e os fluxos descritos em `docs/01-product-spec.md`.
+Construir um web app de gestão de consultório de psicologia chamado **Tesseli**, com experiência acolhedora, elegante, simples e altamente guiada, implementando com fidelidade a identidade visual descrita em `docs/02-visual-spec.md` e os fluxos descritos em `docs/01-product-spec.md`.
 
 
 ## Gate zero — auditoria antes de implementar
@@ -19,7 +19,7 @@ Antes de editar qualquer código, migration, configuração ou runtime prompt:
 6. após a revisão técnica v1.4, não inicie Fase 0 com `READY_WITH_FIXES`: reaudite após qualquer correção e exija `READY`;
 7. aguarde autorização explícita do usuário antes de iniciar `prompts/00-bootstrap.md`.
 
-A auditoria pré-implementação é parte obrigatória do processo SerenaPsi.
+A auditoria pré-implementação é parte obrigatória do processo Tesseli.
 
 ## Restrições absolutas
 
@@ -41,7 +41,7 @@ A auditoria pré-implementação é parte obrigatória do processo SerenaPsi.
 16. Antes de provider call de IA/gravação/transcrição, aplique consent gate server-side conforme `docs/16-runtime-ai-data-contracts.md`.
 17. Não automatize avaliação psicológica, interpretação/pontuação de testes restritos, diagnóstico definitivo ou ajuste de medicação.
 18. Lembretes 24h/2h usam Supabase Cron/pg_cron + pg_net + outbox idempotente; não depender de Vercel Cron para cadência sub-diária.
-19. A logo oficial é `public/brand/Logo SerenaPsi em Gradiente Sereno(2).png`. Use o arquivo exatamente como fornecido; não redesenhe, converta, recorte, recolora, remova o fundo ou gere variações.
+19. A logo oficial é `public/brand/Logo Tesseli em Gradiente Sereno.png`. Use o arquivo exatamente como fornecido; não redesenhe, converta, recorte, recolora, remova o fundo ou gere variações.
 
 ## Stack
 
@@ -82,7 +82,7 @@ Organize por features, não por “components gigantes”:
 - `src/lib/contracts/`
 - `src/lib/ai/prompts/` — textos de runtime da IA; fonte de verdade do comportamento clínico
 - `src/lib/ai/contracts/` — structured-output contracts da IA
-- `src/components/ui/` — design system SerenaPsi
+- `src/components/ui/` — design system Tesseli
 - `supabase/migrations/`
 - `tests/`
 
@@ -135,7 +135,7 @@ Banco/Auth/Storage são a fonte de verdade. RLS é obrigatória e testada.
 - refresh token criptografado no banco.
 - seleção explícita de `calendar_id`.
 - eventos externos importados podem ser read-only.
-- eventos gerenciados pelo SerenaPsi podem ser criados/atualizados/cancelados.
+- eventos gerenciados pelo Tesseli podem ser criados/atualizados/cancelados.
 - Meet só é criado por conferenceData do Calendar.
 
 ### Twilio WhatsApp
@@ -150,7 +150,7 @@ Banco/Auth/Storage são a fonte de verdade. RLS é obrigatória e testada.
 ### Transcrição
 
 - padrão local-first: o modelo roda no dispositivo e o áudio não sai da máquina;
-- browser solicita ao SerenaPsi um grant de captura de vida curta antes de ativar o microfone;
+- browser solicita ao Tesseli um grant de captura de vida curta antes de ativar o microfone;
 - salvar apenas texto final/metadata por chunks, recusando segmento sem grant válido;
 - recuperação de captura sem duplicar segmentos;
 - fallback opcional (Groq) por upload direto privado ao Supabase Storage, nunca base64 via função Vercel;

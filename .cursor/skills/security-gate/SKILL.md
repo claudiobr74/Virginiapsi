@@ -1,6 +1,6 @@
 ---
 name: security-gate
-description: Run SerenaPsi adversarial auth, tenant, role, storage and secret-leak checks before accepting a sensitive phase.
+description: Run Tesseli adversarial auth, tenant, role, storage and secret-leak checks before accepting a sensitive phase.
 disable-model-invocation: true
 ---
 # Security Gate

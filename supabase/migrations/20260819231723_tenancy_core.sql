@@ -1,4 +1,4 @@
--- SerenaPsi — Phase 2: tenancy, RBAC, RLS and audit trail.
+-- Tesseli — Phase 2: tenancy, RBAC, RLS and audit trail.
 -- Specs: docs/04-data-model.md (§Núcleo tenancy/auth), docs/05-security-rbac-rls.md.
 --
 -- Enforcement model:

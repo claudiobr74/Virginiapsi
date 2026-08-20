@@ -1,4 +1,4 @@
-# SerenaPsi Runtime AI Prompts
+# Tesseli Runtime AI Prompts
 
 Este projeto contém os textos de atuação da IA usados em produção.
 

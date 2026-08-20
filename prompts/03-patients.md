@@ -13,7 +13,7 @@ Implemente:
 - fluxo inicial de status/arquivamento;
 - auditoria de mudanças sensíveis.
 
-Siga a identidade visual SerenaPsi. Use dados de teste sintéticos.
+Siga a identidade visual Tesseli. Use dados de teste sintéticos.
 
 Gate: capture respostas de rede e prove que Secretaria não recebe campos clínicos. E2E desktop/mobile. Pare.
 

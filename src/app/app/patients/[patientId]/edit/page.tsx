@@ -4,7 +4,7 @@ import { PatientForm } from "@/features/patients/components/patient-form";
 import { getPatient } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata: Metadata = { title: "Editar paciente — SerenaPsi" };
+export const metadata: Metadata = { title: "Editar paciente — Tesseli" };
 
 export default async function EditPatientPage({
   params,

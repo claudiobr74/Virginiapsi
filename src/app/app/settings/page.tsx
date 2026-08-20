@@ -1,7 +1,7 @@
 import { Settings } from "lucide-react";
 import { PlaceholderModulePage } from "@/features/shell/placeholder-module-page";
 
-export const metadata = { title: "Configurações — SerenaPsi" };
+export const metadata = { title: "Configurações — Tesseli" };
 
 export default function SettingsPage() {
   return (

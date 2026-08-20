@@ -1,7 +1,7 @@
 import { Wallet } from "lucide-react";
 import { PlaceholderModulePage } from "@/features/shell/placeholder-module-page";
 
-export const metadata = { title: "Financeiro — SerenaPsi" };
+export const metadata = { title: "Financeiro — Tesseli" };
 
 export default function FinancePage() {
   return (

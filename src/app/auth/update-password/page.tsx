@@ -3,7 +3,7 @@ import { Logo } from "@/components/ui/logo";
 import { UpdatePasswordForm } from "@/features/auth/components/update-password-form";
 
 export const metadata: Metadata = {
-  title: "Redefinir senha — SerenaPsi",
+  title: "Redefinir senha — Tesseli",
 };
 
 export default function UpdatePasswordPage() {

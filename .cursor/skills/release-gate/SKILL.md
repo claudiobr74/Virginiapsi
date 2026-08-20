@@ -1,6 +1,6 @@
 ---
 name: release-gate
-description: Execute final SerenaPsi release verification for Vercel preview/production readiness.
+description: Execute final Tesseli release verification for Vercel preview/production readiness.
 disable-model-invocation: true
 ---
 # Release Gate

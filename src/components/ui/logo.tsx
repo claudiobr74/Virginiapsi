@@ -1,9 +1,9 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils/cn";
 
-const LOGO_SRC = "/brand/Logo SerenaPsi em Gradiente Sereno(2).png";
-const LOGO_INTRINSIC_WIDTH = 1536;
-const LOGO_INTRINSIC_HEIGHT = 1024;
+const LOGO_SRC = "/brand/Logo Tesseli em Gradiente Sereno.png";
+const LOGO_INTRINSIC_WIDTH = 1254;
+const LOGO_INTRINSIC_HEIGHT = 1254;
 
 export interface LogoProps {
   className?: string;
@@ -12,7 +12,7 @@ export interface LogoProps {
 }
 
 /**
- * Renders the official SerenaPsi brand asset exactly as provided.
+ * Renders the official Tesseli brand asset exactly as provided.
  * Only the display container may be resized; the source file is never
  * cropped, recolored, vectorized or otherwise transformed.
  */
@@ -22,7 +22,7 @@ export function Logo({ className, width = 160, priority = false }: LogoProps) {
   return (
     <Image
       src={LOGO_SRC}
-      alt="SerenaPsi"
+      alt="Tesseli"
       width={LOGO_INTRINSIC_WIDTH}
       height={LOGO_INTRINSIC_HEIGHT}
       priority={priority}

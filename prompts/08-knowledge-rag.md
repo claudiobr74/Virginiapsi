@@ -1,4 +1,4 @@
-# Fase 8 — Conhecimento SerenaPsi / RAG Local
+# Fase 8 — Conhecimento Tesseli / RAG Local
 
 Use `clinical-ai`, `runtime-ai-governor`, `/clinical-ai-rag` e `/runtime-ai-prompt-gate`.
 

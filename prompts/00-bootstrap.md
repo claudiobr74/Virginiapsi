@@ -1,4 +1,4 @@
-# Fase 0 — Fundação do SerenaPsi
+# Fase 0 — Fundação do Tesseli
 
 ## Pré-condição obrigatória
 
@@ -10,9 +10,9 @@ NÃO inicie esta fase até que:
 
 Se qualquer condição acima não estiver atendida, pare e reporte `PRE_IMPLEMENTATION_GATE_NOT_APPROVED`.
 
-Execute `/bootstrap-serenapsi`.
+Execute `/bootstrap-tesseli`.
 
-Objetivo: criar somente a fundação técnica do repositório SerenaPsi. Não implemente módulos funcionais.
+Objetivo: criar somente a fundação técnica do repositório Tesseli. Não implemente módulos funcionais.
 
 Antes de editar, peça ao `architecture-guardian` para revisar o plano.
 

@@ -4,7 +4,7 @@ import { Logo } from "@/components/ui/logo";
 import { LoginForm } from "@/features/auth/components/login-form";
 
 export const metadata: Metadata = {
-  title: "Entrar — SerenaPsi",
+  title: "Entrar — Tesseli",
 };
 
 export default function LoginPage() {

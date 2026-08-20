@@ -33,7 +33,7 @@ export async function generateMetadata({
   const { patientId } = await params;
   const { organizationId } = await requireOrgContext();
   const patient = await getPatient(organizationId, patientId);
-  return { title: patient ? `${patient.preferred_name} — SerenaPsi` : "Paciente — SerenaPsi" };
+  return { title: patient ? `${patient.preferred_name} — Tesseli` : "Paciente — Tesseli" };
 }
 
 export default async function PatientHubPage({

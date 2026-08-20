@@ -4,7 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SerenaPsi",
+  title: "Tesseli",
   description: "Gestão de consultório de psicologia",
   manifest: "/manifest.webmanifest",
 };
@@ -28,7 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           attribute="class"
           defaultTheme="system"
           enableSystem
-          storageKey="serenapsi-theme"
+          storageKey="tesseli-theme"
           disableTransitionOnChange
         >
           {children}

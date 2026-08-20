@@ -29,7 +29,7 @@ export function Sidebar({
         <Logo width={40} />
         <div className="flex flex-col leading-tight">
           <span className="font-serif text-base italic font-bold text-foreground">
-            SerenaPsi
+            Tesseli
           </span>
           <span className="text-xs text-muted-foreground">{professionalName}</span>
         </div>

@@ -10,10 +10,10 @@ Implemente conexão Google separada do login:
 - listar calendários e selecionar calendar_id;
 - reconnect/disconnect/status.
 
-Implemente Agenda SerenaPsi dia/semana/mês:
+Implemente Agenda Tesseli dia/semana/mês:
 - pull/upsert Google;
 - eventos externos read-only;
-- eventos SerenaPsi gerenciados;
+- eventos Tesseli gerenciados;
 - conflito;
 - criar/editar/remarcar/cancelar;
 - `Nome Sobrenome • PAC-###`;

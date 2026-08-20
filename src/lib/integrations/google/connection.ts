@@ -131,7 +131,7 @@ export async function completeGoogleConnection(
 
   if (!tokens.refresh_token) {
     // Should not happen with access_type=offline + prompt=consent, but never
-    // silently store a connection SerenaPsi cannot actually use in the
+    // silently store a connection Tesseli cannot actually use in the
     // background (no refresh token means no offline sync).
     throw new Error("google_no_refresh_token");
   }

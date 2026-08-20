@@ -1,4 +1,4 @@
-# Runtime AI Architecture — SerenaPsi
+# Runtime AI Architecture — Tesseli
 
 ## 1. Fonte de verdade
 
@@ -93,7 +93,7 @@ A recusa do paciente não entra no contexto de formulação como resistência.
 
 ## 5. Ordem de autoridade
 
-1. System/runtime prompt SerenaPsi.
+1. System/runtime prompt Tesseli.
 2. Regras de segurança, avaliação, contexto/diversidade, documentação e evidência.
 3. Configuração do modo e frameworks selecionados.
 4. Solicitação da psicóloga.

@@ -24,7 +24,7 @@ export function SessionActions({
 
   const patientLabel = patientDisplayLabel(appointment);
   const whatsappUrl =
-    appointment.patientPhone && appointment.origin === "SERENAPSI"
+    appointment.patientPhone && appointment.origin === "TESSELI"
       ? buildWhatsAppReminderUrl(
           appointment.patientPhone,
           appointment.patientPreferredName ?? "",
@@ -34,7 +34,7 @@ export function SessionActions({
       : null;
   const meetReady = appointment.meetStatus === "success" && Boolean(appointment.meetUrl);
   const canConfirm =
-    appointment.origin === "SERENAPSI" &&
+    appointment.origin === "TESSELI" &&
     appointment.status !== "confirmed" &&
     appointment.status !== "cancelled" &&
     appointment.status !== "completed";
@@ -72,7 +72,7 @@ export function SessionActions({
               Lembrete WhatsApp
             </a>
           </Button>
-        ) : appointment.origin === "SERENAPSI" ? (
+        ) : appointment.origin === "TESSELI" ? (
           <Button type="button" size="sm" variant="secondary" disabled title="Cadastre o telefone do paciente para enviar o lembrete.">
             <MessageCircle className="size-3.5" aria-hidden />
             Lembrete WhatsApp

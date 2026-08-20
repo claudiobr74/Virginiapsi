@@ -1,4 +1,4 @@
--- SerenaPsi — Phase 3: administrative patients + separate clinical profile.
+-- Tesseli — Phase 3: administrative patients + separate clinical profile.
 -- Specs: docs/04-data-model.md (§Pacientes), docs/05-security-rbac-rls.md,
 -- prompts/03-patients.md.
 --

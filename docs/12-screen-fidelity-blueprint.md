@@ -1,6 +1,6 @@
 # Blueprint de Fidelidade por Tela
 
-Este documento define a identidade visual do SerenaPsi por tela. Em caso de conflito, `docs/02-visual-spec.md` e este blueprint prevalecem sobre decisões genéricas do framework.
+Este documento define a identidade visual do Tesseli por tela. Em caso de conflito, `docs/02-visual-spec.md` e este blueprint prevalecem sobre decisões genéricas do framework.
 
 ## Linguagem visual transversal
 
@@ -18,7 +18,7 @@ Card central:
 - `rounded-3xl`;
 - sombra macia e ampla;
 - padding generoso;
-- marca SerenaPsi centralizada no topo;
+- marca Tesseli centralizada no topo;
 - título de acolhimento curto;
 - subtítulo discreto;
 - e-mail e senha empilhados;
@@ -32,7 +32,7 @@ Não usar painel lateral de marketing, métricas, ilustração 3D ou vídeo.
 
 ## 2. Shell desktop
 
-Sidebar fixa/sticky de 256 px em superfície clara. Cabeçalho da sidebar com marca, nome SerenaPsi e identificação da profissional. Navegação em blocos com espaçamento claro. Ícones lineares Lucide, 18–20 px.
+Sidebar fixa/sticky de 256 px em superfície clara. Cabeçalho da sidebar com marca, nome Tesseli e identificação da profissional. Navegação em blocos com espaçamento claro. Ícones lineares Lucide, 18–20 px.
 
 Item ativo: sage `#6B705C`, texto branco, radius 12–14 px. Item inativo: transparente, texto sage/deep neutral; hover bone/sage muito claro.
 
@@ -52,7 +52,7 @@ Cards passam a largura total com margins 12–16 px. Modais complexos podem ocup
 
 ## 4. Meu Dia
 
-Primeiro bloco: PageHeader SerenaPsi e saudação. Em seguida, um card de “Próxima sessão” visualmente prioritário, sem parecer alerta. Mostrar horário em JetBrains Mono ou Inter tabular, paciente, modalidade, confirmação, WhatsApp e Meet quando cabível.
+Primeiro bloco: PageHeader Tesseli e saudação. Em seguida, um card de “Próxima sessão” visualmente prioritário, sem parecer alerta. Mostrar horário em JetBrains Mono ou Inter tabular, paciente, modalidade, confirmação, WhatsApp e Meet quando cabível.
 
 Abaixo, organizar a rotina em seções respiradas:
 - Linha do tempo de hoje;
@@ -95,7 +95,7 @@ Usar tabs apenas quando reduzem rolagem; não esconder informações essenciais 
 
 ## 8. Agenda
 
-Header com alternador Dia/Semana/Mês, “Hoje” e CTA nova consulta. Calendário usa superfícies claras, linhas muito suaves e cores semânticas controladas. Eventos SerenaPsi e eventos Google externos devem ser visualmente distinguíveis sem excesso de legenda.
+Header com alternador Dia/Semana/Mês, “Hoje” e CTA nova consulta. Calendário usa superfícies claras, linhas muito suaves e cores semânticas controladas. Eventos Tesseli e eventos Google externos devem ser visualmente distinguíveis sem excesso de legenda.
 
 Drawer/modal de evento:
 - paciente;
@@ -141,7 +141,7 @@ Sempre oferecer “Ver dados enviados à IA” antes/ao redor da execução. Qua
 
 Biblioteca com coleções em cards/lista, fontes e status de processamento. Busca e pergunta teórica em destaque. Resposta RAG deve apresentar citações de fonte/chunk de modo visualmente distinto e navegável.
 
-O módulo de Conhecimento deve seguir integralmente a identidade SerenaPsi, sem adotar a linguagem visual de outros produtos.
+O módulo de Conhecimento deve seguir integralmente a identidade Tesseli, sem adotar a linguagem visual de outros produtos.
 
 ## 12. Documentos
 
@@ -173,9 +173,9 @@ Integrações são cards com provider, conta conectada, estado, último sucesso/
 
 Zona de Risco fica visualmente separada no final, com confirmações fortes.
 
-## 15. Marca SerenaPsi
+## 15. Marca Tesseli
 
-Usar obrigatoriamente o asset oficial `public/brand/Logo SerenaPsi em Gradiente Sereno(2).png`.
+Usar obrigatoriamente o asset oficial `public/brand/Logo Tesseli em Gradiente Sereno.png`.
 
 Não criar placeholder, logo textual alternativa, SVG, ícone reinterpretado ou variação de cor. A imagem deve permanecer íntegra. Para adequação responsiva, modifique somente dimensões do container e preserve a razão de aspecto com `object-fit: contain`.
 

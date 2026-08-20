@@ -6,7 +6,7 @@ import { ConnectionPanel } from "@/features/calendar/components/connection-panel
 import { getConnection } from "@/features/calendar/connection-queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata: Metadata = { title: "Conexão Google Calendar — SerenaPsi" };
+export const metadata: Metadata = { title: "Conexão Google Calendar — Tesseli" };
 
 export default async function GoogleConnectionPage() {
   const { organizationId, role } = await requireOrgContext();

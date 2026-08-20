@@ -142,8 +142,8 @@ PDF imutável por versão, Storage privado, sha256.
 - ends_at timestamptz
 - status
 - modality
-- origin: SERENAPSI | GOOGLE_EXTERNAL
-- managed_by_serenapsi bool
+- origin: TESSELI | GOOGLE_EXTERNAL
+- managed_by_tesseli bool
 - sync_policy
 - google_calendar_id
 - google_event_id

@@ -13,7 +13,7 @@ function appointment(overrides: Partial<MyDayAppointment> = {}): MyDayAppointmen
     endsAt: "2026-08-20T12:50:00.000Z",
     status: "scheduled",
     modality: "in_person",
-    origin: "SERENAPSI",
+    origin: "TESSELI",
     summarySnapshot: "Beatriz Lima • PAC-001",
     meetUrl: null,
     meetStatus: "none",

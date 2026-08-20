@@ -1,7 +1,7 @@
 import { FileText } from "lucide-react";
 import { PlaceholderModulePage } from "@/features/shell/placeholder-module-page";
 
-export const metadata = { title: "Documentos — SerenaPsi" };
+export const metadata = { title: "Documentos — Tesseli" };
 
 export default function DocumentsPage() {
   return (

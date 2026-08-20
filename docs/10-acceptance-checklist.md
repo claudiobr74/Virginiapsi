@@ -16,7 +16,7 @@
 
 ## Visual
 
-- [ ] Paleta SerenaPsi fiel.
+- [ ] Paleta Tesseli fiel.
 - [ ] Inter + Playfair Display + JetBrains Mono.
 - [ ] Sidebar desktop e bottom nav mobile.
 - [ ] Cards rounded-3xl e hierarquia editorial.

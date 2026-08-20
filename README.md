@@ -1,6 +1,6 @@
-# SerenaPsi — Project
+# Tesseli — Project
 
-Este repositório define a especificação funcional, visual e técnica do **SerenaPsi**, um web app para gestão de consultório de psicologia, desenvolvido no Cursor.
+Este repositório define a especificação funcional, visual e técnica do **Tesseli**, um web app para gestão de consultório de psicologia, desenvolvido no Cursor.
 
 Especificação técnica atual: **v1.4**. Runtime Clinical Prompts: **v1.2.0**; structured-output contracts: **revision 1.2.1**. Ver `docs/20-preimplementation-fixes-v1.4.md` para as correções desta versão.
 
@@ -32,7 +32,7 @@ Em caso de conflito entre uma decisão de implementação e este kit, **este kit
 
 ## Decisões arquiteturais
 
-Não fazem parte da arquitetura do SerenaPsi:
+Não fazem parte da arquitetura do Tesseli:
 
 - Firebase / Firestore / Firebase Storage / Firebase Auth
 - Google Drive, Google Docs ou Google Sheets como backend do produto
@@ -45,7 +45,7 @@ Não fazem parte da arquitetura do SerenaPsi:
 
 ## Ordem de uso
 
-1. Crie um repositório GitHub vazio para o SerenaPsi.
+1. Crie um repositório GitHub vazio para o Tesseli.
 2. Copie o conteúdo deste projeto para a raiz do repositório.
 3. Abra o repositório no Cursor.
 4. Leia `MASTER_PROMPT.md`, `VISUAL_MASTER_PROMPT.md`, `RUNTIME_AI_PROMPTS.md` e `docs/`.
@@ -75,11 +75,11 @@ Não fazem parte da arquitetura do SerenaPsi:
 
 ## Primeiro objetivo
 
-A primeira entrega é **a auditoria pré-implementação**, não código. Após as correções v1.4, a reauditoria deve retornar `READY`. Só após `READY` e autorização explícita do usuário começa a fundação técnica, visual e de segurança. O SerenaPsi cresce por fatias verticais completas: UI + domínio + banco + RLS + testes + auditoria quando aplicável.
+A primeira entrega é **a auditoria pré-implementação**, não código. Após as correções v1.4, a reauditoria deve retornar `READY`. Só após `READY` e autorização explícita do usuário começa a fundação técnica, visual e de segurança. O Tesseli cresce por fatias verticais completas: UI + domínio + banco + RLS + testes + auditoria quando aplicável.
 
 ## Asset oficial da marca
 
-A logo oficial está em `public/brand/Logo SerenaPsi em Gradiente Sereno(2).png` e deve ser utilizada diretamente, sem qualquer edição ou interpretação. O arquivo faz parte da especificação do produto e é imutável.
+A logo oficial está em `public/brand/Logo Tesseli em Gradiente Sereno.png` e deve ser utilizada diretamente, sem qualquer edição ou interpretação. O arquivo faz parte da especificação do produto e é imutável.
 
 ## IA clínica em runtime
 
@@ -124,8 +124,8 @@ Com PostgreSQL local (Ubuntu, sem Docker):
 ```bash
 sudo apt-get install -y postgresql-16
 sudo pg_ctlcluster 16 main start
-sudo -u postgres psql -c "create role serenapsi_admin login password 'serenapsi' superuser createdb"
-sudo -u postgres createdb -O serenapsi_admin serenapsi_test
+sudo -u postgres psql -c "create role tesseli_admin login password 'tesseli' superuser createdb"
+sudo -u postgres createdb -O tesseli_admin tesseli_test
 pnpm test:security
 ```
 
@@ -145,7 +145,7 @@ O gate base (`pnpm gate`) roda `lint && typecheck && test && test:security && bu
 ## Fase 1 — Design system, auth e shell
 
 Entregue nesta fase:
-- tokens SerenaPsi (paleta sage/bone, Inter, Playfair Display, JetBrains Mono) e dark mode automático via `prefers-color-scheme`;
+- tokens Tesseli (paleta sage/bone, Inter, Playfair Display, JetBrains Mono) e dark mode automático via `prefers-color-scheme`;
 - os onze primitivos canônicos de `docs/02-visual-spec.md` em `src/components/ui/` — referência mínima navegável em `/design-system`;
 - login e-mail/senha + Google (Supabase Auth), recuperação e redefinição de senha, sem revelar existência de conta;
 - `src/proxy.ts` (Next.js 16 renomeou `middleware.ts`) protege `/app/**` e `/session/**` e usa `auth.getUser()` (nunca decode-only) via `@supabase/ssr`;
@@ -195,7 +195,7 @@ Migration `supabase/migrations/*_google_calendar.sql`: `google_calendar_connecti
 
 - `google_calendar_credentials` tem RLS habilitada e **nenhuma policy** — nenhum papel, nem a psicóloga administradora que conectou a conta, tem `GRANT` na tabela via Data API. O único acesso é por `SECURITY DEFINER`: `upsert_google_credentials()`/`disconnect_google_calendar()` exigem `is_psychologist_admin`, `get_google_credentials()` exige apenas `is_org_member` (o valor retornado continua criptografado — só o Node do servidor, com `GOOGLE_TOKEN_ENCRYPTION_KEY`, consegue decifrar).
 - Conectar/desconectar o Google é ação de admin; **selecionar** qual calendário já conectado usar fica aberto aos dois papéis (linha "calendar sync: CRUD para os dois papéis" da matriz de RBAC), porque isso é operação do dia a dia da Agenda, não gestão da integração em si.
-- `appointments.origin` distingue `SERENAPSI` (gerenciado, bidirecional) de `GOOGLE_EXTERNAL` (importado, somente leitura). As policies de INSERT/UPDATE/DELETE só autorizam linhas `SERENAPSI` — um evento externo nunca é editável por escrita direta de nenhum papel. O pull-sync usa `upsert_external_appointment()` (`SECURITY DEFINER`, upsert por `organization_id + google_calendar_id + google_event_id`), que já nasce com `origin = 'GOOGLE_EXTERNAL'` e ignora silenciosamente qualquer tentativa de sobrescrever uma linha `SERENAPSI` com o mesmo id externo.
+- `appointments.origin` distingue `TESSELI` (gerenciado, bidirecional) de `GOOGLE_EXTERNAL` (importado, somente leitura). As policies de INSERT/UPDATE/DELETE só autorizam linhas `TESSELI` — um evento externo nunca é editável por escrita direta de nenhum papel. O pull-sync usa `upsert_external_appointment()` (`SECURITY DEFINER`, upsert por `organization_id + google_calendar_id + google_event_id`), que já nasce com `origin = 'GOOGLE_EXTERNAL'` e ignora silenciosamente qualquer tentativa de sobrescrever uma linha `TESSELI` com o mesmo id externo.
 - `create_idempotency_key` (único por organização) evita duplicar uma consulta em caso de duplo clique/retry na criação.
 - `calendar_sync_events` é append-only como `audit_events`: sem policy de escrita para nenhum papel, só `log_calendar_sync_event()`; a leitura é restrita à psicóloga administradora.
 
@@ -217,7 +217,7 @@ Dashboard operacional em `/app`, no lugar do placeholder da Fase 1.
 
 - Saudação personalizável (`practice_settings.greeting_prefix` + nome da profissional) e frase curta (`quote`), expostas na projeção mínima `organization_shell_settings()` — não são dados administrativos/financeiros, então a secretaria também lê.
 - Card de **próxima sessão** (primeira consulta gerenciada do dia que ainda não terminou), com horário em tabular/mono, modalidade, confirmação, deep-link de **lembrete WhatsApp** (`wa.me` com texto administrativo, sem conteúdo clínico) e **Meet** quando `meet_status = success`.
-- Linha do tempo de hoje (somente `origin = SERENAPSI`; eventos Google externos continuam na Agenda).
+- Linha do tempo de hoje (somente `origin = TESSELI`; eventos Google externos continuam na Agenda).
 - Tarefas operacionais em `practice_tasks` (CRUD dos dois papéis, `created_by_user_id` forçado para `auth.uid()`).
 - **Sessões a finalizar**, **pendências financeiras** e **documentos recentes** são estados vazios explícitos de fase futura (6, 10 e 9) — sem mock de domínio.
 

@@ -1,4 +1,4 @@
--- SerenaPsi — Phase 5.5: minimal consent records (prerequisite for Phase 6).
+-- Tesseli — Phase 5.5: minimal consent records (prerequisite for Phase 6).
 -- Specs: docs/04-data-model.md §Consentimentos, docs/08-implementation-phases.md
 -- Fase 5.5, docs/16-runtime-ai-data-contracts.md §ConsentState,
 -- docs/05-security-rbac-rls.md, docs/19-lgpd-privacy.md.

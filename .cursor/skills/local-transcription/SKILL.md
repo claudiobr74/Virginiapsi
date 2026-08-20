@@ -1,6 +1,6 @@
 ---
 name: local-transcription
-description: Build/test SerenaPsi session transcription — consent gates, on-device model, capture grants and the optional direct-storage fallback.
+description: Build/test Tesseli session transcription — consent gates, on-device model, capture grants and the optional direct-storage fallback.
 ---
 # Transcrição local
 

@@ -10,7 +10,7 @@ alwaysApply: false
 - Calendar account may differ from Supabase login account.
 - Store selected calendar_id per organization/integration.
 - External Google events are read-only by default.
-- SerenaPsi-managed events are auditable/idempotent.
+- Tesseli-managed events are auditable/idempotent.
 - Create Meet only using Calendar API `conferenceData.createRequest` with `conferenceSolutionKey.type="hangoutsMeet"`, request parameter `conferenceDataVersion=1`, and a new unique requestId for every new create attempt.
 - Treat Meet creation as asynchronous: handle `pending`, `success`, and `failure`; re-fetch with bounded backoff and persist the URL only from a successful API response.
 - Never fabricate a meet.google.com URL.

@@ -150,13 +150,13 @@ describe("arquitetura proibida", () => {
   it("preserva o arquivo oficial da logo sem alteração de bytes", () => {
     const logoPath = path.join(
       ROOT,
-      "public/brand/Logo SerenaPsi em Gradiente Sereno(2).png",
+      "public/brand/Logo Tesseli em Gradiente Sereno.png",
     );
     const digest = createHash("sha256")
       .update(readFileSync(logoPath))
       .digest("hex");
     expect(digest).toBe(
-      "1242982de9808cf82f1e2d24c69b4636789796268eb4f1c5ba1467fee73068e6",
+      "430e25ae37fd3a52db95ee033c3b71aa303b462de90dd001bad8d2ca2afa887e",
     );
   });
 

@@ -1,8 +1,8 @@
 {
-  "name": "serenapsi",
+  "name": "tesseli",
   "version": "0.1.0",
   "private": true,
-  "description": "SerenaPsi — gestão de consultório de psicologia",
+  "description": "Tesseli — gestão de consultório de psicologia",
   "engines": {
     "node": ">=22"
   },

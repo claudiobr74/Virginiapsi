@@ -1,8 +1,8 @@
 ---
-description: SerenaPsi project foundation; always apply to all work.
+description: Tesseli project foundation; always apply to all work.
 alwaysApply: true
 ---
-# SerenaPsi foundation rule
+# Tesseli foundation rule
 
 - Specs in `docs/` are authoritative.
 - Keep a single Next.js + Supabase application architecture.

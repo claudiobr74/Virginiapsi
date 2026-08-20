@@ -1,6 +1,6 @@
-# Prompt para Claude — Auditoria Integral Pré-Implementação do SerenaPsi
+# Prompt para Claude — Auditoria Integral Pré-Implementação do Tesseli
 
-Você está no Cursor, com o repositório completo do **SerenaPsi** aberto.
+Você está no Cursor, com o repositório completo do **Tesseli** aberto.
 
 ## REGRA ABSOLUTA DESTA ETAPA
 

@@ -3,7 +3,7 @@ import { Logo } from "@/components/ui/logo";
 import { RecoveryRequestForm } from "@/features/auth/components/recovery-request-form";
 
 export const metadata: Metadata = {
-  title: "Recuperar senha — SerenaPsi",
+  title: "Recuperar senha — Tesseli",
 };
 
 export default function RecoveryPage() {

@@ -1,11 +1,11 @@
-# LGPD e Privacidade por Design — SerenaPsi
+# LGPD e Privacidade por Design — Tesseli
 
 Este documento fecha o achado `LGPD-P1-004` da auditoria pré-implementação. Ele define papéis, operadores externos, base de transferência internacional, retenção por classe de dado e o fluxo de exclusão. **Não é parecer jurídico.** Os itens marcados `⚠ VALIDAÇÃO JURÍDICA HUMANA` exigem revisão por profissional habilitado antes de qualquer texto ser usado em produção, em especial o TCLE.
 
 ## 1. Papéis
 
 - **Controlador**: a profissional/pessoa jurídica titular do consultório (`organizations` + `practice_settings`), para os dados de pacientes atendidos por ela.
-- **Operador (SerenaPsi como produto)**: no modelo atual (um consultório), controlador e operador da plataforma coincidem. Se o produto virar SaaS multi-organização, a operadora da plataforma (quem hospeda/administra o Supabase/Vercel do produto) passa a ser operadora técnica de múltiplos controladores — revisar este documento nesse momento.
+- **Operador (Tesseli como produto)**: no modelo atual (um consultório), controlador e operador da plataforma coincidem. Se o produto virar SaaS multi-organização, a operadora da plataforma (quem hospeda/administra o Supabase/Vercel do produto) passa a ser operadora técnica de múltiplos controladores — revisar este documento nesse momento.
 - **Suboperadores**: prestadores que processam dado em nome do controlador. Ver inventário abaixo.
 
 ⚠ VALIDAÇÃO JURÍDICA HUMANA: confirmação formal dessa qualificação para o modelo de negócio real.

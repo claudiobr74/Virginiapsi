@@ -245,7 +245,7 @@ describe("appointments — eventos externos são somente leitura", () => {
     await addMember(admin, organizationId, secretary, "secretary");
   });
 
-  it("admin e secretária têm CRUD em eventos gerenciados (SERENAPSI)", async () => {
+  it("admin e secretária têm CRUD em eventos gerenciados (TESSELI)", async () => {
     for (const actor of [admin, secretary]) {
       const session = await openSession({ userId: actor });
       try {
@@ -255,7 +255,7 @@ describe("appointments — eventos externos são somente leitura", () => {
            returning id, origin`,
           [organizationId, randomUUID()],
         );
-        expect(inserted[0].origin).toBe("SERENAPSI");
+        expect(inserted[0].origin).toBe("TESSELI");
 
         const updated = await session.query<{ status: string }>(
           "update public.appointments set status = 'confirmed' where id = $1 returning status",
@@ -278,7 +278,7 @@ describe("appointments — eventos externos são somente leitura", () => {
     const session = await openSession({ userId: admin });
     try {
       const error = await session.expectError(
-        `insert into public.appointments (organization_id, starts_at, ends_at, origin, sync_policy, managed_by_serenapsi, google_calendar_id, google_event_id)
+        `insert into public.appointments (organization_id, starts_at, ends_at, origin, sync_policy, managed_by_tesseli, google_calendar_id, google_event_id)
          values ($1, now(), now() + interval '1 hour', 'GOOGLE_EXTERNAL', 'read_only', false, 'primary', 'forged-event')`,
         [organizationId],
       );

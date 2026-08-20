@@ -52,7 +52,7 @@ export async function getAppointment(
 }
 
 /**
- * Conflict detection scoped to SerenaPsi-managed appointments only: two
+ * Conflict detection scoped to Tesseli-managed appointments only: two
  * external Google events overlapping is not this app's problem to flag, and
  * an external event overlapping a managed one is shown as a soft warning by
  * the UI rather than blocking the save.
@@ -68,7 +68,7 @@ export async function findOverlappingManagedAppointment(
     .from("appointments")
     .select("*")
     .eq("organization_id", organizationId)
-    .eq("origin", "SERENAPSI")
+    .eq("origin", "TESSELI")
     .not("status", "in", "(cancelled)")
     .lt("starts_at", endsAtIso)
     .gt("ends_at", startsAtIso)

@@ -7,7 +7,7 @@ import { getMyDaySnapshot } from "@/features/dashboard/queries";
 import { getShellSettings } from "@/features/organizations/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata: Metadata = { title: "Meu Dia — SerenaPsi" };
+export const metadata: Metadata = { title: "Meu Dia — Tesseli" };
 
 function displayNameFromEmail(email: string | undefined) {
   const localPart = email?.split("@")[0] ?? "Profissional";

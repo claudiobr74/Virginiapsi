@@ -1,7 +1,7 @@
 import { BookOpen } from "lucide-react";
 import { PlaceholderModulePage } from "@/features/shell/placeholder-module-page";
 
-export const metadata = { title: "Conhecimento — SerenaPsi" };
+export const metadata = { title: "Conhecimento — Tesseli" };
 
 export default function KnowledgePage() {
   return (

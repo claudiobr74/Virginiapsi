@@ -11,7 +11,7 @@ import { PATIENT_STATUS_VALUES, type PatientStatus } from "@/features/patients/c
 import { listPatients } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata: Metadata = { title: "Pacientes — SerenaPsi" };
+export const metadata: Metadata = { title: "Pacientes — Tesseli" };
 
 function parseStatus(value: string | undefined): PatientStatus | "all" {
   return value && (PATIENT_STATUS_VALUES as readonly string[]).includes(value)

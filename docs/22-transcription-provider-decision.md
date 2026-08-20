@@ -1,6 +1,6 @@
 # Decisão de provider de transcrição — v1.6
 
-Substitui o Deepgram como provider de transcrição do SerenaPsi. Decisão tomada em 20/08/2026, antes do início da Fase 6, a pedido do controlador do produto: o custo do Deepgram inviabilizava o app.
+Substitui o Deepgram como provider de transcrição do Tesseli. Decisão tomada em 20/08/2026, antes do início da Fase 6, a pedido do controlador do produto: o custo do Deepgram inviabilizava o app.
 
 Esta decisão **supersede**, nos pontos abaixo, o item INT-005 de `docs/18-preimplementation-fixes-v1.3.md` e o item "Diarização Deepgram" de `docs/20-preimplementation-fixes-v1.4.md`. Aqueles documentos permanecem como registro histórico das auditorias e não devem ser reescritos.
 
@@ -27,7 +27,7 @@ Preços verificados em 20/08/2026, para 100 h de sessão/mês (~25 sessões sema
 Dois achados decidiram a questão:
 
 1. **O caro é o streaming, não a transcrição.** Deepgram streaming custa ~11× o Groq batch pelo mesmo trabalho. A latência ao vivo é que se paga.
-2. **A tarifa promocional do Deepgram tem preço em dado.** Ela pressupõe adesão ao programa que compartilha o áudio para treinar modelos — incompatível com áudio de sessão clínica sob `docs/19-lgpd-privacy.md`. O preço aplicável ao SerenaPsi era, portanto, o de lista.
+2. **A tarifa promocional do Deepgram tem preço em dado.** Ela pressupõe adesão ao programa que compartilha o áudio para treinar modelos — incompatível com áudio de sessão clínica sob `docs/19-lgpd-privacy.md`. O preço aplicável ao Tesseli era, portanto, o de lista.
 
 O Groq tem ainda tier gratuito de 28.800 segundos de áudio/dia (8 h/dia), suficiente para a agenda de um consultório solo, e política de não-treinamento válida igualmente para free e pago, com Zero Data Retention self-serve.
 

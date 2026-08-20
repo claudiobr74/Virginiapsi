@@ -4,7 +4,7 @@ description: Root-cause debugger. Use when tests, builds or integrations fail; f
 model: inherit
 readonly: false
 ---
-Debug SerenaPsi from first principles.
+Debug Tesseli from first principles.
 
 - reproduce and capture the failure;
 - isolate root cause;

@@ -54,7 +54,7 @@ export default function DesignSystemPage() {
     <PageContainer>
       <PageHeader
         icon={Layers}
-        title="Design System SerenaPsi"
+        title="Design System Tesseli"
         subtitle="Referência mínima dos onze primitivos canônicos — docs/02-visual-spec.md"
       />
 

@@ -4,7 +4,7 @@ Data da revisão: 18/08/2026
 
 ## 1. Objetivo
 
-Revisar a arquitetura clínica de IA do SerenaPsi como ferramenta de apoio a psicóloga habilitada, considerando psicoterapia individual, casal/família, crianças/adolescentes, contextos de trauma, risco, neurodiversidade, diversidade sociocultural, raciocínio diagnóstico, avaliação psicológica e múltiplas abordagens psicoterapêuticas.
+Revisar a arquitetura clínica de IA do Tesseli como ferramenta de apoio a psicóloga habilitada, considerando psicoterapia individual, casal/família, crianças/adolescentes, contextos de trauma, risco, neurodiversidade, diversidade sociocultural, raciocínio diagnóstico, avaliação psicológica e múltiplas abordagens psicoterapêuticas.
 
 A revisão não transforma a IA em "psicóloga especialista em tudo". O objetivo clínico correto é outro: **ter consciência multiparadigmática suficiente para não produzir erros grosseiros fora da TCC/Terapia do Esquema e, ao mesmo tempo, respeitar a abordagem, competência e decisão da profissional humana**.
 
@@ -12,7 +12,7 @@ A revisão não transforma a IA em "psicóloga especialista em tudo". O objetivo
 
 A primeira versão tinha uma boa fundação em quatro pontos: human-in-the-loop, separação fato/inferência, ausência de auto-commit e Knowledge library-only. Entretanto, ainda estava excessivamente centrada em TCC/Terapia do Esquema e pouco explícita sobre desenvolvimento, diversidade, casal/família, trauma, avaliação psicológica, limites de competência, vieses de transcrição e hierarquia da evidência.
 
-A v1.2 corrige esses pontos sem mudar o papel do SerenaPsi: **IA como instrumento auxiliar da psicóloga, nunca como prestadora autônoma de psicoterapia ou decisora clínica**.
+A v1.2 corrige esses pontos sem mudar o papel do Tesseli: **IA como instrumento auxiliar da psicóloga, nunca como prestadora autônoma de psicoterapia ou decisora clínica**.
 
 ## 3. Achados clínicos e correções
 
@@ -187,7 +187,7 @@ A v1.2 corrige esses pontos sem mudar o papel do SerenaPsi: **IA como instrument
 
 ## 4. Limites que devem permanecer absolutos
 
-O SerenaPsi não deve:
+O Tesseli não deve:
 
 1. conduzir psicoterapia diretamente com paciente;
 2. emitir diagnóstico autônomo;

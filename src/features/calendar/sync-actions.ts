@@ -37,11 +37,11 @@ async function logSyncEvent(input: {
 }
 
 /**
- * Creates or updates the Google Calendar event for a SerenaPsi-managed
+ * Creates or updates the Google Calendar event for a Tesseli-managed
  * appointment. Idempotent: an appointment that already has a
  * `google_event_id` is patched, never re-created. Never called for
  * GOOGLE_EXTERNAL appointments (RLS would reject the resulting UPDATE
- * anyway, since only origin='SERENAPSI' rows are writable).
+ * anyway, since only origin='TESSELI' rows are writable).
  */
 export async function pushAppointmentToGoogleAction(
   appointmentId: string,
@@ -53,15 +53,15 @@ export async function pushAppointmentToGoogleAction(
     getConnection(organizationId),
   ]);
 
-  if (!appointment || appointment.origin !== "SERENAPSI") {
-    return { error: "Consulta não encontrada ou não gerenciada pelo SerenaPsi." };
+  if (!appointment || appointment.origin !== "TESSELI") {
+    return { error: "Consulta não encontrada ou não gerenciada pelo Tesseli." };
   }
   if (!connection || connection.status !== "connected" || !connection.calendar_id) {
     return { error: "Conecte e selecione um calendário do Google primeiro." };
   }
 
   const eventBody = {
-    summary: appointment.summary_snapshot ?? "Consulta SerenaPsi",
+    summary: appointment.summary_snapshot ?? "Consulta Tesseli",
     start: { dateTime: appointment.starts_at },
     end: { dateTime: appointment.ends_at },
   };
@@ -122,8 +122,8 @@ export async function requestMeetForAppointmentAction(
     getConnection(organizationId),
   ]);
 
-  if (!appointment || appointment.origin !== "SERENAPSI") {
-    return { error: "Consulta não encontrada ou não gerenciada pelo SerenaPsi." };
+  if (!appointment || appointment.origin !== "TESSELI") {
+    return { error: "Consulta não encontrada ou não gerenciada pelo Tesseli." };
   }
   if (!appointment.google_event_id || !connection?.calendar_id) {
     return { error: "Sincronize a consulta com o Google Calendar antes de criar o Meet." };

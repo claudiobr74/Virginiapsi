@@ -1,6 +1,6 @@
 ---
 name: visual-fidelity-check
-description: Review a SerenaPsi screen against the visual specification and responsive behavior.
+description: Review a Tesseli screen against the visual specification and responsive behavior.
 disable-model-invocation: true
 ---
 # Visual Fidelity Check

@@ -14,6 +14,6 @@ Implemente Central de Configurações fiel:
 
 Integrações mostram status real para Google, Twilio, transcrição (local e fallback) e Gemini sem revelar secrets.
 
-Backup: documentar backup da plataforma Supabase e implementar exportação lógica/portabilidade SerenaPsi sem Google Drive.
+Backup: documentar backup da plataforma Supabase e implementar exportação lógica/portabilidade Tesseli sem Google Drive.
 
 Gate: permission matrix + secret leakage + destructive confirmation + export consistency. Pare.

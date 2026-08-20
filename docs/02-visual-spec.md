@@ -1,4 +1,4 @@
-# SerenaPsi — Especificação de Identidade Visual
+# Tesseli — Especificação de Identidade Visual
 
 ## Intenção
 
@@ -61,7 +61,7 @@ Cores semânticas podem usar vermelho, azul e âmbar para erro/confirmado/atenç
 - sidebar 256 px;
 - fundo branco/card;
 - borda direita sage muito suave;
-- logo + SerenaPsi + profissional no topo;
+- logo + Tesseli + profissional no topo;
 - navegação em três grupos: rotina, IA/conhecimento, sistema;
 - item ativo: fundo `#6B705C`, texto branco;
 - item inativo: sage escuro, hover bone;
@@ -73,7 +73,7 @@ Cores semânticas podem usar vermelho, azul e âmbar para erro/confirmado/atenç
 
 - sage escuro;
 - logo pequeno;
-- “SerenaPsi” em Inter extra-bold;
+- “Tesseli” em Inter extra-bold;
 - badge “Ativo” discreto;
 - botão menu.
 
@@ -196,7 +196,7 @@ Esta seção é normativa, não descritiva: define os primitivos de UI que exist
 
 O arquivo oficial da marca é:
 
-`public/brand/Logo SerenaPsi em Gradiente Sereno(2).png`
+`public/brand/Logo Tesseli em Gradiente Sereno.png`
 
 Esse arquivo deve ser usado **exatamente como fornecido**. Ele é a fonte de verdade para símbolo, wordmark, tipografia, cores, gradientes, fundo, proporções e espaçamento da marca.
 
@@ -216,7 +216,7 @@ Na interface, apenas o **container de exibição** pode ser redimensionado. Pres
 
 Antes de aceitar uma tela, o agente de UI deve responder:
 
-1. O layout preserva a hierarquia SerenaPsi?
+1. O layout preserva a hierarquia Tesseli?
 2. Usa a paleta e tipografia acima?
 3. Parece acolhedor e leve, não “dashboard genérico”?
 4. Funciona em desktop e mobile sem mudar a identidade?

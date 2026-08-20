@@ -1,4 +1,4 @@
--- SerenaPsi — Phase 4: Google Calendar connection + Agenda appointments + Meet.
+-- Tesseli — Phase 4: Google Calendar connection + Agenda appointments + Meet.
 -- Specs: docs/04-data-model.md (§Agenda), docs/06-integrations.md §1,
 -- docs/05-security-rbac-rls.md (§Tokens Google), prompts/04-agenda-google.md.
 --
@@ -33,7 +33,7 @@ create type public.google_connection_status as enum (
   'error'
 );
 
-create type public.appointment_origin as enum ('SERENAPSI', 'GOOGLE_EXTERNAL');
+create type public.appointment_origin as enum ('TESSELI', 'GOOGLE_EXTERNAL');
 
 create type public.appointment_status as enum (
   'scheduled',
@@ -257,8 +257,8 @@ create table public.appointments (
   ends_at timestamptz not null,
   status public.appointment_status not null default 'scheduled',
   modality public.consultation_modality not null default 'in_person',
-  origin public.appointment_origin not null default 'SERENAPSI',
-  managed_by_serenapsi boolean not null default true,
+  origin public.appointment_origin not null default 'TESSELI',
+  managed_by_tesseli boolean not null default true,
   sync_policy public.calendar_sync_policy not null default 'managed',
   google_calendar_id text,
   google_event_id text,
@@ -276,8 +276,8 @@ create table public.appointments (
   updated_at timestamptz not null default now(),
   constraint appointments_ends_after_starts check (ends_at > starts_at),
   constraint appointments_origin_consistency check (
-    (origin = 'SERENAPSI' and sync_policy = 'managed')
-    or (origin = 'GOOGLE_EXTERNAL' and sync_policy = 'read_only' and managed_by_serenapsi = false)
+    (origin = 'TESSELI' and sync_policy = 'managed')
+    or (origin = 'GOOGLE_EXTERNAL' and sync_policy = 'read_only' and managed_by_tesseli = false)
   ),
   constraint appointments_google_event_unique
     unique (organization_id, google_calendar_id, google_event_id),
@@ -337,7 +337,7 @@ create policy appointments_select_members
   to authenticated
   using (public.is_org_member(organization_id));
 
--- Regular (non-RPC) writes are only ever allowed on SerenaPsi-managed rows:
+-- Regular (non-RPC) writes are only ever allowed on Tesseli-managed rows:
 -- a Google-imported event is read-only for every application role. Pulling
 -- external events into this table happens exclusively through
 -- upsert_external_appointment(), a SECURITY DEFINER function that bypasses
@@ -348,7 +348,7 @@ create policy appointments_insert_managed
   to authenticated
   with check (
     public.is_org_member(organization_id)
-    and origin = 'SERENAPSI'
+    and origin = 'TESSELI'
   );
 
 create policy appointments_update_managed
@@ -357,11 +357,11 @@ create policy appointments_update_managed
   to authenticated
   using (
     public.is_org_member(organization_id)
-    and origin = 'SERENAPSI'
+    and origin = 'TESSELI'
   )
   with check (
     public.is_org_member(organization_id)
-    and origin = 'SERENAPSI'
+    and origin = 'TESSELI'
   );
 
 create policy appointments_delete_managed
@@ -370,11 +370,11 @@ create policy appointments_delete_managed
   to authenticated
   using (
     public.is_org_member(organization_id)
-    and origin = 'SERENAPSI'
+    and origin = 'TESSELI'
   );
 
 -- Pull-sync path: upserts a GOOGLE_EXTERNAL row by (organization_id,
--- google_calendar_id, google_event_id). Never touches SERENAPSI rows, so a
+-- google_calendar_id, google_event_id). Never touches TESSELI rows, so a
 -- managed appointment can never be silently overwritten by an external sync.
 create or replace function public.upsert_external_appointment(
   org_id uuid,
@@ -401,7 +401,7 @@ begin
   end if;
 
   insert into public.appointments (
-    organization_id, starts_at, ends_at, status, origin, managed_by_serenapsi,
+    organization_id, starts_at, ends_at, status, origin, managed_by_tesseli,
     sync_policy, google_calendar_id, google_event_id, google_etag,
     summary_snapshot, sync_status, last_synced_at
   )

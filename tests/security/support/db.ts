@@ -10,10 +10,10 @@ const EMULATION_SQL = path.join(__dirname, "supabase-emulation.sql");
 /** Superuser connection: applies migrations and seeds auth.users. */
 export const ADMIN_URL =
   process.env.TEST_DATABASE_URL ??
-  "postgres://serenapsi_admin:serenapsi@127.0.0.1:5432/serenapsi_test";
+  "postgres://tesseli_admin:tesseli@127.0.0.1:5432/tesseli_test";
 
-const APP_ROLE_PASSWORD = process.env.TEST_APP_ROLE_PASSWORD ?? "serenapsi";
-const APP_ROLE_NAME = "serenapsi_authenticator";
+const APP_ROLE_PASSWORD = process.env.TEST_APP_ROLE_PASSWORD ?? "tesseli";
+const APP_ROLE_NAME = "tesseli_authenticator";
 
 /**
  * Connection used by the tests to impersonate PostgREST: a non-superuser,
@@ -97,7 +97,7 @@ export async function createAuthUser(email?: string): Promise<string> {
   await withAdmin(async (client) => {
     await client.query(
       "insert into auth.users (id, email) values ($1, $2)",
-      [id, email ?? `${id}@serenapsi.test`],
+      [id, email ?? `${id}@tesseli.test`],
     );
   });
   return id;

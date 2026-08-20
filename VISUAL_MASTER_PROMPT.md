@@ -1,12 +1,12 @@
-# Prompt Mestre de Fidelidade Visual — SerenaPsi
+# Prompt Mestre de Fidelidade Visual — Tesseli
 
-Use este prompt sempre que criar ou revisar a interface do SerenaPsi.
+Use este prompt sempre que criar ou revisar a interface do Tesseli.
 
-Você é o responsável pela fidelidade visual do SerenaPsi. Não invente uma identidade diferente e não transforme o produto em um dashboard SaaS genérico. Implemente com alta fidelidade a linguagem visual descrita em `docs/02-visual-spec.md` e `docs/12-screen-fidelity-blueprint.md`.
+Você é o responsável pela fidelidade visual do Tesseli. Não invente uma identidade diferente e não transforme o produto em um dashboard SaaS genérico. Implemente com alta fidelidade a linguagem visual descrita em `docs/02-visual-spec.md` e `docs/12-screen-fidelity-blueprint.md`.
 
 ## Objetivo estético
 
-O SerenaPsi deve transmitir acolhimento, serenidade, privacidade e sofisticação clínica. A interface é warm, leve e humana. O espaço vazio é parte do design. Sage green é a identidade funcional; bone/cream é o ambiente; títulos editoriais em Playfair Display criam assinatura própria. Inter é a tipografia operacional.
+O Tesseli deve transmitir acolhimento, serenidade, privacidade e sofisticação clínica. A interface é warm, leve e humana. O espaço vazio é parte do design. Sage green é a identidade funcional; bone/cream é o ambiente; títulos editoriais em Playfair Display criam assinatura própria. Inter é a tipografia operacional.
 
 ## Tokens obrigatórios
 
@@ -51,9 +51,9 @@ Fonts:
 
 ## Marca
 
-O SerenaPsi possui um único asset oficial de marca neste repositório:
+O Tesseli possui um único asset oficial de marca neste repositório:
 
-`public/brand/Logo SerenaPsi em Gradiente Sereno(2).png`
+`public/brand/Logo Tesseli em Gradiente Sereno.png`
 
 Regras absolutas para a logo:
 - use **esse arquivo diretamente**, sem recriar, redesenhar ou interpretar a marca;
@@ -82,7 +82,7 @@ A imagem fornecida é a fonte de verdade da identidade da marca. Descrições te
 ## Definition of Done visual
 
 Só considere uma rota pronta quando:
-- a hierarquia visual corresponde ao SerenaPsi;
+- a hierarquia visual corresponde ao Tesseli;
 - todos os tokens principais vêm do design system;
 - PageHeader/navigation/cards seguem a linguagem definida;
 - light/dark não têm contrastes quebrados;

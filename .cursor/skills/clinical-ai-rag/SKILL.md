@@ -1,6 +1,6 @@
 ---
 name: clinical-ai-rag
-description: Build SerenaPsi Session AI, Supervisor IA or Knowledge RAG with approved runtime prompts, consent gates, structured schemas, human review and source citations.
+description: Build Tesseli Session AI, Supervisor IA or Knowledge RAG with approved runtime prompts, consent gates, structured schemas, human review and source citations.
 ---
 # Clinical AI / RAG
 

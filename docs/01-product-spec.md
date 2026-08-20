@@ -1,4 +1,4 @@
-# Especificação Funcional SerenaPsi
+# Especificação Funcional Tesseli
 
 ## 1. Perfis
 
@@ -29,7 +29,7 @@ Sidebar esquerda fixa ~256 px. Logo/nome no topo, grupos de navegação, usuári
 
 ### Mobile
 
-Top bar sage com SerenaPsi + estado; bottom nav com “Meu Dia”, “Agenda”, “Pacientes”, “Mais”.
+Top bar sage com Tesseli + estado; bottom nav com “Meu Dia”, “Agenda”, “Pacientes”, “Mais”.
 
 ### Módulos
 
@@ -106,7 +106,7 @@ Fluxo explícito com relatório do que será apagado, o que precisa ser mantido 
 - semana;
 - mês.
 
-### Evento SerenaPsi
+### Evento Tesseli
 
 - paciente;
 - início/fim;
@@ -126,12 +126,12 @@ Fluxo explícito com relatório do que será apagado, o que precisa ser mantido 
 - editar/remarcar/cancelar;
 - detecção de conflito;
 - cores do Google quando possível;
-- eventos externos visíveis sem serem automaticamente assumidos pelo SerenaPsi;
+- eventos externos visíveis sem serem automaticamente assumidos pelo Tesseli;
 - nomes de pacientes em eventos gerenciados: `Nome Sobrenome • PAC-###`.
 
 ### Regras de sincronização
 
-- `SERENAPSI`: gerenciado pelo app, bidirecional.
+- `TESSELI`: gerenciado pelo app, bidirecional.
 - `GOOGLE_EXTERNAL`: importado/externo, read-only por padrão.
 - nunca apagar/alterar evento externo sem ação explícita de assumir gestão.
 
@@ -216,7 +216,7 @@ Wizard curto:
 
 ## 9. Conhecimento
 
-Biblioteca teórica privada e rastreável do SerenaPsi:
+Biblioteca teórica privada e rastreável do Tesseli:
 
 - coleções temáticas;
 - fontes: livro, capítulo, artigo, estudo, revisão, guideline/diretriz, manual, protocolo, guia, consenso/posicionamento e nota;

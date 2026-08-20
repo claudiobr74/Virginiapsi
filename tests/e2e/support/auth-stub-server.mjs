@@ -29,13 +29,13 @@ function makeUser(email, fullName) {
   };
 }
 
-const PASSWORD = "SerenaPsi#2026";
+const PASSWORD = "Tesseli#2026";
 
 // Seeded accounts, one per tenancy scenario the E2E suite needs.
-const ADMIN = makeUser("psicologa@serenapsi.test", "Ana Serena");
-const NEWCOMER = makeUser("nova@serenapsi.test", "Nova Profissional");
-const MULTI = makeUser("multi@serenapsi.test", "Marina Multi");
-const SECRETARY = makeUser("secretaria@serenapsi.test", "Sara Secretaria");
+const ADMIN = makeUser("psicologa@tesseli.test", "Ana Serena");
+const NEWCOMER = makeUser("nova@tesseli.test", "Nova Profissional");
+const MULTI = makeUser("multi@tesseli.test", "Marina Multi");
+const SECRETARY = makeUser("secretaria@tesseli.test", "Sara Secretaria");
 
 const usersByEmail = new Map(
   [ADMIN, NEWCOMER, MULTI, SECRETARY].map((user) => [user.email, user]),
@@ -203,8 +203,8 @@ function seedAppointment(organizationId, overrides) {
     ends_at: now,
     status: "scheduled",
     modality: "in_person",
-    origin: "SERENAPSI",
-    managed_by_serenapsi: true,
+    origin: "TESSELI",
+    managed_by_tesseli: true,
     google_calendar_id: null,
     google_event_id: null,
     meet_url: null,
@@ -235,7 +235,7 @@ function getConnection(organizationId) {
   );
 }
 
-// Seed: one appointment today at 09:00 America/Sao_Paulo (SERENAPSI) and one
+// Seed: one appointment today at 09:00 America/Sao_Paulo (TESSELI) and one
 // external Google event later the same day, so the default day view (today)
 // has something to render without any navigation. Sao Paulo has observed no
 // DST since 2019 (fixed UTC-3), so the offset below is always correct.
@@ -267,7 +267,7 @@ function todaySaoPauloDateStr() {
   const externalEnd = new Date(externalStart.getTime() + 60 * 60 * 1000);
   seedAppointment(ADMIN_ORG_ID, {
     origin: "GOOGLE_EXTERNAL",
-    managed_by_serenapsi: false,
+    managed_by_tesseli: false,
     google_calendar_id: "primary",
     google_event_id: "external-evt-1",
     summary_snapshot: "Reunião do conselho regional",
@@ -423,12 +423,12 @@ const server = createServer(async (req, res) => {
     const body = await readBody(req);
 
     if (grantType === "password") {
-      // Emails shaped like `novo-<id>@serenapsi.test` are created on demand
+      // Emails shaped like `novo-<id>@tesseli.test` are created on demand
       // with zero memberships, so each onboarding test gets an isolated user
       // instead of sharing mutable state across projects.
       if (
         !usersByEmail.has(body.email) &&
-        /^novo-[a-z0-9-]+@serenapsi\.test$/.test(body.email ?? "")
+        /^novo-[a-z0-9-]+@tesseli\.test$/.test(body.email ?? "")
       ) {
         usersByEmail.set(body.email, makeUser(body.email, "Nova Profissional"));
       }

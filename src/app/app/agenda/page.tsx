@@ -9,7 +9,7 @@ import { computeAgendaWindow, todayInTimeZone, type AgendaView } from "@/feature
 import { listPatients } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata: Metadata = { title: "Agenda — SerenaPsi" };
+export const metadata: Metadata = { title: "Agenda — Tesseli" };
 
 function parseView(value: string | undefined): AgendaView {
   return value === "week" || value === "month" ? value : "day";

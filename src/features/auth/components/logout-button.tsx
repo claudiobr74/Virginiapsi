@@ -36,7 +36,7 @@ export function LogoutButton({ className }: { className?: string }) {
         open={open}
         onOpenChange={setOpen}
         title="Sair da conta"
-        description="Você precisará entrar novamente para acessar o SerenaPsi."
+        description="Você precisará entrar novamente para acessar o Tesseli."
         confirmLabel="Sair"
         destructive={false}
         isLoading={isLoading}

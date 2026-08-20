@@ -1,6 +1,6 @@
 ---
 name: runtime-ai-prompt-gate
-description: Validate SerenaPsi Session AI, Supervisor AI or Knowledge AI runtime behavior before accepting an AI feature.
+description: Validate Tesseli Session AI, Supervisor AI or Knowledge AI runtime behavior before accepting an AI feature.
 ---
 # Runtime AI Prompt Gate
 

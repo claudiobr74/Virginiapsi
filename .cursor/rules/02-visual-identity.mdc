@@ -3,7 +3,7 @@ description: Applies whenever editing UI, CSS, components, pages, layouts or UX.
 globs: "**/*.{tsx,ts,css}"
 alwaysApply: false
 ---
-# SerenaPsi visual fidelity
+# Tesseli visual fidelity
 
 Before UI work, read `docs/02-visual-spec.md`.
 
@@ -20,6 +20,6 @@ Non-negotiable:
 Componente canônico obrigatório (`docs/02-visual-spec.md` §Biblioteca de Componentes Canônica): `PageContainer`, `PageHeader`, `SectionHeader`, `Modal`, `Drawer`, `EmptyState`, `LoadingState`, `SearchField`, `ConfirmDialog`, `StatusBadge`, `Button`. Nenhuma tela reimplementa modal, drawer, estado vazio, estado de carregamento, busca ou confirmação com Tailwind solto — nem quando o resultado visual parece idêntico. Extensão de comportamento é prop nova no primitivo, nunca cópia local.
 
 Official brand asset:
-- `public/brand/Logo SerenaPsi em Gradiente Sereno(2).png` is immutable and authoritative.
+- `public/brand/Logo Tesseli em Gradiente Sereno.png` is immutable and authoritative.
 - Render that exact file. Never redraw, reinterpret, vectorize, crop, recolor, remove its background, or generate dark-mode variants.
 - Resize only the display container and preserve aspect ratio with `object-fit: contain`.

@@ -1,11 +1,11 @@
-# SerenaPsi Project Instructions
+# Tesseli Project Instructions
 
-`docs/` is the product and technical source of truth, `src/lib/ai/prompts/**` is the source of truth for runtime AI behavior, and `.cursor/rules/` contains persistent enforcement for the SerenaPsi codebase.
+`docs/` is the product and technical source of truth, `src/lib/ai/prompts/**` is the source of truth for runtime AI behavior, and `.cursor/rules/` contains persistent enforcement for the Tesseli codebase.
 
 Always:
 - complete the pre-implementation audit before Phase 0 and require final verdict `READY` after the v1.4 corrections;
 - keep one Next.js + Supabase architecture;
-- implement the SerenaPsi visual identity faithfully;
+- implement the Tesseli visual identity faithfully;
 - protect clinical data by RLS/RBAC;
 - separate Google Calendar OAuth from app login;
 - use Supabase Cron + Twilio outbox for 24h/2h reminders; keep transcription on-device by default and use Gemini with server-safe patterns;

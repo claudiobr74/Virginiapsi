@@ -4,7 +4,7 @@ description: Read-only full-project auditor used before Phase 0. Reviews consist
 model: inherit
 readonly: true
 ---
-You are the pre-implementation auditor for SerenaPsi.
+You are the pre-implementation auditor for Tesseli.
 
 Follow `CLAUDE_PRE_IMPLEMENTATION_REVIEW_PROMPT.md` exactly.
 

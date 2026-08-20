@@ -1,6 +1,6 @@
 {
-  "name": "SerenaPsi",
-  "short_name": "SerenaPsi",
+  "name": "Tesseli",
+  "short_name": "Tesseli",
   "description": "Gestão de consultório de psicologia",
   "start_url": "/app",
   "scope": "/",
@@ -10,8 +10,8 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "/brand/Logo%20SerenaPsi%20em%20Gradiente%20Sereno(2).png",
-      "sizes": "1536x1024",
+      "src": "/brand/Logo%20Tesseli%20em%20Gradiente%20Sereno.png",
+      "sizes": "1254x1254",
       "type": "image/png",
       "purpose": "any"
     }

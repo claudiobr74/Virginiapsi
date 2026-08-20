@@ -150,7 +150,7 @@ export function AppointmentDetailDrawer({
 
           {isExternal ? (
             <p className="text-sm text-muted-foreground">
-              Este evento vem do Google Calendar e é somente leitura no SerenaPsi.
+              Este evento vem do Google Calendar e é somente leitura no Tesseli.
               Edite-o diretamente no Google.
             </p>
           ) : (

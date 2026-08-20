@@ -1,9 +1,9 @@
 ---
-name: bootstrap-serenapsi
-description: Initialize the SerenaPsi repository with the required application foundation, tooling and architecture checks.
+name: bootstrap-tesseli
+description: Initialize the Tesseli repository with the required application foundation, tooling and architecture checks.
 disable-model-invocation: true
 ---
-# Bootstrap SerenaPsi
+# Bootstrap Tesseli
 
 Use only for Phase 0.
 

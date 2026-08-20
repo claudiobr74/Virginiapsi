@@ -6,7 +6,7 @@ import { listActiveMemberships } from "@/features/organizations/queries";
 import { requireUser } from "@/lib/auth/require-user";
 
 export const metadata: Metadata = {
-  title: "Criar consultório — SerenaPsi",
+  title: "Criar consultório — Tesseli",
 };
 
 export default async function OnboardingPage() {

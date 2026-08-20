@@ -12,7 +12,7 @@
 Gate: reauditoria `READY` + autorização do usuário.
 
 
-## Fase 0 — Fundação do SerenaPsi
+## Fase 0 — Fundação do Tesseli
 
 - repo Next.js vazio;
 - package manager;
@@ -28,7 +28,7 @@ Gate: build limpo e arquitetura-base validada.
 ## Fase 1 — Design system + shell + auth
 
 - tokens visuais;
-- UI primitives SerenaPsi — os onze componentes canônicos de `docs/02-visual-spec.md` §Biblioteca de Componentes Canônica (`PageContainer`, `PageHeader`, `SectionHeader`, `Modal`, `Drawer`, `EmptyState`, `LoadingState`, `SearchField`, `ConfirmDialog`, `StatusBadge`, `Button`), cada um cobrindo todas as variantes descritas na especificação;
+- UI primitives Tesseli — os onze componentes canônicos de `docs/02-visual-spec.md` §Biblioteca de Componentes Canônica (`PageContainer`, `PageHeader`, `SectionHeader`, `Modal`, `Drawer`, `EmptyState`, `LoadingState`, `SearchField`, `ConfirmDialog`, `StatusBadge`, `Button`), cada um cobrindo todas as variantes descritas na especificação;
 - login/reset;
 - shell desktop/mobile;
 - dark mode;

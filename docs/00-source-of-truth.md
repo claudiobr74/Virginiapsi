@@ -1,4 +1,4 @@
-# Fonte de Verdade e Escopo do SerenaPsi
+# Fonte de Verdade e Escopo do Tesseli
 
 ## Hierarquia de autoridade
 
@@ -10,7 +10,7 @@
 
 ## Conceitos obrigatórios do produto
 
-O SerenaPsi deve implementar:
+O Tesseli deve implementar:
 
 - navegação principal por oito módulos;
 - identidade visual sage/bone, tipografia elegante e interface acolhedora;
@@ -45,7 +45,7 @@ O SerenaPsi deve implementar:
 
 ## Regra de fidelidade
 
-“Fiel ao SerenaPsi” significa cumprir a experiência, intenção, hierarquia visual, fluxos clínicos/administrativos e contratos definidos neste kit.
+“Fiel ao Tesseli” significa cumprir a experiência, intenção, hierarquia visual, fluxos clínicos/administrativos e contratos definidos neste kit.
 
 
 ## IA em runtime

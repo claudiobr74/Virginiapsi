@@ -73,7 +73,7 @@ async function listTodayManagedAppointments(
       "id, starts_at, ends_at, status, modality, origin, summary_snapshot, meet_url, meet_status, patient_id, patients(preferred_name, public_code, phone)",
     )
     .eq("organization_id", organizationId)
-    .eq("origin", "SERENAPSI")
+    .eq("origin", "TESSELI")
     .neq("status", "cancelled")
     .lt("starts_at", window.toIso)
     .gt("ends_at", window.fromIso)
