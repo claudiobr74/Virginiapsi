@@ -23,6 +23,7 @@ const FORBIDDEN_PACKAGES = [
   "sequelize",
   "knex",
   "mikro-orm",
+  "twilio",
 ] as const;
 
 const FORBIDDEN_IMPORT_PATTERNS: { name: string; pattern: RegExp }[] = [
@@ -132,8 +133,13 @@ describe("arquitetura proibida", () => {
     // expressa bem via join; toda leitura/escrita é um signed URL emitido
     // depois que o código em src/features/documents e src/features/consents
     // já checou role+sensitivity em TypeScript.
+    //
+    // src/features/communications/admin-store.ts: jobs de lembrete (pg_net
+    // sem cookie) e webhooks Twilio autenticam por CRON_SECRET / assinatura
+    // antes de qualquer side effect; o client service-role só é usado depois.
     const allowedImporters: string[] = [
       "src/app/api/session-capture/transcribe/route.ts",
+      "src/features/communications/admin-store.ts",
       "src/lib/documents/storage.ts",
       "src/lib/integrations/transcription/fallback-storage.ts",
     ];

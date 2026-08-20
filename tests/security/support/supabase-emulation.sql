@@ -100,3 +100,42 @@ as $$
     else '{}'::text[]
   end;
 $$;
+
+-- Minimal Vault + pg_net stubs so the WhatsApp scheduler function can be
+-- exercised without writing secret values into project migrations.
+create schema if not exists vault;
+create table if not exists vault.secrets (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  secret text not null
+);
+create or replace view vault.decrypted_secrets as
+  select id, name, secret from vault.secrets;
+
+create schema if not exists net;
+create table if not exists net.http_request_queue (
+  id bigserial primary key,
+  url text not null,
+  headers jsonb not null default '{}'::jsonb,
+  body jsonb,
+  created_at timestamptz not null default now()
+);
+
+create or replace function net.http_post(
+  url text,
+  body jsonb default '{}'::jsonb,
+  headers jsonb default '{}'::jsonb
+)
+returns bigint
+language plpgsql
+volatile
+as $$
+declare
+  request_id bigint;
+begin
+  insert into net.http_request_queue (url, headers, body)
+  values (url, headers, body)
+  returning id into request_id;
+  return request_id;
+end;
+$$;

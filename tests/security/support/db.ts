@@ -132,13 +132,12 @@ export async function openSession(
   await client.connect();
   await client.query(`set role ${role};`);
 
-  if (options.userId) {
-    await client.query("select set_config('request.jwt.claims', $1, false)", [
-      JSON.stringify({ sub: options.userId, role }),
-    ]);
-  } else {
-    await client.query("select set_config('request.jwt.claims', '', false)");
-  }
+  await client.query("select set_config('request.jwt.claims', $1, false)", [
+    JSON.stringify({
+      role,
+      ...(options.userId ? { sub: options.userId } : {}),
+    }),
+  ]);
 
   return {
     async query(sql, params) {

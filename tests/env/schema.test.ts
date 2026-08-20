@@ -92,6 +92,16 @@ describe("contrato de ambiente", () => {
     );
   });
 
+  it("aceita o contrato servidor sem remetente Twilio (exigido só no envio)", () => {
+    const parsed = parseServerEnv({
+      ...validServer,
+      TWILIO_WHATSAPP_FROM: "",
+      TWILIO_MESSAGING_SERVICE_SID: "",
+    });
+    expect(parsed.TWILIO_WHATSAPP_FROM).toBeUndefined();
+    expect(parsed.TWILIO_MESSAGING_SERVICE_SID).toBeUndefined();
+  });
+
   it("aceita o contrato servidor sem GROQ_API_KEY", () => {
     // A transcrição padrão roda no dispositivo: sem provider de fallback
     // configurado o app continua completo (docs/22).

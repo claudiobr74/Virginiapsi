@@ -192,6 +192,19 @@ for (const name of ["Financeiro Um", "Financeiro Dois", "Financeiro Sessão", "F
   });
 }
 
+seedPatient(ADMIN_ORG_ID, {
+  preferred_name: "WhatsApp Um",
+  full_name: "WhatsApp Um Paciente",
+  birth_date: "1992-02-02",
+  phone: "11977776666",
+});
+seedPatient(ADMIN_ORG_ID, {
+  preferred_name: "WhatsApp Dois",
+  full_name: "WhatsApp Dois Paciente",
+  birth_date: "1993-03-03",
+  phone: "11966665555",
+});
+
 // Dedicated patients for the Fase 7 Supervisor E2E.
 for (const name of ["Supervisor Um", "Supervisor Dois", "Supervisor Tres"]) {
   seedPatient(ADMIN_ORG_ID, {
@@ -223,6 +236,56 @@ const connectionsByOrg = new Map();
 const practiceTasksByOrg = new Map();
 /** organizationId -> Map<consentId, consentRow> */
 const consentsByOrg = new Map();
+/** patientId -> preference row */
+const communicationPreferences = new Map();
+/** organizationId -> Map<templateKey, templateRow> */
+const whatsappTemplatesByOrg = new Map();
+/** organizationId -> Map<id, messageRow> */
+const whatsappMessagesByOrg = new Map();
+/** organizationId -> Map<id, inboundRow> */
+const whatsappInboundByOrg = new Map();
+/** organizationId -> Map<id, outboxRow> */
+const whatsappOutboxByOrg = new Map();
+
+const DEFAULT_WHATSAPP_TEMPLATES = {
+  confirmation:
+    "Olá, {{patient_name}}! Confirmamos sua sessão em {{starts_at}}. Qualquer imprevisto, responda esta mensagem.",
+  reminder_24h:
+    "Olá, {{patient_name}}! Lembrete: sua sessão é amanhã, {{starts_at}}. Responda SIM para confirmar.",
+  reminder_2h:
+    "Olá, {{patient_name}}! Sua sessão começa em cerca de 2 horas ({{starts_at}}). Até breve.",
+  welcome:
+    "Olá, {{patient_name}}! Este é o canal administrativo do consultório. Avisos de sessão e confirmações chegam por aqui.",
+  billing:
+    "Olá, {{patient_name}}! Segue o lembrete administrativo referente ao valor combinado da sessão. Qualquer dúvida, fale conosco.",
+};
+
+function ensureWhatsappTemplates(organizationId) {
+  const table = getOrCreateOrgMap(whatsappTemplatesByOrg, organizationId);
+  for (const [template_key, body] of Object.entries(DEFAULT_WHATSAPP_TEMPLATES)) {
+    if (![...table.values()].some((row) => row.template_key === template_key)) {
+      const row = {
+        id: randomUUID(),
+        organization_id: organizationId,
+        template_key,
+        body,
+        twilio_content_sid: null,
+      };
+      table.set(row.id, row);
+    }
+  }
+}
+
+function patientWhatsappAllowed(organizationId, patientId) {
+  const pref = communicationPreferences.get(patientId);
+  if (!pref?.whatsapp_enabled || pref.organization_id !== organizationId) {
+    return false;
+  }
+  const consents = [...(consentsByOrg.get(organizationId)?.values() ?? [])];
+  return consents.some(
+    (row) => row.patient_id === patientId && row.type === "whatsapp" && row.status === "accepted",
+  );
+}
 
 const ADMINISTRATIVE_CONSENT_TYPES = new Set(["service_terms", "whatsapp"]);
 
@@ -1205,7 +1268,11 @@ const server = createServer(async (req, res) => {
       json(res, 401, { message: "invalid JWT" });
       return;
     }
-    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+    const consentRole = membershipRole(user.id, body.organization_id);
+    if (
+      consentRole !== "psychologist_admin" &&
+      !(consentRole && ADMINISTRATIVE_CONSENT_TYPES.has(body.type))
+    ) {
       json(res, 403, { message: "row-level security policy violation" });
       return;
     }
@@ -1245,11 +1312,13 @@ const server = createServer(async (req, res) => {
     const idFilter = parseEqFilter(searchParams.get("id"));
     let updated = null;
     for (const [orgId, table] of consentsByOrg.entries()) {
+      const role = membershipRole(user.id, orgId);
+      const current = table.get(idFilter);
       if (
-        membershipRole(user.id, orgId) === "psychologist_admin" &&
-        table.has(idFilter)
+        current &&
+        (role === "psychologist_admin" ||
+          (role && ADMINISTRATIVE_CONSENT_TYPES.has(current.type)))
       ) {
-        const current = table.get(idFilter);
         updated = {
           ...current,
           ...body,
@@ -1273,6 +1342,152 @@ const server = createServer(async (req, res) => {
     }
     json(res, 200, wantsSingleObject(req) ? updated : [updated]);
     return;
+  }
+
+  if (pathname === "/rest/v1/rpc/ensure_whatsapp_templates" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    if (!membershipRole(user.id, body.p_org_id)) {
+      return json(res, 403, { message: "not authorized" });
+    }
+    ensureWhatsappTemplates(body.p_org_id);
+    return json(res, 200, null);
+  }
+
+  if (pathname === "/rest/v1/rpc/patient_whatsapp_allowed" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    if (!membershipRole(user.id, body.p_org_id)) {
+      return json(res, 200, false);
+    }
+    return json(res, 200, patientWhatsappAllowed(body.p_org_id, body.p_patient_id));
+  }
+
+  if (pathname === "/rest/v1/communication_preferences" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const patientId = parseEqFilter(searchParams.get("patient_id"));
+    if (!organizationId || !membershipRole(user.id, organizationId)) {
+      return json(res, 200, wantsSingleObject(req) ? null : []);
+    }
+    const rows = [...communicationPreferences.values()].filter(
+      (row) =>
+        row.organization_id === organizationId &&
+        (!patientId || row.patient_id === patientId),
+    );
+    if (wantsSingleObject(req)) {
+      return json(res, 200, rows[0] ?? null);
+    }
+    return json(res, 200, rows);
+  }
+
+  if (pathname === "/rest/v1/communication_preferences" && (req.method === "POST" || req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = body.organization_id ?? parseEqFilter(searchParams.get("organization_id"));
+    const patientId = body.patient_id ?? parseEqFilter(searchParams.get("patient_id"));
+    if (!organizationId || !patientId || !membershipRole(user.id, organizationId)) {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const current = communicationPreferences.get(patientId) ?? {
+      patient_id: patientId,
+      organization_id: organizationId,
+      whatsapp_enabled: false,
+      consent_id: null,
+      quiet_hours_start: null,
+      quiet_hours_end: null,
+    };
+    const next = { ...current, ...body, patient_id: patientId, organization_id: organizationId };
+    if (next.whatsapp_enabled) {
+      const hasConsent = [...(consentsByOrg.get(organizationId)?.values() ?? [])].some(
+        (row) =>
+          row.patient_id === patientId &&
+          row.type === "whatsapp" &&
+          row.status === "accepted" &&
+          (!next.consent_id || row.id === next.consent_id),
+      );
+      if (!hasConsent) {
+        return json(res, 400, { message: "whatsapp preference requires an accepted whatsapp consent", code: "P0001" });
+      }
+    }
+    communicationPreferences.set(patientId, next);
+    ensureWhatsappTemplates(organizationId);
+    return json(res, req.method === "POST" ? 201 : 200, wantsSingleObject(req) ? next : [next]);
+  }
+
+  if (pathname === "/rest/v1/whatsapp_templates" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    if (!organizationId || !membershipRole(user.id, organizationId)) {
+      return json(res, 200, []);
+    }
+    const rows = [...(whatsappTemplatesByOrg.get(organizationId)?.values() ?? [])].filter((row) =>
+      matchesFilters(row, searchParams),
+    );
+    return json(res, 200, applyOrder(rows, searchParams));
+  }
+
+  if (pathname === "/rest/v1/whatsapp_reminder_outbox" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    if (!organizationId || !membershipRole(user.id, organizationId)) {
+      return json(res, 200, []);
+    }
+    const rows = [...(whatsappOutboxByOrg.get(organizationId)?.values() ?? [])].filter((row) =>
+      matchesFilters(row, searchParams),
+    );
+    return json(res, 200, applyOrder(rows, searchParams));
+  }
+
+  if (pathname === "/rest/v1/whatsapp_messages" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    if (!organizationId || !membershipRole(user.id, organizationId)) {
+      return json(res, 200, []);
+    }
+    const rows = [...(whatsappMessagesByOrg.get(organizationId)?.values() ?? [])].filter((row) =>
+      matchesFilters(row, searchParams),
+    );
+    return json(res, 200, applyLimit(applyOrder(rows, searchParams), searchParams));
+  }
+
+  if (pathname === "/rest/v1/whatsapp_messages" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    if (!membershipRole(user.id, body.organization_id)) {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const row = {
+      id: randomUUID(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      sent_at: null,
+      body_redacted: body.template_key ?? null,
+      ...body,
+    };
+    getOrCreateOrgMap(whatsappMessagesByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/whatsapp_inbound_messages" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    if (!organizationId || !membershipRole(user.id, organizationId)) {
+      return json(res, 200, []);
+    }
+    const rows = [...(whatsappInboundByOrg.get(organizationId)?.values() ?? [])].filter((row) =>
+      matchesFilters(row, searchParams),
+    );
+    return json(res, 200, applyLimit(applyOrder(rows, searchParams), searchParams));
   }
 
   if (pathname === "/rest/v1/practice_tasks" && req.method === "GET") {

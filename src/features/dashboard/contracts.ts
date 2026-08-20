@@ -11,7 +11,7 @@ export const PHASE_AVAILABILITY = {
   clinicalSessions: false, // Fase 6 (widget de pendência ainda não foi ligado)
   finance: true,
   documents: true,
-  twilioReminders: false, // Fase 11
+  twilioReminders: true,
 } as const;
 
 export type PhaseAvailability = typeof PHASE_AVAILABILITY;
@@ -114,9 +114,8 @@ export function selectNextSession(
 }
 
 /**
- * Builds a WhatsApp deep-link entry point for a confirmation/reminder.
- * Full Twilio outbox scheduling arrives in Phase 11 — this is the
- * administrative entry point Meu Dia needs today (prompts/05-myday.md).
+ * Builds a WhatsApp deep-link entry point for a confirmation/reminder from
+ * Meu Dia. Automated 24h/2h reminders go through the Twilio outbox (Fase 11).
  */
 export function buildWhatsAppReminderUrl(
   phone: string,

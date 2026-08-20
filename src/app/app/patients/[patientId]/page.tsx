@@ -33,6 +33,8 @@ import {
   getPatient,
   getPatientClinicalProfile,
 } from "@/features/patients/queries";
+import { WhatsappPanel } from "@/features/communications/components/whatsapp-panel";
+import { getPatientWhatsAppSnapshot } from "@/features/communications/queries";
 import { SessionHistoryList } from "@/features/sessions/components/session-history-list";
 import { StartSessionButton } from "@/features/sessions/components/start-session-button";
 import { listPatientSessions } from "@/features/sessions/queries";
@@ -87,6 +89,11 @@ export default async function PatientHubPage({
     role,
     patient.id,
     patient.preferred_name,
+  );
+  const whatsapp = await getPatientWhatsAppSnapshot(
+    organizationId,
+    patient.id,
+    patient.phone,
   );
 
   return (
@@ -181,6 +188,13 @@ export default async function PatientHubPage({
           />
         </PatientHubSection>
       ) : null}
+
+      <PatientHubSection
+        title="WhatsApp"
+        description="Consentimento, canal, modelos e lembretes 24h/2h. Confirmação de agenda por resposta só ocorre com SIM explícito."
+      >
+        <WhatsappPanel patientId={patient.id} snapshot={whatsapp} />
+      </PatientHubSection>
 
       <PatientHubSection title="Adesão & Planos Ativos">
         <PatientPlansBlock access={finance.access} plans={finance.plans} />

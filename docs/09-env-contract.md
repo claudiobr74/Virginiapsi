@@ -28,6 +28,7 @@ SESSION_CAPTURE_SECRET=
 
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
+# Um dos dois é exigido no envio; o boot aceita ambos vazios.
 TWILIO_WHATSAPP_FROM=
 TWILIO_MESSAGING_SERVICE_SID=
 

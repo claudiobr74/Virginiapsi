@@ -221,7 +221,7 @@ Dashboard operacional em `/app`, no lugar do placeholder da Fase 1.
 - Tarefas operacionais em `practice_tasks` (CRUD dos dois papéis, `created_by_user_id` forçado para `auth.uid()`).
 - **Sessões a finalizar** (Fase 6), **pendências financeiras** (Fase 10) e **documentos recentes** (Fase 9) apontam para os módulos reais — sem mock de domínio.
 
-O envio Twilio/outbox de lembretes permanece na Fase 11: o botão de WhatsApp desta fase é só o entry point administrativo (deep-link), nunca dispara o provider.
+O envio Twilio/outbox de lembretes chega na Fase 11: o botão de WhatsApp desta fase permanece o entry point administrativo (deep-link) e os lembretes 24h/2h passam pelo outbox.
 
 Testes: RLS de `practice_tasks` + projeção de saudação (`tests/security/practice-tasks.test.ts`), contratos de `selectNextSession`/`buildWhatsAppReminderUrl` (`tests/utils/myday.test.ts`) e E2E do dashboard (`tests/e2e/myday.spec.ts`).
 
@@ -356,4 +356,17 @@ Migration `supabase/migrations/*_finance.sql`:
 UI: `/app/finance` (baixa rápida, recibo individual/lote via documentos `recibo` da Fase 9, CSV configurável, fechamento mensal, NFS-e só como solicitação administrativa). Controle de `secretary_finance_access` no próprio módulo (admin). Patient Hub (planos, pendências, extrato) e Meu Dia (pendências do dia).
 
 Testes: aritmética em centavos (`tests/utils/money.test.ts`), CSV (`tests/utils/finance-csv.test.ts`), RLS none/view/manage + isolamento + overpay + período fechado + sem hard delete (`tests/security/finance.test.ts`), E2E (`tests/e2e/finance.spec.ts`).
+
+## Fase 11 — Twilio WhatsApp
+
+Migration `supabase/migrations/*_whatsapp.sql`:
+- `communication_preferences` (ativar exige consentimento `whatsapp` aceito), `whatsapp_templates`, `whatsapp_reminder_outbox` com `unique(appointment_id, reminder_type)`, `whatsapp_messages` (idempotency_key) e `whatsapp_inbound_messages` (`message_sid` unique).
+- Outbox com claim atômico (`FOR UPDATE SKIP LOCKED`), estados `scheduled|claimed|sending|sent|retryable_failed|permanent_failed|canceled` e retries com backoff.
+- Trigger na agenda enfileira/cancela lembretes 24h/2h; preferência sincroniza a fila do paciente.
+- Scheduler: `pg_cron` a cada 5 min → `invoke_whatsapp_reminder_job()` lê Vault (`tesseli_app_url`, `tesseli_cron_secret`, **sem valores na migration**) → `pg_net` POST `/api/jobs/whatsapp-reminders`. O endpoint valida `CRON_SECRET` (`x-cron-secret` ou Bearer) **antes de qualquer side effect**.
+- Adapter Twilio via `fetch` (sem SDK no client). Webhooks de status/inbound só processam após HMAC-SHA1 da assinatura Twilio. Parser inbound conservador: só `SIM`/`confirmo` confirma a consulta; remarcação/cancelamento ficam pendentes.
+
+UI: painel WhatsApp no Patient Hub (consentimento, ativar canal, confirmação/boas-vindas/cobrança, modelos, outbox). Meu Dia mantém o deep-link `wa.me` como atalho administrativo.
+
+Testes: E.164/assinatura/status/parser (`tests/utils/*` + `tests/integrations/twilio-client.test.ts`), RLS/consentimento/claim concorrente/retry/Vault (`tests/security/whatsapp.test.ts`), E2E de preferência + rejeição de CRON_SECRET/assinatura (`tests/e2e/whatsapp.spec.ts`).
 

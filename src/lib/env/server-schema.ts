@@ -8,6 +8,10 @@ import { formatEnvIssues, publicEnvSchema } from "@/lib/env/schema";
 
 const nonEmpty = z.string().trim().min(1);
 const httpUrl = z.string().trim().url();
+const optionalNonEmpty = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  nonEmpty.optional(),
+);
 
 export const serverEnvSchema = publicEnvSchema.extend({
   SUPABASE_SECRET_KEY: nonEmpty.startsWith("sb_secret_"),
@@ -18,8 +22,9 @@ export const serverEnvSchema = publicEnvSchema.extend({
   SESSION_CAPTURE_SECRET: nonEmpty,
   TWILIO_ACCOUNT_SID: nonEmpty,
   TWILIO_AUTH_TOKEN: nonEmpty,
-  TWILIO_WHATSAPP_FROM: nonEmpty,
-  TWILIO_MESSAGING_SERVICE_SID: nonEmpty,
+  // Sender *or* Messaging Service — required only at send time.
+  TWILIO_WHATSAPP_FROM: optionalNonEmpty,
+  TWILIO_MESSAGING_SERVICE_SID: optionalNonEmpty,
   // Optional on purpose: transcription runs on-device by default, so the app
   // is fully functional without a transcription provider. This key only exists
   // for organizations that enable the fallback
