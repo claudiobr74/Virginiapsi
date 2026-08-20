@@ -210,3 +210,17 @@ UI da Agenda (`src/features/calendar/`): visões dia/semana/mês (`AgendaBoard`)
 **`EXTERNAL_BLOCKED`**: a troca real de código OAuth com `accounts.google.com`/`oauth2.googleapis.com` não é testável neste ambiente sem um projeto Google Cloud e credenciais reais (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`). Coberto até onde dá sem credenciais: todos os testes de contrato dos adapters (assinatura/verificação de `state`, shape das requisições REST, `hangoutsMeet`/`conferenceDataVersion=1`/`requestId` novo, estados `pending`/`success`/`failure`, nunca fabricar URL) rodam com `fetch` mockado e passam localmente; a RLS de `google_calendar_credentials`/`google_calendar_connections`/`appointments`/`calendar_sync_events` roda contra PostgreSQL real; e o E2E cobre toda a Agenda (dia/semana/mês, CRUD de evento gerenciado, conflito, evento externo somente leitura, página de conexão) usando o stub — só o clique real em "Conectar com o Google" contra o Google de verdade fica pendente de um projeto Supabase/Google reais.
 
 Testes: 15 novos testes de RLS (`tests/security/google-calendar.test.ts`), 30 testes de contrato dos adapters Google (`tests/integrations/`), 11 testes de utilitário de fuso horário/janela de agenda (`tests/utils/`) e 7 novos testes E2E (`tests/e2e/agenda.spec.ts`).
+
+## Fase 5 — Meu Dia
+
+Dashboard operacional em `/app`, no lugar do placeholder da Fase 1.
+
+- Saudação personalizável (`practice_settings.greeting_prefix` + nome da profissional) e frase curta (`quote`), expostas na projeção mínima `organization_shell_settings()` — não são dados administrativos/financeiros, então a secretaria também lê.
+- Card de **próxima sessão** (primeira consulta gerenciada do dia que ainda não terminou), com horário em tabular/mono, modalidade, confirmação, deep-link de **lembrete WhatsApp** (`wa.me` com texto administrativo, sem conteúdo clínico) e **Meet** quando `meet_status = success`.
+- Linha do tempo de hoje (somente `origin = SERENAPSI`; eventos Google externos continuam na Agenda).
+- Tarefas operacionais em `practice_tasks` (CRUD dos dois papéis, `created_by_user_id` forçado para `auth.uid()`).
+- **Sessões a finalizar**, **pendências financeiras** e **documentos recentes** são estados vazios explícitos de fase futura (6, 10 e 9) — sem mock de domínio.
+
+O envio Twilio/outbox de lembretes permanece na Fase 11: o botão de WhatsApp desta fase é só o entry point administrativo (deep-link), nunca dispara o provider.
+
+Testes: RLS de `practice_tasks` + projeção de saudação (`tests/security/practice-tasks.test.ts`), contratos de `selectNextSession`/`buildWhatsAppReminderUrl` (`tests/utils/myday.test.ts`) e E2E do dashboard (`tests/e2e/myday.spec.ts`).

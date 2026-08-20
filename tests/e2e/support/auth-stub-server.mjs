@@ -157,6 +157,8 @@ clinicalProfiles.set(
 const appointmentsByOrg = new Map();
 /** organizationId -> connection row */
 const connectionsByOrg = new Map();
+/** organizationId -> Map<taskId, taskRow> */
+const practiceTasksByOrg = new Map();
 
 function getOrCreateOrgMap(map, organizationId) {
   const existing = map.get(organizationId);
@@ -339,6 +341,8 @@ function matchesFilters(row, searchParams, ignoredKeys = new Set(["select", "ord
       if (!(new Date(value).getTime() < new Date(rawValue.slice(3)).getTime())) return false;
     } else if (rawValue.startsWith("gt.")) {
       if (!(new Date(value).getTime() > new Date(rawValue.slice(3)).getTime())) return false;
+    } else if (rawValue === "is.null") {
+      if (value !== null && value !== undefined) return false;
     } else if (rawValue.startsWith("not.in.(")) {
       const list = rawValue.slice("not.in.(".length, -1).split(",");
       if (list.includes(String(value))) return false;
@@ -353,6 +357,25 @@ function applyOrder(rows, searchParams) {
   const [field, direction = "asc"] = order.split(".");
   const sorted = [...rows].sort((a, b) => (a[field] > b[field] ? 1 : a[field] < b[field] ? -1 : 0));
   return direction === "desc" ? sorted.reverse() : sorted;
+}
+
+function embedAppointmentRelations(row, select) {
+  if (!select || !select.includes("patients(") || !row.patient_id) {
+    return row;
+  }
+  const orgPatients = patientsByOrg.get(row.organization_id);
+  const patient = orgPatients?.get(row.patient_id);
+  if (!patient) {
+    return { ...row, patients: null };
+  }
+  return {
+    ...row,
+    patients: {
+      preferred_name: patient.preferred_name,
+      public_code: patient.public_code,
+      phone: patient.phone,
+    },
+  };
 }
 
 const server = createServer(async (req, res) => {
@@ -497,6 +520,8 @@ const server = createServer(async (req, res) => {
         clinic_name: organization.clinic_name,
         inactivity_timeout_minutes: organization.inactivity_timeout_minutes,
         session_duration_minutes: organization.session_duration_minutes,
+        greeting_prefix: null,
+        quote: null,
       },
     ]);
     return;
@@ -752,10 +777,14 @@ const server = createServer(async (req, res) => {
         json(res, 406, { message: "JSON object requested, multiple (or no) rows returned" });
         return;
       }
-      json(res, 200, rows[0]);
+      json(res, 200, embedAppointmentRelations(rows[0], searchParams.get("select")));
       return;
     }
-    json(res, 200, rows);
+    json(
+      res,
+      200,
+      rows.map((row) => embedAppointmentRelations(row, searchParams.get("select"))),
+    );
     return;
   }
 
@@ -865,6 +894,104 @@ const server = createServer(async (req, res) => {
       return;
     }
     json(res, 200, randomUUID());
+    return;
+  }
+
+  if (pathname === "/rest/v1/practice_tasks" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const orgIds = new Set((memberships.get(user.id) ?? []).map((m) => m.organization_id));
+    if (!organizationId || !orgIds.has(organizationId)) {
+      json(res, 200, []);
+      return;
+    }
+    const table = practiceTasksByOrg.get(organizationId) ?? new Map();
+    const rows = applyOrder(
+      [...table.values()].filter((row) => matchesFilters(row, searchParams)),
+      searchParams,
+    );
+    json(res, 200, rows);
+    return;
+  }
+
+  if (pathname === "/rest/v1/practice_tasks" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const isMember = (memberships.get(user.id) ?? []).some(
+      (row) => row.active && row.organization_id === body.organization_id,
+    );
+    if (!isMember) {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    const now = new Date().toISOString();
+    const task = {
+      id: randomUUID(),
+      organization_id: body.organization_id,
+      title: body.title,
+      notes: body.notes ?? null,
+      due_at: body.due_at ?? null,
+      completed_at: null,
+      created_by_user_id: user.id,
+      created_at: now,
+      updated_at: now,
+    };
+    getOrCreateOrgMap(practiceTasksByOrg, body.organization_id).set(task.id, task);
+    json(res, 201, wantsSingleObject(req) ? task : [task]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/practice_tasks" && (req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    let updated = null;
+    for (const orgId of (memberships.get(user.id) ?? []).map((m) => m.organization_id)) {
+      const table = practiceTasksByOrg.get(orgId);
+      if (table?.has(idFilter)) {
+        const current = table.get(idFilter);
+        updated = { ...current, ...body, id: current.id, updated_at: new Date().toISOString() };
+        table.set(idFilter, updated);
+        break;
+      }
+    }
+    if (!updated) {
+      json(res, wantsSingleObject(req) ? 406 : 200, wantsSingleObject(req) ? { message: "not found" } : []);
+      return;
+    }
+    json(res, 200, wantsSingleObject(req) ? updated : [updated]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/practice_tasks" && req.method === "DELETE") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    let deleted = null;
+    for (const orgId of (memberships.get(user.id) ?? []).map((m) => m.organization_id)) {
+      const table = practiceTasksByOrg.get(orgId);
+      if (table?.has(idFilter)) {
+        deleted = table.get(idFilter);
+        table.delete(idFilter);
+        break;
+      }
+    }
+    json(res, 200, wantsSingleObject(req) ? deleted : deleted ? [deleted] : []);
     return;
   }
 

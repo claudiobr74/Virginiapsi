@@ -67,10 +67,12 @@ describe("isolamento por papel", () => {
       expect(Object.keys(rows[0]).sort()).toEqual(
         [
           "clinic_name",
+          "greeting_prefix",
           "inactivity_timeout_minutes",
           "organization_id",
           "organization_name",
           "professional_name",
+          "quote",
           "session_duration_minutes",
           "timezone",
         ].sort(),

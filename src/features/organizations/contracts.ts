@@ -33,6 +33,8 @@ export const shellSettingsRowSchema = z.object({
   clinic_name: z.string().nullable(),
   inactivity_timeout_minutes: z.number().int().positive(),
   session_duration_minutes: z.number().int().positive(),
+  greeting_prefix: z.string().nullable(),
+  quote: z.string().nullable(),
 });
 
 export type ShellSettings = z.infer<typeof shellSettingsRowSchema>;
