@@ -13,7 +13,7 @@ export function PatientHubSection({
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6">
+    <section className="flex scroll-mt-24 flex-col gap-4 rounded-3xl border border-border bg-card p-6">
       <SectionHeader title={title} description={description} actions={actions} />
       {children}
     </section>

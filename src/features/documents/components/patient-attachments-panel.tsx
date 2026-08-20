@@ -107,17 +107,17 @@ export function PatientAttachmentsPanel({
           {attachments.map((attachment) => (
             <div
               key={attachment.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface/40 px-3 py-2 text-sm"
+              className="flex flex-wrap items-center justify-between gap-2 scroll-mt-24 rounded-xl border border-border bg-surface/40 px-3 py-2 text-sm"
             >
-              <div className="flex items-center gap-2">
-                <Paperclip className="size-4 text-muted-foreground" aria-hidden />
-                <span className="font-semibold text-foreground">{attachment.title}</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <Paperclip className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="truncate font-semibold text-foreground">{attachment.title}</span>
                 <StatusBadge
                   status={attachment.sensitivity === "clinical" ? "attention" : "info"}
                   label={attachment.sensitivity === "clinical" ? "Clínico" : "Administrativo"}
                 />
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 <Button
                   type="button"
                   size="sm"

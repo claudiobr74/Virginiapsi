@@ -13,14 +13,13 @@ test.describe("Documentos", () => {
     await loginViaUi(page);
     await openPatient(page, "Documentos Um");
 
+    const title = `Atestado de comparecimento ${Date.now()}`;
     await page.getByRole("button", { name: "Novo documento" }).click();
-    await page.getByPlaceholder("Título do documento").fill("Atestado de comparecimento");
+    await page.getByPlaceholder("Título do documento").fill(title);
     await page.getByRole("button", { name: "Criar rascunho" }).click();
 
     await page.waitForURL(/\/app\/documents\/[0-9a-f-]{36}$/);
-    await expect(
-      page.getByRole("heading", { name: "Atestado de comparecimento" }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
     await expect(page.getByText("Rascunho", { exact: true })).toBeVisible();
 
     const textarea = page.locator("textarea");
@@ -33,24 +32,26 @@ test.describe("Documentos", () => {
     await expect(page.getByRole("button", { name: "Baixar PDF" })).toBeVisible();
 
     await page.goto("/app/documents");
-    await expect(page.getByText("Atestado de comparecimento")).toBeVisible();
+    await expect(page.getByRole("link", { name: title })).toBeVisible();
   });
 
   test("admin cria um modelo na página de Documentos", async ({ page }) => {
     await loginViaUi(page);
     await page.goto("/app/documents");
 
-    await page.getByPlaceholder("Nome do modelo").fill("Atestado padrão E2E");
+    const name = `Atestado padrão E2E ${Date.now()}`;
+    await page.getByPlaceholder("Nome do modelo").fill(name);
     await page.getByRole("button", { name: "Criar modelo" }).click();
-    await expect(page.getByText("Atestado padrão E2E")).toBeVisible();
+    await expect(page.getByText(name)).toBeVisible();
   });
 
   test("secretária não abre um documento clínico mesmo com o URL", async ({ page }) => {
     await loginViaUi(page);
     await openPatient(page, "Documentos Quatro");
 
+    const title = `Laudo confidencial E2E ${Date.now()}`;
     await page.getByRole("button", { name: "Novo documento" }).click();
-    await page.getByPlaceholder("Título do documento").fill("Laudo confidencial E2E");
+    await page.getByPlaceholder("Título do documento").fill(title);
     await page.getByRole("button", { name: "Criar rascunho" }).click();
     await page.waitForURL(/\/app\/documents\/[0-9a-f-]{36}$/);
     const clinicalUrl = page.url();
@@ -61,9 +62,7 @@ test.describe("Documentos", () => {
     await page.goto(clinicalUrl);
 
     await expect(page.getByText("Documento não encontrado")).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Laudo confidencial E2E" }),
-    ).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: title })).toHaveCount(0);
   });
 
   test("secretária cria apenas documentos administrativos", async ({ page }) => {
@@ -80,10 +79,11 @@ test.describe("Documentos", () => {
     expect(options).not.toContain("Atestado");
     expect(options).not.toContain("Laudo");
 
-    await page.getByPlaceholder("Título do documento").fill("Recibo de sessão");
+    const title = `Recibo de sessão ${Date.now()}`;
+    await page.getByPlaceholder("Título do documento").fill(title);
     await page.getByRole("button", { name: "Criar rascunho" }).click();
     await page.waitForURL(/\/app\/documents\/[0-9a-f-]{36}$/);
-    await expect(page.getByRole("heading", { name: "Recibo de sessão" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
   });
 });
 
@@ -103,7 +103,11 @@ test.describe("Anexos", () => {
 
     await expect(page.getByText("comprovante.txt")).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole("button", { name: "Remover anexo" }).click();
+    const removeButton = page.getByRole("button", { name: "Remover anexo" });
+    await removeButton.evaluate((node) =>
+      node.scrollIntoView({ block: "center", inline: "nearest" }),
+    );
+    await removeButton.click();
     await expect(page.getByText("comprovante.txt")).toHaveCount(0);
   });
 });
