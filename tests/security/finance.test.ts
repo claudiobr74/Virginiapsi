@@ -147,13 +147,24 @@ describe("financeiro — secretary_finance_access none/view/manage e sem hard de
       );
       expect(insertError).toMatch(/row-level security/i);
 
-      const updateError = await session.expectError(
+      const updated = await session.query<{ id: string }>(
         `update public.financial_charges set description = 'hack' where id = $1 returning id`,
         [chargeId],
       );
-      expect(updateError).toMatch(/row-level security/i);
+      expect(updated).toEqual([]);
     } finally {
       await session.close();
+    }
+
+    const adminSession = await openSession({ userId: admin });
+    try {
+      const rows = await adminSession.query<{ description: string }>(
+        "select description from public.financial_charges where id = $1",
+        [chargeId],
+      );
+      expect(rows[0].description).toBe("Leitura da secretaria");
+    } finally {
+      await adminSession.close();
     }
   });
 
@@ -238,6 +249,11 @@ describe("financeiro — isolamento, idempotência, saldo e período fechado", (
         [chargeId],
       );
       expect(rows).toEqual([]);
+      const ownOrg = await session.query(
+        "select id from public.financial_charges where organization_id = $1",
+        [orgB],
+      );
+      expect(ownOrg).toEqual([]);
     } finally {
       await session.close();
     }

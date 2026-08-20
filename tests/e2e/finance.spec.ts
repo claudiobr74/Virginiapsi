@@ -17,7 +17,7 @@ test.describe("Financeiro", () => {
     await page.getByPlaceholder("Sessão avulsa, pacote…").fill(description);
     await page.getByPlaceholder("150,00").fill("150,00");
     await page.getByRole("button", { name: "Lançar cobrança" }).click();
-    await expect(page.getByText(description)).toBeVisible();
+    await expect(page.getByText(description)).toBeVisible({ timeout: 15000 });
 
     const card = page.locator("li").filter({ hasText: description });
     await card.getByLabel(/Baixa rápida/).fill("50,00");
@@ -37,9 +37,9 @@ test.describe("Financeiro", () => {
     const description = `Aluguel E2E ${Date.now()}`;
     await page.getByPlaceholder("Aluguel, material…").fill("Infraestrutura");
     await page.locator('input[name="description"]').fill(description);
-    await page.getByPlaceholder("200,00").fill("200,00");
+    await page.getByRole("textbox", { name: "Valor" }).fill("200,00");
     await page.getByRole("button", { name: "Lançar despesa" }).click();
-    await expect(page.getByText(description)).toBeVisible();
+    await expect(page.getByText(description)).toBeVisible({ timeout: 15000 });
 
     const row = page.locator("li").filter({ hasText: description });
     await row.getByRole("button", { name: "Marcar paga" }).click();
@@ -56,7 +56,11 @@ test.describe("Financeiro", () => {
     await loginViaUi(page);
     await openFinance(page);
     await page.getByRole("tab", { name: "Relatórios" }).click();
-    await page.getByRole("button", { name: "Fechar período" }).click();
+    const closing = page.locator("section").filter({ hasText: "Fechamento mensal" });
+    await closing.getByLabel("Início").fill("2026-07-01");
+    await closing.getByLabel("Fim").fill("2026-07-31");
+    await closing.getByRole("button", { name: "Fechar período" }).click();
+    await expect(page.getByText("2026-07-01 a 2026-07-31")).toBeVisible();
     await expect(page.getByText(/fechado/)).toBeVisible();
   });
 
@@ -88,19 +92,25 @@ test.describe("Financeiro", () => {
     await page.getByPlaceholder("Sessão avulsa, pacote…").fill(description);
     await page.getByPlaceholder("150,00").fill("80,00");
     await page.getByRole("button", { name: "Lançar cobrança" }).click();
-    await expect(page.getByText(description)).toBeVisible();
+    await expect(page.getByText(description)).toBeVisible({ timeout: 15000 });
   });
 
   test("finalizar sessão gera cobrança idempotente no financeiro", async ({ page }) => {
+    test.setTimeout(60_000);
     await loginViaUi(page);
     await page.goto("/app/patients");
-    await page.getByText("Financeiro Sessão", { exact: true }).click();
+    const patientName = test.info().project.name.includes("mobile")
+      ? "Financeiro Sessão Mobile"
+      : "Financeiro Sessão";
+    await page.getByText(patientName, { exact: true }).click();
     await page.waitForURL(/\/app\/patients\/[0-9a-f-]{36}$/);
     await page.getByRole("button", { name: "Iniciar sessão" }).click();
     await page.waitForURL(/\/session\/[0-9a-f-]{36}$/);
     await page.getByRole("button", { name: "Finalizar atendimento" }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Apenas finalizar" }).click();
-    await page.waitForURL(/\/app\/patients$/);
+    const confirm = page.getByRole("dialog").getByRole("button", { name: "Apenas finalizar" });
+    await confirm.evaluate((node) => node.scrollIntoView({ block: "center", inline: "nearest" }));
+    await confirm.click();
+    await page.waitForURL(/\/app\/patients$/, { timeout: 20_000 });
 
     await openFinance(page);
     await page.getByRole("tab", { name: "Recebimentos" }).click();

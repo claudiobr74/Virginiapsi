@@ -320,7 +320,8 @@ function ChargeForm({
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
-          const form = new FormData(event.currentTarget);
+          const formElement = event.currentTarget;
+          const form = new FormData(formElement);
           setError(null);
           startTransition(async () => {
             const result = await createChargeAction({
@@ -335,7 +336,7 @@ function ChargeForm({
               setError(result.error);
               return;
             }
-            event.currentTarget.reset();
+            formElement.reset();
             router.refresh();
           });
         }}
@@ -628,7 +629,8 @@ function ExpenseForm() {
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
-          const form = new FormData(event.currentTarget);
+          const formElement = event.currentTarget;
+          const form = new FormData(formElement);
           setError(null);
           startTransition(async () => {
             const result = await createExpenseAction({
@@ -643,7 +645,7 @@ function ExpenseForm() {
               setError(result.error);
               return;
             }
-            event.currentTarget.reset();
+            formElement.reset();
             router.refresh();
           });
         }}
@@ -748,7 +750,8 @@ function PlanForm({ patients }: { patients: { id: string; preferred_name: string
       className="grid grid-cols-1 gap-3 sm:grid-cols-2"
       onSubmit={(event) => {
         event.preventDefault();
-        const form = new FormData(event.currentTarget);
+        const formElement = event.currentTarget;
+        const form = new FormData(formElement);
         setError(null);
         startTransition(async () => {
           const result = await createPlanAction({
@@ -763,7 +766,7 @@ function PlanForm({ patients }: { patients: { id: string; preferred_name: string
             setError(result.error);
             return;
           }
-          event.currentTarget.reset();
+          formElement.reset();
           router.refresh();
         });
       }}

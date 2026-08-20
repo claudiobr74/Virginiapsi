@@ -219,7 +219,7 @@ Dashboard operacional em `/app`, no lugar do placeholder da Fase 1.
 - Card de **próxima sessão** (primeira consulta gerenciada do dia que ainda não terminou), com horário em tabular/mono, modalidade, confirmação, deep-link de **lembrete WhatsApp** (`wa.me` com texto administrativo, sem conteúdo clínico) e **Meet** quando `meet_status = success`.
 - Linha do tempo de hoje (somente `origin = TESSELI`; eventos Google externos continuam na Agenda).
 - Tarefas operacionais em `practice_tasks` (CRUD dos dois papéis, `created_by_user_id` forçado para `auth.uid()`).
-- **Sessões a finalizar**, **pendências financeiras** e **documentos recentes** são estados vazios explícitos de fase futura (6, 10 e 9) — sem mock de domínio.
+- **Sessões a finalizar** (Fase 6), **pendências financeiras** (Fase 10) e **documentos recentes** (Fase 9) apontam para os módulos reais — sem mock de domínio.
 
 O envio Twilio/outbox de lembretes permanece na Fase 11: o botão de WhatsApp desta fase é só o entry point administrativo (deep-link), nunca dispara o provider.
 

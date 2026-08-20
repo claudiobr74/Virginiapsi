@@ -183,7 +183,7 @@ for (const name of [
   });
 }
 
-for (const name of ["Financeiro Um", "Financeiro Dois", "Financeiro Sessão"]) {
+for (const name of ["Financeiro Um", "Financeiro Dois", "Financeiro Sessão", "Financeiro Sessão Mobile"]) {
   seedPatient(ADMIN_ORG_ID, {
     preferred_name: name,
     full_name: `${name} Paciente`,
