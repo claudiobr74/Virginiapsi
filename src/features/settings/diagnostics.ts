@@ -102,7 +102,7 @@ export function buildIntegrationDiagnostics(
           : input.google.connectionStatus === "connected"
             ? `Conectado${input.google.accountEmail ? ` (${input.google.accountEmail})` : ""}.`
             : input.google.connectionStatus === "error"
-              ? "Conexão com erro — reconecte pela Agenda."
+              ? `Conexão com erro${input.google.accountEmail ? ` (${input.google.accountEmail})` : ""} — reconecte pela Agenda.`
               : "OAuth pronto; o consultório ainda não conectou um calendário.",
         lastSuccessAt: input.google.lastSyncedAt,
         lastError: sanitizeDiagnosticText(input.google.lastError),
