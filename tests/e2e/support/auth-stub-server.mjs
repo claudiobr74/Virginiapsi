@@ -135,9 +135,21 @@ function seedPatient(organizationId, overrides) {
 seedPatient(ADMIN_ORG_ID, {
   preferred_name: "Beatriz",
   full_name: "Beatriz Lima",
+  // Adult birth date: the Phase 5.5 consent gate fails closed without one.
+  birth_date: "1990-05-10",
   phone: "11988887777",
   email: "beatriz@example.com",
 });
+
+// Dedicated patients for the consent E2E: each test mutates consent state, so
+// they must not share a patient with each other or with the agenda specs.
+for (const name of ["Consentimento Um", "Consentimento Dois", "Consentimento Tres"]) {
+  seedPatient(ADMIN_ORG_ID, {
+    preferred_name: name,
+    full_name: `${name} Paciente`,
+    birth_date: "1988-03-15",
+  });
+}
 clinicalProfiles.set(
   [...patientsByOrg.get(ADMIN_ORG_ID).values()][0].id,
   {
@@ -159,6 +171,18 @@ const appointmentsByOrg = new Map();
 const connectionsByOrg = new Map();
 /** organizationId -> Map<taskId, taskRow> */
 const practiceTasksByOrg = new Map();
+/** organizationId -> Map<consentId, consentRow> */
+const consentsByOrg = new Map();
+
+const ADMINISTRATIVE_CONSENT_TYPES = new Set(["service_terms", "whatsapp"]);
+
+function membershipRole(userId, organizationId) {
+  return (
+    (memberships.get(userId) ?? []).find(
+      (row) => row.active && row.organization_id === organizationId,
+    )?.role ?? null
+  );
+}
 
 function getOrCreateOrgMap(map, organizationId) {
   const existing = map.get(organizationId);
@@ -894,6 +918,112 @@ const server = createServer(async (req, res) => {
       return;
     }
     json(res, 200, randomUUID());
+    return;
+  }
+
+  if (pathname === "/rest/v1/consents" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const role = organizationId ? membershipRole(user.id, organizationId) : null;
+    if (!role) {
+      json(res, 200, []);
+      return;
+    }
+
+    const table = consentsByOrg.get(organizationId) ?? new Map();
+    const rows = applyOrder(
+      [...table.values()]
+        .filter((row) => matchesFilters(row, searchParams))
+        // Mirrors consents_select_admin_or_administrative.
+        .filter(
+          (row) =>
+            role === "psychologist_admin" ||
+            ADMINISTRATIVE_CONSENT_TYPES.has(row.type),
+        ),
+      searchParams,
+    );
+    json(res, 200, rows);
+    return;
+  }
+
+  if (pathname === "/rest/v1/consents" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const consent = {
+      id: randomUUID(),
+      organization_id: body.organization_id,
+      patient_id: body.patient_id,
+      type: body.type,
+      title: body.title,
+      version: body.version,
+      status: body.status ?? "pending",
+      accepted_at: body.status === "accepted" ? now : null,
+      accepted_by: body.status === "accepted" ? user.id : null,
+      expires_at: body.expires_at ?? null,
+      guardian_authorization: body.guardian_authorization ?? false,
+      guardian_name: body.guardian_name ?? null,
+      patient_assent: body.patient_assent ?? false,
+      revoked_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+    getOrCreateOrgMap(consentsByOrg, body.organization_id).set(consent.id, consent);
+    json(res, 201, wantsSingleObject(req) ? consent : [consent]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/consents" && (req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    let updated = null;
+    for (const [orgId, table] of consentsByOrg.entries()) {
+      if (
+        membershipRole(user.id, orgId) === "psychologist_admin" &&
+        table.has(idFilter)
+      ) {
+        const current = table.get(idFilter);
+        updated = {
+          ...current,
+          ...body,
+          id: current.id,
+          organization_id: current.organization_id,
+          patient_id: current.patient_id,
+          type: current.type,
+          version: current.version,
+          revoked_at:
+            body.status === "revoked" ? new Date().toISOString() : current.revoked_at,
+          updated_at: new Date().toISOString(),
+        };
+        table.set(idFilter, updated);
+        break;
+      }
+    }
+
+    if (!updated) {
+      json(res, wantsSingleObject(req) ? 406 : 200, wantsSingleObject(req) ? { message: "not found" } : []);
+      return;
+    }
+    json(res, 200, wantsSingleObject(req) ? updated : [updated]);
     return;
   }
 

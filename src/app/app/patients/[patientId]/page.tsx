@@ -12,6 +12,11 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
+import { ConsentPanel } from "@/features/consents/components/consent-panel";
+import {
+  listPatientConsents,
+  resolveConsentState,
+} from "@/features/consents/queries";
 import { ClinicalProfileForm } from "@/features/patients/components/clinical-profile-form";
 import { PatientHubSection } from "@/features/patients/components/patient-hub-section";
 import { PatientStatusControl } from "@/features/patients/components/patient-status-control";
@@ -48,6 +53,13 @@ export default async function PatientHubPage({
   const clinicalProfile = isAdmin
     ? await getPatientClinicalProfile(patient.id)
     : null;
+
+  const [consentResolution, consents] = isAdmin
+    ? await Promise.all([
+        resolveConsentState(organizationId, patient.id),
+        listPatientConsents(organizationId, patient.id),
+      ])
+    : [null, []];
 
   return (
     <PageContainer>
@@ -124,6 +136,19 @@ export default async function PatientHubPage({
         </PatientHubSection>
       ) : null}
 
+      {isAdmin && consentResolution ? (
+        <PatientHubSection
+          title="Consentimentos de gravação, transcrição e IA"
+          description="Base mínima exigida antes de qualquer captura de áudio (Fase 5.5). O TCLE completo chega na Fase 9."
+        >
+          <ConsentPanel
+            patientId={patient.id}
+            resolution={consentResolution}
+            consents={consents}
+          />
+        </PatientHubSection>
+      ) : null}
+
       <PatientHubSection title="Adesão & Planos Ativos">
         <EmptyState
           icon={Banknote}
@@ -135,8 +160,8 @@ export default async function PatientHubPage({
       <PatientHubSection title="Pendências">
         <EmptyState
           icon={CalendarClock}
-          title="Pendências chegam na Fase 5"
-          description="Sessões a finalizar e itens administrativos aparecerão aqui."
+          title="Pendências financeiras chegam na Fase 10"
+          description="Cobranças em aberto e itens administrativos do paciente aparecerão aqui."
         />
       </PatientHubSection>
 

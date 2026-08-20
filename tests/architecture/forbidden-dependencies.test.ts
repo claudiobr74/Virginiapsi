@@ -128,6 +128,25 @@ describe("arquitetura proibida", () => {
     expect(importers.sort()).toEqual(allowedImporters);
   });
 
+  it("toda rota de capability de captura passa pelo consent gate", () => {
+    // Phase 5.5 invariant: no audio-capture capability may be issued without
+    // going through authorizeCaptureCapability(). A new route added under
+    // this folder that forgets the gate fails here, not in review.
+    const captureRoutes = walkFiles(
+      path.join(ROOT, "src/app/api/integrations/deepgram"),
+    ).filter((file) => file.endsWith("route.ts"));
+
+    expect(captureRoutes.length).toBeGreaterThan(0);
+
+    for (const file of captureRoutes) {
+      const source = readFileSync(file, "utf8");
+      expect(
+        source.includes("authorizeCaptureCapability"),
+        `${path.relative(ROOT, file)} não chama o consent gate`,
+      ).toBe(true);
+    }
+  });
+
   it("preserva o arquivo oficial da logo sem alteração de bytes", () => {
     const logoPath = path.join(
       ROOT,
