@@ -1,0 +1,97 @@
+{
+  "corpus": "facebook/multilingual_librispeech pt test",
+  "clips": 23,
+  "hardware": "4 vCPU, sem GPU",
+  "results": [
+    {
+      "model": "onnx-community/whisper-base@q8",
+      "wer": 1.3060538116591929,
+      "realtimeFactor": 11.762387885929206,
+      "loadSeconds": 0.72142582,
+      "audioSeconds": 368.07000000000016,
+      "processSeconds": 31.292115475999996,
+      "samples": [
+        {
+          "reference": "foice cortou o pescoço do animal a cabeça ficou segura na carne da vítima e das artérias rotas jorrava o sangue não havi",
+          "hypothesis": "foi se cortou o pescoço do animal. A cabeça ficou segura na carne da vítima e das arterias rotas jorravam o sangue. Não "
+        },
+        {
+          "reference": "névoa fugiu o céu espanou-se e dilatou-se em maravilhosa limpidez a mancha móvel sobre a planície definiu-se no perfil d",
+          "hypothesis": "ação, ação, ação, ação, ação, ação, ação, ação, ação, ação, ação, ação, ação, ação, ação, ação, ação, ação, ação, ação, "
+        }
+      ]
+    },
+    {
+      "model": "onnx-community/whisper-base@hybrid",
+      "wer": 0.21748878923766815,
+      "realtimeFactor": 26.960774528515337,
+      "loadSeconds": 1.4220733910000016,
+      "audioSeconds": 368.07000000000016,
+      "processSeconds": 13.652055864000019,
+      "samples": [
+        {
+          "reference": "foice cortou o pescoço do animal a cabeça ficou segura na carne da vítima e das artérias rotas jorrava o sangue não havi",
+          "hypothesis": "foi, cortou o pescoço do animal. A cabeça ficou segura na carne da vítima e das artérias rotas jorravam o sangue. Não ha"
+        },
+        {
+          "reference": "névoa fugiu o céu espanou-se e dilatou-se em maravilhosa limpidez a mancha móvel sobre a planície definiu-se no perfil d",
+          "hypothesis": "a voa fugiu, o céu espanossi, e dilatou-se em maravilhosa limpidez. A mancha móvel sobre a planície definiu-se no perfil"
+        }
+      ]
+    },
+    {
+      "model": "onnx-community/whisper-small@q8",
+      "wer": 1.0582959641255605,
+      "realtimeFactor": 6.765463227299933,
+      "loadSeconds": 1.3322464880000042,
+      "audioSeconds": 368.07000000000016,
+      "processSeconds": 54.40425697899999,
+      "samples": [
+        {
+          "reference": "foice cortou o pescoço do animal a cabeça ficou segura na carne da vítima e das artérias rotas jorrava o sangue não havi",
+          "hypothesis": "foi-se, cortou o pescoço do animal. A cabeça ficou segura na carne da vítima e das artérias rotas jorrava o sangue. Não "
+        },
+        {
+          "reference": "névoa fugiu o céu espanou-se e dilatou-se em maravilhosa limpidez a mancha móvel sobre a planície definiu-se no perfil d",
+          "hypothesis": "a vua fugiu, o céu espanou-se e dilatou-se em maravilhosa limpidez. A mancha móvel, o início, definiu-se no perfil de um"
+        }
+      ]
+    },
+    {
+      "model": "onnx-community/whisper-small@hybrid",
+      "wer": 0.15134529147982062,
+      "realtimeFactor": 10.934716173335104,
+      "loadSeconds": 2.6986480620000073,
+      "audioSeconds": 368.07000000000016,
+      "processSeconds": 33.660681645999986,
+      "samples": [
+        {
+          "reference": "foice cortou o pescoço do animal a cabeça ficou segura na carne da vítima e das artérias rotas jorrava o sangue não havi",
+          "hypothesis": "foi-se, cortou o pescoço do animal. A cabeça ficou segura na carne da vítima e das artérias rotas jorrava o sangue. Não "
+        },
+        {
+          "reference": "névoa fugiu o céu espanou-se e dilatou-se em maravilhosa limpidez a mancha móvel sobre a planície definiu-se no perfil d",
+          "hypothesis": "a vula fugiu, o céu espanou-se e dilatou-se em maravilhosa limpidez. A mancha móvel sobre a planice definiu-se no perfil"
+        }
+      ]
+    },
+    {
+      "model": "onnx-community/whisper-large-v3-turbo@hybrid",
+      "wer": 0.05941704035874439,
+      "realtimeFactor": 4.22249990848405,
+      "loadSeconds": 5.81166475299999,
+      "audioSeconds": 368.07000000000016,
+      "processSeconds": 87.16874078800006,
+      "samples": [
+        {
+          "reference": "foice cortou o pescoço do animal a cabeça ficou segura na carne da vítima e das artérias rotas jorrava o sangue não havi",
+          "hypothesis": "foice cortou o pescoço do animal a cabeça ficou segura na carne da vitima e das artérias rotas jorrava o sangue não havi"
+        },
+        {
+          "reference": "névoa fugiu o céu espanou-se e dilatou-se em maravilhosa limpidez a mancha móvel sobre a planície definiu-se no perfil d",
+          "hypothesis": "avôa fugiu o céu espanou-se e dilatou-se em maravilhosa limpidez a mancha móvel sobre a planície definiu-se no perfil de"
+        }
+      ]
+    }
+  ]
+}

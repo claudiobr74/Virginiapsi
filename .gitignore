@@ -52,3 +52,7 @@ supabase/.branches/
 
 # cursor / OS
 .cursor/debug.log
+
+# spikes: código e resultados entram no repo; dependências e áudio baixado, não
+spikes/**/node_modules/
+spikes/**/corpus/

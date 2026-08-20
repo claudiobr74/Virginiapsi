@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "next-env.d.ts",
     "supabase/.temp/**",
+    // Spikes são investigações isoladas, com dependências próprias e fora do
+    // bundle do app. Ver spikes/*/README.
+    "spikes/**",
   ]),
 ]);
 

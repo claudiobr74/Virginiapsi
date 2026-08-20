@@ -102,8 +102,12 @@ Pré-requisito: Fase 5.5 concluída — o `ConsentState` desta fase é resolvido
 - clinical session;
 - DPEP;
 - área de trabalho clínico separada;
-- consent gate + transcrição local no dispositivo (`docs/22-transcription-provider-decision.md`);
+- consent gate + transcrição local no dispositivo (`docs/22-transcription-provider-decision.md`, com números medidos em `docs/23-transcription-spike-results.md`);
 - port `TranscriptionProvider` com adapters (`local-webgpu` padrão, `groq-batch` fallback opcional);
+- quantização híbrida (encoder fp32 + decoder q4) — q8 está desqualificada por alucinação em loop;
+- seleção de modelo por capacidade real do dispositivo (`requestAdapter()`, não `navigator.gpu`): `turbo` com WebGPU, `small` sem;
+- headers de isolamento cross-origin (COEP/COOP) nas rotas que carregam o modelo, e progresso visível do download inicial;
+- teste de regressão que falha se qualquer requisição carregar áudio para fora do dispositivo;
 - diarização é capacidade opcional do provider; quando existir, identificação de falante é tratada como provisória com a mesma cautela do texto transcrito — sujeita a erro, nunca vira fato clínico sem confirmação, e discrepância de atribuição é sinalizada, não corrigida silenciosamente; quando não existir, não inventar falante;
 - incremental transcript;
 - direct-upload batch fallback somente após consent-gated signed upload grant;

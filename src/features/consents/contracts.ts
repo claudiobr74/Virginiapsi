@@ -290,6 +290,7 @@ export type CaptureCapability = (typeof CAPTURE_CAPABILITIES)[number];
 
 export interface CapabilityDecision {
   allowed: boolean;
+  capability: CaptureCapability;
   reason?: ConsentDenialReason;
 }
 
@@ -304,20 +305,25 @@ export interface CapabilityDecision {
  */
 export function evaluateCaptureCapability(
   resolution: ConsentResolution,
-  _capability: CaptureCapability,
+  capability: CaptureCapability,
 ): CapabilityDecision {
   const { state, denials } = resolution;
 
   if (!state.recordingAllowed) {
-    return { allowed: false, reason: denials.session_recording ?? "consent_missing" };
+    return {
+      allowed: false,
+      capability,
+      reason: denials.session_recording ?? "consent_missing",
+    };
   }
   if (!state.transcriptionAllowed) {
     return {
       allowed: false,
+      capability,
       reason: denials.session_transcription ?? "consent_missing",
     };
   }
-  return { allowed: true };
+  return { allowed: true, capability };
 }
 
 export const CONSENT_DENIAL_MESSAGES: Record<ConsentDenialReason, string> = {

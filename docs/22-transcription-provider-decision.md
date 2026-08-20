@@ -62,7 +62,8 @@ Efeito colateral relevante: a Fase 6 encolhe. Sem provider externo no caminho pa
 
 `MASTER_PROMPT.md`, `AGENTS.md`, `CLAUDE_PRE_IMPLEMENTATION_REVIEW_PROMPT.md`, `docs/03`, `docs/05`, `docs/06` §3, `docs/07`, `docs/08`, `docs/09`, `docs/10`, `docs/11`, `docs/13`, `docs/14`, `docs/16`, `docs/19` §2, `prompts/06`, `prompts/12`, `.cursor/rules/08-transcription.mdc`, `.cursor/rules/12-testing.mdc`, `.cursor/agents/transcription.md`, `.cursor/skills/local-transcription/SKILL.md` e `PROJECT_MANIFEST.json`.
 
-## 7. Validação pendente
+## 7. Validação
 
-- ⚠ **Spike de qualidade em pt-BR**: medir WER e latência do modelo local no hardware real da profissional antes de fechar a Fase 6. Se o resultado for inaceitável, o fallback Groq vira padrão e esta decisão é revisitada — sem mudar a arquitetura, apenas o adapter default.
+- ✅ **Spike de qualidade em pt-BR — executado em 20/08/2026, decisão confirmada.** Resultados em `docs/23-transcription-spike-results.md`: `whisper-large-v3-turbo` atinge 5,9% de WER local, melhor que o melhor provider pago comparado aqui; mesmo o pior caso medido (WASM sem GPU, modelo `small`) acompanha a sessão ao vivo com 15,1% de WER. O spike também desqualificou a quantização q8, que produz alucinação em loop — a Fase 6 deve usar quantização híbrida.
+- ⚠ **Continua pendente**: o corpus do spike é fala lida e limpa, então o WER real de consultório será pior; e WebGPU não pôde ser medido no ambiente de CI. Validar com áudio representativo no hardware da profissional antes de fixar o `turbo` como padrão.
 - ⚠ **VALIDAÇÃO JURÍDICA HUMANA**: o TCLE deve descrever corretamente qual caminho a organização usa. Habilitar o fallback Groq muda o inventário de suboperadores e exige nova versão de consentimento (`consents.version`).

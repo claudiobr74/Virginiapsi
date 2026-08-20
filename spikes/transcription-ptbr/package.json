@@ -1,0 +1,13 @@
+{
+  "name": "serenapsi-spike-transcription-ptbr",
+  "private": true,
+  "type": "module",
+  "description": "Spike de qualidade/latência da transcrição local em pt-BR (docs/22 §7). Isolado do app: nada aqui entra no bundle nem nas dependências do produto.",
+  "scripts": {
+    "corpus": "node fetch-corpus.mjs",
+    "bench": "node bench.mjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.7.6"
+  }
+}
