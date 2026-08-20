@@ -35,7 +35,7 @@ export function AppShell({
       userEmail={userEmail}
       timeoutMinutes={inactivityTimeoutMinutes}
     >
-      <div className="relative flex min-h-screen bg-background">
+      <div className="flex min-h-screen bg-background">
         <a href="#conteudo-principal" className="skip-link">
           Ir para o conteúdo principal
         </a>
