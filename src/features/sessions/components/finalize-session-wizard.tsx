@@ -76,9 +76,9 @@ export function FinalizeSessionWizard({ sessionId }: { sessionId: string }) {
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Agendar próximo encontro, gerar cobrança e emitir recibo chegam na Fase 10
-            (Financeiro/Agenda). Por enquanto, finalizar marca a sessão como encerrada e trava
-            edição no fluxo de rascunho.
+            Agendar o próximo encontro continua na Agenda. Finalizar gera a cobrança
+            da sessão de forma idempotente (ou consome o pacote ativo) quando houver
+            valor padrão ou plano.
           </p>
         )}
       </ModalContent>

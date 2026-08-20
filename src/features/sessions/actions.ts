@@ -15,6 +15,7 @@ export interface SessionActionResult {
   conflict?: boolean;
   sessionId?: string;
   newVersion?: number;
+  warning?: string;
 }
 
 const FORBIDDEN_ROLE_MESSAGE = "Somente a psicóloga administradora conduz sessão clínica.";
@@ -173,8 +174,20 @@ export async function finalizeSessionAction(
     resourceId: sessionId,
   });
 
+  const { error: chargeError } = await supabase.rpc("create_session_charge", {
+    p_session_id: sessionId,
+    org_id: organizationId,
+  });
+
   revalidatePath(`/session/${sessionId}`);
-  return { sessionId };
+  revalidatePath("/app/finance");
+  revalidatePath("/app");
+  return {
+    sessionId,
+    warning: chargeError
+      ? "Sessão finalizada, mas a cobrança não foi gerada automaticamente."
+      : undefined,
+  };
 }
 
 export async function cancelSessionAction(

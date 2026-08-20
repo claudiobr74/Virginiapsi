@@ -13,6 +13,10 @@ import {
 } from "@/features/dashboard/contracts";
 import type { ShellSettings } from "@/features/organizations/contracts";
 import { listRecentDocuments } from "@/features/documents/queries";
+import { getFinanceAccess, listCharges, listPayments, buildChargeViews } from "@/features/finance/queries";
+import { todayIsoDate } from "@/features/finance/contracts";
+import { listPatients } from "@/features/patients/queries";
+import type { OrganizationRole } from "@/features/organizations/contracts";
 import { computeAgendaWindow, todayInTimeZone } from "@/features/calendar/date-window";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -111,6 +115,7 @@ export async function getMyDaySnapshot(input: {
   timezone: string;
   professionalName: string;
   settings: ShellSettings | null;
+  role: OrganizationRole;
 }): Promise<MyDaySnapshot> {
   const [timeline, tasks, documents] = await Promise.all([
     listTodayManagedAppointments(input.organizationId, input.timezone),
@@ -121,6 +126,25 @@ export async function getMyDaySnapshot(input: {
   const greetingPrefix =
     input.settings?.greeting_prefix?.trim() || DEFAULT_GREETING_PREFIX;
   const quote = input.settings?.quote?.trim() || DEFAULT_QUOTE;
+
+  const access = await getFinanceAccess(input.organizationId, input.role);
+  let financialPending: MyDaySnapshot["financialPending"] = [];
+  if (access !== "none") {
+    const [charges, payments, patients] = await Promise.all([
+      listCharges(input.organizationId),
+      listPayments(input.organizationId),
+      listPatients(input.organizationId),
+    ]);
+    const names = new Map(patients.map((patient) => [patient.id, patient.preferred_name]));
+    const today = todayIsoDate(input.timezone);
+    financialPending = buildChargeViews(charges, payments, names).filter(
+      (charge) =>
+        ["pending", "partially_paid", "overdue"].includes(charge.row.status) &&
+        (charge.row.status === "overdue" ||
+          charge.row.due_date === today ||
+          charge.row.competence_date === today),
+    );
+  }
 
   return {
     greeting: {
@@ -138,13 +162,7 @@ export async function getMyDaySnapshot(input: {
       description:
         "O fechamento de sessões clínicas e o rascunho DPEP chegam na Fase 6.",
     },
-    financialPending: {
-      available: false,
-      phase: 10,
-      title: "Pendências financeiras",
-      description:
-        "Cobranças do dia, recebimentos e ações rápidas de financeiro chegam na Fase 10.",
-    },
+    financialPending,
     recentDocuments: documents.map((document) => ({
       id: document.id,
       title: document.title,

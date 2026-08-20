@@ -68,7 +68,7 @@ test.describe("Login autenticado", () => {
 });
 
 test.describe("Navegação entre módulos", () => {
-  test("abre o placeholder de Financeiro a partir da navegação", async ({
+  test("abre o Financeiro a partir da navegação", async ({
     page,
   }) => {
     await loginViaUi(page);
@@ -78,9 +78,10 @@ test.describe("Navegação entre módulos", () => {
     await expect(
       page.getByRole("heading", { name: "Financeiro" }),
     ).toBeVisible();
-    await expect(
-      page.getByText("Este módulo ainda não foi implementado"),
-    ).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Hoje" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Recebimentos" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Despesas" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Relatórios" })).toBeVisible();
   });
 });
 

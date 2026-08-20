@@ -185,7 +185,7 @@ Camada de aplicação: `getPatientClinicalProfile()` só é chamada quando `role
 
 Testes: 14 novos testes de RLS (CRUD por papel, DELETE físico negado para todos, isolamento entre tenants, `elimination_status` restrito a admin, validação do `responsible_psychologist_user_id`, `patient_clinical_profile` negado à secretaria mesmo por ID direto e mesmo tentando forjar `organization_id`) e um bloco dedicado de concorrência do `public_code` (código do cliente descartado, imutabilidade, duas organizações com `PAC-001` independentes, 25 inserções concorrentes na mesma organização sem duplicidade). Mais 12 testes E2E (lista, busca, cadastro em 4 seções, Patient Hub, isolamento clínico da secretaria com captura de rede, arquivamento com confirmação).
 
-UI: lista com busca e filtros por situação, cadastro/edição em 4 seções (Identificação; Contato & Responsáveis; Atendimento & Situação; Financeiro & Termos), Patient Hub com "Dados do Paciente" e "Acompanhamento" (admin) mais estados vazios para as seções que chegam em fases futuras (Adesão & Planos — Fase 10, Pendências — Fase 5, Prontuário — Fase 6, Documentos e TCLE — Fase 9, Extrato Financeiro — Fase 10).
+UI: lista com busca e filtros por situação, cadastro/edição em 4 seções (Identificação; Contato & Responsáveis; Atendimento & Situação; Financeiro & Termos), Patient Hub com "Dados do Paciente" e "Acompanhamento" (admin). Planos, pendências e extrato financeiro ficam no hub a partir da Fase 10; prontuário na Fase 6; documentos e TCLE na Fase 9.
 
 Durante a fase corrigimos também um bug de regressão no primitivo `Button`: `asChild` quebrava com o Radix `Slot` sempre que `isLoading` era `false`, porque o spinner condicional virava um segundo nó filho mesmo renderizando `null`. Guardado por teste de unidade (`tests/components/button.test.tsx`).
 
@@ -266,7 +266,7 @@ Integração Gemini (`src/lib/integrations/gemini/`, `src/lib/ai/`): cliente RES
 
 As três operações de Session AI (`src/features/sessions/ai/`) passam por um gate de consentimento específico (`aiProcessingAllowed`; live e closing também exigem `transcriptionAllowed`, porque consomem a transcrição), montam o DTO minimizado com contexto delimitado (`packContext` — `CONSENT_STATE`/`PATIENT_CONTEXT`/`TRANSCRIPT_WINDOW`/etc., nunca concatenado sem rótulo), chamam o Gemini server-side com os prompts de `src/lib/ai/prompts/**` inalterados, validam a resposta e persistem metadata (`ai_runs`) + rascunho (`ai_artifacts`, sempre `pending`). Só a ação explícita "Usar no DPEP" (`appendClosingArtifactToDpep`) copia `dpepDraft` para `session_dpep` — pelo mesmo caminho de concorrência otimista de uma edição manual.
 
-UI (`src/app/session/[sessionId]/`, sem `<AppShell>` — rota distraction-free): cabeçalho compacto (paciente, horário, status, Finalizar), DPEP e área de trabalho clínico em formulários separados visualmente, painel de transcrição com estados `idle/preparing/recording/degraded/stopping/completed/error`, painel de Session AI com revisão humana antes de qualquer gravação, e wizard de finalização que só finaliza ou cancela — agendar/cobrar ficam para a Fase 10. Entry points: "Iniciar sessão" no Patient Hub (lista o histórico de sessões) e no drawer de detalhes da Agenda (só para `psychologist_admin`, e só quando a consulta já tem paciente vinculado).
+UI (`src/app/session/[sessionId]/`, sem `<AppShell>` — rota distraction-free): cabeçalho compacto (paciente, horário, status, Finalizar), DPEP e área de trabalho clínico em formulários separados visualmente, painel de transcrição com estados `idle/preparing/recording/degraded/stopping/completed/error`, painel de Session AI com revisão humana antes de qualquer gravação, e wizard de finalização que encerra a sessão e dispara cobrança idempotente (Fase 10) ou consumo de pacote. Entry points: "Iniciar sessão" no Patient Hub (lista o histórico de sessões) e no drawer de detalhes da Agenda (só para `psychologist_admin`, e só quando a consulta já tem paciente vinculado).
 
 **`EXTERNAL_BLOCKED`**: chamadas reais ao Gemini/Groq (API key/crédito de verdade) e a validação de acurácia do modelo local em hardware/navegador reais não são exercidas neste ambiente — o spike de `docs/23-transcription-spike-results.md` já mediu WER/tempo real em pt-BR antes desta fase, e os adapters Gemini/Groq são cobertos por teste de contrato com `fetch` mockado (shape da requisição, autenticação, fail-closed em resposta malformada/vazia). A emissão bem-sucedida do signed upload URL do fallback também fica fora do E2E (exige a Storage API real do Supabase, que o stub de auth não replica) — a negação por falta de consentimento, que é a parte crítica de segurança, está coberta.
 
@@ -341,3 +341,19 @@ UI: módulo `/app/documents` (modelos + lista), editor em `/app/documents/[id]` 
 **`EXTERNAL_BLOCKED`**: signed URLs de verdade contra um projeto Supabase (GoTrue + Storage) — o stub de E2E cobre o fluxo de UI (upload/download/emissão) mas não replica a RLS de Storage; essa fronteira é a suíte `pnpm test:security` contra PostgreSQL real (INSERT direto em `storage.objects` negado) e fica pendente de um projeto Supabase real para o round-trip HTTP do signed URL.
 
 Testes: RLS de sensitivity/imutabilidade/isolamento de tenant/append-only/buckets (`tests/security/documents.test.ts`), unitários de template/PDF/TTL/path/sha256 e resolução do TCLE (`tests/utils/document-*.test.ts`, `tests/utils/tcle.test.ts`), e E2E (`tests/e2e/documents.spec.ts`) cobrindo emissão de PDF, papel da secretaria (só administrativo, 404 em documento clínico mesmo com o URL), anexos e aceite/revogação do TCLE.
+
+## Fase 10 — Financeiro
+
+Subabas **Hoje**, **Recebimentos**, **Despesas** e **Relatórios**. Valores em `numeric(12,2)` no Postgres e **centavos inteiros** na aplicação (`src/lib/finance/money.ts`) — 0,10 + 0,20 = 0,30, sem IEEE-754.
+
+Migration `supabase/migrations/*_finance.sql`:
+- `financial_plans`, `financial_charges`, `financial_payments`, `financial_expenses`, `financial_plan_movements`, `financial_closings`.
+- Helpers `can_read_finance` / `can_write_finance` sobre `secretary_finance_access(org_id)` (`none` / `view` / `manage`; admin sempre `manage`).
+- **Sem GRANT DELETE** em fato financeiro: cancelamento, estorno (`voided_at`) e `refunded` preservam histórico. Status da cobrança deriva da soma dos pagamentos não anulados.
+- Unicidade parcial `(organization_id, session_id)` e RPC `create_session_charge` tornam a finalização de sessão → cobrança **idempotente**. Pacote pré-pago/pós-pago ativo **consome** movimento em vez de gerar avulsa; mensalidade cobre o período.
+- Período fechado (`financial_closings`) bloqueia INSERT/UPDATE de fatos na competência.
+
+UI: `/app/finance` (baixa rápida, recibo individual/lote via documentos `recibo` da Fase 9, CSV configurável, fechamento mensal, NFS-e só como solicitação administrativa). Controle de `secretary_finance_access` no próprio módulo (admin). Patient Hub (planos, pendências, extrato) e Meu Dia (pendências do dia).
+
+Testes: aritmética em centavos (`tests/utils/money.test.ts`), CSV (`tests/utils/finance-csv.test.ts`), RLS none/view/manage + isolamento + overpay + período fechado + sem hard delete (`tests/security/finance.test.ts`), E2E (`tests/e2e/finance.spec.ts`).
+

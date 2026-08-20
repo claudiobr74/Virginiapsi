@@ -48,6 +48,8 @@ const tokensToUser = new Map();
 const organizations = new Map();
 /** userId -> membership rows */
 const memberships = new Map();
+/** organizationId -> practice_settings row */
+const practiceSettingsByOrg = new Map();
 
 function seedOrganization({ name, slug, userId, role }) {
   const id = randomUUID();
@@ -65,6 +67,10 @@ function seedOrganization({ name, slug, userId, role }) {
   const list = memberships.get(userId) ?? [];
   list.push({ organization_id: id, role, active: true });
   memberships.set(userId, list);
+  practiceSettingsByOrg.set(id, {
+    organization_id: id,
+    secretary_finance_access: "none",
+  });
   return id;
 }
 
@@ -177,6 +183,15 @@ for (const name of [
   });
 }
 
+for (const name of ["Financeiro Um", "Financeiro Dois", "Financeiro Sessão"]) {
+  seedPatient(ADMIN_ORG_ID, {
+    preferred_name: name,
+    full_name: `${name} Paciente`,
+    birth_date: "1991-04-04",
+    default_session_value: "150.00",
+  });
+}
+
 // Dedicated patients for the Fase 7 Supervisor E2E.
 for (const name of ["Supervisor Um", "Supervisor Dois", "Supervisor Tres"]) {
   seedPatient(ADMIN_ORG_ID, {
@@ -244,6 +259,18 @@ const documentFilesByOrg = new Map();
 const patientAttachmentsByOrg = new Map();
 /** organizationId -> Map<fileId, row> */
 const consentFilesByOrg = new Map();
+/** organizationId -> Map<chargeId, row> */
+const financialChargesByOrg = new Map();
+/** organizationId -> Map<paymentId, row> */
+const financialPaymentsByOrg = new Map();
+/** organizationId -> Map<expenseId, row> */
+const financialExpensesByOrg = new Map();
+/** organizationId -> Map<planId, row> */
+const financialPlansByOrg = new Map();
+/** organizationId -> Map<movementId, row> */
+const financialPlanMovementsByOrg = new Map();
+/** organizationId -> Map<closingId, row> */
+const financialClosingsByOrg = new Map();
 
 const FORCED_CLINICAL_KINDS = new Set(["laudo", "relatorio", "atestado", "encaminhamento"]);
 const FORCED_ADMINISTRATIVE_KINDS = new Set(["recibo"]);
@@ -282,6 +309,70 @@ function getOrCreateOrgMap(map, organizationId) {
   const created = new Map();
   map.set(organizationId, created);
   return created;
+}
+
+function financeAccess(userId, organizationId) {
+  const role = membershipRole(userId, organizationId);
+  if (!role) return "none";
+  if (role === "psychologist_admin") return "manage";
+  return practiceSettingsByOrg.get(organizationId)?.secretary_finance_access ?? "none";
+}
+
+function canReadFinance(userId, organizationId) {
+  return financeAccess(userId, organizationId) === "view" || financeAccess(userId, organizationId) === "manage";
+}
+
+function canWriteFinance(userId, organizationId) {
+  return financeAccess(userId, organizationId) === "manage";
+}
+
+function findFinanceRow(byOrgMap, userId, predicate) {
+  for (const [orgId, table] of byOrgMap.entries()) {
+    if (!canReadFinance(userId, orgId)) continue;
+    for (const row of table.values()) {
+      if (predicate(row)) return row;
+    }
+  }
+  return null;
+}
+
+function listFinanceRows(byOrgMap, userId, organizationId) {
+  if (organizationId) {
+    if (!canReadFinance(userId, organizationId)) return [];
+    return [...(byOrgMap.get(organizationId)?.values() ?? [])];
+  }
+  const rows = [];
+  for (const [orgId, table] of byOrgMap.entries()) {
+    if (!canReadFinance(userId, orgId)) continue;
+    rows.push(...table.values());
+  }
+  return rows;
+}
+
+function periodClosed(organizationId, competence) {
+  if (!competence) return false;
+  for (const closing of financialClosingsByOrg.get(organizationId)?.values() ?? []) {
+    if (closing.status === "closed" && competence >= closing.period_start && competence <= closing.period_end) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function refreshChargeStatus(charge) {
+  if (charge.status === "canceled" || charge.status === "refunded") return;
+  let paid = 0;
+  for (const payment of financialPaymentsByOrg.get(charge.organization_id)?.values() ?? []) {
+    if (payment.charge_id === charge.id && !payment.voided_at) {
+      paid += Number(payment.amount);
+    }
+  }
+  const amount = Number(charge.amount);
+  const today = todaySaoPauloDateStr();
+  if (paid >= amount && amount > 0) charge.status = "paid";
+  else if (paid > 0) charge.status = "partially_paid";
+  else if (charge.due_date && charge.due_date < today) charge.status = "overdue";
+  else charge.status = "pending";
 }
 
 function seedAppointment(organizationId, overrides) {
@@ -459,6 +550,13 @@ function matchesFilters(row, searchParams, ignoredKeys = new Set(["select", "ord
       if (!(new Date(value).getTime() > new Date(rawValue.slice(3)).getTime())) return false;
     } else if (rawValue === "is.null") {
       if (value !== null && value !== undefined) return false;
+    } else if (rawValue.startsWith("in.(")) {
+      const list = rawValue.slice(4, -1).split(",");
+      if (!list.includes(String(value))) return false;
+    } else if (rawValue.startsWith("lte.")) {
+      if (String(value) > rawValue.slice(4)) return false;
+    } else if (rawValue.startsWith("gte.")) {
+      if (String(value) < rawValue.slice(4)) return false;
     } else if (rawValue.startsWith("not.in.(")) {
       const list = rawValue.slice("not.in.(".length, -1).split(",");
       if (list.includes(String(value))) return false;
@@ -2312,6 +2410,286 @@ const server = createServer(async (req, res) => {
     const row = { id: randomUUID(), generated_at: new Date().toISOString(), ...body };
     getOrCreateOrgMap(consentFilesByOrg, body.organization_id).set(row.id, row);
     return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/rpc/secretary_finance_access" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    json(res, 200, financeAccess(user.id, body.org_id));
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/create_session_charge" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    if (!canWriteFinance(user.id, body.org_id)) {
+      json(res, 403, { message: "not authorized to write finance", code: "42501" });
+      return;
+    }
+    const session = clinicalSessionsByOrg.get(body.org_id)?.get(body.p_session_id);
+    if (!session) {
+      json(res, 200, null);
+      return;
+    }
+    const existing = [...(financialChargesByOrg.get(body.org_id)?.values() ?? [])].find(
+      (row) => row.session_id === body.p_session_id,
+    );
+    if (existing) {
+      json(res, 200, existing.id);
+      return;
+    }
+    const consumed = [...(financialPlanMovementsByOrg.get(body.org_id)?.values() ?? [])].find(
+      (row) => row.session_id === body.p_session_id && row.movement === "consume",
+    );
+    if (consumed) {
+      json(res, 200, null);
+      return;
+    }
+    const activePlan = [...(financialPlansByOrg.get(body.org_id)?.values() ?? [])].find(
+      (row) => row.patient_id === session.patient_id && row.status === "active",
+    );
+    if (activePlan && (activePlan.plan_type === "prepaid_package" || activePlan.plan_type === "postpaid_package")) {
+      const remaining =
+        activePlan.total_sessions == null ? Infinity : activePlan.total_sessions - activePlan.used_sessions;
+      if (remaining > 0) {
+        const movement = {
+          id: randomUUID(),
+          organization_id: body.org_id,
+          plan_id: activePlan.id,
+          session_id: body.p_session_id,
+          movement: "consume",
+          delta: 1,
+          reason: "Consumo na finalização da sessão",
+          created_by: user.id,
+          created_at: new Date().toISOString(),
+        };
+        getOrCreateOrgMap(financialPlanMovementsByOrg, body.org_id).set(movement.id, movement);
+        activePlan.used_sessions += 1;
+        json(res, 200, null);
+        return;
+      }
+    }
+    if (activePlan?.plan_type === "monthly") {
+      json(res, 200, null);
+      return;
+    }
+    const patient = patientsByOrg.get(body.org_id)?.get(session.patient_id);
+    const fee = patient?.default_session_value;
+    if (fee == null || Number(fee) <= 0) {
+      json(res, 200, null);
+      return;
+    }
+    const competence = (session.started_at ?? new Date().toISOString()).slice(0, 10);
+    const charge = {
+      id: randomUUID(),
+      organization_id: body.org_id,
+      patient_id: session.patient_id,
+      session_id: body.p_session_id,
+      plan_id: null,
+      origin: "session",
+      description: "Sessão clínica",
+      amount: fee,
+      due_date: competence,
+      competence_date: competence,
+      status: "pending",
+      canceled_at: null,
+      canceled_by: null,
+      cancel_reason: null,
+      nfse_requested_at: null,
+      idempotency_key: null,
+      created_by: user.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    getOrCreateOrgMap(financialChargesByOrg, body.org_id).set(charge.id, charge);
+    json(res, 200, charge.id);
+    return;
+  }
+
+  if (pathname === "/rest/v1/practice_settings" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    if (!organizationId || membershipRole(user.id, organizationId) !== "psychologist_admin") {
+      return json(res, 200, wantsSingleObject(req) ? null : []);
+    }
+    const row = practiceSettingsByOrg.get(organizationId) ?? {
+      organization_id: organizationId,
+      secretary_finance_access: "none",
+    };
+    return json(res, 200, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/practice_settings" && (req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    if (!organizationId || membershipRole(user.id, organizationId) !== "psychologist_admin") {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const current = practiceSettingsByOrg.get(organizationId) ?? {
+      organization_id: organizationId,
+      secretary_finance_access: "none",
+    };
+    const next = { ...current, ...body, organization_id: organizationId };
+    practiceSettingsByOrg.set(organizationId, next);
+    return json(res, 200, wantsSingleObject(req) ? next : [next]);
+  }
+
+  const financeTables = {
+    "/rest/v1/financial_charges": financialChargesByOrg,
+    "/rest/v1/financial_payments": financialPaymentsByOrg,
+    "/rest/v1/financial_expenses": financialExpensesByOrg,
+    "/rest/v1/financial_plans": financialPlansByOrg,
+    "/rest/v1/financial_plan_movements": financialPlanMovementsByOrg,
+    "/rest/v1/financial_closings": financialClosingsByOrg,
+  };
+  const financeTable = financeTables[pathname];
+  if (financeTable) {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+
+    if (req.method === "GET") {
+      const idFilter = parseEqFilter(searchParams.get("id"));
+      const organizationId = parseEqFilter(searchParams.get("organization_id"));
+      let rows = idFilter
+        ? (() => {
+            const row = findFinanceRow(financeTable, user.id, (item) => item.id === idFilter);
+            return row ? [row] : [];
+          })()
+        : listFinanceRows(financeTable, user.id, organizationId).filter((row) =>
+            matchesFilters(row, searchParams),
+          );
+      rows = applyOrder(rows, searchParams);
+      if (wantsSingleObject(req)) {
+        if (rows.length !== 1) {
+          return json(res, 406, {
+            code: "PGRST116",
+            message: "JSON object requested, multiple (or no) rows returned",
+          });
+        }
+        return json(res, 200, rows[0]);
+      }
+      return json(res, 200, applyLimit(rows, searchParams));
+    }
+
+    if (req.method === "POST") {
+      const body = await readBody(req);
+      if (!canWriteFinance(user.id, body.organization_id)) {
+        return json(res, 403, { message: "row-level security policy violation" });
+      }
+      const competence =
+        body.competence_date ??
+        body.due_date ??
+        (body.charge_id
+          ? [...(financialChargesByOrg.get(body.organization_id)?.values() ?? [])].find(
+              (item) => item.id === body.charge_id,
+            )?.competence_date
+          : todaySaoPauloDateStr());
+      if (periodClosed(body.organization_id, competence)) {
+        return json(res, 400, { message: "financial period is closed for this competence date", code: "P0001" });
+      }
+      if (pathname === "/rest/v1/financial_payments") {
+        const charge = [...(financialChargesByOrg.get(body.organization_id)?.values() ?? [])].find(
+          (item) => item.id === body.charge_id,
+        );
+        if (!charge) return json(res, 403, { message: "row-level security policy violation" });
+        let paid = 0;
+        for (const payment of financialPaymentsByOrg.get(body.organization_id)?.values() ?? []) {
+          if (payment.charge_id === charge.id && !payment.voided_at) paid += Number(payment.amount);
+        }
+        if (paid + Number(body.amount) > Number(charge.amount) + 1e-9) {
+          return json(res, 400, { message: "payment exceeds remaining charge amount", code: "P0001" });
+        }
+        const key = body.idempotency_key;
+        if (key) {
+          const duplicate = [...(financialPaymentsByOrg.get(body.organization_id)?.values() ?? [])].find(
+            (item) => item.idempotency_key === key,
+          );
+          if (duplicate) {
+            return json(res, 409, { message: "duplicate key value violates unique constraint" });
+          }
+        }
+      }
+      if (pathname === "/rest/v1/financial_charges" && body.session_id) {
+        const duplicate = [...(financialChargesByOrg.get(body.organization_id)?.values() ?? [])].find(
+          (item) => item.session_id === body.session_id,
+        );
+        if (duplicate) {
+          return json(res, 409, { message: "duplicate key value violates unique constraint" });
+        }
+      }
+      const now = new Date().toISOString();
+      const row = {
+        id: randomUUID(),
+        status:
+          pathname === "/rest/v1/financial_charges"
+            ? "pending"
+            : pathname === "/rest/v1/financial_expenses"
+              ? "pending"
+              : pathname === "/rest/v1/financial_plans"
+                ? "active"
+                : pathname === "/rest/v1/financial_closings"
+                  ? body.status ?? "closed"
+                  : undefined,
+        used_sessions: pathname === "/rest/v1/financial_plans" ? 0 : undefined,
+        created_at: now,
+        updated_at: now,
+        voided_at: null,
+        canceled_at: null,
+        nfse_requested_at: null,
+        paid_at: body.paid_at ?? (pathname === "/rest/v1/financial_payments" ? now : null),
+        registered_by: pathname === "/rest/v1/financial_payments" ? user.id : null,
+        created_by: user.id,
+        totals_snapshot: body.totals_snapshot ?? {},
+        ...body,
+      };
+      if (pathname === "/rest/v1/financial_charges" && row.due_date && row.due_date < todaySaoPauloDateStr() && row.status === "pending") {
+        row.status = "overdue";
+      }
+      getOrCreateOrgMap(financeTable, body.organization_id).set(row.id, row);
+      if (pathname === "/rest/v1/financial_payments") {
+        const charge = [...(financialChargesByOrg.get(body.organization_id)?.values() ?? [])].find(
+          (item) => item.id === body.charge_id,
+        );
+        if (charge) refreshChargeStatus(charge);
+      }
+      if (pathname === "/rest/v1/financial_plan_movements") {
+        const plan = financialPlansByOrg.get(body.organization_id)?.get(body.plan_id);
+        if (plan) {
+          plan.used_sessions = [...(financialPlanMovementsByOrg.get(body.organization_id)?.values() ?? [])]
+            .filter((item) => item.plan_id === plan.id)
+            .reduce((sum, item) => sum + Number(item.delta), 0);
+        }
+      }
+      return json(res, 201, wantsSingleObject(req) ? row : [row]);
+    }
+
+    if (req.method === "PATCH" || req.method === "PUT") {
+      const body = await readBody(req);
+      const idFilter = parseEqFilter(searchParams.get("id"));
+      const row = findFinanceRow(financeTable, user.id, (item) => item.id === idFilter);
+      if (!row || !canWriteFinance(user.id, row.organization_id)) {
+        return json(res, 200, wantsSingleObject(req) ? null : []);
+      }
+      if (periodClosed(row.organization_id, row.competence_date ?? row.due_date ?? row.period_start)) {
+        if (pathname !== "/rest/v1/financial_closings") {
+          return json(res, 400, { message: "financial period is closed for this competence date", code: "P0001" });
+        }
+      }
+      Object.assign(row, body, { id: row.id, organization_id: row.organization_id, updated_at: new Date().toISOString() });
+      if (pathname === "/rest/v1/financial_payments") refreshChargeStatus(
+        [...(financialChargesByOrg.get(row.organization_id)?.values() ?? [])].find((item) => item.id === row.charge_id) ?? { status: "pending" },
+      );
+      return json(res, 200, wantsSingleObject(req) ? row : [row]);
+    }
+
+    if (req.method === "DELETE") {
+      return json(res, 403, { message: "permission denied for table" });
+    }
   }
 
   json(res, 404, { msg: "not found" });

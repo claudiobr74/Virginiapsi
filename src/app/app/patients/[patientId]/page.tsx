@@ -1,4 +1,4 @@
-import { Banknote, CalendarClock, NotebookPen, Users } from "lucide-react";
+import { NotebookPen, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,12 @@ import {
   listPatientAttachments,
   listTemplates,
 } from "@/features/documents/queries";
+import {
+  PatientPendingBlock,
+  PatientPlansBlock,
+  PatientStatementBlock,
+} from "@/features/finance/components/patient-finance-panels";
+import { getPatientFinance } from "@/features/finance/queries";
 import { ClinicalProfileForm } from "@/features/patients/components/clinical-profile-form";
 import { PatientHubSection } from "@/features/patients/components/patient-hub-section";
 import { PatientStatusControl } from "@/features/patients/components/patient-status-control";
@@ -30,6 +36,7 @@ import {
 import { SessionHistoryList } from "@/features/sessions/components/session-history-list";
 import { StartSessionButton } from "@/features/sessions/components/start-session-button";
 import { listPatientSessions } from "@/features/sessions/queries";
+import { centsFromCanonical, formatBRL } from "@/lib/finance/money";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
 export async function generateMetadata({
@@ -75,6 +82,12 @@ export default async function PatientHubPage({
   ]);
 
   const minorRequirement = isAdmin ? resolveMinorRequirement(patient.birth_date) : null;
+  const finance = await getPatientFinance(
+    organizationId,
+    role,
+    patient.id,
+    patient.preferred_name,
+  );
 
   return (
     <PageContainer>
@@ -112,7 +125,7 @@ export default async function PatientHubPage({
             label="Valor padrão da sessão"
             value={
               patient.default_session_value != null
-                ? `R$ ${Number(patient.default_session_value).toFixed(2)}`
+                ? formatBRL(centsFromCanonical(patient.default_session_value))
                 : "—"
             }
           />
@@ -170,19 +183,11 @@ export default async function PatientHubPage({
       ) : null}
 
       <PatientHubSection title="Adesão & Planos Ativos">
-        <EmptyState
-          icon={Banknote}
-          title="Planos e pacotes chegam na Fase 10"
-          description="Cobranças, pagamentos e planos de sessões serão exibidos aqui."
-        />
+        <PatientPlansBlock access={finance.access} plans={finance.plans} />
       </PatientHubSection>
 
       <PatientHubSection title="Pendências">
-        <EmptyState
-          icon={CalendarClock}
-          title="Pendências financeiras chegam na Fase 10"
-          description="Cobranças em aberto e itens administrativos do paciente aparecerão aqui."
-        />
+        <PatientPendingBlock access={finance.access} charges={finance.charges} />
       </PatientHubSection>
 
       {isAdmin ? (
@@ -227,11 +232,7 @@ export default async function PatientHubPage({
       </PatientHubSection>
 
       <PatientHubSection title="Extrato Financeiro">
-        <EmptyState
-          icon={Banknote}
-          title="Extrato financeiro chega na Fase 10"
-          description="Cobranças, recebimentos e recibos por paciente aparecerão aqui."
-        />
+        <PatientStatementBlock access={finance.access} charges={finance.charges} />
       </PatientHubSection>
 
       {isAdmin && minorRequirement ? (

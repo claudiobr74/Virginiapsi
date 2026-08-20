@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ChargeView } from "@/features/finance/contracts";
 import {
   APPOINTMENT_MODALITY_VALUES,
   APPOINTMENT_STATUS_VALUES,
@@ -8,7 +9,7 @@ import {
 
 export const PHASE_AVAILABILITY = {
   clinicalSessions: false, // Fase 6 (widget de pendência ainda não foi ligado)
-  finance: false, // Fase 10
+  finance: true,
   documents: true,
   twilioReminders: false, // Fase 11
 } as const;
@@ -82,7 +83,7 @@ export interface MyDaySnapshot {
   nextSession: MyDayAppointment | null;
   timeline: MyDayAppointment[];
   sessionsToFinalize: FutureModuleSection;
-  financialPending: FutureModuleSection;
+  financialPending: ChargeView[];
   recentDocuments: RecentDocumentItem[];
   tasks: PracticeTask[];
   phases: PhaseAvailability;

@@ -19,7 +19,7 @@ function displayNameFromEmail(email: string | undefined) {
 }
 
 export default async function MyDayPage() {
-  const { user, organizationId, timezone } = await requireOrgContext();
+  const { user, organizationId, timezone, role } = await requireOrgContext();
   const settings = await getShellSettings(organizationId);
 
   const metadataName =
@@ -37,6 +37,7 @@ export default async function MyDayPage() {
     timezone,
     professionalName,
     settings,
+    role,
   });
 
   return (
