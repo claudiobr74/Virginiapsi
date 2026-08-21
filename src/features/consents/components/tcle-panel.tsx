@@ -18,6 +18,7 @@ import {
   TCLE_STATUS_LABELS,
   TCLE_TYPE_LABELS,
   resolveTcleStatus,
+  type TcleConsentType,
   type TcleStatus,
 } from "@/features/consents/tcle";
 import type { ConsentRow } from "@/features/consents/contracts";
