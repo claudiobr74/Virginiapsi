@@ -1,13 +1,11 @@
-import { Sun } from "lucide-react";
-import type { Metadata } from "next";
 import { PageContainer } from "@/components/ui/page-container";
-import { PageHeader } from "@/components/ui/page-header";
 import { MyDayBoard } from "@/features/dashboard/components/my-day-board";
+import { MyDayWelcome } from "@/features/dashboard/components/my-day-welcome";
 import { getMyDaySnapshot } from "@/features/dashboard/queries";
 import { getShellSettings } from "@/features/organizations/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata: Metadata = { title: "Meu Dia — Tesseli" };
+export const metadata = { title: "Meu Dia — Tesseli" };
 
 function displayNameFromEmail(email: string | undefined) {
   const localPart = email?.split("@")[0] ?? "Profissional";
@@ -41,15 +39,8 @@ export default async function MyDayPage() {
   });
 
   return (
-    <PageContainer>
-      <PageHeader
-        icon={Sun}
-        title="Meu Dia"
-        subtitle={snapshot.greeting.quote ?? undefined}
-      />
-      <p className="font-serif text-lg italic text-foreground sm:text-xl">
-        {snapshot.greeting.prefix}, {snapshot.greeting.professionalName}
-      </p>
+    <PageContainer className="max-w-[1120px]">
+      <MyDayWelcome snapshot={snapshot} />
       <MyDayBoard snapshot={snapshot} />
     </PageContainer>
   );

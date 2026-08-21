@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Logo } from "@/components/ui/logo";
+import { AuthScreen } from "@/features/auth/components/auth-screen";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { oauthCodeCallbackPath } from "@/features/auth/oauth-redirect";
 
@@ -17,42 +18,25 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-32 -top-32 size-96 rounded-full bg-sage/30 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-40 -right-24 size-[28rem] rounded-full bg-accent/20 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/3 size-72 -translate-x-1/2 rounded-full bg-sage-light/25 blur-3xl"
-      />
-
-      <div className="relative z-10 w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-xl sm:p-10">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <Logo width={168} priority />
-          <h1 className="font-serif text-2xl italic font-bold text-foreground">
-            Bem-vinda de volta
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Entre para continuar cuidando do seu consultório com serenidade.
-          </p>
-        </div>
-
-        <div className="mt-8">
-          <Suspense>
-            <LoginForm />
-          </Suspense>
-        </div>
-
-        <p className="mt-8 text-center text-[11px] leading-5 text-muted-foreground">
-          Seus dados são protegidos conforme a LGPD. O acesso a informações
-          clínicas é restrito e auditado.
-        </p>
+    <AuthScreen>
+      <div className="flex flex-col items-center gap-2 text-center">
+        <Logo width={160} priority />
+        <h1 className="mt-4 font-serif text-[28px] italic font-medium leading-tight text-foreground">
+          Bem-vinda ao seu consultório
+        </h1>
+        <p className="text-sm text-muted-foreground">Acesse sua conta para continuar</p>
       </div>
-    </main>
+
+      <div className="mt-8">
+        <Suspense>
+          <LoginForm />
+        </Suspense>
+      </div>
+
+      <div className="mt-8 flex flex-col gap-1 text-center text-[11px] leading-[1.4] text-muted-foreground">
+        <p>Acesso protegido e auditado.</p>
+        <p>Em conformidade com LGPD e CFP.</p>
+      </div>
+    </AuthScreen>
   );
 }

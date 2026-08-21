@@ -7,6 +7,15 @@ import {
   type MyDayAppointment,
   type SessionToFinalize,
 } from "@/features/dashboard/contracts";
+import {
+  daySpanLabel,
+  finalizeCountLabel,
+  meetHostLabel,
+  nextSessionStatName,
+  nextSessionStatTime,
+  pendingTotalCents,
+  sessionCountLabel,
+} from "@/features/dashboard/stats";
 
 function appointment(overrides: Partial<MyDayAppointment> = {}): MyDayAppointment {
   return {
@@ -131,5 +140,46 @@ describe("buildWhatsAppReminderUrl", () => {
     expect(
       buildWhatsAppReminderUrl("123", "Beatriz", "2026-08-20T12:00:00.000Z", "UTC"),
     ).toBeNull();
+  });
+});
+
+describe("Meu Dia — indicadores do Figma", () => {
+  it("rotula a contagem de sessões e o intervalo do dia", () => {
+    expect(sessionCountLabel(0)).toBe("0 sessões");
+    expect(sessionCountLabel(1)).toBe("1 sessão");
+    expect(sessionCountLabel(6)).toBe("6 sessões");
+    expect(daySpanLabel([], "UTC")).toBe("Nenhum agendamento");
+    expect(
+      daySpanLabel(
+        [
+          appointment({ startsAt: "2026-08-20T11:00:00.000Z", endsAt: "2026-08-20T11:50:00.000Z" }),
+          appointment({ startsAt: "2026-08-20T20:00:00.000Z", endsAt: "2026-08-20T20:50:00.000Z" }),
+        ],
+        "UTC",
+      ),
+    ).toBe("11:00 - 20:50");
+  });
+
+  it("mostra traço quando não há próxima sessão", () => {
+    expect(nextSessionStatTime(null, "UTC")).toBe("—");
+    expect(nextSessionStatName(null)).toBe("Sem atendimentos");
+    expect(nextSessionStatTime(appointment(), "UTC")).toBe("12:00");
+    expect(nextSessionStatName(appointment())).toBe("Beatriz");
+  });
+
+  it("soma pendências em centavos e formata o Meet sem protocolo", () => {
+    expect(finalizeCountLabel(0)).toBe("0 prontuários");
+    expect(finalizeCountLabel(1)).toBe("1 prontuário");
+    expect(pendingTotalCents([])).toBe(0);
+    expect(
+      pendingTotalCents([
+        { remainingCents: 15000 },
+        { remainingCents: 30000 },
+      ] as never),
+    ).toBe(45000);
+    expect(meetHostLabel("https://meet.google.com/abc-defg-hij")).toBe(
+      "meet.google.com/abc-defg-hij",
+    );
+    expect(meetHostLabel(null)).toBeNull();
   });
 });

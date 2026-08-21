@@ -1,12 +1,11 @@
 "use client";
 
-import { Check, ListTodo, Trash2 } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { SectionHeader } from "@/components/ui/section-header";
+import { DashboardWidget } from "@/features/dashboard/components/dashboard-widget";
 import {
   completeTaskAction,
   createTaskAction,
@@ -34,30 +33,27 @@ export function TasksPanel({ tasks }: { tasks: PracticeTask[] }) {
   }
 
   return (
-    <section aria-labelledby="tasks-heading" className="flex flex-col gap-3">
-      <SectionHeader
-        id="tasks-heading"
-        title="Tarefas"
-        description="Checklist operacional do consultório — não é conteúdo clínico"
-      />
-
+    <DashboardWidget id="tasks-heading" title="Minhas Tarefas">
       <form
-        className="flex flex-col gap-2 sm:flex-row"
+        className="flex flex-col gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           run(() => createTaskAction({ title }), () => setTitle(""));
         }}
       >
-        <Input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Nova tarefa"
-          aria-label="Título da nova tarefa"
-          maxLength={200}
-        />
-        <Button type="submit" size="sm" isLoading={isPending} disabled={!title.trim()}>
-          Adicionar
-        </Button>
+        <div className="flex gap-2">
+          <Input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Nova tarefa"
+            aria-label="Título da nova tarefa"
+            maxLength={200}
+            className="h-9"
+          />
+          <Button type="submit" size="sm" isLoading={isPending} disabled={!title.trim()}>
+            Adicionar
+          </Button>
+        </div>
       </form>
 
       {error ? (
@@ -67,20 +63,13 @@ export function TasksPanel({ tasks }: { tasks: PracticeTask[] }) {
       ) : null}
 
       {tasks.length === 0 ? (
-        <EmptyState
-          icon={ListTodo}
-          title="Nenhuma tarefa pendente"
-          description="O dia está em ordem. Adicione um lembrete operacional quando precisar."
-        />
+        <p className="text-sm text-muted-foreground">Nenhuma tarefa pendente para hoje.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {tasks.map((task) => (
-            <li
-              key={task.id}
-              className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3"
-            >
+            <li key={task.id} className="flex items-center justify-between gap-3">
               <span className="text-sm font-medium text-foreground">{task.title}</span>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center">
                 <Button
                   type="button"
                   size="icon"
@@ -106,6 +95,6 @@ export function TasksPanel({ tasks }: { tasks: PracticeTask[] }) {
           ))}
         </ul>
       )}
-    </section>
+    </DashboardWidget>
   );
 }

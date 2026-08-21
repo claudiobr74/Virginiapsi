@@ -92,6 +92,9 @@ export interface RecentDocumentItem {
 export interface MyDaySnapshot {
   greeting: MyDayGreeting;
   timezone: string;
+  roleLabel: string;
+  clinicName: string | null;
+  canStartSession: boolean;
   nextSession: MyDayAppointment | null;
   timeline: MyDayAppointment[];
   sessionsToFinalize: SessionToFinalize[];

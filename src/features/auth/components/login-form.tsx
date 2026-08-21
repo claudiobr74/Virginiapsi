@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -15,11 +16,13 @@ import {
 } from "@/features/auth/messages";
 import { loginSchema, type LoginValues } from "@/features/auth/schemas";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { cn } from "@/lib/utils/cn";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -50,7 +53,7 @@ export function LoginForm() {
   });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       {visibleError ? (
         <p
           role="alert"
@@ -60,49 +63,80 @@ export function LoginForm() {
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         <Label htmlFor="email">E-mail</Label>
-        <Input
-          id="email"
-          type="email"
-          autoComplete="email"
-          placeholder="voce@exemplo.com"
-          aria-invalid={Boolean(errors.email) || undefined}
-          {...register("email")}
-        />
+        <div className="relative">
+          <Mail
+            className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            placeholder="seu@email.com"
+            aria-invalid={Boolean(errors.email) || undefined}
+            className="pl-11"
+            {...register("email")}
+          />
+        </div>
         {errors.email ? (
           <p className="text-xs text-failed">{errors.email.message}</p>
         ) : null}
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2">
           <Label htmlFor="password">Senha</Label>
+          <div className="relative">
+            <Lock
+              className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="••••••••"
+              aria-invalid={Boolean(errors.password) || undefined}
+              className="px-11"
+              {...register("password")}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            >
+              {showPassword ? (
+                <EyeOff className="size-[18px]" aria-hidden />
+              ) : (
+                <Eye className="size-[18px]" aria-hidden />
+              )}
+            </button>
+          </div>
+        </div>
+        {errors.password ? (
+          <p className="text-xs text-failed">{errors.password.message}</p>
+        ) : null}
+        <div className="flex justify-end">
           <Link
             href="/auth/recovery"
-            className="text-xs font-semibold text-sage-700 hover:text-primary"
+            className={cn(
+              "text-xs font-medium text-primary underline underline-offset-2",
+              "hover:text-primary-hover",
+            )}
           >
             Esqueci minha senha
           </Link>
         </div>
-        <Input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          placeholder="••••••••"
-          aria-invalid={Boolean(errors.password) || undefined}
-          {...register("password")}
-        />
-        {errors.password ? (
-          <p className="text-xs text-failed">{errors.password.message}</p>
-        ) : null}
       </div>
 
-      <Button type="submit" size="lg" isLoading={isSubmitting} className="w-full">
+      <Button type="submit" size="lg" isLoading={isSubmitting} className="mt-1 w-full rounded-xl">
         Entrar
       </Button>
 
-      <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-3 text-[13px] text-muted-foreground">
         <span className="h-px flex-1 bg-border" />
         ou
         <span className="h-px flex-1 bg-border" />

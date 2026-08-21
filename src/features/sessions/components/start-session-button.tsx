@@ -5,13 +5,22 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { startSessionAction } from "@/features/sessions/actions";
+import { cn } from "@/lib/utils/cn";
 
 export function StartSessionButton({
   patientId,
   appointmentId,
+  label = "Iniciar sessão",
+  size = "sm",
+  className,
+  iconOnly = false,
 }: {
   patientId: string;
   appointmentId?: string;
+  label?: string;
+  size?: "sm" | "md" | "lg" | "icon";
+  className?: string;
+  iconOnly?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -36,9 +45,16 @@ export function StartSessionButton({
           {error}
         </p>
       ) : null}
-      <Button type="button" size="sm" isLoading={isPending} onClick={start}>
-        <PlayCircle className="size-4" aria-hidden />
-        Iniciar sessão
+      <Button
+        type="button"
+        size={size}
+        isLoading={isPending}
+        onClick={start}
+        className={className}
+        aria-label={iconOnly ? label : undefined}
+      >
+        <PlayCircle className={cn("size-4", iconOnly && "size-4")} aria-hidden />
+        {iconOnly ? null : label}
       </Button>
     </div>
   );

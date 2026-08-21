@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
 import { KnowledgeConsole } from "@/features/knowledge/components/knowledge-client";
 import { listCollections, listSources } from "@/features/knowledge/queries";
 import { listPatients } from "@/features/patients/queries";
+import { RestrictedAccess } from "@/features/shell/restricted-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
 export const metadata = { title: "Conhecimento — Tesseli" };
@@ -13,7 +13,7 @@ export default async function KnowledgePage() {
   // (docs/05-security-rbac-rls.md) — the secretary never even attempts
   // these queries.
   if (role !== "psychologist_admin") {
-    redirect("/app");
+    return <RestrictedAccess sectionLabel="o Conhecimento clínico" />;
   }
 
   const [collections, sources, patients] = await Promise.all([

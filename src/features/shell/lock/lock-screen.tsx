@@ -68,16 +68,17 @@ export function LockScreen({ userEmail, onUnlock }: LockScreenProps) {
       aria-label="Tela bloqueada"
       className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 px-4 backdrop-blur-md"
     >
-      <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-8 text-center shadow-2xl">
+      <div className="w-full max-w-[480px] rounded-3xl border border-border bg-card p-8 text-center shadow-2xl sm:p-10">
         <div className="flex flex-col items-center gap-3">
-          <Logo width={120} />
+          <Logo width={140} />
           <span className="flex size-11 items-center justify-center rounded-2xl bg-surface text-sage-700">
             <Lock className="size-5" aria-hidden />
           </span>
-          <h1 className="font-serif text-xl italic font-bold text-foreground">
+          <h1 className="font-serif text-[28px] italic font-medium text-foreground">
             Tela bloqueada
           </h1>
-          <p className="text-sm text-muted-foreground">{userEmail}</p>
+          <p className="text-sm text-muted-foreground">Sessão protegida por LGPD</p>
+          <p className="font-mono text-xs text-sage-700">{userEmail}</p>
         </div>
 
         <form onSubmit={onSubmit} noValidate className="mt-6 flex flex-col gap-4">
@@ -116,7 +117,7 @@ export function LockScreen({ userEmail, onUnlock }: LockScreenProps) {
           onClick={handleSignOut}
           className="mt-4 text-xs font-semibold text-muted-foreground hover:text-foreground"
         >
-          Sair da conta
+          Desconectar conta
         </button>
       </div>
     </div>

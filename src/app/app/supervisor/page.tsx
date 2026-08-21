@@ -7,6 +7,7 @@ import { getPatient, listPatients } from "@/features/patients/queries";
 import { listPatientSessions } from "@/features/sessions/queries";
 import { listSupervisorRuns } from "@/features/supervisor/queries";
 import { SupervisorConsole } from "@/features/supervisor/components/supervisor-console";
+import { RestrictedAccess } from "@/features/shell/restricted-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { redirect } from "next/navigation";
 
@@ -19,7 +20,7 @@ export default async function SupervisorPage({
   const params = await searchParams;
 
   if (role !== "psychologist_admin") {
-    redirect("/app");
+    return <RestrictedAccess sectionLabel="o Supervisor IA" />;
   }
 
   const patientId = typeof params.patientId === "string" ? params.patientId : undefined;

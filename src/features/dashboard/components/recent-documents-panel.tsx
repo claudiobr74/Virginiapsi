@@ -1,68 +1,44 @@
-import { FileText } from "lucide-react";
+import { Download } from "lucide-react";
 import Link from "next/link";
-import { EmptyState } from "@/components/ui/empty-state";
-import { SectionHeader } from "@/components/ui/section-header";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { DashboardWidget } from "@/features/dashboard/components/dashboard-widget";
+import type { RecentDocumentItem } from "@/features/dashboard/contracts";
 import {
   DOCUMENT_KIND_LABELS,
-  DOCUMENT_STATUS_LABELS,
   type DocumentKind,
-  type DocumentStatus,
 } from "@/features/documents/contracts";
-import type { RecentDocumentItem } from "@/features/dashboard/contracts";
-
-const STATUS_BADGE = {
-  draft: "pending",
-  issued: "completed",
-  signed: "completed",
-  canceled: "cancelled",
-} as const;
 
 export function RecentDocumentsPanel({ documents }: { documents: RecentDocumentItem[] }) {
   return (
-    <section aria-labelledby="recent-documents-heading" className="flex flex-col gap-3">
-      <SectionHeader
-        id="recent-documents-heading"
-        title="Documentos recentes"
-        actions={
-          <Link
-            href="/app/documents"
-            className="text-sm font-semibold text-primary hover:underline"
-          >
-            Ver todos
-          </Link>
-        }
-      />
-      {documents.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="Nenhum documento recente"
-          description="Laudos, atestados e recibos emitidos a partir do Prontuário aparecem aqui."
-        />
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {documents.map((document) => (
-            <li key={document.id}>
-              <Link
-                href={`/app/documents/${document.id}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2 text-sm transition-colors hover:bg-surface"
-              >
-                <div className="flex flex-col">
-                  <span className="font-semibold text-foreground">{document.title}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {DOCUMENT_KIND_LABELS[document.documentKind as DocumentKind] ??
-                      document.documentKind}
-                  </span>
-                </div>
-                <StatusBadge
-                  status={STATUS_BADGE[document.status]}
-                  label={DOCUMENT_STATUS_LABELS[document.status as DocumentStatus]}
-                />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <DashboardWidget
+      id="recent-documents-heading"
+      title="Documentos Gerados"
+      actions={
+        <Link href="/app/documents" className="text-sm font-semibold text-primary hover:underline">
+          Ver todos
+        </Link>
+      }
+      empty={documents.length === 0}
+      emptyLabel="Nenhum documento gerado hoje."
+    >
+      <ul className="flex flex-col gap-2">
+        {documents.map((document) => (
+          <li key={document.id}>
+            <Link
+              href={`/app/documents/${document.id}`}
+              className="flex items-center justify-between gap-3 rounded-xl py-1 text-sm transition-colors hover:bg-surface"
+            >
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate font-semibold text-foreground">{document.title}</span>
+                <span className="text-[11px] text-muted-foreground">
+                  {DOCUMENT_KIND_LABELS[document.documentKind as DocumentKind] ??
+                    document.documentKind}
+                </span>
+              </div>
+              <Download className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </DashboardWidget>
   );
 }

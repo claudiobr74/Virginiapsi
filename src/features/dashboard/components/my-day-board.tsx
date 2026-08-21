@@ -7,21 +7,33 @@ import { FinancialPendingPanel } from "@/features/finance/components/financial-p
 import type { MyDaySnapshot } from "@/features/dashboard/contracts";
 
 export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
+  const emptyDay = snapshot.timeline.length === 0;
+
   return (
-    <div className="flex flex-col gap-8">
-      <NextSessionCard appointment={snapshot.nextSession} timeZone={snapshot.timezone} />
-      <TodayTimeline
-        appointments={snapshot.timeline}
-        timeZone={snapshot.timezone}
-        highlightedId={snapshot.nextSession?.id}
-      />
-      <SessionsToFinalizePanel
-        sessions={snapshot.sessionsToFinalize}
-        timeZone={snapshot.timezone}
-      />
-      <FinancialPendingPanel charges={snapshot.financialPending} />
-      <TasksPanel tasks={snapshot.tasks} />
-      <RecentDocumentsPanel documents={snapshot.recentDocuments} />
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <div className="flex min-w-0 flex-1 flex-col gap-6">
+        <NextSessionCard
+          appointment={snapshot.nextSession}
+          timeZone={snapshot.timezone}
+          canStartSession={snapshot.canStartSession}
+          emptyDay={emptyDay}
+        />
+        <TodayTimeline
+          appointments={snapshot.timeline}
+          timeZone={snapshot.timezone}
+          highlightedId={snapshot.nextSession?.id}
+          canStartSession={snapshot.canStartSession}
+        />
+      </div>
+      <aside className="flex w-full flex-col gap-5 lg:w-[320px] lg:shrink-0">
+        <SessionsToFinalizePanel
+          sessions={snapshot.sessionsToFinalize}
+          timeZone={snapshot.timezone}
+        />
+        <FinancialPendingPanel charges={snapshot.financialPending} />
+        <TasksPanel tasks={snapshot.tasks} />
+        <RecentDocumentsPanel documents={snapshot.recentDocuments} />
+      </aside>
     </div>
   );
 }

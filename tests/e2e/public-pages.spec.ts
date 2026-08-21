@@ -20,7 +20,7 @@ test.describe("Login", () => {
 
     await expect(page.getByRole("img", { name: "Tesseli" })).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Bem-vinda de volta" }),
+      page.getByRole("heading", { name: "Bem-vinda ao seu consultório" }),
     ).toBeVisible();
     await expect(page.getByLabel("E-mail")).toBeVisible();
     await expect(page.getByLabel("Senha", { exact: true })).toBeVisible();

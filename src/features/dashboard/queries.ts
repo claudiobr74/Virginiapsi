@@ -14,6 +14,7 @@ import {
   type SessionToFinalize,
 } from "@/features/dashboard/contracts";
 import type { ShellSettings } from "@/features/organizations/contracts";
+import { ROLE_LABELS } from "@/features/organizations/labels";
 import { listRecentDocuments } from "@/features/documents/queries";
 import { getFinanceAccess, listCharges, listPayments, buildChargeViews } from "@/features/finance/queries";
 import { todayIsoDate } from "@/features/finance/contracts";
@@ -203,6 +204,9 @@ export async function getMyDaySnapshot(input: {
       quote,
     },
     timezone: input.timezone,
+    roleLabel: ROLE_LABELS[input.role],
+    clinicName: input.settings?.clinic_name?.trim() || null,
+    canStartSession: input.role === "psychologist_admin",
     nextSession: selectNextSession(timeline),
     timeline,
     sessionsToFinalize,

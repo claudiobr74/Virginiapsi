@@ -69,6 +69,7 @@ export function AgendaBoard({
     [view, referenceDate, timeZone],
   );
   const today = todayInTimeZone(timeZone);
+  const openFromQuery = searchParams.get("new") === "1";
 
   const appointmentsByDay = useMemo(() => {
     const map = new Map<string, AppointmentRow[]>();
@@ -157,11 +158,24 @@ export function AgendaBoard({
       )}
 
       <AppointmentDialog
-        open={dialogState.open}
-        onOpenChange={(open) => setDialogState((state) => ({ ...state, open }))}
+        open={dialogState.open || openFromQuery}
+        onOpenChange={(open) => {
+          setDialogState((state) => ({
+            ...state,
+            open,
+            appointment: open ? state.appointment : undefined,
+            date: referenceDate,
+          }));
+          if (!open && openFromQuery) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("new");
+            const query = params.toString();
+            router.replace(query ? `/app/agenda?${query}` : "/app/agenda");
+          }
+        }}
         patients={patients}
         defaultDate={dialogState.date}
-        appointment={dialogState.appointment}
+        appointment={openFromQuery ? undefined : dialogState.appointment}
         onSaved={() => router.refresh()}
       />
 

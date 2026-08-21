@@ -1,9 +1,9 @@
 import { Settings } from "lucide-react";
-import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
 import { SettingsConsole } from "@/features/settings/components/settings-console";
 import { getSettingsSnapshot } from "@/features/settings/queries";
+import { RestrictedAccess } from "@/features/shell/restricted-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
 export const metadata = { title: "Configurações — Tesseli" };
@@ -13,7 +13,7 @@ export default async function SettingsPage() {
     await requireOrgContext();
 
   if (role !== "psychologist_admin") {
-    redirect("/app");
+    return <RestrictedAccess sectionLabel="as Configurações" />;
   }
 
   const metadataName =

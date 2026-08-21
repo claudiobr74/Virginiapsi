@@ -116,3 +116,14 @@ export async function confirmAppointmentFromMyDayAction(
   revalidatePath("/app");
   return {};
 }
+
+export async function markNoShowFromMyDayAction(
+  appointmentId: string,
+): Promise<DashboardActionResult> {
+  const result = await updateAppointmentStatusAction(appointmentId, "no_show");
+  if (result.error) {
+    return { error: result.error };
+  }
+  revalidatePath("/app");
+  return {};
+}

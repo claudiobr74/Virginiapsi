@@ -130,6 +130,7 @@ export async function updateAppointmentStatusAction(
   });
 
   revalidatePath("/app/agenda");
+  revalidatePath("/app");
   return { appointmentId };
 }
 

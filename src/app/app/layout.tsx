@@ -33,7 +33,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
     <AppShell
       userEmail={user.email ?? ""}
       professionalName={professionalName}
-      professionalSubtitle={user.email ?? ""}
+      professionalSubtitle={ROLE_LABELS[role]}
       organizationName={settings?.organization_name ?? organizationName}
       roleLabel={ROLE_LABELS[role]}
       canSwitchOrganization={memberships.length > 1}

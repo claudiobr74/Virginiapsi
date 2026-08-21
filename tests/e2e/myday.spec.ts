@@ -26,17 +26,19 @@ test.describe("Meu Dia — dashboard operacional", () => {
     ).toBeVisible();
 
     await expect(
-      page.getByRole("heading", { name: "Linha do tempo de hoje" }),
+      page.getByRole("heading", { name: "Linha do Tempo de Hoje" }),
     ).toBeVisible();
     await expect(page.getByText("Beatriz • PAC-001").first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Atendimento Avulso" })).toBeVisible();
+    await expect(page.getByText("Atendimentos Hoje")).toBeVisible();
 
     await expect(
-      page.getByRole("heading", { name: "Sessões a finalizar" }),
+      page.getByRole("heading", { name: "Sessões a Finalizar" }),
     ).toBeVisible();
     await expect(page.getByText("Sessões a finalizar chegam na Fase 6")).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Pendências financeiras" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pendências Financeiras" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Abrir financeiro" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Documentos recentes" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Documentos Gerados" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Ver todos" })).toBeVisible();
 
     await expect(

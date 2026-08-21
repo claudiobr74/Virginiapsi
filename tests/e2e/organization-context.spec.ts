@@ -35,7 +35,7 @@ test.describe("Contexto de organização", () => {
       context.getByText(STUB_USER.organizationName).first(),
     ).toBeVisible();
     await expect(
-      context.getByText("Psicóloga administradora").first(),
+      context.getByText("Psicóloga Clínica").first(),
     ).toBeVisible();
     // Com um único consultório, não há troca de contexto para oferecer.
     await expect(
@@ -133,7 +133,7 @@ test.describe("Sessão forjada", () => {
     await page.goto("/app");
     await expect(page).toHaveURL(/\/login/);
     await expect(
-      page.getByRole("heading", { name: "Bem-vinda de volta" }),
+      page.getByRole("heading", { name: "Bem-vinda ao seu consultório" }),
     ).toBeVisible();
   });
 });
