@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  coalesceAppUrl,
   isLoopbackHttpUrl,
   normalizeGoogleOAuthRedirectUri,
   normalizePublicAppUrl,
@@ -89,6 +90,19 @@ describe("contrato de ambiente", () => {
       const message = error instanceof Error ? error.message : String(error);
       expect(message).not.toContain(bad);
     }
+  });
+
+  it("usa VERCEL_URL quando NEXT_PUBLIC_APP_URL está vazia", () => {
+    expect(coalesceAppUrl("", "tesseli-git-preview.vercel.app")).toBe(
+      "https://tesseli-git-preview.vercel.app",
+    );
+    expect(
+      parsePublicEnv({
+        ...validPublic,
+        NEXT_PUBLIC_APP_URL: "",
+        VERCEL_URL: "tesseli-git-preview.vercel.app",
+      }).NEXT_PUBLIC_APP_URL,
+    ).toBe("https://tesseli-git-preview.vercel.app");
   });
 
   it("rejeita chave publishable no formato legado", () => {

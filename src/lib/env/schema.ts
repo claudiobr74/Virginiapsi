@@ -73,6 +73,44 @@ export function isLoopbackHttpUrl(value: string): boolean {
   }
 }
 
+function isUsableHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      Boolean(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Preview/Production on Vercel often have an empty or host-only
+ * `NEXT_PUBLIC_APP_URL` while `VERCEL_URL` is always set. An invalid
+ * APP_URL used to throw in `proxy.ts` / `instrumentation.ts` and take
+ * down every route with a plaintext Internal Server Error.
+ */
+export function coalesceAppUrl(
+  appUrl: string | undefined,
+  vercelUrl: string | undefined,
+): string | undefined {
+  const normalized = normalizePublicAppUrl(appUrl);
+  if (typeof normalized === "string" && isUsableHttpUrl(normalized)) {
+    return normalized;
+  }
+
+  const host = vercelUrl?.trim();
+  if (!host) {
+    return typeof normalized === "string" ? normalized : undefined;
+  }
+
+  const fromVercel = /^https?:\/\//i.test(host)
+    ? host
+    : `https://${host.replace(/^\/\//, "")}`;
+  return isUsableHttpUrl(fromVercel) ? fromVercel : undefined;
+}
+
 export const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: httpUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: nonEmpty.startsWith("sb_publishable_"),
@@ -120,13 +158,22 @@ function readPublicEnvFromProcess(): EnvSource {
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    VERCEL_URL: process.env.VERCEL_URL,
   };
 }
 
 export function parsePublicEnv(
   source: EnvSource = readPublicEnvFromProcess(),
 ): PublicEnv {
-  const parsed = publicEnvSchema.safeParse(source);
+  const parsed = publicEnvSchema.safeParse({
+    NEXT_PUBLIC_SUPABASE_URL: source.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
+      source.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_APP_URL: coalesceAppUrl(
+      source.NEXT_PUBLIC_APP_URL,
+      source.VERCEL_URL,
+    ),
+  });
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
   }

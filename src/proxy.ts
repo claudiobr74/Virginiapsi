@@ -13,7 +13,13 @@ const AUTH_ONLY_WHEN_ANONYMOUS = ["/login"];
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const env = parsePublicEnv(process.env);
+  let env;
+  try {
+    env = parsePublicEnv(process.env);
+  } catch {
+    // Invalid public env must not 500 the entire site (including /login).
+    return response;
+  }
   const supabase = createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
@@ -37,9 +43,13 @@ export async function proxy(request: NextRequest) {
 
   // Do not add logic between client creation and getUser(): it must be the
   // first call so the refreshed session cookies are captured correctly.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch {
+    return response;
+  }
 
   const { pathname } = request.nextUrl;
 

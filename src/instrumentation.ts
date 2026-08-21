@@ -3,6 +3,10 @@ export async function register(): Promise<void> {
     return;
   }
 
-  const { getPublicEnv } = await import("@/lib/env/public");
-  getPublicEnv();
+  try {
+    const { getPublicEnv } = await import("@/lib/env/public");
+    getPublicEnv();
+  } catch {
+    // Fail-fast is useful in logs, but throwing here 500s every route.
+  }
 }
