@@ -10,8 +10,8 @@ import {
 import { signOAuthState } from "@/lib/integrations/google/oauth";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
-import { isLoopbackHttpUrl } from "@/lib/env/schema";
-import { getServerEnv } from "@/lib/env/server";
+import { envIssueKeyNames, isLoopbackHttpUrl } from "@/lib/env/schema";
+import { getGoogleCalendarEnv } from "@/lib/env/server";
 
 export interface CalendarActionResult {
   error?: string;
@@ -33,21 +33,24 @@ const GOOGLE_CALENDAR_KEYS_ERROR =
   "Faltam as chaves do Google Calendar na Vercel (Client ID e Client Secret). Importe do .env em Preview e Production.";
 
 function toGoogleCalendarStartError(error: unknown): string {
-  const message = error instanceof Error ? error.message : "";
+  const keys = envIssueKeyNames(error);
   if (
-    message.includes("GOOGLE_CLIENT_ID") ||
-    message.includes("GOOGLE_CLIENT_SECRET")
+    keys.includes("GOOGLE_CLIENT_ID") ||
+    keys.includes("GOOGLE_CLIENT_SECRET")
   ) {
     return GOOGLE_CALENDAR_KEYS_ERROR;
   }
-  if (message.includes("GOOGLE_TOKEN_ENCRYPTION_KEY")) {
+  if (keys.includes("GOOGLE_TOKEN_ENCRYPTION_KEY")) {
     return "Falta a chave de criptografia do Google Calendar na Vercel (GOOGLE_TOKEN_ENCRYPTION_KEY).";
   }
   if (
-    message.includes("GOOGLE_OAUTH_REDIRECT_URI") ||
-    message.includes("NEXT_PUBLIC_APP_URL")
+    keys.includes("GOOGLE_OAUTH_REDIRECT_URI") ||
+    keys.includes("NEXT_PUBLIC_APP_URL")
   ) {
     return GOOGLE_CALENDAR_ENV_ERROR;
+  }
+  if (keys.length > 0) {
+    return `Faltam estas variáveis na Vercel (Preview e Production): ${keys.join(", ")}. Cole do arquivo .env, sem aspas, e faça Redeploy.`;
   }
   return "Faltam configurações do servidor na Vercel para conectar o Google Calendar. Confira se as variáveis do .env existem em Preview e Production.";
 }
@@ -61,7 +64,7 @@ export async function startGoogleConnectionAction(): Promise<CalendarActionResul
 
   let env;
   try {
-    env = getServerEnv();
+    env = getGoogleCalendarEnv();
   } catch (error) {
     return { error: toGoogleCalendarStartError(error) };
   }

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyOAuthState } from "@/lib/integrations/google/oauth";
 import { completeGoogleConnection } from "@/lib/integrations/google/connection";
-import { getServerEnv } from "@/lib/env/server";
+import { getGoogleCalendarEnv } from "@/lib/env/server";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { requireUser } from "@/lib/auth/require-user";
 
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
   let env;
   try {
-    env = getServerEnv();
+    env = getGoogleCalendarEnv();
   } catch {
     return redirectWithStatus(origin, "error", "invalid_env");
   }

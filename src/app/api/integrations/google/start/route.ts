@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireUser } from "@/lib/auth/require-user";
 import { isLoopbackHttpUrl } from "@/lib/env/schema";
-import { getServerEnv } from "@/lib/env/server";
+import { getGoogleCalendarEnv } from "@/lib/env/server";
 import { buildAuthorizationUrl } from "@/lib/integrations/google/oauth";
 
 function redirectAgendaError(request: NextRequest) {
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
   let env;
   try {
-    env = getServerEnv();
+    env = getGoogleCalendarEnv();
   } catch {
     return redirectAgendaError(request);
   }

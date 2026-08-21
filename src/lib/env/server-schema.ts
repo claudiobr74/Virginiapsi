@@ -46,6 +46,21 @@ export const serverEnvSchema = publicEnvSchema.extend({
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 
+/** Agenda/Calendar OAuth — independent from Twilio, Gemini and Cron. */
+export const googleCalendarEnvSchema = publicEnvSchema
+  .pick({ NEXT_PUBLIC_APP_URL: true })
+  .extend({
+    GOOGLE_CLIENT_ID: nonEmpty,
+    GOOGLE_CLIENT_SECRET: nonEmpty,
+    GOOGLE_OAUTH_REDIRECT_URI: z.preprocess(
+      normalizeGoogleOAuthRedirectUri,
+      httpUrl,
+    ),
+    GOOGLE_TOKEN_ENCRYPTION_KEY: nonEmpty,
+  });
+
+export type GoogleCalendarEnv = z.infer<typeof googleCalendarEnvSchema>;
+
 export const SERVER_ONLY_ENV_KEYS = [
   "SUPABASE_SECRET_KEY",
   "GOOGLE_CLIENT_ID",
@@ -106,6 +121,26 @@ export function parseServerEnv(
       source.GOOGLE_OAUTH_REDIRECT_URI,
       appUrl,
     ),
+  });
+  if (!parsed.success) {
+    throw new Error(formatEnvIssues(parsed.error));
+  }
+  return parsed.data;
+}
+
+export function parseGoogleCalendarEnv(
+  source: EnvSource = readServerEnvFromProcess(),
+): GoogleCalendarEnv {
+  const appUrl = coalesceAppUrl(source.NEXT_PUBLIC_APP_URL, source.VERCEL_URL);
+  const parsed = googleCalendarEnvSchema.safeParse({
+    NEXT_PUBLIC_APP_URL: appUrl,
+    GOOGLE_CLIENT_ID: source.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: source.GOOGLE_CLIENT_SECRET,
+    GOOGLE_OAUTH_REDIRECT_URI: resolveGoogleCalendarRedirectUri(
+      source.GOOGLE_OAUTH_REDIRECT_URI,
+      appUrl,
+    ),
+    GOOGLE_TOKEN_ENCRYPTION_KEY: source.GOOGLE_TOKEN_ENCRYPTION_KEY,
   });
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));

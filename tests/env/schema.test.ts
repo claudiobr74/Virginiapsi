@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   coalesceAppUrl,
+  envIssueKeyNames,
   isLoopbackHttpUrl,
   normalizeGoogleOAuthRedirectUri,
   normalizePublicAppUrl,
@@ -10,6 +11,7 @@ import {
   resolveGoogleCalendarRedirectUri,
 } from "../../src/lib/env/schema";
 import {
+  parseGoogleCalendarEnv,
   parseServerEnv,
   peekGoogleCalendarRedirectUri,
   SERVER_ONLY_ENV_KEYS,
@@ -242,6 +244,34 @@ describe("contrato de ambiente", () => {
     ).toBe(
       "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
     );
+  });
+
+  it("valida a Agenda sem Twilio, Gemini nem CRON_SECRET", () => {
+    const parsed = parseGoogleCalendarEnv({
+      NEXT_PUBLIC_APP_URL: "",
+      VERCEL_URL: "tesseli-git-preview.vercel.app",
+      GOOGLE_CLIENT_ID: "google-client-id",
+      GOOGLE_CLIENT_SECRET: "google-client-secret",
+      GOOGLE_OAUTH_REDIRECT_URI:
+        "http://localhost:3000/api/integrations/google/callback",
+      GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key-placeholder",
+    });
+    expect(parsed.NEXT_PUBLIC_APP_URL).toBe(
+      "https://tesseli-git-preview.vercel.app",
+    );
+    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
+      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
+    );
+  });
+
+  it("lista só os nomes das chaves faltando, sem valores", () => {
+    expect(
+      envIssueKeyNames(
+        new Error(
+          "Invalid environment configuration: TWILIO_ACCOUNT_SID, GEMINI_API_KEY. Values are not logged.",
+        ),
+      ),
+    ).toEqual(["TWILIO_ACCOUNT_SID", "GEMINI_API_KEY"]);
   });
 
   it("nomeia GOOGLE_CLIENT_ID quando a chave falta, sem vazar outros valores", () => {

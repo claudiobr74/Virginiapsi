@@ -175,6 +175,23 @@ export function formatEnvIssues(error: z.ZodError): string {
   return message;
 }
 
+/** Key names only — never values — for operator-facing Calendar errors. */
+export function envIssueKeyNames(error: unknown): string[] {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(/Invalid environment configuration: ([^.]+)/);
+  if (!match) {
+    return [];
+  }
+  return [
+    ...new Set(
+      match[1]
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0 && part !== "(root)"),
+    ),
+  ];
+}
+
 type EnvSource = Record<string, string | undefined>;
 
 /**

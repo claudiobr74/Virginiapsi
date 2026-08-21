@@ -7,7 +7,7 @@ import {
   fetchGoogleUserInfo,
   refreshAccessToken,
 } from "@/lib/integrations/google/oauth";
-import { getServerEnv } from "@/lib/env/server";
+import { getGoogleCalendarEnv } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const EXPIRY_SAFETY_MARGIN_MS = 60_000;
@@ -38,7 +38,7 @@ async function persistCredentials(
   organizationId: string,
   tokens: { accessToken: string; expiresAt: Date; refreshToken?: string; email?: string },
 ): Promise<void> {
-  const env = getServerEnv();
+  const env = getGoogleCalendarEnv();
   const supabase = await createSupabaseServerClient();
 
   const { error } = await supabase.rpc("upsert_google_credentials", {
@@ -66,7 +66,7 @@ async function persistCredentials(
  * "not connected" and prompt reconnection.
  */
 export async function getValidAccessToken(organizationId: string): Promise<string> {
-  const env = getServerEnv();
+  const env = getGoogleCalendarEnv();
   const credentials = await loadCredentials(organizationId);
 
   if (!credentials) {
@@ -120,7 +120,7 @@ export interface CompleteConnectionInput {
 export async function completeGoogleConnection(
   input: CompleteConnectionInput,
 ): Promise<{ email: string }> {
-  const env = getServerEnv();
+  const env = getGoogleCalendarEnv();
 
   const tokens = await exchangeCodeForTokens({
     code: input.code,
