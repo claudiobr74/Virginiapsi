@@ -1,5 +1,6 @@
 import "server-only";
 
+import { redirect } from "next/navigation";
 import {
   membershipRowSchema,
   organizationRowSchema,
@@ -8,6 +9,17 @@ import {
   type ShellSettings,
 } from "@/features/organizations/contracts";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+function isMissingPublicTable(error: { code?: string; message?: string } | null) {
+  if (!error) {
+    return false;
+  }
+  return (
+    error.code === "PGRST205" ||
+    /schema cache/i.test(error.message) ||
+    /could not find the table/i.test(error.message)
+  );
+}
 
 /**
  * Lists the memberships of the authenticated user. Reads go through the
@@ -22,6 +34,9 @@ export async function listActiveMemberships(): Promise<Membership[]> {
     .eq("active", true);
 
   if (memberError) {
+    if (isMissingPublicTable(memberError)) {
+      redirect("/setup-required");
+    }
     throw new Error(`failed to load memberships: ${memberError.message}`);
   }
 
