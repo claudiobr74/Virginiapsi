@@ -41,6 +41,8 @@ test.describe("Cadastro de paciente", () => {
     await expect(
       page.getByRole("heading", { name: "Identificação" }),
     ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Enviar foto" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Tirar foto" })).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Contato & Responsáveis" }),
     ).toBeVisible();
@@ -101,6 +103,34 @@ test.describe("Cadastro de paciente", () => {
     await expect(
       page.getByRole("link", { name: "Abrir termos no prontuário" }),
     ).toHaveAttribute("href", /\/app\/patients\/[0-9a-f-]+#tcle$/);
+  });
+
+  test("envia foto de identificação no cadastro e mostra no prontuário", async ({
+    page,
+  }) => {
+    await loginViaUi(page);
+    await page.goto("/app/patients/new");
+
+    await page.getByLabel("Nome preferencial").fill("Foto Teste");
+    await page.getByLabel("Nome completo").fill("Foto Teste da Silva");
+
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Enviar foto" }).click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({
+      name: "retrato.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "base64",
+      ),
+    });
+    await expect(page.getByRole("img", { name: "Foto de Paciente" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Cadastrar paciente" }).click();
+    await page.waitForURL(/\/app\/patients\/[0-9a-f-]+$/);
+    await expect(page.getByRole("heading", { name: "Foto Teste" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Foto de Foto Teste" })).toBeVisible();
   });
 });
 

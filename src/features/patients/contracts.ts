@@ -157,6 +157,7 @@ export const patientRowSchema = z.object({
   modality: z.enum(CONSULTATION_MODALITY_VALUES),
   status: z.enum(PATIENT_STATUS_VALUES),
   default_session_value: z.union([z.string(), z.number()]).nullable(),
+  photo_path: z.string().nullable().optional().default(null),
   responsible_psychologist_user_id: z.string().uuid().nullable(),
   elimination_status: z
     .enum(PATIENT_ELIMINATION_STATUS_VALUES)

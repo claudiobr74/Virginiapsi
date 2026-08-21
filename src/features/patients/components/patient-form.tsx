@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +13,13 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import type { ConsentRow } from "@/features/consents/contracts";
 import {
+  clearPortraitAction,
+  confirmPortraitUploadAction,
   createPatientAction,
+  requestPortraitUploadUrlAction,
   updatePatientAction,
 } from "@/features/patients/actions";
+import { PatientPhotoField } from "@/features/patients/components/patient-photo-field";
 import { PatientTermsSummary } from "@/features/patients/components/patient-terms-summary";
 import {
   CONSULTATION_MODALITY_VALUES,
@@ -26,7 +30,43 @@ import {
   type PatientFormValues,
   type PatientRow,
 } from "@/features/patients/contracts";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils/cn";
+
+async function persistPortrait(
+  patientId: string,
+  file: File | null,
+  removeExisting: boolean,
+): Promise<string | undefined> {
+  if (file) {
+    const grant = await requestPortraitUploadUrlAction({
+      patientId,
+      mimeType: file.type,
+    });
+    if (grant.error || !grant.path || !grant.token) {
+      return grant.error ?? "Não foi possível preparar o envio da foto.";
+    }
+    const supabase = createSupabaseBrowserClient();
+    const { error: uploadError } = await supabase.storage
+      .from("patient-attachments")
+      .uploadToSignedUrl(grant.path, grant.token, file);
+    if (uploadError) {
+      return "Não foi possível enviar a foto agora.";
+    }
+    const confirmed = await confirmPortraitUploadAction({
+      patientId,
+      storagePath: grant.path,
+      mimeType: file.type,
+      byteSize: file.size,
+    });
+    return confirmed.error;
+  }
+  if (removeExisting) {
+    const cleared = await clearPortraitAction(patientId);
+    return cleared.error;
+  }
+  return undefined;
+}
 
 function defaultValuesFrom(patient?: PatientRow): PatientFormValues {
   if (!patient) {
@@ -63,15 +103,18 @@ function defaultValuesFrom(patient?: PatientRow): PatientFormValues {
 
 export interface PatientFormProps {
   patient?: PatientRow;
+  photoUrl?: string | null;
   terms?: {
     isAdmin: boolean;
     consents: ConsentRow[];
   };
 }
 
-export function PatientForm({ patient, terms }: PatientFormProps) {
+export function PatientForm({ patient, photoUrl, terms }: PatientFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false);
 
   const {
     register,
@@ -95,9 +138,25 @@ export function PatientForm({ patient, terms }: PatientFormProps) {
         ? await updatePatientAction(patient.id, values)
         : await createPatientAction(values);
 
-      if (result.error) {
-        setError("root", { message: result.error });
+      if (result.error || !result.patientId) {
+        setError("root", { message: result.error ?? "Não foi possível salvar o paciente." });
         return;
+      }
+
+      const photoError = await persistPortrait(
+        result.patientId,
+        photoFile,
+        removeExistingPhoto,
+      );
+      if (photoError) {
+        setError("root", {
+          message: patient
+            ? photoError
+            : `${photoError} O cadastro foi salvo — envie a foto de novo em Editar cadastro.`,
+        });
+        if (patient) {
+          return;
+        }
       }
 
       router.push(`/app/patients/${result.patientId}`);
@@ -129,6 +188,14 @@ export function PatientForm({ patient, terms }: PatientFormProps) {
 
         <section className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6">
           <SectionHeader title="Identificação" />
+          <PatientPhotoField
+            name={patient?.preferred_name || "Paciente"}
+            currentPhotoUrl={photoUrl}
+            onFileChange={(file) => {
+              setPhotoFile(file);
+              setRemoveExistingPhoto(file === null);
+            }}
+          />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="preferredName">Nome preferencial</Label>

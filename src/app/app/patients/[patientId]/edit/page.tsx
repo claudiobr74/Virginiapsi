@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { listPatientConsents } from "@/features/consents/queries";
 import { PatientForm } from "@/features/patients/components/patient-form";
-import { getPatient } from "@/features/patients/queries";
+import { getPatient, getPatientPortraitUrl } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
 export const metadata: Metadata = { title: "Editar paciente — Tesseli" };
@@ -25,9 +25,12 @@ export default async function EditPatientPage({
     consents = [];
   }
 
+  const photoUrl = await getPatientPortraitUrl(patient.photo_path);
+
   return (
     <PatientForm
       patient={patient}
+      photoUrl={photoUrl}
       terms={{
         isAdmin: role === "psychologist_admin",
         consents,

@@ -28,6 +28,7 @@ import {
 } from "@/features/settings/queries";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
+import { DOCUMENT_BUCKETS, removeFile } from "@/lib/documents/storage";
 import { SIGNED_URL_TTL_SECONDS } from "@/lib/documents/storage-meta";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -465,7 +466,7 @@ export async function confirmEliminationAction(input: unknown): Promise<Settings
   const { data: patient } = await supabase
     .from("patients")
     .select(
-      "id, preferred_name, public_code, organization_id, elimination_status",
+      "id, preferred_name, public_code, organization_id, elimination_status, photo_path",
     )
     .eq("id", parsed.data.patientId)
     .maybeSingle();
@@ -497,6 +498,7 @@ export async function confirmEliminationAction(input: unknown): Promise<Settings
       birth_date: null,
       responsibles: [],
       status: "archived",
+      photo_path: null,
       elimination_status: outcome.status,
       elimination_requested_at: now,
       elimination_completed_at: now,
@@ -507,6 +509,15 @@ export async function confirmEliminationAction(input: unknown): Promise<Settings
 
   if (error) {
     return { error: "Não foi possível concluir a eliminação." };
+  }
+
+  const portraitPath = typeof patient.photo_path === "string" ? patient.photo_path : null;
+  if (portraitPath) {
+    try {
+      await removeFile(DOCUMENT_BUCKETS.patientAttachments, portraitPath);
+    } catch {
+      // Identifiers are already anonymized; leftover bytes are swept by storage hygiene.
+    }
   }
 
   await logAuditEvent({

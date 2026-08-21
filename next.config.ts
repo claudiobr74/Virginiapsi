@@ -6,7 +6,9 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
+    // camera=(self): identification portrait on patient registration (getUserMedia).
+    // microphone=(self): on-device session transcription. Other sensors stay off.
+    value: "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()",
   },
 ];
 

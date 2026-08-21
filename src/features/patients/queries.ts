@@ -7,6 +7,7 @@ import {
   type PatientRow,
   type PatientStatus,
 } from "@/features/patients/contracts";
+import { DOCUMENT_BUCKETS, createSignedDownloadUrl } from "@/lib/documents/storage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface PatientListFilters {
@@ -96,4 +97,17 @@ export async function getPatientClinicalProfile(
   }
 
   return patientClinicalProfileSchema.parse(data);
+}
+
+export async function getPatientPortraitUrl(
+  photoPath: string | null | undefined,
+): Promise<string | null> {
+  if (!photoPath) {
+    return null;
+  }
+  try {
+    return await createSignedDownloadUrl(DOCUMENT_BUCKETS.patientAttachments, photoPath);
+  } catch {
+    return null;
+  }
 }

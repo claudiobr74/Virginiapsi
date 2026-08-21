@@ -1,4 +1,4 @@
-import { NotebookPen, Users } from "lucide-react";
+import { NotebookPen } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -26,12 +26,14 @@ import {
 } from "@/features/finance/components/patient-finance-panels";
 import { getPatientFinance } from "@/features/finance/queries";
 import { ClinicalProfileForm } from "@/features/patients/components/clinical-profile-form";
+import { PatientAvatar } from "@/features/patients/components/patient-avatar";
 import { PatientHubSection } from "@/features/patients/components/patient-hub-section";
 import { PatientStatusControl } from "@/features/patients/components/patient-status-control";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import {
   getPatient,
   getPatientClinicalProfile,
+  getPatientPortraitUrl,
 } from "@/features/patients/queries";
 import { WhatsappPanel } from "@/features/communications/components/whatsapp-panel";
 import { getPatientWhatsAppSnapshot } from "@/features/communications/queries";
@@ -95,11 +97,14 @@ export default async function PatientHubPage({
     patient.id,
     patient.phone,
   );
+  const photoUrl = await getPatientPortraitUrl(patient.photo_path);
 
   return (
     <PageContainer>
       <PageHeader
-        icon={Users}
+        leading={
+          <PatientAvatar name={patient.preferred_name} photoUrl={photoUrl} size="md" />
+        }
         title={patient.preferred_name}
         subtitle={`${patient.public_code} — ${patient.full_name}`}
         actions={

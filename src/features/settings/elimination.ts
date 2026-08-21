@@ -56,7 +56,7 @@ export function buildEliminationReport(input: {
   const outcome = resolveEliminationOutcome(input.counts);
   return {
     eliminate: [
-      `Identificadores administrativos de ${input.preferredName} (${input.publicCode}): nome, e-mail, telefone, CPF, nascimento e responsáveis`,
+      `Identificadores administrativos de ${input.preferredName} (${input.publicCode}): nome, e-mail, telefone, CPF, nascimento, responsáveis e foto`,
     ],
     retain: outcome.retainedReason
       ? [

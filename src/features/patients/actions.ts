@@ -6,8 +6,21 @@ import {
   patientFormSchema,
   type PatientFormValues,
 } from "@/features/patients/contracts";
+import {
+  PORTRAIT_MAX_BYTES,
+  isPortraitMimeType,
+  isPortraitStoragePath,
+  portraitFilename,
+} from "@/features/patients/portrait";
+import { getPatient } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
+import {
+  DOCUMENT_BUCKETS,
+  createSignedUploadUrl,
+  removeFile,
+} from "@/lib/documents/storage";
+import { buildStoragePath } from "@/lib/documents/storage-meta";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface PatientActionResult {
@@ -189,4 +202,116 @@ export async function updateClinicalProfileAction(
 
   revalidatePath(`/app/patients/${patientId}`);
   return {};
+}
+
+export async function requestPortraitUploadUrlAction(input: {
+  patientId: string;
+  mimeType: string;
+}): Promise<PatientActionResult & { path?: string; token?: string }> {
+  const { organizationId } = await requireOrgContext();
+  if (!isPortraitMimeType(input.mimeType)) {
+    return { error: "Use uma imagem JPEG, PNG ou WebP." };
+  }
+  const patient = await getPatient(organizationId, input.patientId);
+  if (!patient) {
+    return { error: "Paciente não encontrado." };
+  }
+
+  const path = buildStoragePath(
+    organizationId,
+    input.patientId,
+    portraitFilename(input.mimeType),
+  );
+  try {
+    const { token } = await createSignedUploadUrl(DOCUMENT_BUCKETS.patientAttachments, path);
+    return { path, token };
+  } catch {
+    return { error: "Não foi possível preparar o envio da foto agora." };
+  }
+}
+
+export async function confirmPortraitUploadAction(input: {
+  patientId: string;
+  storagePath: string;
+  mimeType: string;
+  byteSize: number;
+}): Promise<PatientActionResult> {
+  const { organizationId } = await requireOrgContext();
+  if (!isPortraitMimeType(input.mimeType)) {
+    return { error: "Use uma imagem JPEG, PNG ou WebP." };
+  }
+  if (input.byteSize <= 0 || input.byteSize > PORTRAIT_MAX_BYTES) {
+    return { error: "A foto deve ter no máximo 5 MB." };
+  }
+  if (!isPortraitStoragePath(organizationId, input.patientId, input.storagePath)) {
+    return { error: "Caminho de upload inválido." };
+  }
+
+  const patient = await getPatient(organizationId, input.patientId);
+  if (!patient) {
+    return { error: "Paciente não encontrado." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const previousPath = patient.photo_path;
+  const { error } = await supabase
+    .from("patients")
+    .update({ photo_path: input.storagePath })
+    .eq("id", input.patientId)
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    return { error: "Não foi possível salvar a foto agora." };
+  }
+
+  if (previousPath && previousPath !== input.storagePath) {
+    await removeFile(DOCUMENT_BUCKETS.patientAttachments, previousPath);
+  }
+
+  await logAuditEvent({
+    organizationId,
+    action: "patient.portrait_update",
+    resourceType: "patient",
+    resourceId: patient.public_code,
+  });
+
+  revalidatePath("/app/patients");
+  revalidatePath(`/app/patients/${input.patientId}`);
+  revalidatePath(`/app/patients/${input.patientId}/edit`);
+  return { patientId: input.patientId };
+}
+
+export async function clearPortraitAction(patientId: string): Promise<PatientActionResult> {
+  const { organizationId } = await requireOrgContext();
+  const patient = await getPatient(organizationId, patientId);
+  if (!patient) {
+    return { error: "Paciente não encontrado." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("patients")
+    .update({ photo_path: null })
+    .eq("id", patientId)
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    return { error: "Não foi possível remover a foto agora." };
+  }
+
+  if (patient.photo_path) {
+    await removeFile(DOCUMENT_BUCKETS.patientAttachments, patient.photo_path);
+  }
+
+  await logAuditEvent({
+    organizationId,
+    action: "patient.portrait_clear",
+    resourceType: "patient",
+    resourceId: patient.public_code,
+  });
+
+  revalidatePath("/app/patients");
+  revalidatePath(`/app/patients/${patientId}`);
+  revalidatePath(`/app/patients/${patientId}/edit`);
+  return { patientId };
 }

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils/cn";
 
 export interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   icon?: LucideIcon;
+  leading?: React.ReactNode;
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
@@ -11,6 +12,7 @@ export interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function PageHeader({
   icon: Icon,
+  leading,
   title,
   subtitle,
   actions,
@@ -26,7 +28,9 @@ export function PageHeader({
       {...props}
     >
       <div className="flex items-center gap-4">
-        {Icon ? (
+        {leading ? (
+          leading
+        ) : Icon ? (
           <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
             <Icon className="size-5" aria-hidden />
           </span>

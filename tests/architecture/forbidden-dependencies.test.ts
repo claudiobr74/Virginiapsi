@@ -216,6 +216,7 @@ describe("arquitetura proibida", () => {
     expect(nextConfig).toContain("Referrer-Policy");
     expect(nextConfig).toContain("X-Frame-Options");
     expect(nextConfig).toContain("Permissions-Policy");
+    expect(nextConfig).toContain("camera=(self)");
     expect(nextConfig).toContain("poweredByHeader: false");
   });
 

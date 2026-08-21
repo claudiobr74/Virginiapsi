@@ -195,6 +195,7 @@ function seedPatient(organizationId, overrides) {
     elimination_requested_at: null,
     elimination_completed_at: null,
     elimination_retained_reason: null,
+    photo_path: null,
     created_at: now,
     updated_at: now,
     ...overrides,

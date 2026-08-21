@@ -645,6 +645,7 @@ create table public.patients (
   status public.patient_status not null default 'active',
   default_session_value numeric(10, 2)
     check (default_session_value is null or default_session_value >= 0),
+  photo_path text,
   responsible_psychologist_user_id uuid
     references auth.users (id) on delete set null,
   elimination_status public.patient_elimination_status not null default 'active',
@@ -654,7 +655,11 @@ create table public.patients (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint patients_organization_public_code_unique
-    unique (organization_id, public_code)
+    unique (organization_id, public_code),
+  constraint patients_photo_path_tenant_prefix check (
+    photo_path is null
+    or photo_path like (organization_id::text || '/' || id::text || '/%')
+  )
 );
 
 comment on table public.patients is

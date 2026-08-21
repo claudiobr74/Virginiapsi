@@ -70,6 +70,7 @@ Append-only: nenhuma policy concede UPDATE ou DELETE a qualquer papel de aplica�
 - modality
 - status
 - default_session_value numeric
+- photo_path text nullable — objeto no bucket `patient-attachments` (`{organization_id}/{patient_id}/…`), retrato de identificação administrativo (secretaria também vê). Links só via signed URL.
 - responsible_psychologist_user_id
 - elimination_status: active | elimination_requested | partially_eliminated | eliminated (default `active`)
 - elimination_requested_at nullable
