@@ -89,7 +89,7 @@
 
 ## Produção
 
-O estado honesto do release gate está em `docs/25-release-gate.md` (PASS / FAIL / EXTERNAL_BLOCKED). Não marcar Preview Vercel aqui enquanto o smoke HTTP do passo 10 (`GET /login`) for EXTERNAL_BLOCKED.
+O estado honesto do release gate está em `docs/25-release-gate.md` (PASS / FAIL / EXTERNAL_BLOCKED). Preview `/login` da Fase 13 = PASS; não marcar Production enquanto o `main` antigo 404-ar.
 
 - [ ] lint/typecheck/unit/integration/E2E PASS.
 - [ ] build prod PASS.

@@ -17,11 +17,11 @@ Preenchido na implementação da Fase 13. Reexecutar o gate após cada mudança 
 | 7 | production build | PASS | `pnpm build` |
 | 8 | forbidden-dependency scan | PASS | `tests/architecture/forbidden-dependencies.test.ts` + `pnpm scan:client-bundle` |
 | 9 | env contract review | PASS | `docs/09-env-contract.md` e `.env.example` revisados. Valores de produção não estão no Git — ver §3 |
-| 10 | preview deployment smoke test | PASS (build READY) / EXTERNAL_BLOCKED (GET /login) | Operador corrigiu `NEXT_PUBLIC_APP_URL` e `GOOGLE_OAUTH_REDIRECT_URI` no dashboard (HTTPS, sem localhost). Redeploy `dpl_BZzgrNg8tYtHD39xHHPQquVDWiiW` (SHA `09e827b`) = **READY**. GET `/login` 200 ainda não observado daqui: SSO da Vercel responde 302 para `vercel.com/sso-api`. Ver §4 |
+| 10 | preview deployment smoke test | PASS (Preview `/login`) / FAIL (Production `main` antigo) | SSO desligado. Causa do 404: projeto com `framework: null` — o build READY não publicava rotas Next. `vercel.json` com `framework: nextjs`. `GET /login` no alias da Fase 13 → **200**, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, sem `x-powered-by`. `serena-psi-beta.vercel.app` continua 404 (commit `9136183`). Ver §4 |
 | 11 | integrations health sem expor secrets | PASS (código) / EXTERNAL_BLOCKED (produção) | Diagnósticos cobertos por testes. Saúde real em produção exige `/login` no host HTTPS (não localhost), OAuth Google cadastrado e remetente Twilio ainda não configurado |
 | 12 | document rollback | PASS | `docs/24-rollback.md` |
 
-**Release ready: não.** Passos locais 1–9 e 12 = PASS. Passo 10 = PASS no build do Preview, EXTERNAL_BLOCKED no smoke HTTP (SSO). Passo 11 (produção) permanece EXTERNAL_BLOCKED.
+**Release ready: não.** Passos locais 1–9 e 12 = PASS. Passo 10 = PASS no Preview `/login`; FAIL no `main` de produção antigo. Passo 11 (produção Tesseli) permanece EXTERNAL_BLOCKED.
 
 ## 2. Endurecimento entregue nesta fase
 
@@ -48,14 +48,14 @@ Todas as chaves de `docs/09-env-contract.md` precisam existir no Vercel (Product
 
 ### Preview/Production Vercel (passo 10)
 
-Env importada e URLs HTTPS corrigidas pelo operador. Preview da Fase 13 **READY** ([inspector](https://vercel.com/claudiobr74-9668s-projects/tesseli/BZzgrNg8tYtHD39xHHPQquVDWiiW)). Alias: `tesseli-git-cursor-fase-13-ha-153b81-claudiobr74-9668s-projects.vercel.app`. **Não** promover o `main` antigo (`9136183`, rename SerenaPsi).
+SSO desligado. `vercel.json` força `framework: nextjs` (o preset do dashboard estava vazio). Preview da Fase 13: `GET /login` **200** em `tesseli-git-cursor-fase-13-ha-153b81-claudiobr74-9668s-projects.vercel.app`. Inspector: https://vercel.com/claudiobr74-9668s-projects/tesseli/4dJqbw2ZS3LmYVKLVRh1FM8eozv3. **Não** promover o `main` antigo (`9136183`); `serena-psi-beta.vercel.app` continua 404.
 
 O que ainda falta:
 
-1. Abrir `/login` **logado na equipe Vercel** (SSO em todos os hosts que não são domínio customizado) e confirmar a tela do Tesseli (`GET` 200, `X-Content-Type-Options: nosniff`, sem `x-powered-by`).
-2. Cadastrar o redirect HTTPS no Google Cloud quando for ligar o Calendar.
-3. `TWILIO_WHATSAPP_FROM` / Messaging Service podem permanecer vazios.
-4. **Não** criar Cron Jobs na Vercel.
+1. Cadastrar o redirect HTTPS no Google Cloud quando for ligar o Calendar.
+2. `TWILIO_WHATSAPP_FROM` / Messaging Service podem permanecer vazios.
+3. **Não** criar Cron Jobs na Vercel.
+4. Só promover Production depois de merge da Fase 13 (não o `main` SerenaPsi).
 
 ### Saúde de integrações em produção (passo 11)
 
@@ -93,4 +93,4 @@ Server Actions (não são rotas HTTP estáveis para clientes externos) concentra
 
 ## 6. Declaração
 
-Release ready: **não**. PASS nos passos locais 1–9 e 12. Passo 10 = PASS no build READY (URLs HTTPS no dashboard), EXTERNAL_BLOCKED no GET `/login` (SSO Vercel). EXTERNAL_BLOCKED no passo 11 (produção), RLS hospedado, restore DR real e validação jurídica.
+Release ready: **não**. PASS nos passos locais 1–9 e 12. Passo 10 = PASS no Preview `/login` (framework Next.js). FAIL no `main` de produção antigo. EXTERNAL_BLOCKED no passo 11 (produção Tesseli), RLS hospedado, restore DR real e validação jurídica.
