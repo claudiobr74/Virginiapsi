@@ -84,9 +84,12 @@ export async function getShellSettings(
   });
 
   if (error) {
-    throw new Error(`failed to load shell settings: ${error.message}`);
+    return null;
   }
 
-  const rows = shellSettingsRowSchema.array().parse(data ?? []);
-  return rows[0] ?? null;
+  const rows = shellSettingsRowSchema.array().safeParse(data ?? []);
+  if (!rows.success) {
+    return null;
+  }
+  return rows.data[0] ?? null;
 }

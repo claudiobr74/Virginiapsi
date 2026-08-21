@@ -2,6 +2,18 @@ import { zonedTimeToUtcIso } from "@/lib/utils/timezone";
 
 export type AgendaView = "day" | "week" | "month";
 
+const FALLBACK_TIME_ZONE = "America/Sao_Paulo";
+
+export function resolveTimeZone(timeZone: string | undefined): string {
+  const candidate = timeZone?.trim() || FALLBACK_TIME_ZONE;
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: candidate }).format(new Date());
+    return candidate;
+  } catch {
+    return FALLBACK_TIME_ZONE;
+  }
+}
+
 function addDays(dateStr: string, days: number): string {
   const [year, month, day] = dateStr.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
@@ -41,11 +53,12 @@ export function computeAgendaWindow(
   referenceDate: string,
   timeZone: string,
 ): AgendaWindow {
+  const zone = resolveTimeZone(timeZone);
   if (view === "day") {
     const nextDay = addDays(referenceDate, 1);
     return {
-      fromIso: zonedTimeToUtcIso(referenceDate, "00:00", timeZone),
-      toIso: zonedTimeToUtcIso(nextDay, "00:00", timeZone),
+      fromIso: zonedTimeToUtcIso(referenceDate, "00:00", zone),
+      toIso: zonedTimeToUtcIso(nextDay, "00:00", zone),
       days: [referenceDate],
     };
   }
@@ -54,8 +67,8 @@ export function computeAgendaWindow(
     const start = startOfWeek(referenceDate);
     const days = Array.from({ length: 7 }, (_, index) => addDays(start, index));
     return {
-      fromIso: zonedTimeToUtcIso(start, "00:00", timeZone),
-      toIso: zonedTimeToUtcIso(addDays(start, 7), "00:00", timeZone),
+      fromIso: zonedTimeToUtcIso(start, "00:00", zone),
+      toIso: zonedTimeToUtcIso(addDays(start, 7), "00:00", zone),
       days,
     };
   }
@@ -68,8 +81,8 @@ export function computeAgendaWindow(
   const days = Array.from({ length: dayCount }, (_, index) => addDays(monthStart, index));
 
   return {
-    fromIso: zonedTimeToUtcIso(monthStart, "00:00", timeZone),
-    toIso: zonedTimeToUtcIso(nextMonthStart, "00:00", timeZone),
+    fromIso: zonedTimeToUtcIso(monthStart, "00:00", zone),
+    toIso: zonedTimeToUtcIso(nextMonthStart, "00:00", zone),
     days,
   };
 }
@@ -90,7 +103,7 @@ export function shiftReferenceDate(
 
 export function todayInTimeZone(timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
+    timeZone: resolveTimeZone(timeZone),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

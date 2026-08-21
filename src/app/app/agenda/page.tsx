@@ -1,12 +1,16 @@
 import { CalendarDays } from "lucide-react";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
+import { loadAgendaPageData } from "@/features/calendar/agenda-page-data";
 import { AgendaBoard } from "@/features/calendar/components/agenda-board";
-import { getConnection } from "@/features/calendar/connection-queries";
-import { listAppointments } from "@/features/calendar/appointment-queries";
-import { computeAgendaWindow, todayInTimeZone, type AgendaView } from "@/features/calendar/date-window";
-import { listPatients } from "@/features/patients/queries";
+import {
+  computeAgendaWindow,
+  resolveTimeZone,
+  todayInTimeZone,
+  type AgendaView,
+} from "@/features/calendar/date-window";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
 export const metadata: Metadata = { title: "Agenda — Tesseli" };
@@ -20,20 +24,19 @@ export default async function AgendaPage({
 }: PageProps<"/app/agenda">) {
   const { organizationId, timezone, role } = await requireOrgContext();
   const params = await searchParams;
+  const timeZone = resolveTimeZone(timezone);
 
   const view = parseView(typeof params.view === "string" ? params.view : undefined);
   const referenceDate =
     typeof params.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.date)
       ? params.date
-      : todayInTimeZone(timezone);
+      : todayInTimeZone(timeZone);
 
-  const window = computeAgendaWindow(view, referenceDate, timezone);
-
-  const [appointments, connection, patients] = await Promise.all([
-    listAppointments(organizationId, { fromIso: window.fromIso, toIso: window.toIso }),
-    getConnection(organizationId),
-    listPatients(organizationId, { status: "active" }),
-  ]);
+  const window = computeAgendaWindow(view, referenceDate, timeZone);
+  const { appointments, connection, patients } = await loadAgendaPageData(
+    organizationId,
+    { fromIso: window.fromIso, toIso: window.toIso },
+  );
 
   const googleStatus = typeof params.google === "string" ? params.google : undefined;
 
@@ -57,23 +60,23 @@ export default async function AgendaPage({
           role="alert"
           className="rounded-2xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed"
         >
-          Não foi possível conectar o Google Calendar. O endereço de retorno da Agenda é o do site com /api/integrations/google/callback — não use o endereço do login. Cadastre o mesmo na Vercel e no Google Cloud.
+          Não foi possível conectar o Google Calendar. O endereço de retorno da
+          Agenda é o do site com /api/integrations/google/callback — não use o
+          endereço do login. Cadastre o mesmo na Vercel e no Google Cloud.
         </p>
       ) : null}
 
-      <AgendaBoard
-        view={view}
-        referenceDate={referenceDate}
-        timeZone={timezone}
-        appointments={appointments}
-        patients={patients.map((patient) => ({
-          id: patient.id,
-          preferred_name: patient.preferred_name,
-          public_code: patient.public_code,
-        }))}
-        connection={connection}
-        canManageConnection={role === "psychologist_admin"}
-      />
+      <Suspense>
+        <AgendaBoard
+          view={view}
+          referenceDate={referenceDate}
+          timeZone={timeZone}
+          appointments={appointments}
+          patients={patients}
+          connection={connection}
+          canManageConnection={role === "psychologist_admin"}
+        />
+      </Suspense>
     </PageContainer>
   );
 }

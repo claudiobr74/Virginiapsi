@@ -10,7 +10,12 @@ export const metadata: Metadata = { title: "Conexão Google Calendar — Tesseli
 
 export default async function GoogleConnectionPage() {
   const { organizationId, role } = await requireOrgContext();
-  const connection = await getConnection(organizationId);
+  let connection = null;
+  try {
+    connection = await getConnection(organizationId);
+  } catch {
+    connection = null;
+  }
 
   return (
     <PageContainer narrow>
