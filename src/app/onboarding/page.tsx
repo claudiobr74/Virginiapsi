@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   title: "Criar consultório — Tesseli",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function OnboardingPage() {
   await requireUser();
   const memberships = await listActiveMemberships();

@@ -59,7 +59,7 @@ Não gravar valores do Vault em migrations, fixtures, logs ou documentação. Ro
 
 Preview e Production recebem o mesmo conjunto de chaves, com URLs distintas:
 
-- `NEXT_PUBLIC_APP_URL` = origem HTTPS do ambiente;
+- `NEXT_PUBLIC_APP_URL` = origem HTTPS completa (`https://…`), sem aspas e sem caminho (`/login`). Colar só o host (`serena-psi-beta.vercel.app`) quebra o build (`Invalid environment configuration: NEXT_PUBLIC_APP_URL` ao pré-renderizar `/app/agenda`). Preview e Production têm valores distintos; a variável precisa existir no **Build**, não só no Runtime;
 - `GOOGLE_OAUTH_REDIRECT_URI` = `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback` cadastrado no Google Cloud (Agenda/Calendar — **não** é o login);
 - Login com Google (botão Entrar) usa o provider Auth do Supabase. No Google Cloud, a **Authorized redirect URI** desse cliente tem de ser `https://<ref-do-projeto>.supabase.co/auth/v1/callback`. A URL do Tesseli (`…/auth/callback`) entra só em Authentication → URL Configuration → Redirect URLs no Supabase, não no Google Cloud;
 - Vault `tesseli_app_url` aponta para a URL de **produção** (jobs não devem bater em Preview);

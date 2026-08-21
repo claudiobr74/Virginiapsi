@@ -3,10 +3,41 @@ import { z } from "zod";
 const nonEmpty = z.string().trim().min(1);
 const httpUrl = z.string().trim().url();
 
+/**
+ * Dashboard pastes often omit `https://` or wrap the value in quotes.
+ * Either form fails `z.string().url()` and, during `next build`, the
+ * throw happens before `cookies()` — Next then treats `/app/*` as a
+ * static page and dies on `/app/agenda`. Values are never logged.
+ */
+export function normalizePublicAppUrl(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  let next = value.trim();
+  if (next.length >= 2) {
+    const first = next[0];
+    const last = next[next.length - 1];
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      next = next.slice(1, -1).trim();
+    }
+  }
+
+  if (!next) {
+    return next;
+  }
+
+  if (!/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(next)) {
+    next = `https://${next.replace(/^\/\//, "")}`;
+  }
+
+  return next;
+}
+
 export const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: httpUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: nonEmpty.startsWith("sb_publishable_"),
-  NEXT_PUBLIC_APP_URL: httpUrl,
+  NEXT_PUBLIC_APP_URL: z.preprocess(normalizePublicAppUrl, httpUrl),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
@@ -18,8 +49,17 @@ export const PUBLIC_ENV_KEYS = [
 ] as const;
 
 export function formatEnvIssues(error: z.ZodError): string {
-  const paths = error.issues.map((issue) => issue.path.join(".") || "(root)");
-  return `Invalid environment configuration: ${[...new Set(paths)].join(", ")}. Values are not logged. See docs/09-env-contract.md.`;
+  const paths = [
+    ...new Set(
+      error.issues.map((issue) => issue.path.join(".") || "(root)"),
+    ),
+  ];
+  let message = `Invalid environment configuration: ${paths.join(", ")}. Values are not logged. See docs/09-env-contract.md.`;
+  if (paths.includes("NEXT_PUBLIC_APP_URL")) {
+    message +=
+      " NEXT_PUBLIC_APP_URL must be a full URL including http:// or https://.";
+  }
+  return message;
 }
 
 type EnvSource = Record<string, string | undefined>;

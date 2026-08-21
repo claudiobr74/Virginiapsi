@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   title: "Escolher consultório — Tesseli",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function SelectOrganizationPage() {
   await requireUser();
   const memberships = await listActiveMemberships();

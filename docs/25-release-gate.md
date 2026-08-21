@@ -37,7 +37,7 @@ Preenchido na implementação da Fase 13. Reexecutar o gate após cada mudança 
 
 Todas as chaves de `docs/09-env-contract.md` precisam existir no Vercel (Production e Preview, com URLs de callback distintas) **e** no Vault do Supabase para o scheduler:
 
-- Browser: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_APP_URL` (HTTPS canônico).
+- Browser: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_APP_URL` (HTTPS canônico, com `https://`; host sem esquema quebra o build).
 - Server: `SUPABASE_SECRET_KEY`, Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` de produção, `GOOGLE_TOKEN_ENCRYPTION_KEY`), `SESSION_CAPTURE_SECRET`, Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, e **um** de `TWILIO_WHATSAPP_FROM` / `TWILIO_MESSAGING_SERVICE_SID` quando o envio for habilitado), `GEMINI_API_KEY` + modelos, `CRON_SECRET`.
 - Opcional: `GROQ_API_KEY` só se o fallback de transcrição for habilitado.
 - Vault: `tesseli_app_url` = `NEXT_PUBLIC_APP_URL` de produção; `tesseli_cron_secret` = mesmo valor de `CRON_SECRET`. Sem valores em migration.

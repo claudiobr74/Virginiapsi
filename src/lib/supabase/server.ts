@@ -5,8 +5,10 @@ import { cookies } from "next/headers";
 import { getPublicEnv } from "@/lib/env/public";
 
 export async function createSupabaseServerClient() {
-  const env = getPublicEnv();
+  // Read cookies first so Next.js opts the route into dynamic rendering
+  // even if public env validation throws afterwards.
   const cookieStore = await cookies();
+  const env = getPublicEnv();
 
   return createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,

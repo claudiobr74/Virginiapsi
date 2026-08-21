@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { parsePublicEnv } from "../../src/lib/env/schema";
+import { normalizePublicAppUrl, parsePublicEnv } from "../../src/lib/env/schema";
 import {
   parseServerEnv,
   SERVER_ONLY_ENV_KEYS,
@@ -56,6 +56,34 @@ describe("contrato de ambiente", () => {
     expect(parsePublicEnv(validPublic).NEXT_PUBLIC_APP_URL).toBe(
       "http://localhost:3000",
     );
+  });
+
+  it("normaliza NEXT_PUBLIC_APP_URL colado como host ou entre aspas", () => {
+    expect(normalizePublicAppUrl("serena-psi-beta.vercel.app")).toBe(
+      "https://serena-psi-beta.vercel.app",
+    );
+    expect(normalizePublicAppUrl('"https://example.com"')).toBe(
+      "https://example.com",
+    );
+    expect(
+      parsePublicEnv({
+        ...validPublic,
+        NEXT_PUBLIC_APP_URL: "tesseli-git-preview.vercel.app",
+      }).NEXT_PUBLIC_APP_URL,
+    ).toBe("https://tesseli-git-preview.vercel.app");
+  });
+
+  it("explica NEXT_PUBLIC_APP_URL inválida sem vazar o valor", () => {
+    const bad = "not a host";
+    expect(() =>
+      parsePublicEnv({ ...validPublic, NEXT_PUBLIC_APP_URL: bad }),
+    ).toThrow(/must be a full URL including http:\/\/ or https:\/\//);
+    try {
+      parsePublicEnv({ ...validPublic, NEXT_PUBLIC_APP_URL: bad });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).not.toContain(bad);
+    }
   });
 
   it("rejeita chave publishable no formato legado", () => {

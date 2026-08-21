@@ -3,6 +3,8 @@ import { ROLE_LABELS } from "@/features/organizations/labels";
 import { getShellSettings } from "@/features/organizations/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
+export const dynamic = "force-dynamic";
+
 function displayNameFromEmail(email: string | undefined) {
   const localPart = email?.split("@")[0] ?? "Profissional";
   return localPart
