@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toGoogleAuthErrorMessage } from "@/features/auth/messages";
-import { oauthCallbackRedirectTo } from "@/features/auth/oauth-redirect";
+import { GOOGLE_SIGNIN_QUERY_PARAMS, oauthCallbackRedirectTo } from "@/features/auth/oauth-redirect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function GoogleIcon() {
@@ -41,6 +41,7 @@ export function GoogleAuthButton() {
       provider: "google",
       options: {
         redirectTo: oauthCallbackRedirectTo(window.location.origin),
+        queryParams: GOOGLE_SIGNIN_QUERY_PARAMS,
       },
     });
     if (error) {

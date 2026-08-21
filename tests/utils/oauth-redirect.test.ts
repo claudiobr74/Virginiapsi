@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  GOOGLE_SIGNIN_QUERY_PARAMS,
   oauthCallbackRedirectTo,
   oauthCodeCallbackPath,
 } from "@/features/auth/oauth-redirect";
@@ -12,6 +13,12 @@ describe("oauthCallbackRedirectTo", () => {
     expect(oauthCallbackRedirectTo("https://preview.vercel.app/")).toBe(
       "https://preview.vercel.app/auth/callback",
     );
+  });
+});
+
+describe("GOOGLE_SIGNIN_QUERY_PARAMS", () => {
+  it("pede o seletor de contas do Google", () => {
+    expect(GOOGLE_SIGNIN_QUERY_PARAMS.prompt).toBe("select_account");
   });
 });
 

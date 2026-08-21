@@ -21,6 +21,11 @@ export function oauthCallbackRedirectTo(origin: string): string {
   return `${origin.replace(/\/$/, "")}/auth/callback`;
 }
 
+/** Forces Google's account picker even when one Gmail session is already open. */
+export const GOOGLE_SIGNIN_QUERY_PARAMS = {
+  prompt: "select_account",
+} as const;
+
 /** Forwards an OAuth `code` that landed on `/` or `/login` (Site URL without path). */
 export function oauthCodeCallbackPath(params: QueryRecord): string | null {
   const code = firstQueryValue(params.code)?.trim();
