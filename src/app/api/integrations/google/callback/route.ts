@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { verifyOAuthState } from "@/lib/integrations/google/oauth";
-import { completeGoogleConnection } from "@/lib/integrations/google/connection";
-import { getGoogleCalendarEnv } from "@/lib/env/server";
+import { getConnection } from "@/features/calendar/connection-queries";
+import { ensureGoogleCalendarReady } from "@/features/calendar/ensure-calendar";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { requireUser } from "@/lib/auth/require-user";
+import { getGoogleCalendarEnv } from "@/lib/env/server";
+import { completeGoogleConnection } from "@/lib/integrations/google/connection";
+import { verifyOAuthState } from "@/lib/integrations/google/oauth";
 
 function redirectWithStatus(origin: string, status: "connected" | "error", detail?: string) {
   const url = new URL("/app/agenda", origin);
@@ -56,6 +58,16 @@ export async function GET(request: NextRequest) {
     });
   } catch {
     return redirectWithStatus(origin, "error", "token_exchange_failed");
+  }
+
+  try {
+    const connection = await getConnection(verified.payload.organizationId);
+    await ensureGoogleCalendarReady(
+      verified.payload.organizationId,
+      connection,
+    );
+  } catch {
+    // Tokens already saved; operator can pick a calendar in the UI.
   }
 
   try {

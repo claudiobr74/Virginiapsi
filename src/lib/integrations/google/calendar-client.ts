@@ -84,14 +84,26 @@ export class GoogleCalendarClient {
       }
     }
 
-    const response = await this.fetchImpl(url.toString(), {
-      ...rest,
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        ...(rest.body ? { "Content-Type": "application/json" } : {}),
-        ...rest.headers,
-      },
-    });
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url.toString(), {
+        ...rest,
+        signal: rest.signal ?? AbortSignal.timeout(10_000),
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          ...(rest.body ? { "Content-Type": "application/json" } : {}),
+          ...rest.headers,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.name === "TimeoutError" || error.name === "AbortError")
+      ) {
+        throw new GoogleApiError("Google Calendar API request timed out", 504);
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       let body: unknown;

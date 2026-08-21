@@ -4,6 +4,7 @@ import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
 import { ConnectionPanel } from "@/features/calendar/components/connection-panel";
 import { getConnection } from "@/features/calendar/connection-queries";
+import { ensureGoogleCalendarReady } from "@/features/calendar/ensure-calendar";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { peekGoogleCalendarRedirectUri } from "@/lib/env/server";
 
@@ -14,6 +15,7 @@ export default async function GoogleConnectionPage() {
   let connection = null;
   try {
     connection = await getConnection(organizationId);
+    connection = await ensureGoogleCalendarReady(organizationId, connection);
   } catch {
     connection = null;
   }

@@ -2,16 +2,18 @@
 
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
+import { syncGoogleCalendarPull } from "@/features/calendar/sync-actions";
+import { logAuditEvent } from "@/lib/audit/log-audit-event";
+import { requireOrgContext } from "@/lib/auth/require-org-context";
+import { envIssueKeyNames, isLoopbackHttpUrl } from "@/lib/env/schema";
+import { getGoogleCalendarEnv } from "@/lib/env/server";
 import {
   disconnectGoogleCalendar,
   listAvailableCalendars,
   selectOrganizationCalendar,
 } from "@/lib/integrations/google/connection";
+import { googleCalendarListErrorMessage } from "@/lib/integrations/google/errors";
 import { signOAuthState } from "@/lib/integrations/google/oauth";
-import { requireOrgContext } from "@/lib/auth/require-org-context";
-import { logAuditEvent } from "@/lib/audit/log-audit-event";
-import { envIssueKeyNames, isLoopbackHttpUrl } from "@/lib/env/schema";
-import { getGoogleCalendarEnv } from "@/lib/env/server";
 
 export interface CalendarActionResult {
   error?: string;
@@ -120,14 +122,13 @@ export async function listCalendarsAction(): Promise<{
     return {
       calendars: calendars.map((calendar) => ({
         id: calendar.id,
-        summary: calendar.summary,
+        summary: calendar.summary || calendar.id,
         primary: Boolean(calendar.primary),
       })),
     };
-  } catch {
+  } catch (error) {
     return {
-      error:
-        "Não foi possível listar os calendários agora. Verifique a conexão e tente novamente.",
+      error: googleCalendarListErrorMessage(error),
     };
   }
 }
@@ -150,6 +151,12 @@ export async function selectCalendarAction(
     resourceType: "google_calendar_connection",
     metadata: { calendar_id: calendarId },
   });
+
+  try {
+    await syncGoogleCalendarPull(organizationId);
+  } catch {
+    // Calendar is already selected; the operator can retry sync from the panel.
+  }
 
   return {};
 }

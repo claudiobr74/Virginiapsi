@@ -9,6 +9,7 @@ import {
 } from "@/lib/integrations/google/oauth";
 import { getGoogleCalendarEnv } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { firstRpcRow } from "@/lib/supabase/rpc-result";
 
 const EXPIRY_SAFETY_MARGIN_MS = 60_000;
 
@@ -30,8 +31,7 @@ async function loadCredentials(
     throw new Error(`failed to load Google credentials: ${error.message}`);
   }
 
-  const rows = (data ?? []) as StoredCredentials[];
-  return rows[0] ?? null;
+  return firstRpcRow<StoredCredentials>(data);
 }
 
 async function persistCredentials(
@@ -161,6 +161,22 @@ export async function disconnectGoogleCalendar(organizationId: string): Promise<
 export async function listAvailableCalendars(organizationId: string) {
   const client = await getCalendarClientForOrganization(organizationId);
   return client.listCalendars();
+}
+
+export async function selectPrimaryGoogleCalendar(
+  organizationId: string,
+): Promise<boolean> {
+  const calendars = await listAvailableCalendars(organizationId);
+  const chosen = calendars.find((calendar) => calendar.primary) ?? calendars[0];
+  if (!chosen) {
+    return false;
+  }
+  await selectOrganizationCalendar(
+    organizationId,
+    chosen.id,
+    chosen.summary || chosen.id,
+  );
+  return true;
 }
 
 export async function selectOrganizationCalendar(

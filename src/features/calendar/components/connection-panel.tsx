@@ -44,10 +44,12 @@ export function ConnectionPanel({
   function openCalendarModal() {
     setCalendarModalOpen(true);
     setError(null);
+    setCalendars(null);
     startTransition(async () => {
       const result = await listCalendarsAction();
       if (result.error) {
         setError(result.error);
+        setCalendars([]);
         return;
       }
       setCalendars(result.calendars ?? []);
@@ -181,6 +183,15 @@ export function ConnectionPanel({
         <ModalContent title="Selecionar calendário" description="Escolha qual calendário do Google usar para a Agenda.">
           {calendars === null ? (
             <p className="text-sm text-muted-foreground">Carregando calendários…</p>
+          ) : error ? (
+            <div className="flex flex-col gap-3">
+              <p role="alert" className="text-sm text-failed">
+                {error}
+              </p>
+              <Button type="button" variant="secondary" size="sm" onClick={openCalendarModal}>
+                Tentar de novo
+              </Button>
+            </div>
           ) : calendars.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum calendário encontrado.</p>
           ) : (

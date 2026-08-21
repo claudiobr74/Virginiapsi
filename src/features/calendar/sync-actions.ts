@@ -177,9 +177,25 @@ export async function requestMeetForAppointmentAction(
 
 const SYNC_WINDOW_DAYS = 30;
 
-/** Manual "Sincronizar agora" pull from the Agenda toolbar. */
-export async function syncGoogleCalendarAction(): Promise<SyncActionResult> {
-  const { organizationId } = await requireOrgContext();
+function eventWindowIso(event: {
+  start?: { dateTime?: string; date?: string };
+  end?: { dateTime?: string; date?: string };
+}): { startIso: string; endIso: string } | null {
+  const startIso =
+    event.start?.dateTime ??
+    (event.start?.date ? `${event.start.date}T00:00:00.000Z` : null);
+  const endIso =
+    event.end?.dateTime ??
+    (event.end?.date ? `${event.end.date}T00:00:00.000Z` : null);
+  if (!startIso || !endIso) {
+    return null;
+  }
+  return { startIso, endIso };
+}
+
+export async function syncGoogleCalendarPull(
+  organizationId: string,
+): Promise<SyncActionResult> {
   const connection = await getConnection(organizationId);
 
   if (!connection || connection.status !== "connected" || !connection.calendar_id) {
@@ -204,7 +220,11 @@ export async function syncGoogleCalendarAction(): Promise<SyncActionResult> {
       });
 
       for (const event of page.items) {
-        if (!event.start?.dateTime || !event.end?.dateTime || event.status === "cancelled") {
+        if (event.status === "cancelled") {
+          continue;
+        }
+        const window = eventWindowIso(event);
+        if (!window) {
           continue;
         }
 
@@ -213,8 +233,8 @@ export async function syncGoogleCalendarAction(): Promise<SyncActionResult> {
           p_google_calendar_id: connection.calendar_id,
           p_google_event_id: event.id,
           p_google_etag: event.etag ?? null,
-          p_starts_at: event.start.dateTime,
-          p_ends_at: event.end.dateTime,
+          p_starts_at: window.startIso,
+          p_ends_at: window.endIso,
           p_summary_snapshot: event.summary ?? "Evento externo do Google",
         });
         syncedCount += 1;
@@ -254,4 +274,10 @@ export async function syncGoogleCalendarAction(): Promise<SyncActionResult> {
 
     return { error: "Não foi possível sincronizar com o Google Calendar agora." };
   }
+}
+
+/** Manual "Sincronizar agora" pull from the Agenda toolbar. */
+export async function syncGoogleCalendarAction(): Promise<SyncActionResult> {
+  const { organizationId } = await requireOrgContext();
+  return syncGoogleCalendarPull(organizationId);
 }
