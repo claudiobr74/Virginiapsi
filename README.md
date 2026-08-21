@@ -387,7 +387,7 @@ Testes: consistência ZIP/hashes e diagnósticos sem vazamento (`tests/utils/exp
 
 ## Fase 13 — Hardening e deploy
 
-Não declara o produto release-ready. Preview/Production Vercel, remetente Twilio, restore PITR real e validação jurídica permanecem **EXTERNAL_BLOCKED** (`docs/25-release-gate.md`).
+Não declara o produto release-ready. O Preview da Fase 13 **builda** (READY) com as env do Vercel; o smoke de `GET /login` permanece **EXTERNAL_BLOCKED** por causa do SSO da Vercel. Remetente Twilio, restore PITR real e validação jurídica também (`docs/25-release-gate.md`).
 
 Entregue no código:
 
