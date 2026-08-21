@@ -14,6 +14,7 @@ import {
   parseGoogleCalendarEnv,
   parseServerEnv,
   peekGoogleCalendarRedirectUri,
+  readIntegrationEnvFlags,
   SERVER_ONLY_ENV_KEYS,
 } from "../../src/lib/env/server-schema";
 
@@ -272,6 +273,20 @@ describe("contrato de ambiente", () => {
         ),
       ),
     ).toEqual(["TWILIO_ACCOUNT_SID", "GEMINI_API_KEY"]);
+  });
+
+  it("diagnósticos de Configurações não exigem o contrato servidor completo", () => {
+    const flags = readIntegrationEnvFlags({
+      GOOGLE_CLIENT_ID: "id",
+      GOOGLE_CLIENT_SECRET: "secret",
+      TWILIO_ACCOUNT_SID: "",
+      TWILIO_AUTH_TOKEN: "",
+      GEMINI_API_KEY: "",
+    });
+    expect(flags.googleOAuth).toBe(true);
+    expect(flags.twilioAccount).toBe(false);
+    expect(flags.twilioSender).toBe(false);
+    expect(flags.gemini).toBe(false);
   });
 
   it("nomeia GOOGLE_CLIENT_ID quando a chave falta, sem vazar outros valores", () => {

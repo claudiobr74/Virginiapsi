@@ -11,7 +11,7 @@ Preenchido na implementação da Fase 13. Reexecutar o gate após cada mudança 
 | 1 | Clean install (`pnpm install --frozen-lockfile`) | PASS | CI `.github/workflows/ci.yml` (`pnpm install --frozen-lockfile`) |
 | 2 | lint | PASS | `pnpm lint` no `pnpm gate` local |
 | 3 | typecheck | PASS | `pnpm typecheck` no gate local |
-| 4 | unit/integration | PASS | `pnpm test` — 286 testes |
+| 4 | unit/integration | PASS | `pnpm test` — 288 testes |
 | 5 | RLS/security suite | PASS | `pnpm test:security` — 146 testes contra PostgreSQL local (emulação `auth`/`RLS`, **não** o projeto hospedado) |
 | 6 | Playwright desktop/mobile | PASS | `pnpm test:e2e` — 174 testes (`desktop-chromium` + `mobile-chromium`), 1 worker por causa do stub compartilhado |
 | 7 | production build | PASS | `pnpm build` |

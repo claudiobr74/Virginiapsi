@@ -158,3 +158,26 @@ export function peekGoogleCalendarRedirectUri(
     appUrl,
   );
 }
+
+function presentEnvValue(value: string | undefined): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+/** Presence flags for Settings diagnostics — never throws, never logs values. */
+export function readIntegrationEnvFlags(
+  source: EnvSource = readServerEnvFromProcess(),
+) {
+  return {
+    googleOAuth:
+      presentEnvValue(source.GOOGLE_CLIENT_ID) &&
+      presentEnvValue(source.GOOGLE_CLIENT_SECRET),
+    twilioAccount:
+      presentEnvValue(source.TWILIO_ACCOUNT_SID) &&
+      presentEnvValue(source.TWILIO_AUTH_TOKEN),
+    twilioSender:
+      presentEnvValue(source.TWILIO_WHATSAPP_FROM) ||
+      presentEnvValue(source.TWILIO_MESSAGING_SERVICE_SID),
+    groq: presentEnvValue(source.GROQ_API_KEY),
+    gemini: presentEnvValue(source.GEMINI_API_KEY),
+  };
+}

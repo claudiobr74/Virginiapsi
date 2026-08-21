@@ -147,6 +147,10 @@ export const practiceSettingsRowSchema = z.object({
 });
 export type PracticeSettingsRow = z.infer<typeof practiceSettingsRowSchema>;
 
+export function defaultPracticeSettings(organizationId: string): PracticeSettingsRow {
+  return practiceSettingsRowSchema.parse({ organization_id: organizationId });
+}
+
 export const teamMemberRowSchema = z.object({
   id: z.string().uuid(),
   user_id: z.string().uuid(),

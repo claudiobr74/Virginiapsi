@@ -2,6 +2,7 @@ import "server-only";
 
 import { getConnection } from "@/features/calendar/connection-queries";
 import {
+  defaultPracticeSettings,
   logicalExportRowSchema,
   practiceSettingsRowSchema,
   teamMemberRowSchema,
@@ -12,7 +13,7 @@ import {
 } from "@/features/settings/contracts";
 import { buildIntegrationDiagnostics } from "@/features/settings/diagnostics";
 import { buildEliminationReport, type EliminationCounts } from "@/features/settings/elimination";
-import { getServerEnv } from "@/lib/env/server";
+import { readIntegrationEnvFlags } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function emptyNumber(value: unknown): number {
@@ -29,9 +30,10 @@ export async function getPracticeSettings(
     .eq("organization_id", organizationId)
     .maybeSingle();
   if (error) {
-    throw new Error(`failed to load practice settings: ${error.message}`);
+    return null;
   }
-  return data ? practiceSettingsRowSchema.parse(data) : null;
+  const parsed = practiceSettingsRowSchema.safeParse(data);
+  return parsed.success ? parsed.data : null;
 }
 
 export async function listTeamMembers(organizationId: string): Promise<TeamMemberRow[]> {
@@ -40,9 +42,10 @@ export async function listTeamMembers(organizationId: string): Promise<TeamMembe
     p_org_id: organizationId,
   });
   if (error) {
-    throw new Error(`failed to list members: ${error.message}`);
+    return [];
   }
-  return teamMemberRowSchema.array().parse(data ?? []);
+  const parsed = teamMemberRowSchema.array().safeParse(data ?? []);
+  return parsed.success ? parsed.data : [];
 }
 
 export async function listLogicalExports(
@@ -56,9 +59,10 @@ export async function listLogicalExports(
     .order("requested_at", { ascending: false })
     .limit(20);
   if (error) {
-    throw new Error(`failed to list exports: ${error.message}`);
+    return [];
   }
-  return logicalExportRowSchema.array().parse(data ?? []);
+  const parsed = logicalExportRowSchema.array().safeParse(data ?? []);
+  return parsed.success ? parsed.data : [];
 }
 
 export async function getLogicalExport(
@@ -95,31 +99,31 @@ async function lastTwilioError(organizationId: string): Promise<string | null> {
 }
 
 export async function getIntegrationDiagnosticsForOrg(organizationId: string) {
-  const env = getServerEnv();
+  const flags = readIntegrationEnvFlags();
   const [connection, twilioError] = await Promise.all([
-    getConnection(organizationId),
-    lastTwilioError(organizationId),
+    getConnection(organizationId).catch(() => null),
+    lastTwilioError(organizationId).catch(() => null),
   ]);
 
   return buildIntegrationDiagnostics({
     google: {
-      oauthConfigured: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+      oauthConfigured: flags.googleOAuth,
       connectionStatus: connection?.status ?? null,
       accountEmail: connection?.google_account_email ?? null,
       lastSyncedAt: connection?.last_synced_at ?? null,
       lastError: connection?.last_sync_error ?? null,
     },
     twilio: {
-      accountConfigured: Boolean(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN),
-      senderConfigured: Boolean(env.TWILIO_WHATSAPP_FROM || env.TWILIO_MESSAGING_SERVICE_SID),
+      accountConfigured: flags.twilioAccount,
+      senderConfigured: flags.twilioSender,
       lastError: twilioError,
     },
     transcription: {
       localDefault: true,
-      fallbackConfigured: Boolean(env.GROQ_API_KEY),
+      fallbackConfigured: flags.groq,
     },
     gemini: {
-      configured: Boolean(env.GEMINI_API_KEY),
+      configured: flags.gemini,
     },
   });
 }
@@ -207,49 +211,87 @@ export async function getSettingsSnapshot(input: {
   fullName: string;
   slug?: string;
 }): Promise<SettingsSnapshot> {
-  const supabase = await createSupabaseServerClient();
-  const [{ data: org }, practice, team, diagnostics, exports, patients] =
-    await Promise.all([
-      supabase
-        .from("organizations")
-        .select("id, name, slug, timezone, status")
-        .eq("id", input.organizationId)
-        .maybeSingle(),
-      getPracticeSettings(input.organizationId),
-      listTeamMembers(input.organizationId),
-      getIntegrationDiagnosticsForOrg(input.organizationId),
-      listLogicalExports(input.organizationId),
-      supabase
-        .from("patients")
-        .select("id, preferred_name, public_code")
-        .eq("organization_id", input.organizationId)
-        .order("preferred_name", { ascending: true }),
-    ]);
+  const emptyDiagnostics = () =>
+    buildIntegrationDiagnostics({
+      google: {
+        oauthConfigured: false,
+        connectionStatus: null,
+        accountEmail: null,
+        lastSyncedAt: null,
+        lastError: null,
+      },
+      twilio: {
+        accountConfigured: false,
+        senderConfigured: false,
+        lastError: null,
+      },
+      transcription: { localDefault: true, fallbackConfigured: false },
+      gemini: { configured: false },
+    });
 
-  if (!practice) {
-    throw new Error("practice settings missing");
+  try {
+    const supabase = await createSupabaseServerClient();
+    const [{ data: org }, practice, team, diagnostics, exports, patients] =
+      await Promise.all([
+        supabase
+          .from("organizations")
+          .select("id, name, slug, timezone, status")
+          .eq("id", input.organizationId)
+          .maybeSingle(),
+        getPracticeSettings(input.organizationId),
+        listTeamMembers(input.organizationId),
+        getIntegrationDiagnosticsForOrg(input.organizationId),
+        listLogicalExports(input.organizationId),
+        supabase
+          .from("patients")
+          .select("id, preferred_name, public_code")
+          .eq("organization_id", input.organizationId)
+          .order("preferred_name", { ascending: true }),
+      ]);
+
+    const practiceRow = practice ?? defaultPracticeSettings(input.organizationId);
+
+    return {
+      profile: {
+        email: input.email,
+        fullName: input.fullName,
+      },
+      organization: {
+        id: input.organizationId,
+        name: org?.name ?? input.organizationName,
+        timezone: org?.timezone ?? input.timezone,
+        slug: org?.slug ?? input.slug ?? "",
+      },
+      practice: practiceRow,
+      team,
+      diagnostics,
+      exports,
+      patients: (patients.data ?? []).map((patient) => ({
+        id: patient.id as string,
+        preferred_name: patient.preferred_name as string,
+        public_code: patient.public_code as string,
+      })),
+      secretaryFinanceAccess: practiceRow.secretary_finance_access,
+    };
+  } catch {
+    const practiceRow = defaultPracticeSettings(input.organizationId);
+    return {
+      profile: {
+        email: input.email,
+        fullName: input.fullName,
+      },
+      organization: {
+        id: input.organizationId,
+        name: input.organizationName,
+        timezone: input.timezone,
+        slug: input.slug ?? "",
+      },
+      practice: practiceRow,
+      team: [],
+      diagnostics: emptyDiagnostics(),
+      exports: [],
+      patients: [],
+      secretaryFinanceAccess: practiceRow.secretary_finance_access,
+    };
   }
-
-  return {
-    profile: {
-      email: input.email,
-      fullName: input.fullName,
-    },
-    organization: {
-      id: input.organizationId,
-      name: org?.name ?? input.organizationName,
-      timezone: org?.timezone ?? input.timezone,
-      slug: org?.slug ?? input.slug ?? "",
-    },
-    practice,
-    team,
-    diagnostics,
-    exports,
-    patients: (patients.data ?? []).map((patient) => ({
-      id: patient.id as string,
-      preferred_name: patient.preferred_name as string,
-      public_code: patient.public_code as string,
-    })),
-    secretaryFinanceAccess: practice.secretary_finance_access,
-  };
 }
