@@ -30,7 +30,7 @@ Preenchido na implementação da Fase 13. Reexecutar o gate após cada mudança 
 - Headers globais: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy` (microfone só `self`). COEP/COOP permanecem só em `/session/:sessionId`. Sem CSP estrito que quebre o App Router.
 - Rate limit **best-effort por instância** (Map in-memory): 30/min por IP nos endpoints de grant (`/api/session-capture/grant`, `upload-grant`); 20/min por organização+usuário nas server actions de Supervisor, Session AI e Knowledge. **Não** é cota global de cluster.
 - Teto de body: webhooks Twilio 32 KiB; JSON de grant/segmento 64 KiB; metadata de transcribe 16 KiB. Segmentos ao vivo **não** compartilham o rate limit de grant.
-- Sem `vercel.json` de Cron: scheduler continua `pg_cron`/`pg_net`.
+- Sem Cron na Vercel: `vercel.json` só declara `framework: nextjs` (o preset do projeto estava `null` e o Preview READY 404-ava em todas as rotas). Scheduler continua `pg_cron`/`pg_net`.
 - CI Playwright com timeout de 45 min para a suíte completa.
 
 ## 3. Contrato de env em produção (revisão)
