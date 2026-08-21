@@ -82,13 +82,19 @@ test.describe("Supervisor Clínico IA", () => {
     ).toBeVisible();
   });
 
-  test("secretária é redirecionada para /app", async ({ page }) => {
+  test("secretária vê acesso restrito em /app/supervisor", async ({ page }) => {
     await loginViaUi(page);
     await page.context().clearCookies();
     await signIn(page, STUB_SECRETARY);
     await page.waitForURL(/\/app$/);
 
     await page.goto("/app/supervisor");
-    await page.waitForURL(/\/app$/);
+    await expect(page).toHaveURL(/\/app\/supervisor$/);
+    await expect(page.getByRole("heading", { name: "Acesso restrito" })).toBeVisible();
+    await expect(
+      page.getByText(/Você não tem permissão para abrir o Supervisor IA/),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Voltar ao Meu Dia" })).toBeVisible();
+    await expect(page.getByText("Selecione um paciente para iniciar")).toHaveCount(0);
   });
 });

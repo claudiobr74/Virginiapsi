@@ -2,14 +2,20 @@ import { expect, test } from "@playwright/test";
 import { loginViaUi, signIn, STUB_SECRETARY } from "./support/fixtures";
 
 test.describe("Configurações", () => {
-  test("secretária é redirecionada para /app", async ({ page }) => {
+  test("secretária vê acesso restrito em /app/settings", async ({ page }) => {
     await loginViaUi(page);
     await page.context().clearCookies();
     await signIn(page, STUB_SECRETARY);
     await page.waitForURL(/\/app$/);
 
     await page.goto("/app/settings");
-    await page.waitForURL(/\/app$/);
+    await expect(page).toHaveURL(/\/app\/settings$/);
+    await expect(page.getByRole("heading", { name: "Acesso restrito" })).toBeVisible();
+    await expect(
+      page.getByText(/Você não tem permissão para abrir as Configurações/),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Voltar ao Meu Dia" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Configurações", exact: true })).toHaveCount(0);
   });
 
   test("admin vê as oito seções e diagnósticos sem secrets", async ({ page }) => {

@@ -2,14 +2,20 @@ import { expect, test } from "@playwright/test";
 import { loginViaUi, signIn, STUB_SECRETARY } from "./support/fixtures";
 
 test.describe("Conhecimento Tesseli", () => {
-  test("secretária é redirecionada para /app", async ({ page }) => {
+  test("secretária vê acesso restrito em /app/knowledge", async ({ page }) => {
     await loginViaUi(page);
     await page.context().clearCookies();
     await signIn(page, STUB_SECRETARY);
     await page.waitForURL(/\/app$/);
 
     await page.goto("/app/knowledge");
-    await page.waitForURL(/\/app$/);
+    await expect(page).toHaveURL(/\/app\/knowledge$/);
+    await expect(page.getByRole("heading", { name: "Acesso restrito" })).toBeVisible();
+    await expect(
+      page.getByText(/Você não tem permissão para abrir o Conhecimento clínico/),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Voltar ao Meu Dia" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Conhecimento Tesseli" })).toHaveCount(0);
   });
 
   test("admin vê coleções, fontes e os cinco modos", async ({ page }) => {
