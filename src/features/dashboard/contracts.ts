@@ -8,7 +8,7 @@ import {
 } from "@/features/calendar/contracts";
 
 export const PHASE_AVAILABILITY = {
-  clinicalSessions: false, // Fase 6 (widget de pendência ainda não foi ligado)
+  clinicalSessions: true,
   finance: true,
   documents: true,
   twilioReminders: true,
@@ -33,6 +33,18 @@ export const myDayAppointmentSchema = z.object({
 });
 
 export type MyDayAppointment = z.infer<typeof myDayAppointmentSchema>;
+
+export const sessionToFinalizeSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(["draft", "in_progress"]),
+  startedAt: z.string().nullable(),
+  createdAt: z.string(),
+  patientId: z.string().uuid(),
+  patientPreferredName: z.string().nullable(),
+  patientPublicCode: z.string().nullable(),
+});
+
+export type SessionToFinalize = z.infer<typeof sessionToFinalizeSchema>;
 
 export const practiceTaskSchema = z.object({
   id: z.string().uuid(),
@@ -82,7 +94,7 @@ export interface MyDaySnapshot {
   timezone: string;
   nextSession: MyDayAppointment | null;
   timeline: MyDayAppointment[];
-  sessionsToFinalize: FutureModuleSection;
+  sessionsToFinalize: SessionToFinalize[];
   financialPending: ChargeView[];
   recentDocuments: RecentDocumentItem[];
   tasks: PracticeTask[];
@@ -94,6 +106,15 @@ export type { AppointmentModality, AppointmentStatus };
 export const DEFAULT_GREETING_PREFIX = "Olá";
 export const DEFAULT_QUOTE =
   "Um dia de cada vez — presença e cuidado na rotina clínica.";
+
+export function sessionToFinalizeLabel(session: SessionToFinalize): string {
+  const name = session.patientPreferredName?.trim() || "";
+  const code = session.patientPublicCode?.trim() || "";
+  if (name && code) {
+    return `${name} • ${code}`;
+  }
+  return name || code || "Sessão clínica";
+}
 
 export function patientDisplayLabel(appointment: MyDayAppointment): string {
   if (appointment.patientPreferredName && appointment.patientPublicCode) {

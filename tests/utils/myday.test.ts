@@ -3,7 +3,9 @@ import {
   buildWhatsAppReminderUrl,
   patientDisplayLabel,
   selectNextSession,
+  sessionToFinalizeLabel,
   type MyDayAppointment,
+  type SessionToFinalize,
 } from "@/features/dashboard/contracts";
 
 function appointment(overrides: Partial<MyDayAppointment> = {}): MyDayAppointment {
@@ -40,6 +42,37 @@ describe("patientDisplayLabel", () => {
         }),
       ),
     ).toBe("Consulta avulsa");
+  });
+});
+
+describe("sessionToFinalizeLabel", () => {
+  function session(overrides: Partial<SessionToFinalize> = {}): SessionToFinalize {
+    return {
+      id: "33333333-3333-4333-8333-333333333333",
+      status: "in_progress",
+      startedAt: "2026-08-21T12:00:00.000Z",
+      createdAt: "2026-08-21T12:00:00.000Z",
+      patientId: "44444444-4444-4444-8444-444444444444",
+      patientPreferredName: "Ana",
+      patientPublicCode: "PAC-010",
+      ...overrides,
+    };
+  }
+
+  it("usa nome preferencial e código público quando existem", () => {
+    expect(sessionToFinalizeLabel(session())).toBe("Ana • PAC-010");
+  });
+
+  it("cai no código público quando o nome está vazio", () => {
+    expect(
+      sessionToFinalizeLabel(session({ patientPreferredName: "   ", patientPublicCode: "PAC-011" })),
+    ).toBe("PAC-011");
+  });
+
+  it("usa rótulo genérico quando não há paciente identificável", () => {
+    expect(
+      sessionToFinalizeLabel(session({ patientPreferredName: "", patientPublicCode: null })),
+    ).toBe("Sessão clínica");
   });
 });
 

@@ -7,9 +7,11 @@ import {
   myDayAppointmentSchema,
   practiceTaskSchema,
   selectNextSession,
+  sessionToFinalizeSchema,
   type MyDayAppointment,
   type MyDaySnapshot,
   type PracticeTask,
+  type SessionToFinalize,
 } from "@/features/dashboard/contracts";
 import type { ShellSettings } from "@/features/organizations/contracts";
 import { listRecentDocuments } from "@/features/documents/queries";
@@ -91,6 +93,51 @@ async function listTodayManagedAppointments(
   return (data as AppointmentJoinRow[] | null)?.map(toMyDayAppointment) ?? [];
 }
 
+interface SessionJoinRow {
+  id: string;
+  status: string;
+  started_at: string | null;
+  created_at: string;
+  patient_id: string;
+  patients:
+    | { preferred_name: string; public_code: string }
+    | { preferred_name: string; public_code: string }[]
+    | null;
+}
+
+async function listSessionsToFinalize(
+  organizationId: string,
+): Promise<SessionToFinalize[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("clinical_sessions")
+    .select(
+      "id, status, started_at, created_at, patient_id, patients(preferred_name, public_code)",
+    )
+    .eq("organization_id", organizationId)
+    .in("status", ["draft", "in_progress"])
+    .order("started_at", { ascending: false, nullsFirst: false })
+    .limit(12);
+
+  if (error) {
+    return [];
+  }
+
+  return (data as SessionJoinRow[] | null ?? []).flatMap((row) => {
+    const patient = Array.isArray(row.patients) ? row.patients[0] : row.patients;
+    const parsed = sessionToFinalizeSchema.safeParse({
+      id: row.id,
+      status: row.status,
+      startedAt: row.started_at,
+      createdAt: row.created_at,
+      patientId: row.patient_id,
+      patientPreferredName: patient?.preferred_name ?? null,
+      patientPublicCode: patient?.public_code ?? null,
+    });
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 export async function listOpenTasks(
   organizationId: string,
 ): Promise<PracticeTask[]> {
@@ -117,10 +164,13 @@ export async function getMyDaySnapshot(input: {
   settings: ShellSettings | null;
   role: OrganizationRole;
 }): Promise<MyDaySnapshot> {
-  const [timeline, tasks, documents] = await Promise.all([
+  const [timeline, tasks, documents, sessionsToFinalize] = await Promise.all([
     listTodayManagedAppointments(input.organizationId, input.timezone),
     listOpenTasks(input.organizationId),
     listRecentDocuments(input.organizationId),
+    input.role === "psychologist_admin"
+      ? listSessionsToFinalize(input.organizationId)
+      : Promise.resolve([]),
   ]);
 
   const greetingPrefix =
@@ -155,13 +205,7 @@ export async function getMyDaySnapshot(input: {
     timezone: input.timezone,
     nextSession: selectNextSession(timeline),
     timeline,
-    sessionsToFinalize: {
-      available: false,
-      phase: 6,
-      title: "Sessões a finalizar",
-      description:
-        "O fechamento de sessões clínicas e o rascunho DPEP chegam na Fase 6.",
-    },
+    sessionsToFinalize,
     financialPending,
     recentDocuments: documents.map((document) => ({
       id: document.id,

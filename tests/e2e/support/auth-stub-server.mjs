@@ -235,6 +235,12 @@ for (const name of ["Sessão Um", "Sessão Dois", "Sessão Tres", "Sessão Quatr
   });
 }
 
+seedPatient(ADMIN_ORG_ID, {
+  preferred_name: "Meu Dia Sessão",
+  full_name: "Meu Dia Sessão Paciente",
+  birth_date: "1987-07-07",
+});
+
 // Dedicated patients for the Fase 9 Documents/Attachments/TCLE E2E.
 for (const name of [
   "Documentos Um",
@@ -1959,29 +1965,34 @@ const server = createServer(async (req, res) => {
     }
     const idFilter = parseEqFilter(searchParams.get("id"));
     const organizationId = parseEqFilter(searchParams.get("organization_id"));
-    const patientId = parseEqFilter(searchParams.get("patient_id"));
 
     let rows = [];
     if (idFilter) {
       const row = findAdminScopedRow(clinicalSessionsByOrg, user.id, (r) => r.id === idFilter);
       rows = row ? [row] : [];
     } else if (organizationId && membershipRole(user.id, organizationId) === "psychologist_admin") {
-      rows = [...(clinicalSessionsByOrg.get(organizationId)?.values() ?? [])];
-      if (patientId) {
-        rows = rows.filter((row) => row.patient_id === patientId);
-      }
-      rows = applyOrder(rows, searchParams);
+      const table = clinicalSessionsByOrg.get(organizationId) ?? new Map();
+      rows = applyLimit(
+        applyOrder(
+          [...table.values()].filter((row) => matchesFilters(row, searchParams)),
+          searchParams,
+        ),
+        searchParams,
+      );
     }
 
+    const select = searchParams.get("select");
+    const mapped = rows.map((row) => embedAppointmentRelations(row, select));
+
     if (wantsSingleObject(req)) {
-      if (rows.length !== 1) {
+      if (mapped.length !== 1) {
         json(res, 406, { message: "JSON object requested, multiple (or no) rows returned" });
         return;
       }
-      json(res, 200, rows[0]);
+      json(res, 200, mapped[0]);
       return;
     }
-    json(res, 200, rows);
+    json(res, 200, mapped);
     return;
   }
 
