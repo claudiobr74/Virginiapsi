@@ -168,7 +168,7 @@ export function PatientForm({ patient, photoUrl, terms }: PatientFormProps) {
   return (
     <PageContainer narrow>
       <PageHeader
-        title={patient ? "Editar paciente" : "Novo paciente"}
+        title={patient ? "Editar paciente" : "Cadastrar Paciente"}
         subtitle={
           patient
             ? `${patient.public_code} — ${patient.preferred_name}`

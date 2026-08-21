@@ -4,7 +4,6 @@ import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer } from "@/components/ui/page-container";
-import { PageHeader } from "@/components/ui/page-header";
 import { PatientListItem } from "@/features/patients/components/patient-list-item";
 import { PatientsToolbar } from "@/features/patients/components/patients-toolbar";
 import { PATIENT_STATUS_VALUES, type PatientStatus } from "@/features/patients/contracts";
@@ -33,19 +32,27 @@ export default async function PatientsPage({
 
   return (
     <PageContainer>
-      <PageHeader
-        icon={Users}
-        title="Pacientes"
-        subtitle="Cadastro administrativo e acesso ao Patient Hub"
-        actions={
-          <Button asChild>
-            <Link href="/app/patients/new">
-              <Plus className="size-4" aria-hidden />
-              Novo paciente
-            </Link>
-          </Button>
-        }
-      />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-4">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+            <Users className="size-5" aria-hidden />
+          </span>
+          <div className="flex flex-col gap-1">
+            <h1 className="font-serif text-[28px] italic font-medium leading-tight text-foreground">
+              Gestão de Pacientes
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Gerencie seus pacientes e acompanhamentos
+            </p>
+          </div>
+        </div>
+        <Button asChild>
+          <Link href="/app/patients/new">
+            <Plus className="size-4" aria-hidden />
+            Cadastrar Paciente
+          </Link>
+        </Button>
+      </div>
 
       <PatientsToolbar />
 

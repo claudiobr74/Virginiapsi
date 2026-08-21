@@ -102,7 +102,7 @@ test.describe("Cadastro de paciente", () => {
     await expect(page.getByText("Não aceito").first()).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Abrir termos no prontuário" }),
-    ).toHaveAttribute("href", /\/app\/patients\/[0-9a-f-]+#tcle$/);
+    ).toHaveAttribute("href", /\/app\/patients\/[0-9a-f-]+\?tab=tcle#tcle$/);
   });
 
   test("envia foto de identificação no cadastro e mostra no prontuário", async ({

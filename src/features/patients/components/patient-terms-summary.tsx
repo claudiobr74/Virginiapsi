@@ -55,7 +55,7 @@ export function PatientTermsSummary({
         })}
       </ul>
       <Link
-        href={`/app/patients/${patientId}#tcle`}
+        href={`/app/patients/${patientId}?tab=tcle#tcle`}
         className="text-sm font-semibold text-primary hover:underline"
       >
         Abrir termos no prontuário

@@ -59,7 +59,7 @@ export function PatientsToolbar() {
           setSearch(value);
           pushParams({ search: value });
         }}
-        placeholder="Buscar por nome ou código (PAC-###)…"
+        placeholder="Buscar por nome, CPF ou código (PAC-###)…"
       />
       <div className="flex flex-wrap gap-2">
         {STATUS_FILTERS.map((filter) => (

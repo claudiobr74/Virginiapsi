@@ -14,6 +14,7 @@ test.describe("Documentos", () => {
     await openPatient(page, "Documentos Um");
 
     const title = `Atestado de comparecimento ${Date.now()}`;
+    await page.getByRole("tab", { name: "Documentos" }).click();
     await page.getByRole("button", { name: "Novo documento" }).click();
     await page.getByPlaceholder("Título do documento").fill(title);
     await page.getByRole("button", { name: "Criar rascunho" }).click();
@@ -50,6 +51,7 @@ test.describe("Documentos", () => {
     await openPatient(page, "Documentos Quatro");
 
     const title = `Laudo confidencial E2E ${Date.now()}`;
+    await page.getByRole("tab", { name: "Documentos" }).click();
     await page.getByRole("button", { name: "Novo documento" }).click();
     await page.getByPlaceholder("Título do documento").fill(title);
     await page.getByRole("button", { name: "Criar rascunho" }).click();
@@ -72,6 +74,7 @@ test.describe("Documentos", () => {
     await page.waitForURL(/\/app$/);
     await openPatient(page, "Documentos Dois");
 
+    await page.getByRole("tab", { name: "Documentos" }).click();
     await page.getByRole("button", { name: "Novo documento" }).click();
     // "Atestado"/"Laudo"/etc (clinical-forced) must not even be offered.
     const kindSelect = page.locator("select").first();
@@ -91,6 +94,7 @@ test.describe("Anexos", () => {
   test("envia, baixa e remove um anexo", async ({ page }) => {
     await loginViaUi(page);
     await openPatient(page, "Documentos Tres");
+    await page.getByRole("tab", { name: "Documentos" }).click();
 
     const fileChooserPromise = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "Enviar anexo" }).click();
@@ -118,6 +122,7 @@ test.describe("Gestão de TCLE", () => {
   }) => {
     await loginViaUi(page);
     await openPatient(page, "TCLE Um");
+    await page.getByRole("tab", { name: "TCLE" }).click();
 
     const row = page.getByTestId("tcle-row-psychotherapy");
     await expect(row.getByText("TCLE de Psicoterapia")).toBeVisible();

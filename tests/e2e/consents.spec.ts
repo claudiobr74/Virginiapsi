@@ -21,6 +21,7 @@ async function openPatient(page: Page, preferredName: string): Promise<string> {
 
 /** Idempotent: a consent already recorded by another project is left as is. */
 async function recordAllCaptureConsents(page: Page) {
+  await page.getByRole("tab", { name: "TCLE" }).click();
   for (const label of CAPTURE_LABELS) {
     const register = page.getByRole("button", { name: `Registrar ${label}` });
     if ((await register.count()) > 0) {
@@ -75,6 +76,7 @@ test.describe("Consentimentos — gate de captura (Fase 6: grant real)", () => {
     const sessionId = await startSession(page, patientId);
 
     await page.goto(`/app/patients/${patientId}`);
+    await page.getByRole("tab", { name: "TCLE" }).click();
     await page.getByRole("button", { name: "Revogar Gravação da sessão" }).click();
     await page
       .getByRole("alertdialog")

@@ -34,7 +34,7 @@ export async function listPatients(
   const search = filters.search?.trim();
   if (search) {
     query = query.or(
-      `preferred_name.ilike.%${search}%,full_name.ilike.%${search}%,public_code.ilike.%${search}%`,
+      `preferred_name.ilike.%${search}%,full_name.ilike.%${search}%,public_code.ilike.%${search}%,cpf.ilike.%${search}%`,
     );
   }
 
