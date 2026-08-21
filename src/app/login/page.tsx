@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Logo } from "@/components/ui/logo";
 import { LoginForm } from "@/features/auth/components/login-form";
+import { oauthCodeCallbackPath } from "@/features/auth/oauth-redirect";
 
 export const metadata: Metadata = {
   title: "Entrar — Tesseli",
 };
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  const params = await searchParams;
+  const oauthCallback = oauthCodeCallbackPath(params);
+  if (oauthCallback) {
+    redirect(oauthCallback);
+  }
+
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
       <div

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toGoogleAuthErrorMessage } from "@/features/auth/messages";
+import { oauthCallbackRedirectTo } from "@/features/auth/oauth-redirect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function GoogleIcon() {
@@ -39,7 +40,7 @@ export function GoogleAuthButton() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/app`,
+        redirectTo: oauthCallbackRedirectTo(window.location.origin),
       },
     });
     if (error) {
