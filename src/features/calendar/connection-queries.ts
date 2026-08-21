@@ -14,11 +14,12 @@ export async function getConnection(
     .maybeSingle();
 
   if (error) {
-    throw new Error(`failed to load Google connection: ${error.message}`);
+    return null;
   }
   if (!data) {
     return null;
   }
 
-  return connectionRowSchema.parse(data);
+  const parsed = connectionRowSchema.safeParse(data);
+  return parsed.success ? parsed.data : null;
 }

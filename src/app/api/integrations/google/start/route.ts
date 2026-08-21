@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { buildAuthorizationUrl } from "@/lib/integrations/google/oauth";
-import { getServerEnv } from "@/lib/env/server";
 import { requireUser } from "@/lib/auth/require-user";
+import { isLoopbackHttpUrl } from "@/lib/env/schema";
+import { getServerEnv } from "@/lib/env/server";
+import { buildAuthorizationUrl } from "@/lib/integrations/google/oauth";
+
+function redirectAgendaError(request: NextRequest) {
+  return NextResponse.redirect(new URL("/app/agenda?google=error", request.url));
+}
 
 /**
  * Only ever reached via a redirect from startGoogleConnectionAction(), which
@@ -14,12 +19,23 @@ export async function GET(request: NextRequest) {
 
   const state = request.nextUrl.searchParams.get("state");
   if (!state) {
-    return NextResponse.redirect(
-      new URL("/app/agenda?google_error=missing_state", request.url),
-    );
+    return redirectAgendaError(request);
   }
 
-  const env = getServerEnv();
+  let env;
+  try {
+    env = getServerEnv();
+  } catch {
+    return redirectAgendaError(request);
+  }
+
+  if (
+    isLoopbackHttpUrl(env.GOOGLE_OAUTH_REDIRECT_URI) &&
+    !isLoopbackHttpUrl(request.nextUrl.origin)
+  ) {
+    return redirectAgendaError(request);
+  }
+
   const authorizationUrl = buildAuthorizationUrl({
     clientId: env.GOOGLE_CLIENT_ID,
     redirectUri: env.GOOGLE_OAUTH_REDIRECT_URI,

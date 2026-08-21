@@ -1,7 +1,12 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { normalizePublicAppUrl, parsePublicEnv } from "../../src/lib/env/schema";
+import {
+  isLoopbackHttpUrl,
+  normalizeGoogleOAuthRedirectUri,
+  normalizePublicAppUrl,
+  parsePublicEnv,
+} from "../../src/lib/env/schema";
 import {
   parseServerEnv,
   SERVER_ONLY_ENV_KEYS,
@@ -112,6 +117,32 @@ describe("contrato de ambiente", () => {
       const message = error instanceof Error ? error.message : String(error);
       expect(message).not.toContain("sb_publishable_secret_value_must_not_leak");
     }
+  });
+
+  it("normaliza o redirect URI da Agenda (origem, login ou aspas)", () => {
+    expect(normalizeGoogleOAuthRedirectUri("preview.vercel.app")).toBe(
+      "https://preview.vercel.app/api/integrations/google/callback",
+    );
+    expect(
+      normalizeGoogleOAuthRedirectUri("https://preview.vercel.app/auth/callback"),
+    ).toBe("https://preview.vercel.app/api/integrations/google/callback");
+    expect(
+      parseServerEnv({
+        ...validServer,
+        GOOGLE_OAUTH_REDIRECT_URI: "https://preview.vercel.app",
+      }).GOOGLE_OAUTH_REDIRECT_URI,
+    ).toBe("https://preview.vercel.app/api/integrations/google/callback");
+  });
+
+  it("reconhece localhost no redirect URI", () => {
+    expect(isLoopbackHttpUrl("http://localhost:3000/api/integrations/google/callback")).toBe(
+      true,
+    );
+    expect(
+      isLoopbackHttpUrl(
+        "https://preview.vercel.app/api/integrations/google/callback",
+      ),
+    ).toBe(false);
   });
 
   it("aceita o contrato servidor completo", () => {

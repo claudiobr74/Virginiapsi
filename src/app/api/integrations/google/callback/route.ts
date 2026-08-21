@@ -30,7 +30,13 @@ export async function GET(request: NextRequest) {
     return redirectWithStatus(origin, "error", "missing_code_or_state");
   }
 
-  const env = getServerEnv();
+  let env;
+  try {
+    env = getServerEnv();
+  } catch {
+    return redirectWithStatus(origin, "error", "invalid_env");
+  }
+
   const verified = verifyOAuthState(state, env.GOOGLE_TOKEN_ENCRYPTION_KEY);
   if (!verified.valid || !verified.payload) {
     return redirectWithStatus(origin, "error", verified.reason ?? "invalid_state");
@@ -52,11 +58,15 @@ export async function GET(request: NextRequest) {
     return redirectWithStatus(origin, "error", "token_exchange_failed");
   }
 
-  await logAuditEvent({
-    organizationId: verified.payload.organizationId,
-    action: "google_calendar.connect",
-    resourceType: "google_calendar_connection",
-  });
+  try {
+    await logAuditEvent({
+      organizationId: verified.payload.organizationId,
+      action: "google_calendar.connect",
+      resourceType: "google_calendar_connection",
+    });
+  } catch {
+    // Connection already persisted; do not fail the user on audit write.
+  }
 
   return redirectWithStatus(origin, "connected");
 }

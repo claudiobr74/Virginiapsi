@@ -10,6 +10,7 @@ import {
 import { signOAuthState } from "@/lib/integrations/google/oauth";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
+import { isLoopbackHttpUrl } from "@/lib/env/schema";
 import { getServerEnv } from "@/lib/env/server";
 
 export interface CalendarActionResult {
@@ -22,6 +23,12 @@ export interface CalendarActionResult {
  * the admin-only check before ever touching Google, with a friendly error
  * instead of a 403 from the route handler.
  */
+const GOOGLE_CALENDAR_ENV_ERROR =
+  "Não foi possível iniciar a conexão com o Google Calendar. Confira o endereço de retorno https://seu-site/api/integrations/google/callback na Vercel e o mesmo endereço no Google Cloud (é diferente do login).";
+
+const GOOGLE_CALENDAR_LOCALHOST_ERROR =
+  "O retorno do Google Calendar ainda aponta para o computador (localhost). Na Vercel, use https://seu-site/api/integrations/google/callback e cadastre esse mesmo endereço no Google Cloud.";
+
 export async function startGoogleConnectionAction(): Promise<CalendarActionResult> {
   const { organizationId, role, user } = await requireOrgContext();
 
@@ -29,7 +36,17 @@ export async function startGoogleConnectionAction(): Promise<CalendarActionResul
     return { error: "Apenas a psicóloga administradora conecta o Google Calendar." };
   }
 
-  const env = getServerEnv();
+  let env;
+  try {
+    env = getServerEnv();
+  } catch {
+    return { error: GOOGLE_CALENDAR_ENV_ERROR };
+  }
+
+  if (isLoopbackHttpUrl(env.GOOGLE_OAUTH_REDIRECT_URI)) {
+    return { error: GOOGLE_CALENDAR_LOCALHOST_ERROR };
+  }
+
   const state = signOAuthState(
     { organizationId, userId: user.id, nonce: randomUUID(), issuedAt: Date.now() },
     env.GOOGLE_TOKEN_ENCRYPTION_KEY,

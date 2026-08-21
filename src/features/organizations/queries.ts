@@ -8,18 +8,8 @@ import {
   type Membership,
   type ShellSettings,
 } from "@/features/organizations/contracts";
+import { isMissingPublicTable } from "@/lib/supabase/postgrest-errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-function isMissingPublicTable(error: { code?: string; message?: string } | null) {
-  if (!error) {
-    return false;
-  }
-  return (
-    error.code === "PGRST205" ||
-    /schema cache/i.test(error.message) ||
-    /could not find the table/i.test(error.message)
-  );
-}
 
 /**
  * Lists the memberships of the authenticated user. Reads go through the

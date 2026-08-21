@@ -57,7 +57,7 @@ export default async function AgendaPage({
           role="alert"
           className="rounded-2xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed"
         >
-          Não foi possível conectar o Google Calendar agora. Tente novamente.
+          Não foi possível conectar o Google Calendar. O endereço de retorno da Agenda é o do site com /api/integrations/google/callback — não use o endereço do login. Cadastre o mesmo na Vercel e no Google Cloud.
         </p>
       ) : null}
 

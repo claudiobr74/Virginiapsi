@@ -34,6 +34,45 @@ export function normalizePublicAppUrl(value: unknown): unknown {
   return next;
 }
 
+const CALENDAR_OAUTH_CALLBACK_PATH = "/api/integrations/google/callback";
+
+/**
+ * Calendar OAuth (not Auth login). Operators often paste the app origin or
+ * `/auth/callback`. Google then rejects the token exchange or the start
+ * action throws and the Agenda error boundary swallows the module.
+ */
+export function normalizeGoogleOAuthRedirectUri(value: unknown): unknown {
+  const coerced = normalizePublicAppUrl(value);
+  if (typeof coerced !== "string" || !coerced) {
+    return coerced;
+  }
+
+  try {
+    const parsed = new URL(coerced);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return coerced;
+    }
+    const path = parsed.pathname.replace(/\/$/, "") || "/";
+    if (path === "/" || path === "/auth/callback" || path === "/login") {
+      return `${parsed.origin}${CALENDAR_OAUTH_CALLBACK_PATH}`;
+    }
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return coerced;
+  }
+}
+
+export function isLoopbackHttpUrl(value: string): boolean {
+  try {
+    const { hostname } = new URL(value);
+    return (
+      hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
+    );
+  } catch {
+    return false;
+  }
+}
+
 export const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: httpUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: nonEmpty.startsWith("sb_publishable_"),

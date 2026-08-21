@@ -1,6 +1,7 @@
 import "server-only";
 
 import { appointmentRowSchema, type AppointmentRow } from "@/features/calendar/contracts";
+import { isMissingPublicTable } from "@/lib/supabase/postgrest-errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface AppointmentWindow {
@@ -23,10 +24,14 @@ export async function listAppointments(
     .order("starts_at", { ascending: true });
 
   if (error) {
-    throw new Error(`failed to list appointments: ${error.message}`);
+    if (isMissingPublicTable(error)) {
+      return [];
+    }
+    return [];
   }
 
-  return appointmentRowSchema.array().parse(data ?? []);
+  const parsed = appointmentRowSchema.array().safeParse(data ?? []);
+  return parsed.success ? parsed.data : [];
 }
 
 export async function getAppointment(

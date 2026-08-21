@@ -13,7 +13,7 @@ export const connectionRowSchema = z.object({
   google_account_email: z.string().nullable(),
   calendar_id: z.string().nullable(),
   calendar_summary: z.string().nullable(),
-  scopes: z.array(z.string()),
+  scopes: z.array(z.string()).catch([]),
   last_synced_at: z.string().nullable(),
   last_sync_error: z.string().nullable(),
 });

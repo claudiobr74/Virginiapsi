@@ -4,7 +4,7 @@
 // through `src/lib/env/server.ts`, which re-exports this module behind the
 // "server-only" guard so accidental client-component imports fail loudly.
 import { z } from "zod";
-import { formatEnvIssues, publicEnvSchema } from "@/lib/env/schema";
+import { formatEnvIssues, normalizeGoogleOAuthRedirectUri, publicEnvSchema } from "@/lib/env/schema";
 
 const nonEmpty = z.string().trim().min(1);
 const httpUrl = z.string().trim().url();
@@ -17,7 +17,7 @@ export const serverEnvSchema = publicEnvSchema.extend({
   SUPABASE_SECRET_KEY: nonEmpty.startsWith("sb_secret_"),
   GOOGLE_CLIENT_ID: nonEmpty,
   GOOGLE_CLIENT_SECRET: nonEmpty,
-  GOOGLE_OAUTH_REDIRECT_URI: httpUrl,
+  GOOGLE_OAUTH_REDIRECT_URI: z.preprocess(normalizeGoogleOAuthRedirectUri, httpUrl),
   GOOGLE_TOKEN_ENCRYPTION_KEY: nonEmpty,
   SESSION_CAPTURE_SECRET: nonEmpty,
   TWILIO_ACCOUNT_SID: nonEmpty,
