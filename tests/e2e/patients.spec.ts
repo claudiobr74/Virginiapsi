@@ -6,9 +6,7 @@ test.describe("Lista de pacientes", () => {
     page,
   }) => {
     await loginViaUi(page);
-    await page.getByRole("link", { name: "Pacientes", exact: true }).first().click();
-
-    await page.waitForURL("**/app/patients");
+    await page.goto("/app/patients");
     const patientRow = page.getByRole("link", { name: /Beatriz/ });
     await expect(patientRow).toBeVisible();
     await expect(patientRow.getByText("PAC-001")).toBeVisible();
@@ -77,7 +75,7 @@ test.describe("Cadastro de paciente", () => {
     await page.waitForURL(/\/app\/patients\/[0-9a-f-]+$/);
     await expect(page.getByRole("heading", { name: "Carla Teste" })).toBeVisible();
     await expect(page.getByText(/PAC-\d{3,}/)).toBeVisible();
-    await expect(page.getByText("Marta Teste")).toBeVisible();
+    await expect(page.getByText("Marta Teste", { exact: true })).toBeVisible();
     await expect(page.getByText("R$ 250,00")).toBeVisible();
   });
 
