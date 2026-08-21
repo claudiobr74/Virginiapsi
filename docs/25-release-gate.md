@@ -17,11 +17,11 @@ Preenchido na implementação da Fase 13. Reexecutar o gate após cada mudança 
 | 7 | production build | PASS | `pnpm build` |
 | 8 | forbidden-dependency scan | PASS | `tests/architecture/forbidden-dependencies.test.ts` + `pnpm scan:client-bundle` |
 | 9 | env contract review | PASS | `docs/09-env-contract.md` e `.env.example` revisados. Valores de produção não estão no Git — ver §3 |
-| 10 | preview deployment smoke test | EXTERNAL_BLOCKED | MCP Vercel sem autenticação neste ambiente; nenhum Preview/Production foi publicado daqui. Ver §4 |
-| 11 | integrations health sem expor secrets | PASS (código) / EXTERNAL_BLOCKED (produção) | Diagnósticos cobertos por testes. Saúde real em produção exige o Preview do passo 10 e remetente Twilio ainda não configurado |
+| 10 | preview deployment smoke test | FAIL | MCP autenticado. Projeto `tesseli` ligado a `claudiobr74/Tesseli`. Preview `dpl_2Ts9UuKMNctXzighLXisLY6KmUkt` (Fase 13) = `ERROR` / `BUILD_UTILS_SPAWN_1`: faltam `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e `NEXT_PUBLIC_APP_URL` no Environment Variables. Sem elas o build pré-renderiza `/app/documents` e cai. Ver §4 |
+| 11 | integrations health sem expor secrets | PASS (código) / EXTERNAL_BLOCKED (produção) | Diagnósticos cobertos por testes. Saúde real em produção exige Preview READY do passo 10 e remetente Twilio ainda não configurado |
 | 12 | document rollback | PASS | `docs/24-rollback.md` |
 
-**Release ready: não.** Passos locais 1–9 e 12 = PASS. Passos 10 e 11 (produção) = EXTERNAL_BLOCKED e bloqueiam declaração de produção.
+**Release ready: não.** Passos locais 1–9 e 12 = PASS. Passo 10 = FAIL (env Vercel). Passo 11 (produção) permanece EXTERNAL_BLOCKED.
 
 ## 2. Endurecimento entregue nesta fase
 
@@ -48,15 +48,21 @@ Todas as chaves de `docs/09-env-contract.md` precisam existir no Vercel (Product
 
 ### Preview/Production Vercel (passo 10)
 
-1. Autenticar o MCP Vercel **ou** ligar o GitHub ao projeto Vercel (`claudiobr74/Tesseli`).
-2. Framework: Next.js. **Não** criar Cron Jobs na Vercel.
-3. Preencher Environment Variables de Preview e Production (nunca `NEXT_PUBLIC_` com secret).
-4. Deploy de Preview desta branch; smoke:
+MCP e GitHub já estão ligados. O Preview da Fase 13 **não sobe** enquanto o projeto `tesseli` não tiver Environment Variables.
+
+1. Abrir [Environment Variables](https://vercel.com/claudiobr74-9668s-projects/tesseli/settings/environment-variables).
+2. Cadastrar **Preview e Production** (copiar valores do `.env` local; **não** usar `localhost` em `NEXT_PUBLIC_APP_URL`):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - `NEXT_PUBLIC_APP_URL` — HTTPS do host Vercel (hoje o alias de produção é `https://serena-psi-beta.vercel.app`)
+3. Também cadastrar as server-only de `docs/09-env-contract.md` (`SUPABASE_SECRET_KEY`, Google, `SESSION_CAPTURE_SECRET`, Twilio SID/token, Gemini, `CRON_SECRET`). Sem isso o HTML de `/login` pode até gerar, mas Auth/IA/jobs falham. `TWILIO_WHATSAPP_FROM` / Messaging Service podem ficar vazios.
+4. **Não** criar Cron Jobs na Vercel. Framework: Next.js.
+5. Redeploy do Preview da branch `cursor/fase-13-hardening-deploy-dcad` (ou um novo push). Inspector do último erro: [dpl_2Ts9UuKMNctXzighLXisLY6KmUkt](https://vercel.com/claudiobr74-9668s-projects/tesseli/2Ts9UuKMNctXzighLXisLY6KmUkt).
+6. Smoke quando `readyState=READY`:
    - `GET /login` → 200, headers de segurança presentes, sem `x-powered-by`;
    - login com usuário real do Auth de staging/prod;
-   - `/app` shell; `/app/settings` Integrações sem secret no DOM/rede;
-   - um grant de captura em sessão de teste (sem paciente real, se possível).
-5. Só então promover para Production.
+   - `/app` shell; `/app/settings` Integrações sem secret no DOM/rede.
+7. Só então promover para Production.
 
 ### Saúde de integrações em produção (passo 11)
 
@@ -94,4 +100,4 @@ Server Actions (não são rotas HTTP estáveis para clientes externos) concentra
 
 ## 6. Declaração
 
-Release ready: **não**. PASS nos passos locais 1–9 e 12. EXTERNAL_BLOCKED nos passos 10, 11 (produção), RLS hospedado, restore DR real e validação jurídica.
+Release ready: **não**. PASS nos passos locais 1–9 e 12. FAIL no passo 10 (env Vercel ausente). EXTERNAL_BLOCKED no passo 11 (produção), RLS hospedado, restore DR real e validação jurídica.
