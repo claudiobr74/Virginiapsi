@@ -4,7 +4,13 @@
 // through `src/lib/env/server.ts`, which re-exports this module behind the
 // "server-only" guard so accidental client-component imports fail loudly.
 import { z } from "zod";
-import { formatEnvIssues, normalizeGoogleOAuthRedirectUri, publicEnvSchema } from "@/lib/env/schema";
+import {
+  coalesceAppUrl,
+  formatEnvIssues,
+  normalizeGoogleOAuthRedirectUri,
+  publicEnvSchema,
+  resolveGoogleCalendarRedirectUri,
+} from "@/lib/env/schema";
 
 const nonEmpty = z.string().trim().min(1);
 const httpUrl = z.string().trim().url();
@@ -68,6 +74,7 @@ function readServerEnvFromProcess(): EnvSource {
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    VERCEL_URL: process.env.VERCEL_URL,
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
@@ -91,9 +98,28 @@ function readServerEnvFromProcess(): EnvSource {
 export function parseServerEnv(
   source: EnvSource = readServerEnvFromProcess(),
 ): ServerEnv {
-  const parsed = serverEnvSchema.safeParse(source);
+  const appUrl = coalesceAppUrl(source.NEXT_PUBLIC_APP_URL, source.VERCEL_URL);
+  const parsed = serverEnvSchema.safeParse({
+    ...source,
+    NEXT_PUBLIC_APP_URL: appUrl,
+    GOOGLE_OAUTH_REDIRECT_URI: resolveGoogleCalendarRedirectUri(
+      source.GOOGLE_OAUTH_REDIRECT_URI,
+      appUrl,
+    ),
+  });
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
   }
   return parsed.data;
+}
+
+/** Resolves the Calendar OAuth callback without requiring the full server env. */
+export function peekGoogleCalendarRedirectUri(
+  source: EnvSource = readServerEnvFromProcess(),
+): string | undefined {
+  const appUrl = coalesceAppUrl(source.NEXT_PUBLIC_APP_URL, source.VERCEL_URL);
+  return resolveGoogleCalendarRedirectUri(
+    source.GOOGLE_OAUTH_REDIRECT_URI,
+    appUrl,
+  );
 }

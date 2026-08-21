@@ -11,7 +11,7 @@ Preenchido na implementação da Fase 13. Reexecutar o gate após cada mudança 
 | 1 | Clean install (`pnpm install --frozen-lockfile`) | PASS | CI `.github/workflows/ci.yml` (`pnpm install --frozen-lockfile`) |
 | 2 | lint | PASS | `pnpm lint` no `pnpm gate` local |
 | 3 | typecheck | PASS | `pnpm typecheck` no gate local |
-| 4 | unit/integration | PASS | `pnpm test` — 254 testes |
+| 4 | unit/integration | PASS | `pnpm test` — 278 testes |
 | 5 | RLS/security suite | PASS | `pnpm test:security` — 146 testes contra PostgreSQL local (emulação `auth`/`RLS`, **não** o projeto hospedado) |
 | 6 | Playwright desktop/mobile | PASS | `pnpm test:e2e` — 174 testes (`desktop-chromium` + `mobile-chromium`), 1 worker por causa do stub compartilhado |
 | 7 | production build | PASS | `pnpm build` |
@@ -52,7 +52,7 @@ SSO desligado. `vercel.json` força `framework: nextjs` (o preset do dashboard e
 
 O que ainda falta:
 
-1. Login Google: no cliente OAuth do Google Cloud, cadastrar `https://<ref>.supabase.co/auth/v1/callback` (sem isso o Google responde `redirect_uri_mismatch` / erro 400). No Supabase, Site URL e Redirect URLs têm de ser a origem HTTPS (não localhost) + `/auth/callback`. O redirect `{APP_URL}/api/integrations/google/callback` é só da Agenda.
+1. Login Google: no cliente OAuth do Google Cloud, cadastrar `https://<ref>.supabase.co/auth/v1/callback` (sem isso o Google responde `redirect_uri_mismatch` / erro 400). No Supabase, Site URL e Redirect URLs têm de ser a origem HTTPS (não localhost) + `/auth/callback`. O redirect da Agenda é outro: `{origem-do-Preview}/api/integrations/google/callback` — os dois precisam existir no mesmo cliente OAuth. Ativar a API Google Calendar. `NEXT_PUBLIC_APP_URL` localhost no `.env` importado é substituído por `VERCEL_URL` no parser.
 2. `TWILIO_WHATSAPP_FROM` / Messaging Service podem permanecer vazios.
 3. **Não** criar Cron Jobs na Vercel.
 4. Só promover Production depois de merge da Fase 13 (não o `main` SerenaPsi).

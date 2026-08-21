@@ -26,9 +26,11 @@ const STATUS_LABELS = {
 export function ConnectionPanel({
   connection,
   canManage,
+  calendarRedirectUri,
 }: {
   connection: ConnectionRow | null;
   canManage: boolean;
+  calendarRedirectUri?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -117,6 +119,16 @@ export function ConnectionPanel({
           )
         ) : null}
       </div>
+
+      {calendarRedirectUri && status !== "connected" ? (
+        <p className="text-sm text-muted-foreground">
+          Cadastre este endereço no Google Cloud, em URIs de redirecionamento
+          autorizados. É o retorno da Agenda — diferente do login:{" "}
+          <code className="break-all rounded-md bg-muted px-1.5 py-0.5 text-xs text-foreground">
+            {calendarRedirectUri}
+          </code>
+        </p>
+      ) : null}
 
       {status === "connected" ? (
         <div className="flex flex-col gap-3 border-t border-border pt-4">

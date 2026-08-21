@@ -24,10 +24,33 @@ export interface CalendarActionResult {
  * instead of a 403 from the route handler.
  */
 const GOOGLE_CALENDAR_ENV_ERROR =
-  "Não foi possível iniciar a conexão com o Google Calendar. Confira o endereço de retorno https://seu-site/api/integrations/google/callback na Vercel e o mesmo endereço no Google Cloud (é diferente do login).";
+  "Não foi possível iniciar a conexão com o Google Calendar. No Preview da Vercel, confira GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_TOKEN_ENCRYPTION_KEY. O endereço de retorno da Agenda é gerado automaticamente se ainda estiver apontando para localhost.";
 
 const GOOGLE_CALENDAR_LOCALHOST_ERROR =
-  "O retorno do Google Calendar ainda aponta para o computador (localhost). Na Vercel, use https://seu-site/api/integrations/google/callback e cadastre esse mesmo endereço no Google Cloud.";
+  "O retorno do Google Calendar ainda aponta para o computador (localhost). Na Vercel, NEXT_PUBLIC_APP_URL e GOOGLE_OAUTH_REDIRECT_URI precisam ser o endereço HTTPS deste site, não localhost.";
+
+const GOOGLE_CALENDAR_KEYS_ERROR =
+  "Faltam as chaves do Google Calendar na Vercel (Client ID e Client Secret). Importe do .env em Preview e Production.";
+
+function toGoogleCalendarStartError(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (
+    message.includes("GOOGLE_CLIENT_ID") ||
+    message.includes("GOOGLE_CLIENT_SECRET")
+  ) {
+    return GOOGLE_CALENDAR_KEYS_ERROR;
+  }
+  if (message.includes("GOOGLE_TOKEN_ENCRYPTION_KEY")) {
+    return "Falta a chave de criptografia do Google Calendar na Vercel (GOOGLE_TOKEN_ENCRYPTION_KEY).";
+  }
+  if (
+    message.includes("GOOGLE_OAUTH_REDIRECT_URI") ||
+    message.includes("NEXT_PUBLIC_APP_URL")
+  ) {
+    return GOOGLE_CALENDAR_ENV_ERROR;
+  }
+  return "Faltam configurações do servidor na Vercel para conectar o Google Calendar. Confira se as variáveis do .env existem em Preview e Production.";
+}
 
 export async function startGoogleConnectionAction(): Promise<CalendarActionResult> {
   const { organizationId, role, user } = await requireOrgContext();
@@ -39,8 +62,8 @@ export async function startGoogleConnectionAction(): Promise<CalendarActionResul
   let env;
   try {
     env = getServerEnv();
-  } catch {
-    return { error: GOOGLE_CALENDAR_ENV_ERROR };
+  } catch (error) {
+    return { error: toGoogleCalendarStartError(error) };
   }
 
   if (isLoopbackHttpUrl(env.GOOGLE_OAUTH_REDIRECT_URI)) {

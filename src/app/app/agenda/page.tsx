@@ -12,6 +12,7 @@ import {
   type AgendaView,
 } from "@/features/calendar/date-window";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
+import { peekGoogleCalendarRedirectUri } from "@/lib/env/server";
 
 export const metadata: Metadata = { title: "Agenda — Tesseli" };
 
@@ -39,6 +40,7 @@ export default async function AgendaPage({
   );
 
   const googleStatus = typeof params.google === "string" ? params.google : undefined;
+  const calendarRedirectUri = peekGoogleCalendarRedirectUri();
 
   return (
     <PageContainer>
@@ -61,8 +63,17 @@ export default async function AgendaPage({
           className="rounded-2xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed"
         >
           Não foi possível conectar o Google Calendar. O endereço de retorno da
-          Agenda é o do site com /api/integrations/google/callback — não use o
-          endereço do login. Cadastre o mesmo na Vercel e no Google Cloud.
+          Agenda é diferente do login. Cadastre no Google Cloud
+          {calendarRedirectUri ? (
+            <>
+              :{" "}
+              <code className="break-all rounded-md bg-white/70 px-1.5 py-0.5 text-xs">
+                {calendarRedirectUri}
+              </code>
+            </>
+          ) : (
+            " o endereço deste site com /api/integrations/google/callback."
+          )}
         </p>
       ) : null}
 

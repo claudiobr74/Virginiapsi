@@ -86,29 +86,65 @@ function isUsableHttpUrl(value: string): boolean {
 }
 
 /**
- * Preview/Production on Vercel often have an empty or host-only
- * `NEXT_PUBLIC_APP_URL` while `VERCEL_URL` is always set. An invalid
- * APP_URL used to throw in `proxy.ts` / `instrumentation.ts` and take
- * down every route with a plaintext Internal Server Error.
+ * Preview/Production on Vercel often have an empty, host-only, or
+ * localhost `NEXT_PUBLIC_APP_URL` (copied from `.env`) while `VERCEL_URL`
+ * is the real HTTPS host. Prefer a public APP_URL; otherwise use Vercel.
  */
 export function coalesceAppUrl(
   appUrl: string | undefined,
   vercelUrl: string | undefined,
 ): string | undefined {
   const normalized = normalizePublicAppUrl(appUrl);
-  if (typeof normalized === "string" && isUsableHttpUrl(normalized)) {
-    return normalized;
-  }
+  const fromApp =
+    typeof normalized === "string" && isUsableHttpUrl(normalized)
+      ? normalized
+      : undefined;
 
   const host = vercelUrl?.trim();
-  if (!host) {
-    return typeof normalized === "string" ? normalized : undefined;
+  let fromVercel: string | undefined;
+  if (host) {
+    const candidate = /^https?:\/\//i.test(host)
+      ? host
+      : `https://${host.replace(/^\/\//, "")}`;
+    fromVercel = isUsableHttpUrl(candidate) ? candidate : undefined;
   }
 
-  const fromVercel = /^https?:\/\//i.test(host)
-    ? host
-    : `https://${host.replace(/^\/\//, "")}`;
-  return isUsableHttpUrl(fromVercel) ? fromVercel : undefined;
+  if (fromApp && !isLoopbackHttpUrl(fromApp)) {
+    return fromApp;
+  }
+  if (fromVercel && !isLoopbackHttpUrl(fromVercel)) {
+    return fromVercel;
+  }
+  return fromApp ?? fromVercel;
+}
+
+/**
+ * Empty or localhost Calendar redirect on a Vercel host is rewritten to
+ * `{appUrl}/api/integrations/google/callback`. Local `pnpm dev` keeps localhost.
+ */
+export function resolveGoogleCalendarRedirectUri(
+  redirectUri: string | undefined,
+  appUrl: string | undefined,
+): string | undefined {
+  const normalized = normalizeGoogleOAuthRedirectUri(redirectUri);
+  const usable =
+    typeof normalized === "string" && isUsableHttpUrl(normalized)
+      ? normalized
+      : undefined;
+
+  const appIsPublic = Boolean(appUrl && isUsableHttpUrl(appUrl) && !isLoopbackHttpUrl(appUrl));
+  if (usable && !(appIsPublic && isLoopbackHttpUrl(usable))) {
+    return usable;
+  }
+
+  if (appUrl && isUsableHttpUrl(appUrl)) {
+    const derived = normalizeGoogleOAuthRedirectUri(appUrl);
+    return typeof derived === "string" && isUsableHttpUrl(derived)
+      ? derived
+      : undefined;
+  }
+
+  return usable;
 }
 
 export const publicEnvSchema = z.object({

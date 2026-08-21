@@ -7,9 +7,11 @@ import {
   normalizeGoogleOAuthRedirectUri,
   normalizePublicAppUrl,
   parsePublicEnv,
+  resolveGoogleCalendarRedirectUri,
 } from "../../src/lib/env/schema";
 import {
   parseServerEnv,
+  peekGoogleCalendarRedirectUri,
   SERVER_ONLY_ENV_KEYS,
 } from "../../src/lib/env/server-schema";
 
@@ -105,6 +107,19 @@ describe("contrato de ambiente", () => {
     ).toBe("https://tesseli-git-preview.vercel.app");
   });
 
+  it("substitui APP_URL localhost pela VERCEL_URL no Preview", () => {
+    expect(
+      coalesceAppUrl("http://localhost:3000", "tesseli-git-preview.vercel.app"),
+    ).toBe("https://tesseli-git-preview.vercel.app");
+    expect(
+      parsePublicEnv({
+        ...validPublic,
+        NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+        VERCEL_URL: "tesseli-git-preview.vercel.app",
+      }).NEXT_PUBLIC_APP_URL,
+    ).toBe("https://tesseli-git-preview.vercel.app");
+  });
+
   it("rejeita chave publishable no formato legado", () => {
     expect(() =>
       parsePublicEnv({
@@ -148,6 +163,54 @@ describe("contrato de ambiente", () => {
     ).toBe("https://preview.vercel.app/api/integrations/google/callback");
   });
 
+  it("deriva APP_URL e callback da Agenda a partir de VERCEL_URL", () => {
+    expect(
+      resolveGoogleCalendarRedirectUri(
+        "",
+        "https://tesseli-git-preview.vercel.app",
+      ),
+    ).toBe(
+      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
+    );
+    expect(
+      resolveGoogleCalendarRedirectUri(
+        "http://localhost:3000/api/integrations/google/callback",
+        "https://tesseli-git-preview.vercel.app",
+      ),
+    ).toBe(
+      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
+    );
+
+    const parsed = parseServerEnv({
+      ...validServer,
+      NEXT_PUBLIC_APP_URL: "",
+      VERCEL_URL: "tesseli-git-preview.vercel.app",
+      GOOGLE_OAUTH_REDIRECT_URI: "http://localhost:3000/api/integrations/google/callback",
+    });
+    expect(parsed.NEXT_PUBLIC_APP_URL).toBe(
+      "https://tesseli-git-preview.vercel.app",
+    );
+    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
+      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
+    );
+  });
+
+  it("no Preview, localhost importado do .env vira o callback HTTPS da Vercel", () => {
+    const parsed = parseServerEnv({
+      ...validServer,
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+      VERCEL_URL: "tesseli-git-preview.vercel.app",
+      GOOGLE_OAUTH_REDIRECT_URI:
+        "http://localhost:3000/api/integrations/google/callback",
+    });
+    expect(parsed.NEXT_PUBLIC_APP_URL).toBe(
+      "https://tesseli-git-preview.vercel.app",
+    );
+    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
+      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
+    );
+  });
+
   it("reconhece localhost no redirect URI", () => {
     expect(isLoopbackHttpUrl("http://localhost:3000/api/integrations/google/callback")).toBe(
       true,
@@ -160,9 +223,31 @@ describe("contrato de ambiente", () => {
   });
 
   it("aceita o contrato servidor completo", () => {
-    expect(parseServerEnv(validServer).SUPABASE_SECRET_KEY).toBe(
-      "sb_secret_ci_placeholder",
+    const parsed = parseServerEnv(validServer);
+    expect(parsed.SUPABASE_SECRET_KEY).toBe("sb_secret_ci_placeholder");
+    expect(parsed.NEXT_PUBLIC_APP_URL).toBe("http://localhost:3000");
+    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
+      "http://localhost:3000/api/integrations/google/callback",
     );
+  });
+
+  it("expõe o callback da Agenda sem exigir o contrato servidor completo", () => {
+    expect(
+      peekGoogleCalendarRedirectUri({
+        NEXT_PUBLIC_APP_URL: "",
+        VERCEL_URL: "tesseli-git-preview.vercel.app",
+        GOOGLE_OAUTH_REDIRECT_URI:
+          "http://localhost:3000/api/integrations/google/callback",
+      }),
+    ).toBe(
+      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
+    );
+  });
+
+  it("nomeia GOOGLE_CLIENT_ID quando a chave falta, sem vazar outros valores", () => {
+    expect(() =>
+      parseServerEnv({ ...validServer, GOOGLE_CLIENT_ID: "" }),
+    ).toThrow(/GOOGLE_CLIENT_ID/);
   });
 
   it("aceita o contrato servidor sem remetente Twilio (exigido só no envio)", () => {

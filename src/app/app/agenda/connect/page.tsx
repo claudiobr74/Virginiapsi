@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ConnectionPanel } from "@/features/calendar/components/connection-panel";
 import { getConnection } from "@/features/calendar/connection-queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
+import { peekGoogleCalendarRedirectUri } from "@/lib/env/server";
 
 export const metadata: Metadata = { title: "Conexão Google Calendar — Tesseli" };
 
@@ -24,7 +25,11 @@ export default async function GoogleConnectionPage() {
         title="Conexão com o Google Calendar"
         subtitle="Conta independente do login — conecte, escolha o calendário e acompanhe a sincronização"
       />
-      <ConnectionPanel connection={connection} canManage={role === "psychologist_admin"} />
+      <ConnectionPanel
+        connection={connection}
+        canManage={role === "psychologist_admin"}
+        calendarRedirectUri={peekGoogleCalendarRedirectUri()}
+      />
     </PageContainer>
   );
 }
