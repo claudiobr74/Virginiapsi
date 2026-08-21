@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { toGoogleAuthErrorMessage } from "@/features/auth/messages";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function GoogleIcon() {
@@ -29,8 +30,10 @@ function GoogleIcon() {
 
 export function GoogleAuthButton() {
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleClick() {
+    setErrorMessage(null);
     setIsLoading(true);
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.auth.signInWithOAuth({
@@ -41,20 +44,31 @@ export function GoogleAuthButton() {
     });
     if (error) {
       setIsLoading(false);
+      setErrorMessage(toGoogleAuthErrorMessage(error.message));
     }
   }
 
   return (
-    <Button
-      type="button"
-      variant="secondary"
-      size="lg"
-      className="w-full border border-border bg-white text-deep-neutral hover:bg-surface dark:bg-card"
-      isLoading={isLoading}
-      onClick={handleClick}
-    >
-      {!isLoading ? <GoogleIcon /> : null}
-      Continuar com Google
-    </Button>
+    <div className="flex flex-col gap-3">
+      {errorMessage ? (
+        <p
+          role="alert"
+          className="rounded-xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed"
+        >
+          {errorMessage}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        variant="secondary"
+        size="lg"
+        className="w-full border border-border bg-white text-deep-neutral hover:bg-surface dark:bg-card"
+        isLoading={isLoading}
+        onClick={handleClick}
+      >
+        {!isLoading ? <GoogleIcon /> : null}
+        Continuar com Google
+      </Button>
+    </div>
   );
 }

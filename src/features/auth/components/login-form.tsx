@@ -9,7 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GoogleAuthButton } from "@/features/auth/components/google-auth-button";
-import { toLoginErrorMessage } from "@/features/auth/messages";
+import {
+  toAuthQueryErrorMessage,
+  toLoginErrorMessage,
+} from "@/features/auth/messages";
 import { loginSchema, type LoginValues } from "@/features/auth/schemas";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -26,6 +29,9 @@ export function LoginForm() {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
+
+  const queryError = toAuthQueryErrorMessage(searchParams.get("error"));
+  const visibleError = formError ?? queryError;
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
@@ -45,12 +51,12 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
-      {formError ? (
+      {visibleError ? (
         <p
           role="alert"
           className="rounded-xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed"
         >
-          {formError}
+          {visibleError}
         </p>
       ) : null}
 

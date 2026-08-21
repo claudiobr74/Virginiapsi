@@ -52,7 +52,7 @@ SSO desligado. `vercel.json` força `framework: nextjs` (o preset do dashboard e
 
 O que ainda falta:
 
-1. Cadastrar o redirect HTTPS no Google Cloud quando for ligar o Calendar.
+1. Login Google: no cliente OAuth do Google Cloud, cadastrar `https://<ref>.supabase.co/auth/v1/callback` (sem isso o Google responde `redirect_uri_mismatch` / erro 400). O redirect `{APP_URL}/api/integrations/google/callback` é só da Agenda.
 2. `TWILIO_WHATSAPP_FROM` / Messaging Service podem permanecer vazios.
 3. **Não** criar Cron Jobs na Vercel.
 4. Só promover Production depois de merge da Fase 13 (não o `main` SerenaPsi).

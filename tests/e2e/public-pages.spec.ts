@@ -39,6 +39,14 @@ test.describe("Login", () => {
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
   });
 
+  test("mostra aviso quando o callback do Google falha", async ({ page }) => {
+    await page.goto("/login?error=auth_callback_failed");
+
+    await expect(page.getByRole("alert")).toContainText(
+      "Não foi possível concluir o login com Google",
+    );
+  });
+
   test("mostra erros de validação com campos vazios", async ({ page }) => {
     await page.goto("/login");
     await page.getByRole("button", { name: "Entrar" }).click();
