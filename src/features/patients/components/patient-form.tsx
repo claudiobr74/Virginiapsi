@@ -11,10 +11,12 @@ import { Label } from "@/components/ui/label";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
+import type { ConsentRow } from "@/features/consents/contracts";
 import {
   createPatientAction,
   updatePatientAction,
 } from "@/features/patients/actions";
+import { PatientTermsSummary } from "@/features/patients/components/patient-terms-summary";
 import {
   CONSULTATION_MODALITY_VALUES,
   MODALITY_LABELS,
@@ -61,9 +63,13 @@ function defaultValuesFrom(patient?: PatientRow): PatientFormValues {
 
 export interface PatientFormProps {
   patient?: PatientRow;
+  terms?: {
+    isAdmin: boolean;
+    consents: ConsentRow[];
+  };
 }
 
-export function PatientForm({ patient }: PatientFormProps) {
+export function PatientForm({ patient, terms }: PatientFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -276,7 +282,11 @@ export function PatientForm({ patient }: PatientFormProps) {
         <section className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6">
           <SectionHeader
             title="Financeiro & Termos"
-            description="Templates de TCLE e consentimentos chegam nas fases 5.5 e 9."
+            description={
+              patient
+                ? "Valor usado nas cobranças. A situação vigente dos termos aparece abaixo; o aceite fica no prontuário."
+                : "Valor usado nas cobranças. Termos de serviço e TCLE são registrados no prontuário depois do cadastro."
+            }
           />
           <div className="flex flex-col gap-1.5 sm:max-w-xs">
             <Label htmlFor="defaultSessionValue">
@@ -294,6 +304,13 @@ export function PatientForm({ patient }: PatientFormProps) {
               </p>
             ) : null}
           </div>
+          {patient && terms ? (
+            <PatientTermsSummary
+              patientId={patient.id}
+              consents={terms.consents}
+              isAdmin={terms.isAdmin}
+            />
+          ) : null}
         </section>
 
         <div className="flex justify-end gap-3">

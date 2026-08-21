@@ -178,8 +178,9 @@ export default async function PatientHubPage({
 
       {isAdmin && consentResolution ? (
         <PatientHubSection
+          id="consentimentos"
           title="Consentimentos de gravação, transcrição e IA"
-          description="Base mínima exigida antes de qualquer captura de áudio (Fase 5.5). O TCLE completo chega na Fase 9."
+          description="Exigidos antes de capturar áudio ou usar apoio de IA na sessão."
         >
           <ConsentPanel
             patientId={patient.id}
@@ -251,8 +252,9 @@ export default async function PatientHubPage({
 
       {isAdmin && minorRequirement ? (
         <PatientHubSection
+          id="tcle"
           title="Gestão de TCLE"
-          description="Aceite, revogação e histórico do Termo de Consentimento Livre e Esclarecido."
+          description="Aceite, revogação e histórico do Termo de Consentimento Livre e Esclarecido e dos termos de serviço."
         >
           <TclePanel
             patientId={patient.id}

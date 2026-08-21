@@ -5,6 +5,18 @@ export type TcleConsentType = (typeof TCLE_CONSENT_TYPES)[number];
 
 export type TcleStatus = "never_accepted" | "current" | "outdated" | "revoked";
 
+export const TCLE_TYPE_LABELS: Record<TcleConsentType, string> = {
+  service_terms: "Termos de Serviço",
+  psychotherapy: "TCLE de Psicoterapia",
+};
+
+export const TCLE_STATUS_LABELS: Record<TcleStatus, string> = {
+  never_accepted: "Não aceito",
+  current: "Aceito — versão vigente",
+  outdated: "Aceito em versão anterior",
+  revoked: "Revogado",
+};
+
 export interface TcleResolution {
   status: TcleStatus;
   latest: ConsentRow | null;

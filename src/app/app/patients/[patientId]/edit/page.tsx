@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { listPatientConsents } from "@/features/consents/queries";
 import { PatientForm } from "@/features/patients/components/patient-form";
 import { getPatient } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
@@ -10,12 +11,27 @@ export default async function EditPatientPage({
   params,
 }: PageProps<"/app/patients/[patientId]/edit">) {
   const { patientId } = await params;
-  const { organizationId } = await requireOrgContext();
+  const { organizationId, role } = await requireOrgContext();
 
   const patient = await getPatient(organizationId, patientId);
   if (!patient) {
     notFound();
   }
 
-  return <PatientForm patient={patient} />;
+  let consents: Awaited<ReturnType<typeof listPatientConsents>> = [];
+  try {
+    consents = await listPatientConsents(organizationId, patient.id);
+  } catch {
+    consents = [];
+  }
+
+  return (
+    <PatientForm
+      patient={patient}
+      terms={{
+        isAdmin: role === "psychologist_admin",
+        consents,
+      }}
+    />
+  );
 }

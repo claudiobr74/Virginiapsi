@@ -50,6 +50,12 @@ test.describe("Cadastro de paciente", () => {
     await expect(
       page.getByRole("heading", { name: "Financeiro & Termos" }),
     ).toBeVisible();
+    await expect(
+      page.getByText("Templates de TCLE e consentimentos chegam nas fases 5.5 e 9."),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText("Termos de serviço e TCLE são registrados no prontuário depois do cadastro."),
+    ).toBeVisible();
 
     await page.getByLabel("Nome preferencial").fill("Carla Teste");
     await page.getByLabel("Nome completo").fill("Carla Teste da Silva");
@@ -71,6 +77,30 @@ test.describe("Cadastro de paciente", () => {
     await expect(page.getByText(/PAC-\d{3,}/)).toBeVisible();
     await expect(page.getByText("Marta Teste")).toBeVisible();
     await expect(page.getByText("R$ 250,00")).toBeVisible();
+  });
+
+  test("edição mostra a situação dos termos em vez do placeholder de fase", async ({
+    page,
+  }) => {
+    await loginViaUi(page);
+    await page.goto("/app/patients");
+    await page.getByText("Beatriz", { exact: true }).click();
+    await page.waitForURL(/\/app\/patients\/[0-9a-f-]+$/);
+    await page.getByRole("link", { name: "Editar cadastro" }).click();
+    await page.waitForURL(/\/app\/patients\/[0-9a-f-]+\/edit$/);
+
+    await expect(
+      page.getByRole("heading", { name: "Financeiro & Termos" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Templates de TCLE e consentimentos chegam nas fases 5.5 e 9."),
+    ).toHaveCount(0);
+    await expect(page.getByText("Termos de Serviço")).toBeVisible();
+    await expect(page.getByText("TCLE de Psicoterapia")).toBeVisible();
+    await expect(page.getByText("Não aceito").first()).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Abrir termos no prontuário" }),
+    ).toHaveAttribute("href", /\/app\/patients\/[0-9a-f-]+#tcle$/);
   });
 });
 

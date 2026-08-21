@@ -13,19 +13,20 @@ import {
   requestConsentFileDownloadUrlAction,
 } from "@/features/consents/tcle-actions";
 import { TCLE_LEGAL_REVIEW_DISCLAIMER, TCLE_VERSION } from "@/features/consents/tcle-content";
-import { TCLE_CONSENT_TYPES, resolveTcleStatus, type TcleConsentType } from "@/features/consents/tcle";
+import {
+  TCLE_CONSENT_TYPES,
+  TCLE_STATUS_LABELS,
+  TCLE_TYPE_LABELS,
+  resolveTcleStatus,
+  type TcleStatus,
+} from "@/features/consents/tcle";
 import type { ConsentRow } from "@/features/consents/contracts";
 
-const TYPE_LABELS: Record<TcleConsentType, string> = {
-  service_terms: "Termos de Serviço",
-  psychotherapy: "TCLE de Psicoterapia",
-};
-
-const STATUS_BADGE = {
-  never_accepted: { status: "pending" as const, label: "Não aceito" },
-  current: { status: "active" as const, label: "Aceito — versão vigente" },
-  outdated: { status: "attention" as const, label: "Aceito em versão anterior" },
-  revoked: { status: "cancelled" as const, label: "Revogado" },
+const STATUS_BADGE: Record<TcleStatus, "pending" | "active" | "attention" | "cancelled"> = {
+  never_accepted: "pending",
+  current: "active",
+  outdated: "attention",
+  revoked: "cancelled",
 };
 
 export function TclePanel({
@@ -92,7 +93,6 @@ export function TclePanel({
 
       {TCLE_CONSENT_TYPES.map((type) => {
         const resolution = resolveTcleStatus(consents, type, TCLE_VERSION);
-        const badge = STATUS_BADGE[resolution.status];
         const canAccept = resolution.status !== "current";
 
         return (
@@ -102,7 +102,7 @@ export function TclePanel({
             className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3"
           >
             <div className="flex flex-col gap-1">
-              <span className="text-sm font-semibold text-foreground">{TYPE_LABELS[type]}</span>
+              <span className="text-sm font-semibold text-foreground">{TCLE_TYPE_LABELS[type]}</span>
               {resolution.latest ? (
                 <span className="text-xs text-muted-foreground">
                   Versão {resolution.latest.version} — {resolution.latest.accepted_at
@@ -112,13 +112,16 @@ export function TclePanel({
               ) : null}
             </div>
             <div className="flex items-center gap-2">
-              <StatusBadge status={badge.status} label={badge.label} />
+              <StatusBadge
+                status={STATUS_BADGE[resolution.status]}
+                label={TCLE_STATUS_LABELS[resolution.status]}
+              />
               {resolution.latest && resolution.status !== "revoked" ? (
                 <Button
                   type="button"
                   size="sm"
                   variant="secondary"
-                  aria-label={`Baixar PDF de ${TYPE_LABELS[type]}`}
+                  aria-label={`Baixar PDF de ${TCLE_TYPE_LABELS[type]}`}
                   onClick={() => void download(resolution.latest!.id)}
                 >
                   <Download className="size-3.5" aria-hidden />
