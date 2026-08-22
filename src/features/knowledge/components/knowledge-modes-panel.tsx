@@ -94,7 +94,10 @@ export function KnowledgeModesPanel({
         </p>
       </div>
 
-      <div className="-mx-1 flex flex-nowrap gap-1 overflow-x-auto border-b border-border px-1" role="tablist">
+      <div
+        className="-mx-1 flex flex-nowrap gap-1 overflow-x-auto border-b border-border px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        role="tablist"
+      >
         {MODES.map((item) => (
           <button
             key={item.id}
