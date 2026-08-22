@@ -94,7 +94,7 @@ export function KnowledgeModesPanel({
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b border-border" role="tablist">
+      <div className="-mx-1 flex flex-nowrap gap-1 overflow-x-auto border-b border-border px-1" role="tablist">
         {MODES.map((item) => (
           <button
             key={item.id}
@@ -107,7 +107,7 @@ export function KnowledgeModesPanel({
               setError(null);
             }}
             className={cn(
-              "-mb-px border-b-2 px-3 py-2.5 text-sm transition-colors",
+              "-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors",
               mode === item.id
                 ? "border-foreground font-semibold text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",
