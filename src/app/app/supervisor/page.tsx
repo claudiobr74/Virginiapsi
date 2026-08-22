@@ -1,15 +1,16 @@
 import { Sparkles } from "lucide-react";
-import Link from "next/link";
+import { redirect } from "next/navigation";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
 import { getPatient, listPatients } from "@/features/patients/queries";
 import { listPatientSessions } from "@/features/sessions/queries";
-import { listSupervisorRuns } from "@/features/supervisor/queries";
-import { SupervisorConsole } from "@/features/supervisor/components/supervisor-console";
 import { RestrictedAccess } from "@/features/shell/restricted-access";
+import { SupervisorConsole } from "@/features/supervisor/components/supervisor-console";
+import { SupervisorPatientPicker } from "@/features/supervisor/components/supervisor-patient-picker";
+import { SupervisorStepper } from "@/features/supervisor/components/supervisor-stepper";
+import { listSupervisorRuns } from "@/features/supervisor/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
-import { redirect } from "next/navigation";
 
 export const metadata = { title: "Supervisor IA — Tesseli" };
 
@@ -41,20 +42,10 @@ export default async function SupervisorPage({
             description="Cadastre um paciente para usar o Supervisor Clínico IA."
           />
         ) : (
-          <div className="flex flex-col gap-2 rounded-3xl border border-border bg-card p-4">
-            <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Selecione um paciente para iniciar
-            </span>
-            {patients.map((patient) => (
-              <Link
-                key={patient.id}
-                href={`/app/supervisor?patientId=${patient.id}`}
-                className="rounded-xl border border-border bg-surface/40 px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-surface"
-              >
-                {patient.preferred_name} — {patient.public_code}
-              </Link>
-            ))}
-          </div>
+          <>
+            <SupervisorStepper current={1} />
+            <SupervisorPatientPicker patients={patients} />
+          </>
         )}
       </PageContainer>
     );
@@ -81,6 +72,8 @@ export default async function SupervisorPage({
       <SupervisorConsole
         patientId={patient.id}
         patientDisplayName={patient.preferred_name}
+        patientPublicCode={patient.public_code}
+        patientModality={patient.modality}
         finalizedSessions={finalizedSessions}
         pastRuns={pastRuns}
       />
