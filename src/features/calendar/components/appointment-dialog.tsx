@@ -168,26 +168,27 @@ export function AppointmentDialog({
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="durationMinutes">Duração (minutos)</Label>
-            <Input id="durationMinutes" inputMode="numeric" {...register("durationMinutes")} />
-            {errors.durationMinutes ? (
-              <p className="text-xs text-failed">{errors.durationMinutes.message}</p>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="modality">Modalidade</Label>
-            <div className="flex flex-wrap gap-2">
-              {APPOINTMENT_MODALITY_VALUES.map((value) => (
-                <label
-                  key={value}
-                  className="cursor-pointer rounded-xl border border-border px-3.5 py-2 text-sm font-medium transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground"
-                >
-                  <input type="radio" value={value} className="sr-only" {...register("modality")} />
-                  {MODALITY_LABELS[value]}
-                </label>
-              ))}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="durationMinutes">Duração (minutos)</Label>
+              <Input id="durationMinutes" inputMode="numeric" {...register("durationMinutes")} />
+              {errors.durationMinutes ? (
+                <p className="text-xs text-failed">{errors.durationMinutes.message}</p>
+              ) : null}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="modality">Modalidade</Label>
+              <div className="flex flex-wrap gap-2">
+                {APPOINTMENT_MODALITY_VALUES.map((value) => (
+                  <label
+                    key={value}
+                    className="cursor-pointer rounded-xl border border-border px-3 py-2 text-sm font-medium transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground"
+                  >
+                    <input type="radio" value={value} className="sr-only" {...register("modality")} />
+                    {MODALITY_LABELS[value]}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
 

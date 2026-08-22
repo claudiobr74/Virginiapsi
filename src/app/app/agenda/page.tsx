@@ -1,8 +1,6 @@
-import { CalendarDays } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageContainer } from "@/components/ui/page-container";
-import { PageHeader } from "@/components/ui/page-header";
 import { loadAgendaPageData } from "@/features/calendar/agenda-page-data";
 import { AgendaBoard } from "@/features/calendar/components/agenda-board";
 import {
@@ -44,12 +42,6 @@ export default async function AgendaPage({
 
   return (
     <PageContainer>
-      <PageHeader
-        icon={CalendarDays}
-        title="Agenda"
-        subtitle="Google Calendar como agenda externa oficial, com Meet real para consultas online"
-      />
-
       {googleStatus === "connected" ? (
         <p
           role="status"

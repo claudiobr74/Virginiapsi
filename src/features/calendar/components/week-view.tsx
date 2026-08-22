@@ -14,12 +14,14 @@ export function WeekView({
   appointmentsByDay,
   timeZone,
   today,
+  isAdmin = false,
   onSelect,
 }: {
   days: string[];
   appointmentsByDay: Map<string, AppointmentRow[]>;
   timeZone: string;
   today: string;
+  isAdmin?: boolean;
   onSelect: (appointment: AppointmentRow) => void;
 }) {
   return (
@@ -57,6 +59,8 @@ export function WeekView({
                     key={appointment.id}
                     appointment={appointment}
                     timeZone={timeZone}
+                    isAdmin={isAdmin}
+                    compact
                     onClick={() => onSelect(appointment)}
                   />
                 ))}

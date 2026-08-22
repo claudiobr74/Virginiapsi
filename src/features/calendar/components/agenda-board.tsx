@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarDays } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { AgendaToolbar } from "@/features/calendar/components/agenda-toolbar";
@@ -16,6 +17,7 @@ import {
   todayInTimeZone,
   type AgendaView,
 } from "@/features/calendar/date-window";
+import { formatAgendaLongDate, formatAgendaMonthLabel } from "@/features/calendar/display";
 import { syncGoogleCalendarAction } from "@/features/calendar/sync-actions";
 import type { PatientRow } from "@/features/patients/contracts";
 
@@ -29,14 +31,17 @@ export interface AgendaBoardProps {
   canManageConnection: boolean;
 }
 
-function rangeLabel(view: AgendaView, days: string[]): string {
-  const format = (value: string) => {
-    const [year, month, day] = value.split("-");
-    return `${day}/${month}/${year}`;
-  };
+function rangeLabel(view: AgendaView, days: string[], timeZone: string): string {
   if (view === "day") {
-    return format(days[0]);
+    return formatAgendaLongDate(days[0], timeZone);
   }
+  if (view === "month") {
+    return formatAgendaMonthLabel(days[0], timeZone);
+  }
+  const format = (value: string) => {
+    const [, month, day] = value.split("-");
+    return `${day}/${month}`;
+  };
   return `${format(days[0])} – ${format(days.at(-1)!)}`;
 }
 
@@ -106,7 +111,23 @@ export function AgendaBoard({
   const canSync = connection?.status === "connected" && Boolean(connection.calendar_id);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-4">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+            <CalendarDays className="size-5" aria-hidden />
+          </span>
+          <div className="flex flex-col gap-1">
+            <h1 className="font-serif text-[28px] italic font-medium leading-tight text-foreground">
+              Agenda
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {formatAgendaLongDate(referenceDate, timeZone)}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <ConnectionStatusBanner connection={connection} canManage={canManageConnection} />
 
       {syncError ? (
@@ -131,13 +152,14 @@ export function AgendaBoard({
         onSync={canManageConnection || connection ? handleSync : undefined}
         isSyncing={isSyncing}
         canSync={canSync}
-        rangeLabel={rangeLabel(view, window.days)}
+        rangeLabel={rangeLabel(view, window.days, timeZone)}
       />
 
       {view === "day" ? (
         <DayView
           appointments={appointmentsByDay.get(referenceDate) ?? []}
           timeZone={timeZone}
+          isAdmin={canManageConnection}
           onSelect={setSelectedAppointment}
         />
       ) : view === "week" ? (
@@ -146,6 +168,7 @@ export function AgendaBoard({
           appointmentsByDay={appointmentsByDay}
           timeZone={timeZone}
           today={today}
+          isAdmin={canManageConnection}
           onSelect={setSelectedAppointment}
         />
       ) : (

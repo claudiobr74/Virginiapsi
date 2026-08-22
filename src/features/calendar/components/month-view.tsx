@@ -23,7 +23,7 @@ export function MonthView({
   const blanks = leadingBlankDays(days[0]);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 rounded-3xl border border-border bg-card p-3 sm:p-4">
       <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase tracking-wide text-muted-foreground">
         {WEEKDAY_LABELS.map((label) => (
           <span key={label}>{label}</span>
@@ -47,14 +47,16 @@ export function MonthView({
               type="button"
               onClick={() => onSelectDay(day)}
               className={cn(
-                "flex min-h-20 flex-col items-start gap-1 rounded-xl border border-border bg-card p-2 text-left transition-colors hover:border-sage-light hover:bg-surface/60",
-                isToday && "border-primary/60 bg-cream/50",
+                "flex min-h-20 flex-col items-start gap-1 rounded-xl border border-border bg-background p-2 text-left transition-colors hover:border-sage-light hover:bg-surface/60",
+                isToday && "border-primary/40",
               )}
             >
               <span
                 className={cn(
-                  "font-mono text-xs font-semibold",
-                  isToday ? "text-primary" : "text-foreground",
+                  "flex size-7 items-center justify-center font-mono text-xs font-semibold",
+                  isToday
+                    ? "rounded-full bg-foreground text-background"
+                    : "text-foreground",
                 )}
               >
                 {dayNumber}

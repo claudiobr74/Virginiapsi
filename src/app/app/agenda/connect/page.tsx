@@ -1,7 +1,6 @@
 import { CalendarCog } from "lucide-react";
 import type { Metadata } from "next";
 import { PageContainer } from "@/components/ui/page-container";
-import { PageHeader } from "@/components/ui/page-header";
 import { ConnectionPanel } from "@/features/calendar/components/connection-panel";
 import { getConnection } from "@/features/calendar/connection-queries";
 import { ensureGoogleCalendarReady } from "@/features/calendar/ensure-calendar";
@@ -22,11 +21,19 @@ export default async function GoogleConnectionPage() {
 
   return (
     <PageContainer narrow>
-      <PageHeader
-        icon={CalendarCog}
-        title="Conexão com o Google Calendar"
-        subtitle="Conta independente do login — conecte, escolha o calendário e acompanhe a sincronização"
-      />
+      <div className="flex items-center gap-4">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+          <CalendarCog className="size-5" aria-hidden />
+        </span>
+        <div className="flex flex-col gap-1">
+          <h1 className="font-serif text-[28px] italic font-medium leading-tight text-foreground">
+            Conexão com o Google Calendar
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Conta independente do login — conecte, escolha o calendário e acompanhe a sincronização
+          </p>
+        </div>
+      </div>
       <ConnectionPanel
         connection={connection}
         canManage={role === "psychologist_admin"}

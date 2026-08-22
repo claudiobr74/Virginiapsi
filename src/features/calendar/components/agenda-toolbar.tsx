@@ -33,9 +33,26 @@ export function AgendaToolbar({
   rangeLabel: string;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-3xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-2">
-        <div className="flex rounded-xl border border-border p-0.5">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="secondary" onClick={onToday}>
+          Hoje
+        </Button>
+        <div className="flex items-center">
+          <Button type="button" size="icon" variant="ghost" onClick={() => onNavigate(-1)}>
+            <ChevronLeft className="size-4" aria-hidden />
+            <span className="sr-only">Anterior</span>
+          </Button>
+          <Button type="button" size="icon" variant="ghost" onClick={() => onNavigate(1)}>
+            <ChevronRight className="size-4" aria-hidden />
+            <span className="sr-only">Próximo</span>
+          </Button>
+        </div>
+        <span className="font-serif text-lg italic font-medium text-foreground">{rangeLabel}</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex rounded-xl border border-border bg-surface/60 p-1">
           {(Object.keys(VIEW_LABELS) as AgendaView[]).map((value) => (
             <button
               key={value}
@@ -45,39 +62,24 @@ export function AgendaToolbar({
                 "rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors",
                 view === value
                   ? "bg-primary text-primary-foreground"
-                  : "text-deep-neutral hover:bg-surface",
+                  : "text-deep-neutral hover:bg-card",
               )}
             >
               {VIEW_LABELS[value]}
             </button>
           ))}
         </div>
-        <Button type="button" size="sm" variant="ghost" onClick={() => onNavigate(-1)}>
-          <ChevronLeft className="size-4" aria-hidden />
-        </Button>
-        <Button type="button" size="sm" variant="secondary" onClick={onToday}>
-          Hoje
-        </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => onNavigate(1)}>
-          <ChevronRight className="size-4" aria-hidden />
-        </Button>
-        <span className="hidden text-sm font-semibold text-foreground sm:inline">
-          {rangeLabel}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2">
         {onSync ? (
           <Button
             type="button"
-            size="sm"
+            size="icon"
             variant="secondary"
             isLoading={isSyncing}
             disabled={!canSync}
             onClick={onSync}
+            aria-label="Sincronizar agora"
           >
             <RefreshCw className="size-4" aria-hidden />
-            Sincronizar agora
           </Button>
         ) : null}
         <Button type="button" size="sm" onClick={onNewAppointment}>
