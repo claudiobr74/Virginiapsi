@@ -57,6 +57,7 @@ export function AgendaToolbar({
             <button
               key={value}
               type="button"
+              aria-pressed={view === value}
               onClick={() => onViewChange(value)}
               className={cn(
                 "rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors",
