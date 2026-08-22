@@ -57,10 +57,12 @@ export function TemplatesPanel({ templates }: { templates: DocumentTemplateRow[]
           templates.map((template) => (
             <div
               key={template.id}
-              className="rounded-xl border border-border bg-surface/40 px-3 py-2 text-sm"
+              className="rounded-2xl border border-border bg-surface/40 px-3 py-3 text-sm"
             >
-              <span className="font-semibold text-foreground">{template.name}</span>
-              <span className="text-muted-foreground"> — {DOCUMENT_KIND_LABELS[template.document_kind]}</span>
+              <span className="block font-semibold text-foreground">{template.name}</span>
+              <span className="text-xs text-muted-foreground">
+                {DOCUMENT_KIND_LABELS[template.document_kind]}
+              </span>
             </div>
           ))
         )}

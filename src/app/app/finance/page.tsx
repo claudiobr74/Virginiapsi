@@ -20,7 +20,7 @@ export default async function FinancePage() {
       <PageHeader
         icon={Wallet}
         title="Financeiro"
-        subtitle="Cobranças, pagamentos, despesas e relatórios"
+        subtitle="Gestão financeira do consultório"
       />
       {snapshot.access === "none" ? (
         <EmptyState

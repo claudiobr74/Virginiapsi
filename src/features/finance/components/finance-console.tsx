@@ -1,5 +1,6 @@
 "use client";
 
+import { Banknote, Receipt, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -49,13 +50,14 @@ import {
   updateSecretaryFinanceAccessAction,
   voidPaymentAction,
 } from "@/features/finance/actions";
+import { FinanceStatCard } from "@/features/finance/components/finance-stat-card";
 import {
   chargeBadgeStatus,
   expenseBadgeStatus,
   planBadgeStatus,
 } from "@/features/finance/status-badge";
 import { centsFromCanonical, formatBRL } from "@/lib/finance/money";
-import { Banknote, Receipt, Wallet } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 
 const TABS = [
   { id: "today", label: "Hoje" },
@@ -100,23 +102,17 @@ export function FinanceConsole({
   const today = todayIsoDate(timezone);
   const canWrite = snapshot.access === "manage";
 
-  const openCharges = snapshot.charges.filter((charge) =>
-    ["pending", "partially_paid", "overdue"].includes(charge.row.status),
-  );
-  const todayCharges = openCharges.filter(
-    (charge) =>
-      charge.row.status === "overdue" ||
-      charge.row.due_date === today ||
-      charge.row.competence_date === today,
-  );
-
   return (
     <div className="flex flex-col gap-6">
       {isAdmin ? (
         <SecretaryAccessCard current={snapshot.secretaryAccessSetting} />
       ) : null}
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Subabas do financeiro">
+      <div
+        className="flex flex-wrap gap-1 border-b border-border"
+        role="tablist"
+        aria-label="Subabas do financeiro"
+      >
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -124,11 +120,12 @@ export function FinanceConsole({
             role="tab"
             aria-selected={tab === item.id}
             onClick={() => setTab(item.id)}
-            className={
+            className={cn(
+              "-mb-px border-b-2 px-4 py-2.5 text-sm transition-colors",
               tab === item.id
-                ? "rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                : "rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface"
-            }
+                ? "border-foreground font-semibold text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
           >
             {item.label}
           </button>
@@ -136,7 +133,13 @@ export function FinanceConsole({
       </div>
 
       {tab === "today" ? (
-        <TodayTab charges={todayCharges} canWrite={canWrite} />
+        <TodayTab
+          charges={snapshot.charges}
+          payments={snapshot.payments}
+          canWrite={canWrite}
+          today={today}
+          timezone={timezone}
+        />
       ) : null}
       {tab === "receivables" ? (
         <ReceivablesTab
@@ -155,7 +158,7 @@ export function FinanceConsole({
       ) : null}
 
       {canWrite ? (
-        <section className="rounded-3xl border border-border bg-card p-5">
+        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-3 font-serif text-lg font-bold italic">Planos e pacotes</h2>
           <PlanForm patients={patients} />
           {snapshot.plans.length === 0 ? (
@@ -174,7 +177,7 @@ export function FinanceConsole({
           )}
         </section>
       ) : snapshot.plans.length > 0 ? (
-        <section className="rounded-3xl border border-border bg-card p-5">
+        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-3 font-serif text-lg font-bold italic">Planos e pacotes</h2>
           <ul className="flex flex-col gap-2">
             {snapshot.plans.map((plan) => (
@@ -194,7 +197,7 @@ function SecretaryAccessCard({ current }: { current: SecretaryFinanceAccess }) {
   const [message, setMessage] = useState<string | null>(null);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
       <h2 className="font-serif text-lg font-bold italic">Acesso da secretaria</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Enforcement no banco (`none` / `view` / `manage`). A interface apenas reflete a policy.
@@ -237,27 +240,177 @@ function SecretaryAccessCard({ current }: { current: SecretaryFinanceAccess }) {
   );
 }
 
-function TodayTab({ charges, canWrite }: { charges: ChargeView[]; canWrite: boolean }) {
+function dateInTimeZone(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
+}
+
+function daysBetween(fromIsoDate: string, toIsoDate: string): number {
+  const from = Date.parse(`${fromIsoDate}T12:00:00`);
+  const to = Date.parse(`${toIsoDate}T12:00:00`);
+  return Math.round((to - from) / 86_400_000);
+}
+
+function TodayTab({
+  charges,
+  payments,
+  canWrite,
+  today,
+  timezone,
+}: {
+  charges: ChargeView[];
+  payments: FinanceSnapshot["payments"];
+  canWrite: boolean;
+  today: string;
+  timezone: string;
+}) {
+  const openCharges = charges.filter((charge) =>
+    ["pending", "partially_paid", "overdue"].includes(charge.row.status),
+  );
+  const todayPayments = payments.filter(
+    (payment) => !payment.voided_at && dateInTimeZone(payment.paid_at, timezone) === today,
+  );
+  const receivedToday = todayPayments.reduce(
+    (sum, payment) => sum + centsFromCanonical(payment.amount),
+    0,
+  );
+  const dueToday = openCharges.filter(
+    (charge) => charge.row.due_date === today || charge.row.competence_date === today,
+  );
+  const toReceiveToday = dueToday.reduce((sum, charge) => sum + charge.remainingCents, 0);
+  const pendingTotal = openCharges.reduce((sum, charge) => sum + charge.remainingCents, 0);
+  const overdue = openCharges.filter(
+    (charge) =>
+      charge.row.status === "overdue" ||
+      (charge.row.due_date != null && charge.row.due_date < today && charge.remainingCents > 0),
+  );
+  const upcoming = openCharges
+    .filter((charge) => charge.row.due_date != null && charge.row.due_date > today)
+    .sort((a, b) => (a.row.due_date ?? "").localeCompare(b.row.due_date ?? ""))
+    .slice(0, 5);
+  const todayList = charges.filter(
+    (charge) =>
+      charge.row.status !== "canceled" &&
+      (charge.row.due_date === today || charge.row.competence_date === today),
+  );
+
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
-      <h2 className="font-serif text-lg font-bold italic">Pendências de hoje</h2>
-      <p className="mb-4 text-sm text-muted-foreground">
-        Cobranças do dia, atrasadas e ações rápidas de baixa.
-      </p>
-      {charges.length === 0 ? (
-        <EmptyState
-          icon={Banknote}
-          title="Nenhuma pendência financeira hoje"
-          description="Quando houver vencimentos ou atrasos, eles aparecem aqui para baixa rápida."
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <FinanceStatCard
+          label="Recebido hoje"
+          value={formatBRL(receivedToday)}
+          hint={
+            todayPayments.length === 0
+              ? "Nenhum pagamento registrado hoje"
+              : `${todayPayments.length} pagamento(s)`
+          }
+          tone="success"
         />
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {charges.map((charge) => (
-            <ChargeCard key={charge.row.id} charge={charge} canWrite={canWrite} compact />
-          ))}
-        </ul>
-      )}
-    </section>
+        <FinanceStatCard
+          label="A receber hoje"
+          value={formatBRL(toReceiveToday)}
+          hint={
+            dueToday.length === 0
+              ? "Sem vencimentos hoje"
+              : `${dueToday.length} cobrança(s) em aberto`
+          }
+          tone="attention"
+        />
+        <FinanceStatCard
+          label="Total pendente"
+          value={formatBRL(pendingTotal)}
+          hint="Saldo em aberto no consultório"
+          tone="failed"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,1fr)]">
+        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="font-serif text-lg font-bold italic">Recebimentos de hoje</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Cobranças com vencimento ou competência de hoje, com baixa rápida quando houver saldo.
+          </p>
+          {todayList.length === 0 ? (
+            <EmptyState
+              icon={Banknote}
+              title="Nenhuma pendência financeira hoje"
+              description="Quando houver vencimentos ou atrasos, eles aparecem aqui para baixa rápida."
+            />
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {todayList.map((charge) => (
+                <ChargeCard key={charge.row.id} charge={charge} canWrite={canWrite} compact />
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <div className="flex flex-col gap-6">
+          <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="font-serif text-lg font-bold italic">Pendências</h2>
+            {overdue.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">Nenhuma cobrança em atraso.</p>
+            ) : (
+              <ul className="mt-3 flex flex-col gap-2">
+                {overdue.map((charge) => {
+                  const lateDays =
+                    charge.row.due_date != null ? daysBetween(charge.row.due_date, today) : null;
+                  return (
+                    <li
+                      key={charge.row.id}
+                      className="flex items-center justify-between gap-3 text-sm"
+                    >
+                      <span className="min-w-0 truncate">
+                        {charge.patientName ?? "Sem paciente"}
+                        {lateDays != null && lateDays > 0 ? (
+                          <span className="mt-0.5 block text-[11px] text-failed">
+                            Há {lateDays} dia{lateDays === 1 ? "" : "s"}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="shrink-0 font-semibold tabular-nums text-failed">
+                        {formatBRL(charge.remainingCents)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="font-serif text-lg font-bold italic">Próximos vencimentos</h2>
+            {upcoming.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">Nenhum vencimento futuro listado.</p>
+            ) : (
+              <ul className="mt-3 flex flex-col gap-2">
+                {upcoming.map((charge) => (
+                  <li
+                    key={charge.row.id}
+                    className="flex items-center justify-between gap-3 text-sm"
+                  >
+                    <span className="min-w-0 truncate">
+                      {charge.patientName ?? "Sem paciente"}
+                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                        {charge.row.due_date}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-semibold tabular-nums">
+                      {formatBRL(charge.remainingCents)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -274,10 +427,48 @@ function ReceivablesTab({
   canWrite: boolean;
   today: string;
 }) {
+  const pendingCents = charges
+    .filter((charge) => ["pending", "partially_paid"].includes(charge.row.status))
+    .reduce((sum, charge) => sum + charge.remainingCents, 0);
+  const overdueCents = charges
+    .filter(
+      (charge) =>
+        charge.row.status === "overdue" ||
+        (charge.row.due_date != null &&
+          charge.row.due_date < today &&
+          charge.remainingCents > 0 &&
+          !["canceled", "refunded", "paid"].includes(charge.row.status)),
+    )
+    .reduce((sum, charge) => sum + charge.remainingCents, 0);
+  const receivedCents = charges
+    .filter((charge) => !["canceled", "refunded"].includes(charge.row.status))
+    .reduce((sum, charge) => sum + charge.paidCents, 0);
+  const receivedCount = payments.filter((payment) => !payment.voided_at).length;
+
   return (
     <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <FinanceStatCard
+          label="Recebido"
+          value={formatBRL(receivedCents)}
+          hint={`${receivedCount} pagamento(s) registrados`}
+          tone="success"
+        />
+        <FinanceStatCard
+          label="Faturamentos pendentes"
+          value={formatBRL(pendingCents)}
+          hint="Aguardando baixa"
+          tone="attention"
+        />
+        <FinanceStatCard
+          label="Total atrasado"
+          value={formatBRL(overdueCents)}
+          hint="Cobranças não pagas no prazo"
+          tone="failed"
+        />
+      </div>
       {canWrite ? <ChargeForm patients={patients} today={today} /> : null}
-      <section className="rounded-3xl border border-border bg-card p-5">
+      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
         <h2 className="mb-4 font-serif text-lg font-bold italic">Cobranças</h2>
         {charges.length === 0 ? (
           <EmptyState
@@ -314,7 +505,7 @@ function ChargeForm({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
       <h2 className="mb-3 font-serif text-lg font-bold italic">Nova cobrança</h2>
       <form
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
@@ -416,7 +607,7 @@ function ChargeCard({
   }
 
   return (
-    <li className="rounded-2xl border border-border bg-surface/40 px-4 py-3">
+    <li className="rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-foreground">{charge.row.description}</p>
@@ -594,10 +785,40 @@ function QuickPayForm({
 }
 
 function ExpensesTab({ expenses, canWrite }: { expenses: ExpenseRow[]; canWrite: boolean }) {
+  const open = expenses.filter((expense) => expense.status !== "canceled");
+  const total = open.reduce((sum, expense) => sum + centsFromCanonical(expense.amount), 0);
+  const pending = open.filter((expense) => expense.status !== "paid");
+  const pendingCents = pending.reduce(
+    (sum, expense) => sum + centsFromCanonical(expense.amount),
+    0,
+  );
+
   return (
     <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <FinanceStatCard
+          label="Total de despesas"
+          value={formatBRL(total)}
+          hint={`${open.length} lançamento(s)`}
+          tone="failed"
+        />
+        <FinanceStatCard
+          label="Despesas pendentes"
+          value={formatBRL(pendingCents)}
+          hint={
+            pending.length === 0 ? "Nada em aberto" : `${pending.length} a pagar`
+          }
+          tone="attention"
+        />
+        <FinanceStatCard
+          label="Pagas"
+          value={formatBRL(total - pendingCents)}
+          hint="Já baixadas"
+          tone="success"
+        />
+      </div>
       {canWrite ? <ExpenseForm /> : null}
-      <section className="rounded-3xl border border-border bg-card p-5">
+      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
         <h2 className="mb-4 font-serif text-lg font-bold italic">Despesas</h2>
         {expenses.length === 0 ? (
           <EmptyState
@@ -623,7 +844,7 @@ function ExpenseForm() {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
       <h2 className="mb-3 font-serif text-lg font-bold italic">Nova despesa</h2>
       <form
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
@@ -896,11 +1117,11 @@ function ReportsTab({
   return (
     <div className="flex flex-col gap-6">
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <ReportStat label="Faturado no mês" value={formatBRL(billed)} />
-        <ReportStat label="Recebido no mês" value={formatBRL(received)} />
-        <ReportStat label="Despesas no mês" value={formatBRL(expenses)} />
+        <FinanceStatCard label="Faturado no mês" value={formatBRL(billed)} />
+        <FinanceStatCard label="Recebido no mês" value={formatBRL(received)} tone="success" />
+        <FinanceStatCard label="Despesas no mês" value={formatBRL(expenses)} tone="failed" />
       </section>
-      <section className="rounded-3xl border border-border bg-card p-5">
+      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
         <h2 className="mb-1 font-serif text-lg font-bold italic">Resultado</h2>
         <p className="tabular-nums text-2xl font-semibold">{formatBRL(received - expenses)}</p>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -914,22 +1135,13 @@ function ReportsTab({
   );
 }
 
-function ReportStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-3xl border border-border bg-card p-5">
-      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 tabular-nums text-xl font-semibold">{value}</p>
-    </div>
-  );
-}
-
 function CsvExportForm({ bounds }: { bounds: { start: string; end: string } }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [columns, setColumns] = useState<CsvColumn[]>([...CSV_COLUMN_VALUES]);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
       <h2 className="mb-3 font-serif text-lg font-bold italic">Exportação contábil (CSV)</h2>
       <form
         className="flex flex-col gap-3"
@@ -1018,7 +1230,7 @@ function ClosingForm({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
       <h2 className="mb-3 font-serif text-lg font-bold italic">Fechamento mensal</h2>
       <form
         className="flex flex-col gap-3 sm:flex-row sm:items-end"
@@ -1095,7 +1307,7 @@ function BatchReceiptButton() {
   const [message, setMessage] = useState<string | null>(null);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
       <h2 className="mb-2 font-serif text-lg font-bold italic">Recibos em lote</h2>
       <p className="mb-3 text-sm text-muted-foreground">
         Emite um documento administrativo com os pagamentos do mês corrente.

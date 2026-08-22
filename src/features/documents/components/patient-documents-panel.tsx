@@ -104,7 +104,7 @@ export function PatientDocumentsPanel({
               key={document.id}
               type="button"
               onClick={() => void download(document)}
-              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface/40 px-3 py-2 text-left text-sm transition-colors hover:bg-surface"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface/40 px-4 py-3 text-left text-sm transition-colors hover:border-primary/30 hover:bg-surface"
             >
               <div className="flex flex-col">
                 <span className="font-semibold text-foreground">{document.title}</span>

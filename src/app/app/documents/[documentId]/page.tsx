@@ -29,7 +29,7 @@ export default async function DocumentDetailPage({
   const file = latestVersion ? await getFileForVersion(latestVersion.id) : null;
 
   return (
-    <PageContainer narrow>
+    <PageContainer>
       <DocumentEditor document={document} latestVersion={latestVersion} file={file} versions={versions} />
     </PageContainer>
   );
