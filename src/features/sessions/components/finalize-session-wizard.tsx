@@ -43,7 +43,12 @@ export function FinalizeSessionWizard({ sessionId }: { sessionId: string }) {
   return (
     <Modal open={open} onOpenChange={setOpen}>
       <ModalTrigger asChild>
-        <Button type="button" variant="primary" size="sm">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="border-failed/40 bg-failed-bg text-failed hover:bg-failed-bg hover:text-failed"
+        >
           Finalizar atendimento
         </Button>
       </ModalTrigger>

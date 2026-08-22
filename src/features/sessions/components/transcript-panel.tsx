@@ -4,6 +4,7 @@ import { Mic, MicOff, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusBadgeStatus } from "@/components/ui/status-badge";
+import { cn } from "@/lib/utils/cn";
 import type { TranscriptSegmentResult } from "@/features/sessions/transcription/use-local-transcription";
 import { useLocalTranscription } from "@/features/sessions/transcription/use-local-transcription";
 import type { TranscriptSegmentRow } from "@/features/sessions/contracts";
@@ -23,11 +24,13 @@ export function TranscriptPanel({
   patientId,
   initialSegments,
   disabled,
+  feedClassName,
 }: {
   sessionId: string;
   patientId: string;
   initialSegments: TranscriptSegmentRow[];
   disabled?: boolean;
+  feedClassName?: string;
 }) {
   const [segments, setSegments] = useState<TranscriptSegmentResult[]>(
     initialSegments.map((segment) => ({
@@ -50,7 +53,7 @@ export function TranscriptPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface/40 px-3 py-3">
         <StatusBadge status={meta.status} label={meta.label} pulse={state === "recording"} />
         {isRecording ? (
           <Button
@@ -111,7 +114,12 @@ export function TranscriptPanel({
         </p>
       ) : null}
 
-      <div className="flex max-h-72 flex-col gap-2 overflow-y-auto rounded-2xl border border-border bg-surface/40 p-3">
+      <div
+        className={cn(
+          "flex max-h-72 flex-col gap-2 overflow-y-auto rounded-2xl border border-border bg-surface/40 p-3",
+          feedClassName,
+        )}
+      >
         {segments.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nenhum trecho transcrito ainda nesta sessão.

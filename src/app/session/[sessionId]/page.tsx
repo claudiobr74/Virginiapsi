@@ -1,4 +1,7 @@
 import { notFound, redirect } from "next/navigation";
+import { getAppointment } from "@/features/calendar/appointment-queries";
+import { getPatient } from "@/features/patients/queries";
+import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { ActiveSessionView } from "@/features/sessions/components/active-session-view";
 import {
   getClinicalSession,
@@ -6,8 +9,8 @@ import {
   getSessionWorkingNotes,
   listTranscriptSegments,
 } from "@/features/sessions/queries";
-import { getPatient } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
+import { elapsedSecondsBetween } from "@/lib/utils/elapsed";
 
 export async function generateMetadata({
   params,
@@ -47,10 +50,13 @@ export default async function ActiveSessionPage({
     notFound();
   }
 
-  const [dpep, workingNotes, transcriptSegments] = await Promise.all([
+  const [dpep, workingNotes, transcriptSegments, appointment] = await Promise.all([
     getSessionDpep(session.id),
     getSessionWorkingNotes(session.id),
     listTranscriptSegments(session.id),
+    session.appointment_id
+      ? getAppointment(organizationId, session.appointment_id).catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -61,6 +67,25 @@ export default async function ActiveSessionPage({
       dpep={dpep}
       workingNotes={workingNotes}
       transcriptSegments={transcriptSegments}
+      appointment={
+        appointment
+          ? {
+              modalityLabel: MODALITY_LABELS[appointment.modality],
+              meetUrl:
+                appointment.meet_status === "success" && appointment.meet_url
+                  ? appointment.meet_url
+                  : null,
+            }
+          : null
+      }
+      initialElapsedSeconds={
+        session.started_at
+          ? elapsedSecondsBetween(
+              session.started_at,
+              session.ended_at ?? new Date().toISOString(),
+            )
+          : 0
+      }
     />
   );
 }
