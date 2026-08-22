@@ -1,8 +1,8 @@
 "use client";
 
+import { Sparkles } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { KnowledgeResult } from "@/features/knowledge/components/knowledge-result";
 import {
   applyToCaseAction,
   askKnowledgeAction,
@@ -10,8 +10,10 @@ import {
   studyKnowledgeAction,
   synthesizeKnowledgeAction,
 } from "@/features/knowledge/actions";
+import { KnowledgeResult } from "@/features/knowledge/components/knowledge-result";
 import type { KnowledgeSourceRow } from "@/features/knowledge/contracts";
 import type { KnowledgeOutput } from "@/lib/ai/validators/knowledge";
+import { cn } from "@/lib/utils/cn";
 
 const MODES = [
   { id: "query", label: "Perguntar ao Acervo" },
@@ -84,7 +86,15 @@ export function KnowledgeModesPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2" role="tablist">
+      <div>
+        <h2 className="font-serif text-lg font-bold italic text-foreground">Consulte o acervo</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Pergunta teórica por padrão. Aplicar ao Caso é o único modo que usa dados de paciente —
+          e só com consentimento válido.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-1 border-b border-border" role="tablist">
         {MODES.map((item) => (
           <button
             key={item.id}
@@ -96,11 +106,12 @@ export function KnowledgeModesPanel({
               setResult(null);
               setError(null);
             }}
-            className={
+            className={cn(
+              "-mb-px border-b-2 px-3 py-2.5 text-sm transition-colors",
               mode === item.id
-                ? "rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                : "rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface"
-            }
+                ? "border-foreground font-semibold text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
           >
             {item.label}
           </button>
@@ -178,10 +189,11 @@ export function KnowledgeModesPanel({
       ) : null}
 
       <Button type="button" isLoading={isPending} disabled={!canSubmit} onClick={submit}>
+        <Sparkles className="size-4" aria-hidden />
         Consultar
       </Button>
 
-      {result ? <KnowledgeResult content={result} /> : null}
+      {result ? <KnowledgeResult content={result} question={question} /> : null}
     </div>
   );
 }

@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { KnowledgeCollectionRow } from "@/features/knowledge/contracts";
 import { createCollectionAction } from "@/features/knowledge/actions";
+import type { KnowledgeCollectionRow } from "@/features/knowledge/contracts";
+import { cn } from "@/lib/utils/cn";
 
 export function CollectionsPanel({
   collections,
@@ -37,23 +38,34 @@ export function CollectionsPanel({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         {collections.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma coleção ainda.</p>
         ) : (
-          collections.map((collection) => (
-            <label key={collection.id} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={selectedCollectionIds.includes(collection.id)}
-                onChange={() => onToggle(collection.id)}
-              />
-              {collection.name}
-            </label>
-          ))
+          collections.map((collection) => {
+            const selected = selectedCollectionIds.includes(collection.id);
+            return (
+              <label
+                key={collection.id}
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 rounded-2xl border px-3 py-2.5 text-sm transition-colors",
+                  selected
+                    ? "border-primary bg-sage-light/25 font-semibold"
+                    : "border-border bg-surface/40 hover:bg-surface",
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() => onToggle(collection.id)}
+                />
+                {collection.name}
+              </label>
+            );
+          })
         )}
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <Input
           placeholder="Nova coleção"
           value={name}
@@ -63,12 +75,12 @@ export function CollectionsPanel({
           type="button"
           size="sm"
           variant="secondary"
-          aria-label="Criar coleção"
           isLoading={isPending}
           disabled={!name.trim()}
           onClick={submit}
         >
           <FolderPlus className="size-4" aria-hidden />
+          Criar coleção
         </Button>
       </div>
       {error ? (

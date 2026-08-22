@@ -1,15 +1,16 @@
 "use client";
 
 import { Upload } from "lucide-react";
-import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   buildKnowledgeUploadPath,
   registerSourceAction,
 } from "@/features/knowledge/actions";
 import { SUPPORTED_SOURCE_MIME_TYPES } from "@/lib/knowledge/extract-text";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { cn } from "@/lib/utils/cn";
 
 async function sha256Hex(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
@@ -24,6 +25,7 @@ export function SourceUploadForm({ collectionId }: { collectionId?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   function handleFile(file: File) {
     if (!SUPPORTED_SOURCE_MIME_TYPES.includes(file.type as never)) {
@@ -76,16 +78,39 @@ export function SourceUploadForm({ collectionId }: { collectionId?: string }) {
           if (file) handleFile(file);
         }}
       />
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        isLoading={isPending}
-        onClick={() => inputRef.current?.click()}
+      <div
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragging(false);
+          const file = event.dataTransfer.files[0];
+          if (file) handleFile(file);
+        }}
+        className={cn(
+          "flex flex-col items-center gap-2 rounded-2xl border border-dashed px-4 py-5 text-center",
+          dragging ? "border-primary bg-sage-light/20" : "border-border bg-surface/30",
+        )}
       >
-        <Upload className="size-4" aria-hidden />
-        Enviar fonte (PDF, .txt, .md)
-      </Button>
+        <Upload className="size-5 text-primary" aria-hidden />
+        <p className="text-sm text-foreground">Arraste PDF, .txt ou .md para o acervo</p>
+        <p className="text-[11px] text-muted-foreground">
+          Extração local neste consultório — sem NotebookLM e sem dado de paciente.
+        </p>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          isLoading={isPending}
+          onClick={() => inputRef.current?.click()}
+        >
+          <Upload className="size-4" aria-hidden />
+          Enviar fonte (PDF, .txt, .md)
+        </Button>
+      </div>
       {error ? (
         <p role="alert" className="text-xs text-failed">
           {error}

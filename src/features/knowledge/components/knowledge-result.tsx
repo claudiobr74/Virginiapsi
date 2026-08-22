@@ -1,3 +1,4 @@
+import { BookOpen } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { KnowledgeOutput } from "@/lib/ai/validators/knowledge";
 
@@ -8,9 +9,21 @@ const EVIDENCE_STATUS_BADGE = {
   CONFLITANTE: "failed",
 } as const;
 
-export function KnowledgeResult({ content }: { content: KnowledgeOutput }) {
+export function KnowledgeResult({
+  content,
+  question,
+}: {
+  content: KnowledgeOutput;
+  question?: string;
+}) {
   return (
-    <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6">
+    <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+      {question ? (
+        <p className="border-l-2 border-primary pl-3 font-serif text-sm italic text-foreground">
+          {question}
+        </p>
+      ) : null}
+
       <StatusBadge
         status={EVIDENCE_STATUS_BADGE[content.evidenceStatus]}
         label={`Evidência: ${content.evidenceStatus}`}
@@ -18,30 +31,55 @@ export function KnowledgeResult({ content }: { content: KnowledgeOutput }) {
 
       <div>
         <span className="text-xs font-bold uppercase text-muted-foreground">Resposta direta</span>
-        <p className="text-foreground">{content.directAnswer}</p>
+        <p className="mt-1 text-foreground">{content.directAnswer}</p>
       </div>
 
       <div>
         <span className="text-xs font-bold uppercase text-muted-foreground">Síntese</span>
-        <p className="text-foreground">{content.synthesis}</p>
+        <p className="mt-1 text-foreground">{content.synthesis}</p>
       </div>
 
       {content.citations.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-bold uppercase text-muted-foreground">Citações</span>
+          <span className="text-xs font-bold uppercase text-muted-foreground">
+            Fontes citadas nesta resposta
+          </span>
           {content.citations.map((citation, index) => (
             <div
-              key={index}
-              className="rounded-xl border border-border bg-surface/40 p-3 text-sm"
+              key={`${citation.sourceId}-${index}`}
+              className="flex gap-3 rounded-2xl border border-border bg-surface/40 p-3 text-sm"
             >
-              <span className="font-semibold text-foreground">
-                {citation.title ?? citation.sourceId}
+              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-sage-light/40 text-primary">
+                <BookOpen className="size-4" aria-hidden />
               </span>
-              {citation.location ? (
-                <span className="text-xs text-muted-foreground"> — {citation.location}</span>
-              ) : null}
-              <p className="text-muted-foreground">{citation.supportedClaim}</p>
+              <div className="min-w-0">
+                <span className="block font-semibold text-foreground">
+                  {citation.title ?? citation.sourceId}
+                </span>
+                {citation.location ? (
+                  <span className="text-xs text-muted-foreground">{citation.location}</span>
+                ) : null}
+                <p className="mt-1 text-muted-foreground">{citation.supportedClaim}</p>
+              </div>
             </div>
+          ))}
+        </div>
+      ) : null}
+
+      {content.sourceAppraisal.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-bold uppercase text-muted-foreground">
+            Papel das fontes
+          </span>
+          {content.sourceAppraisal.map((item) => (
+            <p key={item.sourceId} className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{item.sourceRole}</span>
+              {" — "}
+              {item.roleInAnswer}
+              {item.appraisalLimits.length > 0
+                ? ` (${item.appraisalLimits.join("; ")})`
+                : ""}
+            </p>
           ))}
         </div>
       ) : null}
@@ -82,8 +120,8 @@ export function KnowledgeResult({ content }: { content: KnowledgeOutput }) {
             Para aprofundar
           </span>
           <ul className="list-disc pl-5 text-sm text-foreground">
-            {content.nextQuestions.map((question, index) => (
-              <li key={index}>{question}</li>
+            {content.nextQuestions.map((item, index) => (
+              <li key={index}>{item}</li>
             ))}
           </ul>
         </div>

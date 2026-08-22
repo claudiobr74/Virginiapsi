@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
 import { CollectionsPanel } from "@/features/knowledge/components/collections-panel";
@@ -30,6 +30,15 @@ export function KnowledgeConsole({
     );
   }
 
+  const stats = useMemo(() => {
+    const ready = sources.filter((source) => source.status === "ready").length;
+    const processing = sources.filter(
+      (source) => source.status === "processing" || source.status === "uploaded",
+    ).length;
+    const failed = sources.filter((source) => source.status === "failed").length;
+    return { total: sources.length, ready, processing, failed };
+  }, [sources]);
+
   return (
     <PageContainer>
       <PageHeader
@@ -37,26 +46,46 @@ export function KnowledgeConsole({
         title="Conhecimento Tesseli"
         subtitle="Acervo teórico privado, rastreável e library-only por padrão"
       />
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Total de fontes" value={String(stats.total)} hint="Disponíveis neste consultório" />
+        <StatCard label="Prontas" value={String(stats.ready)} hint="Indexadas para consulta" />
+        <StatCard
+          label="Em processamento"
+          value={String(stats.processing)}
+          hint="Upload ou extração em curso"
+        />
+        <StatCard label="Com falha" value={String(stats.failed)} hint="Dá para tentar de novo" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(16rem,380px)_1fr]">
         <section className="flex flex-col gap-6">
-          <div className="rounded-3xl border border-border bg-card p-5">
-            <h2 className="mb-3 font-serif text-lg font-bold italic text-foreground">Coleções</h2>
+          <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="mb-1 font-serif text-lg font-bold italic text-foreground">
+              Biblioteca de fontes
+            </h2>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Coleções temáticas e arquivos do consultório — nunca dados de paciente.
+            </p>
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Coleções
+            </h3>
             <CollectionsPanel
               collections={collections}
               selectedCollectionIds={selectedCollectionIds}
               onToggle={toggleCollection}
             />
           </div>
-          <div className="rounded-3xl border border-border bg-card p-5">
-            <h2 className="mb-3 font-serif text-lg font-bold italic text-foreground">Fontes</h2>
+          <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+            <h3 className="mb-3 font-serif text-lg font-bold italic text-foreground">Fontes</h3>
             <SourceUploadForm collectionId={selectedCollectionIds[0]} />
-            <div className="mt-3">
+            <div className="mt-4">
               <SourcesList sources={sources} />
             </div>
           </div>
         </section>
 
-        <section className="rounded-3xl border border-border bg-card p-6">
+        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
           <KnowledgeModesPanel
             selectedCollectionIds={selectedCollectionIds}
             sources={sources}
@@ -65,5 +94,23 @@ export function KnowledgeConsole({
         </section>
       </div>
     </PageContainer>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-border bg-card p-4 shadow-sm">
+      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 font-serif text-2xl font-semibold italic text-foreground">{value}</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>
+    </div>
   );
 }
