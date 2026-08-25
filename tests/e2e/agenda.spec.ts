@@ -50,7 +50,7 @@ test.describe("Agenda — visão do dia", () => {
     await expect(page.getByText("Somente leitura", { exact: true })).toBeVisible();
     await expect(
       page.getByText(
-              Este evento vem do Google Calendar e é somente leitura no VirgíniaPsi.
+        "Este evento vem do Google Calendar e é somente leitura no VirgíniaPsi.",
       ),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Cancelar consulta" })).toHaveCount(0);

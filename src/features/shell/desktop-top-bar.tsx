@@ -35,17 +35,15 @@ export function CommandPalette({
     );
   }, [query]);
 
-  useEffect(() => {
-    if (!open) {
-      setQuery("");
-      setPatients([]);
-    }
-  }, [open]);
+  function close() {
+    setQuery("");
+    setPatients([]);
+    onOpenChange(false);
+  }
 
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {
-      setPatients([]);
       return;
     }
     const handle = window.setTimeout(() => {
@@ -58,12 +56,14 @@ export function CommandPalette({
   }, [query]);
 
   function go(href: string) {
-    onOpenChange(false);
+    close();
     router.push(href);
   }
 
+  const visiblePatients = query.trim().length < 2 ? [] : patients;
+
   return (
-    <Modal open={open} onOpenChange={onOpenChange}>
+    <Modal open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
       <ModalContent title="Buscar" description="Pacientes, páginas e ações do consultório." size="md">
         <SearchField
           autoFocus
@@ -72,13 +72,13 @@ export function CommandPalette({
           placeholder="Nome, código ou módulo…"
         />
 
-        {patients.length > 0 ? (
+        {visiblePatients.length > 0 ? (
           <div className="mt-4">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Pacientes
             </p>
             <ul className="flex flex-col gap-1">
-              {patients.map((patient) => (
+              {visiblePatients.map((patient) => (
                 <li key={patient.id}>
                   <button
                     type="button"

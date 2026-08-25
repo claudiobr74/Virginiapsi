@@ -48,14 +48,15 @@ describe("hourInTimeZone", () => {
 });
 
 describe("buildDayTimelineHours", () => {
-  it("inclui a faixa 8–19 e horas extras de consultas", () => {
+  it("inclui a faixa 7–20 e horas extras de consultas", () => {
     const hours = buildDayTimelineHours(
       [{ starts_at: "2026-08-18T00:00:00.000Z" }],
       "America/Sao_Paulo",
     );
-    expect(hours[0]).toBe(8);
+    expect(hours[0]).toBe(7);
     expect(hours.at(-1)).toBe(21);
     expect(hours).toContain(19);
+    expect(hours).toContain(20);
   });
 });
 

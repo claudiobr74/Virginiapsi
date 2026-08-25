@@ -21,12 +21,20 @@ const STATUS_BADGE = {
   failed: "failed",
 } as const;
 
-const TYPE_FILTERS = [
+const TYPE_FILTERS: Array<{
+  id: "all" | "livro" | "artigo" | "manual";
+  label: string;
+  types?: string[];
+}> = [
   { id: "all", label: "Todas" },
   { id: "livro", label: "Livros", types: ["livro", "capitulo"] },
   { id: "artigo", label: "Artigos", types: ["artigo", "estudo", "revisao"] },
-  { id: "manual", label: "Manuais", types: ["manual", "guideline", "protocolo", "guia", "consenso_posicionamento"] },
-] as const;
+  {
+    id: "manual",
+    label: "Manuais",
+    types: ["manual", "guideline", "protocolo", "guia", "consenso_posicionamento"],
+  },
+];
 
 function sourceLabel(source: KnowledgeSourceRow): string {
   return source.title ?? source.storage_path.split("/").pop() ?? source.id;
@@ -42,7 +50,7 @@ export function SourcesList({ sources }: { sources: KnowledgeSourceRow[] }) {
     const query = search.trim().toLowerCase();
     const active = TYPE_FILTERS.find((item) => item.id === typeFilter);
     return sources.filter((source) => {
-      if (active && active.id !== "all" && "types" in active) {
+      if (active && active.types) {
         if (!source.document_type || !active.types.includes(source.document_type)) {
           return false;
         }
