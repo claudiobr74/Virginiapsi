@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { EXPORT_BUCKET, settingsAdmin } from "@/features/settings/admin-store";
+import { EXPORT_BUCKET, inviteAuthUserByEmail, settingsAdmin } from "@/features/settings/admin-store";
 import {
   appearanceFormSchema,
   clinicFormSchema,
@@ -30,7 +30,6 @@ import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { DOCUMENT_BUCKETS, removeFile } from "@/lib/documents/storage";
 import { SIGNED_URL_TTL_SECONDS } from "@/lib/documents/storage-meta";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function revalidateSettings() {
@@ -233,8 +232,7 @@ export async function inviteMemberAction(input: unknown): Promise<SettingsAction
   }
   const supabase = await createSupabaseServerClient();
   try {
-    const admin = createSupabaseAdminClient();
-    await admin.auth.admin.inviteUserByEmail(parsed.data.email);
+    await inviteAuthUserByEmail(parsed.data.email);
   } catch {
     // Sem service-role o convite Auth fica pendente no banco até o cadastro.
   }
