@@ -11,7 +11,6 @@ import {
 } from "@/features/dashboard/actions";
 import {
   buildWhatsAppReminderUrl,
-  patientDisplayLabel,
   type MyDayAppointment,
 } from "@/features/dashboard/contracts";
 import { meetHostLabel } from "@/features/dashboard/stats";
@@ -37,7 +36,6 @@ export function SessionActions({
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const patientLabel = patientDisplayLabel(appointment);
   const whatsappUrl =
     appointment.patientPhone && appointment.origin === "TESSELI"
       ? buildWhatsAppReminderUrl(
@@ -90,9 +88,16 @@ export function SessionActions({
     }
   }
 
+  const hasTimelineActions = Boolean(
+    whatsappUrl || canConfirm || (canStartSession && appointment.patientId),
+  );
+
   if (layout === "timeline") {
+    if (!hasTimelineActions && !error) {
+      return null;
+    }
     return (
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {error ? (
           <p role="alert" className="w-full text-xs text-failed">
             {error}
@@ -125,7 +130,6 @@ export function SessionActions({
             className="rounded-xl"
           />
         ) : null}
-        <span className="sr-only">{patientLabel}</span>
       </div>
     );
   }
@@ -158,7 +162,7 @@ export function SessionActions({
           <StartSessionButton
             patientId={appointment.patientId}
             appointmentId={appointment.id}
-            label="Iniciar Atendimento"
+            label="Iniciar sessão"
             size="lg"
             className={
               onPrimary
@@ -227,8 +231,6 @@ export function SessionActions({
           <span className="self-center text-xs font-semibold text-pending">Meet em criação…</span>
         ) : null}
       </div>
-
-      {layout !== "hero" ? <span className="sr-only">{patientLabel}</span> : null}
 
       <ConfirmDialog
         open={noShowOpen}

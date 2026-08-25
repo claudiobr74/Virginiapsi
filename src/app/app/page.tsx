@@ -40,7 +40,7 @@ export default async function MyDayPage() {
   });
 
   return (
-    <PageContainer className="max-w-[1120px]">
+    <PageContainer>
       <MyDayWelcome snapshot={snapshot} />
       <MyDayBoard snapshot={snapshot} />
     </PageContainer>

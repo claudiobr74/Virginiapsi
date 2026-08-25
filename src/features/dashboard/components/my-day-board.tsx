@@ -10,14 +10,22 @@ export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
   const emptyDay = snapshot.timeline.length === 0;
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      <div className="flex min-w-0 flex-1 flex-col gap-6">
-        <NextSessionCard
-          appointment={snapshot.nextSession}
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,500px)]">
+      <NextSessionCard
+        appointment={snapshot.nextSession}
+        timeZone={snapshot.timezone}
+        canStartSession={snapshot.canStartSession}
+        emptyDay={emptyDay}
+      />
+      <aside className="min-w-0 lg:col-start-2 lg:row-span-2">
+        <TodayTimeline
+          appointments={snapshot.timeline}
           timeZone={snapshot.timezone}
+          highlightedId={snapshot.nextSession?.id}
           canStartSession={snapshot.canStartSession}
-          emptyDay={emptyDay}
         />
+      </aside>
+      <div className="flex min-w-0 flex-col gap-6">
         <SessionsToFinalizePanel
           sessions={snapshot.sessionsToFinalize}
           timeZone={snapshot.timezone}
@@ -26,14 +34,6 @@ export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
         <TasksPanel tasks={snapshot.tasks} />
         <RecentDocumentsPanel documents={snapshot.recentDocuments} />
       </div>
-      <aside className="flex w-full flex-col gap-5 lg:w-[500px] lg:shrink-0">
-        <TodayTimeline
-          appointments={snapshot.timeline}
-          timeZone={snapshot.timezone}
-          highlightedId={snapshot.nextSession?.id}
-          canStartSession={snapshot.canStartSession}
-        />
-      </aside>
     </div>
   );
 }

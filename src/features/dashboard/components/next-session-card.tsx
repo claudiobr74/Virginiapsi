@@ -1,12 +1,9 @@
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, Globe, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SessionActions } from "@/features/dashboard/components/session-actions";
-import {
-  patientDisplayLabel,
-  type MyDayAppointment,
-} from "@/features/dashboard/contracts";
-import { heroPatientName } from "@/features/dashboard/stats";
+import type { MyDayAppointment } from "@/features/dashboard/contracts";
+import { heroPatientName, meetHostLabel, startsInLabel } from "@/features/dashboard/stats";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { formatInTimeZone } from "@/lib/utils/timezone";
 
@@ -62,6 +59,8 @@ export function NextSessionCard({
   const starts = formatInTimeZone(appointment.startsAt, timeZone);
   const modalityLabel = MODALITY_LABELS[appointment.modality];
   const isOnline = appointment.modality === "online";
+  const untilLabel = startsInLabel(appointment.startsAt);
+  const meetHost = meetHostLabel(appointment.meetUrl);
 
   return (
     <section
@@ -69,9 +68,14 @@ export function NextSessionCard({
       className="flex flex-col gap-5 rounded-[20px] border border-border bg-card p-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-wide text-sage-700">
-          Próxima sessão
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="rounded-md bg-surface px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-sage-700">
+            Próxima sessão
+          </p>
+          {untilLabel ? (
+            <span className="text-[13px] text-muted-foreground">{untilLabel}</span>
+          ) : null}
+        </div>
         {isOnline ? (
           <span className="rounded-md bg-sage-light px-2 py-1 text-[11px] font-semibold uppercase text-sage-700">
             Online
@@ -88,14 +92,16 @@ export function NextSessionCard({
           {heroPatientName(appointment)}
         </h2>
         <p className="text-sm text-muted-foreground">
-          {appointment.patientPublicCode ? `${patientDisplayLabel(appointment)} · ` : null}
-          {starts}
+          {appointment.patientPublicCode
+            ? `Código de Registro: ${appointment.patientPublicCode} • ${starts}`
+            : starts}
         </p>
       </div>
 
-      {appointment.meetUrl && appointment.meetStatus === "success" ? (
-        <p className="truncate rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-muted-foreground">
-          {appointment.meetUrl}
+      {appointment.meetUrl && appointment.meetStatus === "success" && meetHost ? (
+        <p className="flex items-center gap-2 rounded-lg bg-sage-light px-3 py-2.5 font-mono text-xs text-sage-700">
+          <Globe className="size-4 shrink-0" aria-hidden />
+          <span className="min-w-0 truncate">Google Meet: {meetHost}</span>
         </p>
       ) : null}
 
@@ -103,6 +109,7 @@ export function NextSessionCard({
         {appointment.patientId ? (
           <Button asChild variant="secondary" size="sm">
             <Link href={`/app/patients/${appointment.patientId}?tab=record`}>
+              <Sparkles className="size-3.5" aria-hidden />
               Preparar sessão
             </Link>
           </Button>

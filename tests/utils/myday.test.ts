@@ -8,6 +8,7 @@ import {
   type SessionToFinalize,
 } from "@/features/dashboard/contracts";
 import {
+  attendanceCountLabel,
   daySpanLabel,
   finalizeCountLabel,
   meetHostLabel,
@@ -15,6 +16,7 @@ import {
   nextSessionStatTime,
   pendingTotalCents,
   sessionCountLabel,
+  startsInLabel,
 } from "@/features/dashboard/stats";
 
 function appointment(overrides: Partial<MyDayAppointment> = {}): MyDayAppointment {
@@ -148,6 +150,8 @@ describe("Meu Dia — indicadores do Figma", () => {
     expect(sessionCountLabel(0)).toBe("0 sessões");
     expect(sessionCountLabel(1)).toBe("1 sessão");
     expect(sessionCountLabel(6)).toBe("6 sessões");
+    expect(attendanceCountLabel(1)).toBe("1 atendimento");
+    expect(attendanceCountLabel(6)).toBe("6 atendimentos");
     expect(daySpanLabel([], "UTC")).toBe("Nenhum agendamento");
     expect(
       daySpanLabel(
@@ -181,5 +185,13 @@ describe("Meu Dia — indicadores do Figma", () => {
       "meet.google.com/abc-defg-hij",
     );
     expect(meetHostLabel(null)).toBeNull();
+  });
+
+  it("rotula o tempo até o início da próxima sessão", () => {
+    const startsAt = "2026-08-20T12:45:00.000Z";
+    const now = Date.parse("2026-08-20T12:00:00.000Z");
+    expect(startsInLabel(startsAt, now)).toBe("em 45 min");
+    expect(startsInLabel("2026-08-20T14:00:00.000Z", now)).toBe("em 2 h");
+    expect(startsInLabel("2026-08-20T11:00:00.000Z", now)).toBeNull();
   });
 });

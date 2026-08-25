@@ -86,7 +86,7 @@ test.describe("Cadastro de paciente", () => {
     await page.goto("/app/patients");
     await page.getByText("Beatriz", { exact: true }).click();
     await page.waitForURL(/\/app\/patients\/[0-9a-f-]+$/);
-    await page.getByRole("link", { name: "Editar cadastro" }).click();
+    await page.getByRole("link", { name: "Editar Dados" }).click();
     await page.waitForURL(/\/app\/patients\/[0-9a-f-]+\/edit$/);
 
     await expect(
@@ -144,6 +144,7 @@ test.describe("Patient Hub — isolamento clínico", () => {
     await page.getByRole("button", { name: "Cadastrar paciente" }).click();
     await page.waitForURL(/\/app\/patients\/[0-9a-f-]+$/);
 
+    await page.getByRole("tab", { name: "Prontuário" }).click();
     await expect(
       page.getByRole("heading", { name: "Acompanhamento", exact: true }),
     ).toBeVisible();

@@ -324,7 +324,7 @@ export default async function PatientHubPage({
 
   const recordPanel = isAdmin ? (
     <PatientHubSection
-      title="Prontuário"
+      title="Acompanhamento"
       description="Queixa, histórico e notas clínicas — visível apenas para a psicóloga administradora."
       actions={
         <Button asChild variant="secondary" size="sm">

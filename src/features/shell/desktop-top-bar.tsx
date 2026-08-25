@@ -3,7 +3,7 @@
 import { Bell, FileText, Plus, Search, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { Modal, ModalContent } from "@/components/ui/modal";
 import { SearchField } from "@/components/ui/search-field";
 import { searchPatientsCommand } from "@/features/shell/actions";
@@ -16,16 +16,22 @@ const QUICK_ACTIONS = [
     href: "/app/agenda?new=1",
     label: "Nova consulta para paciente existente",
     icon: Plus,
+    shortcut: "⌥N",
+    key: "n",
   },
   {
     href: "/app/patients/new",
     label: "Cadastrar novo paciente no diretório",
     icon: UserPlus,
+    shortcut: "⌥P",
+    key: "p",
   },
   {
     href: "/app/documents",
     label: "Gerar novo documento ou laudo clínico",
     icon: FileText,
+    shortcut: "⌥D",
+    key: "d",
   },
 ] as const;
 
@@ -63,11 +69,11 @@ export function CommandPalette({
     );
   }, [query]);
 
-  function close() {
+  const close = useCallback(() => {
     setQuery("");
     setPatients([]);
     onOpenChange(false);
-  }
+  }, [onOpenChange]);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -88,40 +94,85 @@ export function CommandPalette({
     router.push(href);
   }
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    function onShortcut(event: KeyboardEvent) {
+      if (!event.altKey || event.metaKey || event.ctrlKey) {
+        return;
+      }
+      const action = QUICK_ACTIONS.find((item) => item.key === event.key.toLowerCase());
+      if (!action) {
+        return;
+      }
+      event.preventDefault();
+      close();
+      router.push(action.href);
+    }
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, [open, router, close]);
+
   const visiblePatients = query.trim().length < 2 ? [] : patients;
 
   return (
     <Modal open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
-      <ModalContent title="Buscar" description="Pacientes, páginas e ações do consultório." size="md">
+      <ModalContent
+        title="Buscar"
+        description="Pacientes, páginas e ações do consultório."
+        hideHeader
+        className="max-w-[600px] rounded-[16px]"
+      >
         <SearchField
           autoFocus
           value={query}
           onChange={setQuery}
           placeholder="Nome, código ou módulo…"
+          trailing={
+            <kbd className="rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              ESC
+            </kbd>
+          }
         />
 
         {actionMatches.length > 0 ? (
           <div className="mt-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-sage-mid">
               Ações rápidas
             </p>
-            <ul className="flex flex-col gap-1">
+            <ul className="flex flex-col gap-1.5">
               {actionMatches.map((action, index) => {
                 const Icon = action.icon;
+                const highlighted = index === 0 && query.trim().length === 0;
                 return (
                   <li key={action.href}>
                     <button
                       type="button"
                       onClick={() => go(action.href)}
                       className={cn(
-                        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm",
-                        index === 0 && query.trim().length === 0
+                        "flex w-full items-center gap-3 rounded-lg p-3 text-left text-sm",
+                        highlighted
                           ? "bg-sage-light font-semibold text-sage-700"
                           : "hover:bg-sage-light",
                       )}
                     >
-                      <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                      {action.label}
+                      <Icon
+                        className={cn(
+                          "size-4 shrink-0",
+                          highlighted ? "text-sage-700" : "text-muted-foreground",
+                        )}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1">{action.label}</span>
+                      <kbd
+                        className={cn(
+                          "font-mono text-[11px]",
+                          highlighted ? "text-sage-700" : "text-muted-foreground",
+                        )}
+                      >
+                        {action.shortcut}
+                      </kbd>
                     </button>
                   </li>
                 );
@@ -132,7 +183,7 @@ export function CommandPalette({
 
         {visiblePatients.length > 0 ? (
           <div className="mt-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-sage-mid">
               Pacientes
             </p>
             <ul className="flex flex-col gap-1">
@@ -141,9 +192,12 @@ export function CommandPalette({
                   <button
                     type="button"
                     onClick={() => go(patient.href)}
-                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-sage-light"
+                    className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left text-sm hover:bg-sage-light"
                   >
-                    <span className="font-medium text-foreground">{patient.name}</span>
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-xl bg-sage-light font-serif text-[10px] font-bold text-sage-700">
+                      {patient.name.trim().slice(0, 1).toUpperCase() || "P"}
+                    </span>
+                    <span className="min-w-0 flex-1 font-medium text-foreground">{patient.name}</span>
                     <span className="font-mono text-[11px] text-muted-foreground">{patient.code}</span>
                   </button>
                 </li>
@@ -153,7 +207,7 @@ export function CommandPalette({
         ) : null}
 
         <div className="mt-4">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-sage-mid">
             Navegação
           </p>
           <ul className="flex flex-col gap-1">

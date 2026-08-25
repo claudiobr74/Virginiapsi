@@ -20,7 +20,6 @@ test.describe("Meu Dia — dashboard operacional", () => {
     await loginViaUi(page);
 
     await expect(page.getByRole("heading", { name: /Ana Serena/ })).toBeVisible();
-    await expect(page.getByText("Olá, Ana Serena")).toBeVisible();
     await expect(
       page.getByText("Um dia de cada vez — presença e cuidado na rotina clínica."),
     ).toBeVisible();
@@ -28,7 +27,10 @@ test.describe("Meu Dia — dashboard operacional", () => {
     await expect(
       page.getByRole("heading", { name: "Agenda de Hoje" }),
     ).toBeVisible();
-    await expect(page.getByText("Beatriz • PAC-001").first()).toBeVisible();
+    const todayAgenda = page.locator("section").filter({
+      has: page.getByRole("heading", { name: "Agenda de Hoje" }),
+    });
+    await expect(todayAgenda.getByText("Beatriz • PAC-001")).toBeVisible();
     await expect(page.getByRole("link", { name: "Atendimento Avulso" })).toBeVisible();
     await expect(page.getByText("Sessões esta semana")).toBeVisible();
 

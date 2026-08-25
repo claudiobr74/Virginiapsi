@@ -26,4 +26,18 @@ describe("Modal", () => {
     await userEvent.click(screen.getByRole("button", { name: "Fechar" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("esconde o cabeçalho visual quando hideHeader está ativo", async () => {
+    render(
+      <Modal defaultOpen>
+        <ModalContent title="Buscar" description="Ações do consultório." hideHeader>
+          Campo de busca
+        </ModalContent>
+      </Modal>,
+    );
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Campo de busca")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Fechar" })).not.toBeInTheDocument();
+  });
 });

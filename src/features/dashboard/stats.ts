@@ -7,6 +7,34 @@ export function sessionCountLabel(count: number): string {
   return count === 1 ? "1 sessão" : `${count} sessões`;
 }
 
+export function attendanceCountLabel(count: number): string {
+  return count === 1 ? "1 atendimento" : `${count} atendimentos`;
+}
+
+/** Relative label for a future start; null when the session already began. */
+export function startsInLabel(
+  startsAtIso: string,
+  nowMs: number = Date.now(),
+): string | null {
+  const deltaMs = new Date(startsAtIso).getTime() - nowMs;
+  if (deltaMs <= 0) {
+    return null;
+  }
+  const minutes = Math.round(deltaMs / 60_000);
+  if (minutes < 1) {
+    return "agora";
+  }
+  if (minutes < 60) {
+    return `em ${minutes} min`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (rest === 0) {
+    return hours === 1 ? "em 1 h" : `em ${hours} h`;
+  }
+  return `em ${hours} h ${rest} min`;
+}
+
 export function daySpanLabel(
   timeline: MyDayAppointment[],
   timeZone: string,

@@ -30,6 +30,8 @@ export interface ModalContentProps
   description?: string;
   footer?: React.ReactNode;
   size?: "sm" | "md" | "lg";
+  /** Keep the dialog title for assistive tech, omit the visual header. */
+  hideHeader?: boolean;
 }
 
 const sizeClasses: Record<NonNullable<ModalContentProps["size"]>, string> = {
@@ -43,7 +45,7 @@ export const ModalContent = React.forwardRef<
   ModalContentProps
 >(
   (
-    { className, title, description, footer, size = "md", children, ...props },
+    { className, title, description, footer, size = "md", hideHeader = false, children, ...props },
     ref,
   ) => (
     <DialogPrimitive.Portal>
@@ -58,22 +60,33 @@ export const ModalContent = React.forwardRef<
         )}
         {...props}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
-          <div className="flex flex-col gap-1">
-            <DialogPrimitive.Title className="font-serif text-lg italic font-bold text-foreground">
-              {title}
-            </DialogPrimitive.Title>
+        {hideHeader ? (
+          <>
+            <DialogPrimitive.Title className="sr-only">{title}</DialogPrimitive.Title>
             {description ? (
-              <DialogPrimitive.Description className="text-sm text-muted-foreground">
+              <DialogPrimitive.Description className="sr-only">
                 {description}
               </DialogPrimitive.Description>
             ) : null}
+          </>
+        ) : (
+          <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+            <div className="flex flex-col gap-1">
+              <DialogPrimitive.Title className="font-serif text-lg italic font-bold text-foreground">
+                {title}
+              </DialogPrimitive.Title>
+              {description ? (
+                <DialogPrimitive.Description className="text-sm text-muted-foreground">
+                  {description}
+                </DialogPrimitive.Description>
+              ) : null}
+            </div>
+            <DialogPrimitive.Close className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <X className="size-4" aria-hidden />
+              <span className="sr-only">Fechar</span>
+            </DialogPrimitive.Close>
           </div>
-          <DialogPrimitive.Close className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <X className="size-4" aria-hidden />
-            <span className="sr-only">Fechar</span>
-          </DialogPrimitive.Close>
-        </div>
+        )}
         <div className="max-h-[70vh] overflow-y-auto px-6 py-5 text-sm text-foreground">
           {children}
         </div>
