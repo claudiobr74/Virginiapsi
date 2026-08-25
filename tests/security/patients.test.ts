@@ -162,7 +162,7 @@ describe("patients — administrativo", () => {
     }
   });
 
-  it("responsible_psychologist_user_id exige admin ativo da mesma organização", async () => {
+  it("responsible_psychologist_user_id exige profissional clínica ativa da mesma organização", async () => {
     const patient = await insertPatient(admin, organizationId, "Responsável Teste");
     const stranger = await createAuthUser();
 
@@ -172,13 +172,13 @@ describe("patients — administrativo", () => {
         "update public.patients set responsible_psychologist_user_id = $2 where id = $1",
         [patient.id, stranger],
       );
-      expect(errorStranger).toMatch(/active psychologist_admin/i);
+      expect(errorStranger).toMatch(/active clinical practitioner/i);
 
       const errorSecretary = await session.expectError(
         "update public.patients set responsible_psychologist_user_id = $2 where id = $1",
         [patient.id, secretary],
       );
-      expect(errorSecretary).toMatch(/active psychologist_admin/i);
+      expect(errorSecretary).toMatch(/active clinical practitioner/i);
 
       const ok = await session.query<{ responsible_psychologist_user_id: string }>(
         "update public.patients set responsible_psychologist_user_id = $2 where id = $1 returning responsible_psychologist_user_id",

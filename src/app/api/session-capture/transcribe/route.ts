@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { verifyCaptureGrantToken } from "@/lib/consent/capability-gate";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { organizationId, role } = await requireOrgContext();
-  if (role !== "psychologist_admin") {
+  if (!isClinicalPractitioner(role)) {
     return NextResponse.json({ error: "forbidden_role" }, { status: 403 });
   }
 

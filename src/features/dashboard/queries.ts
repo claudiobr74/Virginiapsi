@@ -13,14 +13,14 @@ import {
   type PracticeTask,
   type SessionToFinalize,
 } from "@/features/dashboard/contracts";
-import type { ShellSettings } from "@/features/organizations/contracts";
+import type { OrganizationRole, ShellSettings } from "@/features/organizations/contracts";
 import { ROLE_LABELS } from "@/features/organizations/labels";
 import { listRecentDocuments } from "@/features/documents/queries";
 import { getFinanceAccess, listCharges, listPayments, buildChargeViews } from "@/features/finance/queries";
 import { todayIsoDate } from "@/features/finance/contracts";
 import { monthReceiptsCents } from "@/features/dashboard/metrics";
 import { listPatients } from "@/features/patients/queries";
-import type { OrganizationRole } from "@/features/organizations/contracts";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { computeAgendaWindow, todayInTimeZone } from "@/features/calendar/date-window";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -193,7 +193,7 @@ export async function getMyDaySnapshot(input: {
       listTodayManagedAppointments(input.organizationId, input.timezone),
       listOpenTasks(input.organizationId),
       listRecentDocuments(input.organizationId),
-      input.role === "psychologist_admin"
+      isClinicalPractitioner(input.role)
         ? listSessionsToFinalize(input.organizationId)
         : Promise.resolve([]),
       listPatients(input.organizationId),
@@ -233,7 +233,7 @@ export async function getMyDaySnapshot(input: {
     timezone: input.timezone,
     roleLabel: ROLE_LABELS[input.role],
     clinicName: input.settings?.clinic_name?.trim() || null,
-    canStartSession: input.role === "psychologist_admin",
+    canStartSession: isClinicalPractitioner(input.role),
     nextSession: selectNextSession(timeline),
     timeline,
     sessionsToFinalize,

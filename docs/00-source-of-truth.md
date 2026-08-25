@@ -2,7 +2,7 @@
 
 ## Hierarquia de autoridade
 
-1. Este diretório `docs/` para produto/arquitetura e `src/lib/ai/prompts/**` para comportamento de IA em runtime. Go-live multiclínicas (decisões D1–D5 e inventário G0): `docs/26-go-live.md` — **não** substitui este kit; a G2 deve emendar papéis quando D4b/D5b forem implementados (`psychologist` + operadora de plataforma). Até lá o texto abaixo (“duas funções”) descreve o código vigente, não o alvo travado.
+1. Este diretório `docs/` para produto/arquitetura e `src/lib/ai/prompts/**` para comportamento de IA em runtime. Go-live multiclínicas (decisões D1–D5): `docs/26-go-live.md`. Papéis G2: `psychologist_admin`, `psychologist`, `secretary` + operadora de plataforma (`platform_operators`).
 2. `src/lib/ai/contracts/**` para structured outputs da IA.
 3. `.cursor/rules/`.
 4. prompt da fase atual.
@@ -14,7 +14,7 @@ O Tesseli deve implementar:
 
 - navegação principal por oito módulos;
 - identidade visual sage/bone, tipografia elegante e interface acolhedora;
-- duas funções de acesso: Psicóloga Administradora e Secretaria;
+- três funções de clínica: Administradora (`psychologist_admin`), Psicóloga clínica (`psychologist`) e Secretaria; criação de clínica só pela operadora da plataforma;
 - dashboard **Meu Dia** orientado à rotina;
 - prontuário por paciente e sessão clínica em modo foco;
 - DPEP: Demanda, Procedimentos, Evolução, Plano/Encaminhamentos;

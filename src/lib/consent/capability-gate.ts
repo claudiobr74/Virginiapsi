@@ -14,6 +14,7 @@ import {
   type VerifyCaptureGrantExpectedScope,
   type VerifyCaptureGrantResult,
 } from "@/lib/consent/capture-grant";
+import { hasPatientClinicalAccess } from "@/features/patients/clinical-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { getServerEnv } from "@/lib/env/server";
@@ -37,7 +38,7 @@ export interface CapabilityDenial {
 export type CapabilityGateResult = CapabilityGrant | CapabilityDenial;
 
 const NON_CONSENT_MESSAGES = {
-  forbidden_role: "Somente a psicóloga administradora conduz sessão clínica.",
+  forbidden_role: "Somente a psicóloga responsável conduz sessão clínica.",
   session_not_found: "Sessão clínica não encontrada para este paciente.",
 } as const;
 
@@ -80,9 +81,16 @@ export async function authorizeCaptureCapability(
   sessionId: string,
   capability: CaptureCapability,
 ): Promise<CapabilityGateResult> {
-  const { organizationId, role } = await requireOrgContext();
+  const { organizationId, role, user } = await requireOrgContext();
 
-  if (role !== "psychologist_admin") {
+  if (
+    !(await hasPatientClinicalAccess({
+      organizationId,
+      role,
+      userId: user.id,
+      patientId,
+    }))
+  ) {
     return {
       allowed: false,
       status: 403,

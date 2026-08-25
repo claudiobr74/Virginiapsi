@@ -462,7 +462,7 @@ function TeamSection({ snapshot }: { snapshot: SettingsSnapshot }) {
               email: String(form.get("email") ?? ""),
               role: String(form.get("role") ?? "secretary"),
             });
-            setMessage(result.error ?? "Membro adicionado.");
+            setMessage(result.error ?? "Convite enviado.");
             if (!result.error) {
               router.refresh();
               event.currentTarget.reset();
@@ -476,6 +476,7 @@ function TeamSection({ snapshot }: { snapshot: SettingsSnapshot }) {
         <Field label="Papel">
           <select name="role" className={selectClass} defaultValue="secretary">
             <option value="secretary">Secretaria</option>
+            <option value="psychologist">Psicóloga clínica</option>
             <option value="psychologist_admin">Administradora</option>
           </select>
         </Field>

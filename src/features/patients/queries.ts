@@ -151,9 +151,8 @@ export async function getPatient(
 }
 
 /**
- * Callers must only invoke this for `psychologist_admin` — RLS also denies
- * the secretary role at the database layer, but the UI/server boundary
- * should never even attempt the query for that role (docs/10-clinical-domain.mdc).
+ * Callers must only invoke this for a clinical practitioner who is the
+ * responsible psychologist — RLS also denies everyone else.
  */
 export async function getPatientClinicalProfile(
   patientId: string,

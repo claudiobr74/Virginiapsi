@@ -30,6 +30,7 @@ import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { DOCUMENT_BUCKETS, removeFile } from "@/lib/documents/storage";
 import { SIGNED_URL_TTL_SECONDS } from "@/lib/documents/storage-meta";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function revalidateSettings() {
@@ -231,15 +232,18 @@ export async function inviteMemberAction(input: unknown): Promise<SettingsAction
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
   const supabase = await createSupabaseServerClient();
+  try {
+    const admin = createSupabaseAdminClient();
+    await admin.auth.admin.inviteUserByEmail(parsed.data.email);
+  } catch {
+    // Sem service-role o convite Auth fica pendente no banco até o cadastro.
+  }
   const { data, error } = await supabase.rpc("invite_organization_member", {
     p_org_id: ctx.organizationId,
     p_email: parsed.data.email,
     p_role: parsed.data.role,
   });
   if (error) {
-    if (/user is not registered/i.test(error.message)) {
-      return { error: "Este e-mail ainda não tem conta no VirgíniaPsi. A pessoa precisa se cadastrar primeiro." };
-    }
     if (/unique|duplicate/i.test(error.message)) {
       return { error: "Esta pessoa já faz parte da equipe." };
     }

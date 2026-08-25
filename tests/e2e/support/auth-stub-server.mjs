@@ -173,6 +173,22 @@ function nextPublicCode(organizationId) {
   return `PAC-${String(next).padStart(3, "0")}`;
 }
 
+function firstClinicalUser(organizationId) {
+  const member = membershipsForOrg(organizationId).find(
+    (row) =>
+      row.active !== false &&
+      (row.role === "psychologist_admin" || row.role === "psychologist"),
+  );
+  return member?.user_id ?? null;
+}
+
+function isClinicalRole(role) {
+  return role === "psychologist_admin" || role === "psychologist";
+}
+
+const platformOperators = new Set([ADMIN.id, MULTI.id]);
+const pendingInvitations = [];
+
 function seedPatient(organizationId, overrides) {
   const id = randomUUID();
   const now = new Date().toISOString();
@@ -190,7 +206,8 @@ function seedPatient(organizationId, overrides) {
     modality: "in_person",
     status: "active",
     default_session_value: null,
-    responsible_psychologist_user_id: null,
+    responsible_psychologist_user_id:
+      overrides.responsible_psychologist_user_id ?? firstClinicalUser(organizationId),
     elimination_status: "active",
     elimination_requested_at: null,
     elimination_completed_at: null,
@@ -425,7 +442,7 @@ const FORCED_CLINICAL_KINDS = new Set(["laudo", "relatorio", "atestado", "encami
 const FORCED_ADMINISTRATIVE_KINDS = new Set(["recibo"]);
 
 function isSensitivityVisible(role, sensitivity) {
-  return role === "psychologist_admin" || sensitivity === "administrative";
+  return isClinicalRole(role) || sensitivity === "administrative";
 }
 
 /**
@@ -464,6 +481,7 @@ function financeAccess(userId, organizationId) {
   const role = membershipRole(userId, organizationId);
   if (!role) return "none";
   if (role === "psychologist_admin") return "manage";
+  if (role === "psychologist") return "none";
   return practiceSettingsByOrg.get(organizationId)?.secretary_finance_access ?? "none";
 }
 
@@ -856,6 +874,20 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === "/auth/v1/signup" && req.method === "POST") {
+    const body = await readBody(req);
+    const email = String(body.email ?? "").toLowerCase();
+    if (!email || !body.password) {
+      json(res, 400, { msg: "invalid signup", error_code: "validation_failed" });
+      return;
+    }
+    const existing = usersByEmail.get(email);
+    const user = existing ?? makeUser(email, "");
+    usersByEmail.set(email, user);
+    json(res, 200, issueSession(user));
+    return;
+  }
+
   if (pathname === "/auth/v1/user" && (req.method === "GET" || req.method === "PUT")) {
     const user = bearerUser(req);
     if (!user) {
@@ -1023,11 +1055,87 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === "/rest/v1/rpc/claim_platform_operator" && req.method === "POST") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (platformOperators.size === 0) {
+      platformOperators.add(user.id);
+      json(res, 200, true);
+      return;
+    }
+    json(res, 200, platformOperators.has(user.id));
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/platform_bootstrap_state" && req.method === "POST") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    json(res, 200, [
+      {
+        is_operator: platformOperators.has(user.id),
+        operators_exist: platformOperators.size > 0,
+      },
+    ]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/accept_pending_invitations" && req.method === "POST") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    let accepted = 0;
+    for (const invitation of pendingInvitations) {
+      if (
+        invitation.status === "pending" &&
+        invitation.email === user.email.toLowerCase()
+      ) {
+        addMembership(user.id, invitation.organization_id, invitation.role);
+        invitation.status = "accepted";
+        accepted += 1;
+      }
+    }
+    json(res, 200, accepted);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/list_assignable_psychologists" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (!membershipRole(user.id, body.p_org_id)) {
+      json(res, 403, { message: "not authorized", code: "42501" });
+      return;
+    }
+    json(
+      res,
+      200,
+      membershipsForOrg(body.p_org_id).filter(
+        (row) => row.role === "psychologist_admin" || row.role === "psychologist",
+      ),
+    );
+    return;
+  }
+
   if (pathname === "/rest/v1/rpc/bootstrap_organization" && req.method === "POST") {
     const user = bearerUser(req);
     const body = await readBody(req);
     if (!user) {
       json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    if (!platformOperators.has(user.id)) {
+      json(res, 403, { message: "organization bootstrap requires a platform operator", code: "42501" });
       return;
     }
     const id = seedOrganization({
@@ -1071,7 +1179,15 @@ const server = createServer(async (req, res) => {
         (item) => item.email.toLowerCase() === String(body.p_email ?? "").toLowerCase(),
       );
     if (!invited) {
-      json(res, 400, { message: "user is not registered", code: "P0001" });
+      const invitation = {
+        id: randomUUID(),
+        organization_id: body.p_org_id,
+        email: String(body.p_email ?? "").toLowerCase(),
+        role: body.p_role,
+        status: "pending",
+      };
+      pendingInvitations.push(invitation);
+      json(res, 200, invitation.id);
       return;
     }
     const existing = membershipsForOrg(body.p_org_id).find((row) => row.user_id === invited.id);
@@ -1170,6 +1286,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    const role = membershipRole(user.id, body.organization_id);
     const patient = seedPatient(body.organization_id, {
       preferred_name: body.preferred_name,
       full_name: body.full_name,
@@ -1181,6 +1298,9 @@ const server = createServer(async (req, res) => {
       modality: body.modality ?? "in_person",
       status: body.status ?? "active",
       default_session_value: body.default_session_value ?? null,
+      responsible_psychologist_user_id:
+        body.responsible_psychologist_user_id
+        ?? (isClinicalRole(role) ? user.id : firstClinicalUser(body.organization_id)),
     });
 
     if (wantsSingleObject(req)) {
@@ -1822,7 +1942,13 @@ const server = createServer(async (req, res) => {
       json(res, 401, { message: "invalid JWT" });
       return;
     }
-    if (membershipRole(user.id, body.org_id) !== "psychologist_admin") {
+    if (!isClinicalRole(membershipRole(user.id, body.org_id))) {
+      json(res, 403, { message: "row-level security policy violation" });
+      return;
+    }
+    const responsible =
+      patientsByOrg.get(body.org_id)?.get(body.p_patient_id)?.responsible_psychologist_user_id;
+    if (responsible !== user.id) {
       json(res, 403, { message: "row-level security policy violation" });
       return;
     }

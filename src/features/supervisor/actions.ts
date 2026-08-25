@@ -7,6 +7,7 @@ import { supervisorOutputSchema } from "@/lib/ai/validators/supervisor";
 import { toGeminiResponseJsonSchema } from "@/lib/ai/schema-adapter";
 import { GeminiClient } from "@/lib/integrations/gemini/client";
 import { getServerEnv } from "@/lib/env/server";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -196,7 +197,7 @@ export async function runSupervisorAssist(input: unknown): Promise<SupervisorAct
  */
 export async function appendSupervisorArtifact(input: unknown): Promise<SupervisorActionResult> {
   const { organizationId, role } = await requireOrgContext();
-  if (role !== "psychologist_admin") {
+  if (!isClinicalPractitioner(role)) {
     return { error: "forbidden_role" };
   }
   const parsed = appendSupervisorArtifactSchema.safeParse(input);
@@ -275,7 +276,7 @@ export async function discardSupervisorArtifact(
   artifactId: string,
 ): Promise<SupervisorActionResult> {
   const { role } = await requireOrgContext();
-  if (role !== "psychologist_admin") {
+  if (!isClinicalPractitioner(role)) {
     return { error: "forbidden_role" };
   }
   const supabase = await createSupabaseServerClient();

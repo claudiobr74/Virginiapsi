@@ -16,6 +16,7 @@ import {
 import { toGeminiResponseJsonSchema } from "@/lib/ai/schema-adapter";
 import { GeminiClient } from "@/lib/integrations/gemini/client";
 import { getServerEnv } from "@/lib/env/server";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -337,7 +338,7 @@ export async function appendClosingArtifactToDpep(
   input: unknown,
 ): Promise<SessionAiActionResult> {
   const { organizationId, role } = await requireOrgContext();
-  if (role !== "psychologist_admin") {
+  if (!isClinicalPractitioner(role)) {
     return { error: "forbidden_role" };
   }
   const parsed = appendArtifactSchema.safeParse(input);
@@ -396,7 +397,7 @@ export async function appendClosingArtifactToDpep(
 
 export async function discardAiArtifact(artifactId: string): Promise<SessionAiActionResult> {
   const { role } = await requireOrgContext();
-  if (role !== "psychologist_admin") {
+  if (!isClinicalPractitioner(role)) {
     return { error: "forbidden_role" };
   }
 

@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { hasPatientClinicalAccess } from "@/features/patients/clinical-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -49,14 +50,21 @@ const acceptTcleSchema = z.object({
  * would each be useless as evidence on their own.
  */
 export async function acceptTcleAction(input: unknown): Promise<TcleActionResult> {
-  const { organizationId, role } = await requireOrgContext();
-  if (role !== "psychologist_admin") {
-    return { error: "Apenas a psicóloga administradora registra o aceite do TCLE." };
-  }
-
+  const { organizationId, role, user } = await requireOrgContext();
   const parsed = acceptTcleSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  if (
+    !(await hasPatientClinicalAccess({
+      organizationId,
+      role,
+      userId: user.id,
+      patientId: parsed.data.patientId,
+    }))
+  ) {
+    return { error: "Apenas a psicóloga responsável registra o aceite do TCLE." };
   }
 
   const patient = await getPatient(organizationId, parsed.data.patientId);

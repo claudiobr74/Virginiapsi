@@ -41,6 +41,7 @@ export async function bootstrapOrganizationAction(
   }
 
   const supabase = await createSupabaseServerClient();
+  await supabase.rpc("claim_platform_operator");
   const { data, error } = await supabase.rpc("bootstrap_organization", {
     org_name: parsed.data.name,
     org_slug: slugFromName(parsed.data.name),
@@ -48,9 +49,11 @@ export async function bootstrapOrganizationAction(
   });
 
   if (error || typeof data !== "string") {
+    const denied = /platform operator/i.test(error?.message ?? "");
     return {
-      error:
-        "Não foi possível criar o consultório agora. Tente novamente em instantes.",
+      error: denied
+        ? "Somente a operadora da plataforma cria um consultório. Se você foi convidada, aguarde o convite ou entre com o e-mail convidado."
+        : "Não foi possível criar o consultório agora. Tente novamente em instantes.",
     };
   }
 

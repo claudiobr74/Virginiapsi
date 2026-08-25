@@ -35,7 +35,7 @@ test.describe("Contexto de organização", () => {
       context.getByText(STUB_USER.organizationName).first(),
     ).toBeVisible();
     await expect(
-      context.getByText("Psicóloga Clínica").first(),
+      context.getByText("Administradora").first(),
     ).toBeVisible();
     // Com um único consultório, não há troca de contexto para oferecer.
     await expect(
@@ -43,25 +43,16 @@ test.describe("Contexto de organização", () => {
     ).toHaveCount(0);
   });
 
-  test("usuário sem organização é levado ao onboarding e cria o consultório", async ({
+  test("usuário sem organização é levado ao onboarding e aguarda convite", async ({
     page,
   }) => {
     await signIn(page, newcomerCredentials());
     await page.waitForURL("**/onboarding");
 
     await expect(
-      page.getByRole("heading", { name: "Vamos criar seu consultório" }),
+      page.getByRole("heading", { name: "Aguardando convite" }),
     ).toBeVisible();
-
-    await page.getByLabel("Nome do consultório").fill("Consultório Aurora");
-    await page
-      .getByLabel("Nome da profissional (opcional)")
-      .fill("Nova Profissional");
-    await page.getByRole("button", { name: "Criar consultório" }).click();
-
-    await page.waitForURL("**/app");
-    const context = await openShellContext(page);
-    await expect(context.getByText("Consultório Aurora").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Criar consultório" })).toHaveCount(0);
   });
 
   test("usuário com múltiplas organizações precisa escolher explicitamente", async ({

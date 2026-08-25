@@ -12,6 +12,7 @@ import {
   isPortraitStoragePath,
   portraitFilename,
 } from "@/features/patients/portrait";
+import { hasPatientClinicalAccess } from "@/features/patients/clinical-access";
 import { getPatient } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
@@ -41,6 +42,9 @@ function toDbPayload(values: PatientFormValues) {
     status: values.status,
     default_session_value: values.defaultSessionValue
       ? Number(values.defaultSessionValue)
+      : null,
+    responsible_psychologist_user_id: values.responsiblePsychologistUserId
+      ? values.responsiblePsychologistUserId
       : null,
   };
 }
@@ -167,10 +171,17 @@ export async function updateClinicalProfileAction(
   patientId: string,
   input: unknown,
 ): Promise<ClinicalProfileActionResult> {
-  const { organizationId, role } = await requireOrgContext();
+  const { organizationId, role, user } = await requireOrgContext();
 
-  if (role !== "psychologist_admin") {
-    return { error: "Apenas a psicóloga administradora edita dados clínicos." };
+  if (
+    !(await hasPatientClinicalAccess({
+      organizationId,
+      role,
+      userId: user.id,
+      patientId,
+    }))
+  ) {
+    return { error: "Apenas a psicóloga responsável edita dados clínicos." };
   }
 
   const parsed = clinicalProfileFormSchema.safeParse(input);

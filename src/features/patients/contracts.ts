@@ -139,6 +139,11 @@ export const patientFormSchema = z.object({
       (value) => !value || (!Number.isNaN(Number(value)) && Number(value) >= 0),
       "Informe um valor válido.",
     ),
+  responsiblePsychologistUserId: z
+    .string()
+    .uuid()
+    .optional()
+    .or(z.literal("")),
 });
 
 export type PatientFormValues = z.infer<typeof patientFormSchema>;

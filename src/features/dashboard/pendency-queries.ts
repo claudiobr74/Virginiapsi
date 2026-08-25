@@ -12,6 +12,7 @@ import {
 import { formatBRL } from "@/lib/finance/money";
 import { listPatients } from "@/features/patients/queries";
 import type { OrganizationRole } from "@/features/organizations/contracts";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { CONSENT_TYPE_LABELS, type ConsentType } from "@/features/consents/contracts";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -68,7 +69,7 @@ export async function listPendencies(
   role: OrganizationRole,
 ): Promise<PendencyItem[]> {
   const [sessions, tasks, documents, access, patients] = await Promise.all([
-    role === "psychologist_admin"
+    isClinicalPractitioner(role)
       ? listSessionsToFinalize(organizationId)
       : Promise.resolve([]),
     listOpenTasks(organizationId),
@@ -130,7 +131,7 @@ export async function listPendencies(
     }
   }
 
-  if (role === "psychologist_admin") {
+  if (isClinicalPractitioner(role)) {
     items.push(...(await listPendingConsents(organizationId)));
   }
 

@@ -3,63 +3,74 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GoogleAuthButton } from "@/features/auth/components/google-auth-button";
-import {
-  toAuthQueryErrorMessage,
-  toLoginErrorMessage,
-} from "@/features/auth/messages";
-import { loginSchema, type LoginValues } from "@/features/auth/schemas";
+import { AUTH_GENERIC_ERROR } from "@/features/auth/messages";
+import { signupSchema, type SignupValues } from "@/features/auth/schemas";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { PRODUCT_NAME } from "@/lib/brand";
 
-export function LoginForm() {
+export function SignupForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [formError, setFormError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+  } = useForm<SignupValues>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: { email: "", password: "", confirmPassword: "" },
   });
-
-  const queryError = toAuthQueryErrorMessage(searchParams.get("error"));
-  const visibleError = formError ?? queryError;
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
+    setInfoMessage(null);
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword(values);
+    const { data, error } = await supabase.auth.signUp({
+      email: values.email,
+      password: values.password,
+    });
 
     if (error) {
-      setFormError(toLoginErrorMessage());
+      setFormError(AUTH_GENERIC_ERROR);
       return;
     }
 
-    const next = searchParams.get("next");
-    const destination = next && next.startsWith("/") ? next : "/app";
-    router.replace(destination);
-    router.refresh();
+    if (data.session) {
+      router.replace("/onboarding");
+      router.refresh();
+      return;
+    }
+
+    setInfoMessage(
+      "Se este e-mail puder ser cadastrado, você receberá a confirmação em instantes. Depois disso, entre para aceitar o convite da clínica.",
+    );
   });
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
-      {visibleError ? (
+      {formError ? (
         <p
           role="alert"
           className="rounded-lg border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed"
         >
-          {visibleError}
+          {formError}
+        </p>
+      ) : null}
+      {infoMessage ? (
+        <p
+          role="status"
+          className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground"
+        >
+          {infoMessage}
         </p>
       ) : null}
 
@@ -79,20 +90,12 @@ export function LoginForm() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between gap-3">
-          <Label htmlFor="password">Senha</Label>
-          <Link
-            href="/auth/recovery"
-            className="text-xs font-semibold text-sage-700 hover:text-primary"
-          >
-            Esqueci minha senha
-          </Link>
-        </div>
+        <Label htmlFor="password">Senha</Label>
         <div className="relative">
           <Input
             id="password"
             type={showPassword ? "text" : "password"}
-            autoComplete="current-password"
+            autoComplete="new-password"
             placeholder="••••••••"
             aria-invalid={Boolean(errors.password) || undefined}
             className="pr-11"
@@ -116,17 +119,32 @@ export function LoginForm() {
         ) : null}
       </div>
 
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="confirmPassword">Confirmar senha</Label>
+        <Input
+          id="confirmPassword"
+          type={showPassword ? "text" : "password"}
+          autoComplete="new-password"
+          placeholder="••••••••"
+          aria-invalid={Boolean(errors.confirmPassword) || undefined}
+          {...register("confirmPassword")}
+        />
+        {errors.confirmPassword ? (
+          <p className="text-xs text-failed">{errors.confirmPassword.message}</p>
+        ) : null}
+      </div>
+
       <div className="flex flex-col gap-3 pt-2">
         <Button type="submit" size="lg" isLoading={isSubmitting} className="w-full">
-          Entrar no {PRODUCT_NAME}
+          Criar conta no {PRODUCT_NAME}
         </Button>
         <GoogleAuthButton />
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
-        Ainda não tem conta?{" "}
-        <Link href="/signup" className="font-semibold text-sage-700 hover:text-primary">
-          Criar conta
+        Já tem conta?{" "}
+        <Link href="/login" className="font-semibold text-sage-700 hover:text-primary">
+          Entrar
         </Link>
       </p>
     </form>

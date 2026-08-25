@@ -9,6 +9,7 @@ import {
   todayInTimeZone,
   type AgendaView,
 } from "@/features/calendar/date-window";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { peekGoogleCalendarRedirectUri } from "@/lib/env/server";
 
@@ -78,6 +79,7 @@ export default async function AgendaPage({
           patients={patients}
           connection={connection}
           canManageConnection={role === "psychologist_admin"}
+          canStartSession={isClinicalPractitioner(role)}
         />
       </Suspense>
     </PageContainer>

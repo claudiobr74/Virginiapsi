@@ -36,6 +36,9 @@ export async function getFinanceAccess(
   if (role === "psychologist_admin") {
     return "manage";
   }
+  if (role !== "secretary") {
+    return "none";
+  }
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("secretary_finance_access", {
     org_id: organizationId,

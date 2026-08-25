@@ -2,6 +2,7 @@ import "server-only";
 
 import { resolveConsentState } from "@/features/consents/queries";
 import type { ConsentState } from "@/features/consents/contracts";
+import { hasPatientClinicalAccess } from "@/features/patients/clinical-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 
@@ -22,7 +23,7 @@ export interface SessionAiDenial {
 export type SessionAiGateResult = SessionAiGrant | SessionAiDenial;
 
 const MESSAGES: Record<SessionAiDenial["reason"], string> = {
-  forbidden_role: "Somente a psicóloga administradora usa a IA de sessão.",
+  forbidden_role: "Somente a psicóloga responsável usa a IA de sessão.",
   ai_processing_denied: "Consentimento de apoio de IA não está válido para este paciente.",
   transcription_required_denied:
     "Este modo usa a transcrição da sessão; o consentimento de transcrição não está válido.",
@@ -41,9 +42,16 @@ export async function authorizeSessionAi(
   patientId: string,
   purpose: SessionAiPurpose,
 ): Promise<SessionAiGateResult> {
-  const { organizationId, role } = await requireOrgContext();
+  const { organizationId, role, user } = await requireOrgContext();
 
-  if (role !== "psychologist_admin") {
+  if (
+    !(await hasPatientClinicalAccess({
+      organizationId,
+      role,
+      userId: user.id,
+      patientId,
+    }))
+  ) {
     return { allowed: false, reason: "forbidden_role", message: MESSAGES.forbidden_role };
   }
 

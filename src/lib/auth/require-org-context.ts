@@ -3,7 +3,8 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { resolveActiveMembership } from "@/features/organizations/active-organization";
 import type { Membership, OrganizationRole } from "@/features/organizations/contracts";
-import { listActiveMemberships } from "@/features/organizations/queries";
+import { acceptPendingInvitations, listActiveMemberships } from "@/features/organizations/queries";
+import { isPsychologistAdmin as roleIsPsychologistAdmin } from "@/features/organizations/roles";
 import { requireUser } from "@/lib/auth/require-user";
 import type { User } from "@supabase/supabase-js";
 
@@ -24,6 +25,7 @@ export interface OrgContext {
  */
 export async function requireOrgContext(): Promise<OrgContext> {
   const user = await requireUser();
+  await acceptPendingInvitations();
   const memberships = await listActiveMemberships();
 
   if (memberships.length === 0) {
@@ -51,5 +53,5 @@ export async function requireOrgContext(): Promise<OrgContext> {
 }
 
 export function isPsychologistAdmin(role: OrganizationRole): boolean {
-  return role === "psychologist_admin";
+  return roleIsPsychologistAdmin(role);
 }

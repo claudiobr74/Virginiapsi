@@ -29,6 +29,7 @@ export interface AgendaBoardProps {
   patients: Pick<PatientRow, "id" | "preferred_name" | "public_code">[];
   connection: ConnectionRow | null;
   canManageConnection: boolean;
+  canStartSession?: boolean;
 }
 
 function rangeLabel(view: AgendaView, days: string[], timeZone: string): string {
@@ -53,6 +54,7 @@ export function AgendaBoard({
   patients,
   connection,
   canManageConnection,
+  canStartSession = false,
 }: AgendaBoardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -147,7 +149,7 @@ export function AgendaBoard({
         <DayView
           appointments={appointmentsByDay.get(referenceDate) ?? []}
           timeZone={timeZone}
-          isAdmin={canManageConnection}
+          isAdmin={canStartSession}
           onSelect={setSelectedAppointment}
         />
       ) : view === "week" ? (
@@ -156,7 +158,7 @@ export function AgendaBoard({
           appointmentsByDay={appointmentsByDay}
           timeZone={timeZone}
           today={today}
-          isAdmin={canManageConnection}
+          isAdmin={canStartSession}
           onSelect={setSelectedAppointment}
         />
       ) : (
@@ -194,7 +196,7 @@ export function AgendaBoard({
         appointment={selectedAppointment}
         timeZone={timeZone}
         googleConnected={canSync}
-        isAdmin={canManageConnection}
+        isAdmin={canStartSession}
         onClose={() => setSelectedAppointment(null)}
         onEdit={() => {
           if (!selectedAppointment) return;

@@ -5,6 +5,7 @@ import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
 import { getPatient, listPatients } from "@/features/patients/queries";
 import { listPatientSessions } from "@/features/sessions/queries";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { RestrictedAccess } from "@/features/shell/restricted-access";
 import { SupervisorConsole } from "@/features/supervisor/components/supervisor-console";
 import { SupervisorPatientPicker } from "@/features/supervisor/components/supervisor-patient-picker";
@@ -20,7 +21,7 @@ export default async function SupervisorPage({
   const { organizationId, role } = await requireOrgContext();
   const params = await searchParams;
 
-  if (role !== "psychologist_admin") {
+  if (!isClinicalPractitioner(role)) {
     return <RestrictedAccess sectionLabel="o Supervisor IA" />;
   }
 

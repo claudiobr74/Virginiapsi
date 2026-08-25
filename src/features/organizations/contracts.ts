@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-export const ORGANIZATION_ROLES = ["psychologist_admin", "secretary"] as const;
+export const ORGANIZATION_ROLES = [
+  "psychologist_admin",
+  "psychologist",
+  "secretary",
+] as const;
 export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
 
 export const SECRETARY_FINANCE_ACCESS_VALUES = [

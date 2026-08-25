@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  ORGANIZATION_ROLES,
   SECRETARY_FINANCE_ACCESS_VALUES,
   type SecretaryFinanceAccess,
 } from "@/features/organizations/contracts";
@@ -97,7 +98,7 @@ export type RetentionFormValues = z.infer<typeof retentionFormSchema>;
 
 export const inviteMemberSchema = z.object({
   email: z.string().trim().email("Informe um e-mail válido.").max(320),
-  role: z.enum(["psychologist_admin", "secretary"]),
+  role: z.enum(ORGANIZATION_ROLES),
 });
 export type InviteMemberValues = z.infer<typeof inviteMemberSchema>;
 
@@ -154,7 +155,7 @@ export function defaultPracticeSettings(organizationId: string): PracticeSetting
 export const teamMemberRowSchema = z.object({
   id: z.string().uuid(),
   user_id: z.string().uuid(),
-  role: z.enum(["psychologist_admin", "secretary"]),
+  role: z.enum(ORGANIZATION_ROLES),
   active: z.boolean(),
   email: z.string().nullable(),
   created_at: z.string(),

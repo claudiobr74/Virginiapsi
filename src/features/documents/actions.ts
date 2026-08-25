@@ -23,6 +23,7 @@ import {
   sha256Hex,
   uploadGeneratedFile,
 } from "@/lib/documents/storage";
+import { canAccessPatientClinical, isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -71,7 +72,7 @@ export async function createTemplateAction(input: unknown): Promise<DocumentActi
 }
 
 export async function createDocumentAction(input: unknown): Promise<DocumentActionResult> {
-  const { organizationId, role } = await requireOrgContext();
+  const { organizationId, role, user } = await requireOrgContext();
   const parsed = createDocumentSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -82,13 +83,23 @@ export async function createDocumentAction(input: unknown): Promise<DocumentActi
   if (!sensitivity) {
     return { error: "Escolha a classificação (administrativo ou clínico) para este tipo." };
   }
-  if (role !== "psychologist_admin" && sensitivity !== "administrative") {
+  if (!isClinicalPractitioner(role) && sensitivity !== "administrative") {
     return { error: "A secretaria só cria documentos administrativos." };
   }
   if (parsed.data.patientId) {
     const patient = await getPatient(organizationId, parsed.data.patientId);
     if (!patient) {
       return { error: "Paciente não encontrado." };
+    }
+    if (
+      sensitivity === "clinical" &&
+      !canAccessPatientClinical({
+        role,
+        userId: user.id,
+        responsiblePsychologistUserId: patient.responsible_psychologist_user_id,
+      })
+    ) {
+      return { error: "Somente a psicóloga responsável cria documentos clínicos deste paciente." };
     }
   }
 
@@ -257,8 +268,8 @@ export async function cancelDocumentAction(documentId: string): Promise<Document
   if (!document) {
     return { error: "Documento não encontrado." };
   }
-  if (document.sensitivity !== "administrative" && role !== "psychologist_admin") {
-    return { error: "Somente a psicóloga administradora cancela este documento." };
+  if (document.sensitivity !== "administrative" && !isClinicalPractitioner(role)) {
+    return { error: "Somente a psicóloga responsável cancela este documento clínico." };
   }
   if (document.status === "canceled") {
     return { id: documentId };
@@ -321,7 +332,7 @@ export async function requestAttachmentUploadUrlAction(input: {
   filename: string;
 }): Promise<DocumentActionResult & { path?: string; token?: string }> {
   const { organizationId, role } = await requireOrgContext();
-  if (role !== "psychologist_admin" && input.sensitivity !== "administrative") {
+  if (!isClinicalPractitioner(role) && input.sensitivity !== "administrative") {
     return { error: "A secretaria só envia anexos administrativos." };
   }
   const patient = await getPatient(organizationId, input.patientId);
@@ -344,7 +355,7 @@ export async function registerAttachmentAction(input: unknown): Promise<Document
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  if (role !== "psychologist_admin" && parsed.data.sensitivity !== "administrative") {
+  if (!isClinicalPractitioner(role) && parsed.data.sensitivity !== "administrative") {
     return { error: "A secretaria só registra anexos administrativos." };
   }
   const patient = await getPatient(organizationId, parsed.data.patientId);

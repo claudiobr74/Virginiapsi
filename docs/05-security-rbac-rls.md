@@ -15,6 +15,9 @@ Criar helpers estáveis, testados e sem recursão de policy:
 - `is_org_member(org_id uuid)`
 - `has_org_role(org_id uuid, allowed_roles text[])`
 - `is_psychologist_admin(org_id uuid)`
+- `is_clinical_practitioner(org_id uuid)`
+- `can_access_patient_clinical(org_id uuid, patient_id uuid)` — responsável + papel clínico
+- `is_platform_operator()`
 
 Contrato obrigatório dos helpers usados para evitar recursão de RLS:
 - `returns boolean` (ou tipo escalar explícito quando aplicável);
@@ -30,20 +33,21 @@ Adicionar helper de permissão financeira, por exemplo `secretary_finance_access
 
 ## Matriz resumida
 
-| Recurso | psychologist_admin | secretary |
-|---|---:|---:|
-| patients administrativos | CRUD | CRUD conforme permissão |
-| patient_clinical_profile | CRUD | NENHUM |
-| appointments | CRUD | CRUD |
-| calendar sync | CRUD | CRUD permitido |
-| session DPEP | CRUD | NENHUM |
-| clinical working notes | CRUD | NENHUM |
-| transcripts | CRUD | NENHUM |
-| supervisor/AI clinical | CRUD | NENHUM |
-| knowledge clinical | CRUD | NENHUM |
-| finance | R/W + void/audit (sem hard delete) | conforme `secretary_finance_access`: none/view/manage |
-| documents/patient_attachments | CRUD | somente `sensitivity = 'administrative'` |
-| settings/security/team | CRUD | NENHUM |
+| Recurso | psychologist_admin | psychologist | secretary |
+|---|---:|---:|---:|
+| patients administrativos | CRUD todos | só se responsável | CRUD conforme permissão |
+| patient_clinical_profile | só se responsável | só se responsável | NENHUM |
+| appointments | CRUD todos | só se responsável | CRUD |
+| calendar sync (conexão Google) | CRUD | leitura da agenda dos seus | CRUD permitido |
+| session DPEP | só se responsável | só se responsável | NENHUM |
+| clinical working notes | só se responsável | só se responsável | NENHUM |
+| transcripts | só se responsável | só se responsável | NENHUM |
+| supervisor/AI clinical | só se responsável | só se responsável | NENHUM |
+| knowledge (biblioteca da clínica) | CRUD | CRUD | NENHUM |
+| finance | R/W + void/audit (sem hard delete) | NENHUM | conforme `secretary_finance_access`: none/view/manage |
+| documents/patient_attachments | clínico só se responsável; administrativo todos | clínico só se responsável; administrativo dos seus | somente `sensitivity = 'administrative'` |
+| settings/security/team | CRUD | NENHUM | NENHUM |
+| criar `organizations` | NENHUM | NENHUM | NENHUM (só `platform_operators`) |
 
 ## Permissão financeira da Secretaria
 

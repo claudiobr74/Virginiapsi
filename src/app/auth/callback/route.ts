@@ -11,6 +11,8 @@ export async function GET(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      const supabaseAfter = await createSupabaseServerClient();
+      await supabaseAfter.rpc("accept_pending_invitations");
       return NextResponse.redirect(`${origin}${safeNext}`);
     }
   }

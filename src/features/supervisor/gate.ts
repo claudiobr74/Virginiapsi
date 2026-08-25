@@ -2,6 +2,7 @@ import "server-only";
 
 import { resolveConsentState } from "@/features/consents/queries";
 import type { ConsentState } from "@/features/consents/contracts";
+import { hasPatientClinicalAccess } from "@/features/patients/clinical-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 
@@ -29,11 +30,18 @@ export type SupervisorGateResult = SupervisorGrant | SupervisorDenial;
 export async function authorizeSupervisorAi(patientId: string): Promise<SupervisorGateResult> {
   const { organizationId, role, user } = await requireOrgContext();
 
-  if (role !== "psychologist_admin") {
+  if (
+    !(await hasPatientClinicalAccess({
+      organizationId,
+      role,
+      userId: user.id,
+      patientId,
+    }))
+  ) {
     return {
       allowed: false,
       reason: "forbidden_role",
-      message: "Somente a psicóloga administradora usa o Supervisor Clínico IA.",
+      message: "Somente a psicóloga responsável usa o Supervisor Clínico IA.",
     };
   }
 

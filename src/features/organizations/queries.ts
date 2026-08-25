@@ -6,6 +6,7 @@ import {
   organizationRowSchema,
   shellSettingsRowSchema,
   type Membership,
+  type OrganizationRole,
   type ShellSettings,
 } from "@/features/organizations/contracts";
 import { isMissingPublicTable } from "@/lib/supabase/postgrest-errors";
@@ -15,6 +16,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * Lists the memberships of the authenticated user. Reads go through the
  * user's own session, so RLS — not this query — is what limits the rows.
  */
+export async function acceptPendingInvitations(): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  await supabase.rpc("accept_pending_invitations");
+}
+
 export async function listActiveMemberships(): Promise<Membership[]> {
   const supabase = await createSupabaseServerClient();
 
@@ -75,6 +81,41 @@ export async function listActiveMemberships(): Promise<Membership[]> {
  * practice_settings table itself stays admin-only in RLS, so secretaries
  * never receive administrative or financial settings.
  */
+export async function getPlatformBootstrapState(): Promise<{
+  isOperator: boolean;
+  operatorsExist: boolean;
+}> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("platform_bootstrap_state");
+  if (error) {
+    return { isOperator: false, operatorsExist: true };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    isOperator: Boolean(row?.is_operator),
+    operatorsExist: Boolean(row?.operators_exist),
+  };
+}
+
+export async function listAssignablePsychologists(organizationId: string): Promise<
+  { userId: string; role: OrganizationRole; email: string | null }[]
+> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("list_assignable_psychologists", {
+    p_org_id: organizationId,
+  });
+  if (error || !data) {
+    return [];
+  }
+  return (data as { user_id: string; role: OrganizationRole; email: string | null }[]).map(
+    (row) => ({
+      userId: row.user_id,
+      role: row.role,
+      email: row.email,
+    }),
+  );
+}
+
 export async function getShellSettings(
   organizationId: string,
 ): Promise<ShellSettings | null> {

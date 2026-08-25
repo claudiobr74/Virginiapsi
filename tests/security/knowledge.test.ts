@@ -59,6 +59,30 @@ describe("knowledge_* — RLS e isolamento de tenant (Fase 8)", () => {
     }
   });
 
+  it("psicóloga clínica lê e escreve a biblioteca da clínica", async () => {
+    const psychologist = await createAuthUser();
+    await addMember(admin, organizationId, psychologist, "psychologist");
+    const session = await openSession({ userId: psychologist });
+    try {
+      const [collection] = await session.query<{ id: string }>(
+        `insert into public.knowledge_collections (organization_id, name)
+         values ($1, 'Biblioteca da psicóloga') returning id`,
+        [organizationId],
+      );
+      expect(collection.id).toMatch(/^[0-9a-f-]{36}$/i);
+
+      const visible = await session.query<{ name: string }>(
+        "select name from public.knowledge_collections where organization_id = $1",
+        [organizationId],
+      );
+      expect(visible.map((row) => row.name)).toEqual(
+        expect.arrayContaining(["TCC — Fundamentos", "Biblioteca da psicóloga"]),
+      );
+    } finally {
+      await session.close();
+    }
+  });
+
   it("secretária não lê nem escreve em nenhuma tabela do módulo", async () => {
     const session = await openSession({ userId: secretary });
     try {
@@ -207,7 +231,7 @@ describe("knowledge_* — RLS e isolamento de tenant (Fase 8)", () => {
   });
 
   it("ninguém tem GRANT genérico em storage.objects para o bucket knowledge-sources baseado só em membership", async () => {
-    // A policy exige is_psychologist_admin(path[1]::uuid) — um membro sem
+    // A policy exige is_clinical_practitioner(path[1]::uuid) — um membro sem
     // esse papel, ou tentando gravar sob o id de outra organização, é
     // recusado mesmo estando autenticado.
     const session = await openSession({ userId: secretary });

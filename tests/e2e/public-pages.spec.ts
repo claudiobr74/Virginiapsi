@@ -69,6 +69,18 @@ test.describe("Login", () => {
       page.getByRole("heading", { name: "Recuperar senha" }),
     ).toBeVisible();
   });
+
+  test("link 'Criar conta' abre o cadastro sem criar clínica", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await page.getByRole("link", { name: "Criar conta" }).click();
+    await expect(page).toHaveURL(/\/signup$/);
+    await expect(page.getByRole("heading", { name: "Criar conta" })).toBeVisible();
+    await expect(
+      page.getByText(/O cadastro não cria um consultório/),
+    ).toBeVisible();
+  });
 });
 
 test.describe("Login — dark mode", () => {

@@ -8,6 +8,7 @@ import {
   MINIMAL_CONSENT_VERSION,
   recordConsentSchema,
 } from "@/features/consents/contracts";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -33,8 +34,8 @@ export async function recordConsentAction(
 ): Promise<ConsentActionResult> {
   const { organizationId, role } = await requireOrgContext();
 
-  if (role !== "psychologist_admin") {
-    return { error: "Apenas a psicóloga administradora registra consentimentos." };
+  if (!isClinicalPractitioner(role) && role !== "secretary") {
+    return { error: "Sem permissão para registrar consentimentos." };
   }
 
   const parsed = recordConsentSchema.safeParse(input);
@@ -86,8 +87,8 @@ export async function revokeConsentAction(
 ): Promise<ConsentActionResult> {
   const { organizationId, role } = await requireOrgContext();
 
-  if (role !== "psychologist_admin") {
-    return { error: "Apenas a psicóloga administradora revoga consentimentos." };
+  if (!isClinicalPractitioner(role) && role !== "secretary") {
+    return { error: "Sem permissão para revogar consentimentos." };
   }
 
   const supabase = await createSupabaseServerClient();

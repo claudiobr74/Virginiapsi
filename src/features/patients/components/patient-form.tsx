@@ -81,6 +81,7 @@ function defaultValuesFrom(patient?: PatientRow): PatientFormValues {
       modality: "in_person",
       status: "active",
       defaultSessionValue: "",
+      responsiblePsychologistUserId: "",
     };
   }
 
@@ -98,6 +99,7 @@ function defaultValuesFrom(patient?: PatientRow): PatientFormValues {
       patient.default_session_value != null
         ? String(patient.default_session_value)
         : "",
+    responsiblePsychologistUserId: patient.responsible_psychologist_user_id ?? "",
   };
 }
 
@@ -108,9 +110,17 @@ export interface PatientFormProps {
     isAdmin: boolean;
     consents: ConsentRow[];
   };
+  assignablePsychologists?: { userId: string; email: string | null; role: string }[];
+  canAssignResponsible?: boolean;
 }
 
-export function PatientForm({ patient, photoUrl, terms }: PatientFormProps) {
+export function PatientForm({
+  patient,
+  photoUrl,
+  terms,
+  assignablePsychologists = [],
+  canAssignResponsible = false,
+}: PatientFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -344,6 +354,27 @@ export function PatientForm({ patient, photoUrl, terms }: PatientFormProps) {
               </div>
             </div>
           </div>
+          {canAssignResponsible ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="responsiblePsychologistUserId">Psicóloga responsável</Label>
+              <select
+                id="responsiblePsychologistUserId"
+                className="h-11 rounded-xl border border-border bg-background px-3 text-sm"
+                {...register("responsiblePsychologistUserId")}
+              >
+                <option value="">Selecione</option>
+                {assignablePsychologists.map((item) => (
+                  <option key={item.userId} value={item.userId}>
+                    {item.email ?? item.userId}
+                    {item.role === "psychologist_admin" ? " (administradora)" : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Só a profissional responsável vê o prontuário, a sessão e a IA deste paciente.
+              </p>
+            </div>
+          ) : null}
         </section>
 
         <section className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6">

@@ -8,6 +8,7 @@ import { knowledgeOutputSchema, type KnowledgeOutput } from "@/lib/ai/validators
 import { toGeminiResponseJsonSchema } from "@/lib/ai/schema-adapter";
 import { GeminiClient } from "@/lib/integrations/gemini/client";
 import { getServerEnv } from "@/lib/env/server";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getPatient } from "@/features/patients/queries";
@@ -35,9 +36,9 @@ export interface KnowledgeActionResult {
   content?: KnowledgeOutput;
 }
 
-async function requireAdmin() {
+async function requireClinicalPractitioner() {
   const { organizationId, role, user } = await requireOrgContext();
-  if (role !== "psychologist_admin") {
+  if (!isClinicalPractitioner(role)) {
     throw new Error("forbidden_role");
   }
   return { organizationId, userId: user.id };
@@ -55,7 +56,7 @@ function rejectIfAiRateLimited(
 }
 
 export async function createCollectionAction(input: unknown): Promise<KnowledgeActionResult> {
-  const { organizationId } = await requireAdmin();
+  const { organizationId } = await requireClinicalPractitioner();
   const parsed = createCollectionSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -81,13 +82,13 @@ export async function createCollectionAction(input: unknown): Promise<KnowledgeA
 
 /** Path convention: knowledge-sources/{organizationId}/{uuid}/{filename}. */
 export async function buildKnowledgeUploadPath(filename: string): Promise<string> {
-  const { organizationId } = await requireAdmin();
+  const { organizationId } = await requireClinicalPractitioner();
   const safeName = filename.replace(/[^a-zA-Z0-9.\-_]/g, "_");
   return `${organizationId}/${randomUUID()}/${safeName}`;
 }
 
 export async function registerSourceAction(input: unknown): Promise<KnowledgeActionResult> {
-  const { organizationId } = await requireAdmin();
+  const { organizationId } = await requireClinicalPractitioner();
   const parsed = registerSourceSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -125,7 +126,7 @@ export async function registerSourceAction(input: unknown): Promise<KnowledgeAct
 }
 
 export async function retryIngestionAction(sourceId: string): Promise<KnowledgeActionResult> {
-  const { organizationId } = await requireAdmin();
+  const { organizationId } = await requireClinicalPractitioner();
   const result = await ingestKnowledgeSource(organizationId, sourceId);
   revalidatePath("/app/knowledge");
   if (!result.ok) {
@@ -135,7 +136,7 @@ export async function retryIngestionAction(sourceId: string): Promise<KnowledgeA
 }
 
 export async function deleteSourceAction(sourceId: string): Promise<KnowledgeActionResult> {
-  const { organizationId } = await requireAdmin();
+  const { organizationId } = await requireClinicalPractitioner();
   const supabase = await createSupabaseServerClient();
   const { data: source } = await supabase
     .from("knowledge_sources")
@@ -247,7 +248,7 @@ async function runKnowledgeCall(args: RunKnowledgeCallArgs): Promise<KnowledgeAc
 }
 
 export async function askKnowledgeAction(input: unknown): Promise<KnowledgeActionResult> {
-  const { organizationId, userId } = await requireAdmin();
+  const { organizationId, userId } = await requireClinicalPractitioner();
   const parsed = askKnowledgeSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -279,7 +280,7 @@ export async function askKnowledgeAction(input: unknown): Promise<KnowledgeActio
 }
 
 export async function synthesizeKnowledgeAction(input: unknown): Promise<KnowledgeActionResult> {
-  const { organizationId, userId } = await requireAdmin();
+  const { organizationId, userId } = await requireClinicalPractitioner();
   const parsed = synthesizeKnowledgeSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -314,7 +315,7 @@ export async function synthesizeKnowledgeAction(input: unknown): Promise<Knowled
 export async function compareKnowledgeSourcesAction(
   input: unknown,
 ): Promise<KnowledgeActionResult> {
-  const { organizationId, userId } = await requireAdmin();
+  const { organizationId, userId } = await requireClinicalPractitioner();
   const parsed = compareKnowledgeSourcesSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -375,7 +376,7 @@ export async function compareKnowledgeSourcesAction(
 }
 
 export async function studyKnowledgeAction(input: unknown): Promise<KnowledgeActionResult> {
-  const { organizationId, userId } = await requireAdmin();
+  const { organizationId, userId } = await requireClinicalPractitioner();
   const parsed = studyKnowledgeSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -413,7 +414,7 @@ export async function studyKnowledgeAction(input: unknown): Promise<KnowledgeAct
  * context, and patient data never touches the library/collections.
  */
 export async function applyToCaseAction(input: unknown): Promise<KnowledgeActionResult> {
-  const { organizationId, userId } = await requireAdmin();
+  const { organizationId, userId } = await requireClinicalPractitioner();
   const parsed = applyToCaseSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };

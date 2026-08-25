@@ -16,7 +16,7 @@ const CONSENT_COLUMNS =
  * Reads consents under the caller's own RLS session. A secretary can never see
  * clinical consent rows, so resolution for that role naturally comes back
  * empty and the gate fails closed — which is the intended behaviour, since
- * clinical capture is a psychologist_admin operation.
+ * clinical capture is a clinical-practitioner operation for the responsible psychologist.
  */
 export async function listPatientConsents(
   organizationId: string,

@@ -1,6 +1,7 @@
 import { KnowledgeConsole } from "@/features/knowledge/components/knowledge-client";
 import { listCollections, listSources } from "@/features/knowledge/queries";
 import { listPatients } from "@/features/patients/queries";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { RestrictedAccess } from "@/features/shell/restricted-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
@@ -12,7 +13,7 @@ export default async function KnowledgePage() {
   // "knowledge clinical" is psychologist_admin-only end to end
   // (docs/05-security-rbac-rls.md) — the secretary never even attempts
   // these queries.
-  if (role !== "psychologist_admin") {
+  if (!isClinicalPractitioner(role)) {
     return <RestrictedAccess sectionLabel="o Conhecimento clínico" />;
   }
 

@@ -2,13 +2,23 @@
 
 ## 1. Perfis
 
-### Psicóloga Administradora
+### Psicóloga Administradora (`psychologist_admin`)
 
-Acesso a todos os módulos e dados do consultório.
+Opera a clínica: equipe, settings, cadastro administrativo de todos os pacientes, agenda e financeiro. **Não** vê prontuário, sessão, DPEP, transcrição, IA clínica nem documentos clínicos de pacientes em que não é `responsible_psychologist_user_id`. Se ela mesma for a responsável, vê o clínico desses pacientes.
+
+Não cria outra clínica (D5b). Convites de equipe são desta função.
+
+### Psicóloga clínica (`psychologist`)
+
+Vê e trata somente os pacientes em que é responsável. Sem settings/equipe e sem criar clínica.
 
 ### Secretaria
 
 Pode operar rotinas administrativas autorizadas: lista administrativa de pacientes, agenda, confirmações/lembretes e financeiro conforme `secretary_finance_access` (`none|view|manage`). Não recebe dados clínicos, transcrições, notas clínicas internas, formulação, Supervisor IA, Knowledge clínico privado ou documentos clínicos cujo conteúdo exceda sua permissão.
+
+### Operadora da plataforma
+
+Allowlist `platform_operators`. Única autoridade para `bootstrap_organization`. Não lê prontuário de tenant no dia a dia.
 
 ## 2. Login e sessão
 

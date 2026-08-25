@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { listPatientConsents } from "@/features/consents/queries";
+import { listAssignablePsychologists } from "@/features/organizations/queries";
+import { isPsychologistAdmin, isSecretary } from "@/features/organizations/roles";
 import { PatientForm } from "@/features/patients/components/patient-form";
 import { getPatient, getPatientPortraitUrl } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
@@ -26,15 +28,21 @@ export default async function EditPatientPage({
   }
 
   const photoUrl = await getPatientPortraitUrl(patient.photo_path);
+  const canAssign = isPsychologistAdmin(role) || isSecretary(role);
+  const assignablePsychologists = canAssign
+    ? await listAssignablePsychologists(organizationId)
+    : [];
 
   return (
     <PatientForm
       patient={patient}
       photoUrl={photoUrl}
       terms={{
-        isAdmin: role === "psychologist_admin",
+        isAdmin: isPsychologistAdmin(role),
         consents,
       }}
+      canAssignResponsible={canAssign}
+      assignablePsychologists={assignablePsychologists}
     />
   );
 }

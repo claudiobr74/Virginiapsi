@@ -9,6 +9,7 @@ import {
   getSessionWorkingNotes,
   listTranscriptSegments,
 } from "@/features/sessions/queries";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { elapsedSecondsBetween } from "@/lib/utils/elapsed";
 
@@ -17,7 +18,7 @@ export async function generateMetadata({
 }: PageProps<"/session/[sessionId]">) {
   const { sessionId } = await params;
   const { organizationId, role } = await requireOrgContext();
-  if (role !== "psychologist_admin") {
+  if (!isClinicalPractitioner(role)) {
     return { title: "Sessão — VirgíniaPsi" };
   }
   const session = await getClinicalSession(organizationId, sessionId);
@@ -36,7 +37,7 @@ export default async function ActiveSessionPage({
   // Clinical session mode is a psychologist_admin-only surface
   // (.cursor/rules/10-clinical-domain.mdc) — the secretary never even
   // attempts these queries, RLS aside.
-  if (role !== "psychologist_admin") {
+  if (!isClinicalPractitioner(role)) {
     redirect("/app");
   }
 

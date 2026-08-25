@@ -158,11 +158,44 @@ export async function openSession(
   };
 }
 
+/** Makes `userId` a platform operator using claim (if empty) or add (by an existing operator). */
+export async function ensurePlatformOperator(userId: string): Promise<void> {
+  const session = await openSession({ userId });
+  try {
+    await session.query("select public.claim_platform_operator()");
+    const rows = await session.query<{ is_platform_operator: boolean }>(
+      "select public.is_platform_operator() as is_platform_operator",
+    );
+    if (rows[0]?.is_platform_operator) {
+      return;
+    }
+  } finally {
+    await session.close();
+  }
+
+  const existing = await withAdmin(async (client) => {
+    const result = await client.query<{ user_id: string }>(
+      "select user_id from public.platform_operators limit 1",
+    );
+    return result.rows[0]?.user_id ?? null;
+  });
+  if (!existing) {
+    throw new Error("failed to resolve a platform operator");
+  }
+  const operatorSession = await openSession({ userId: existing });
+  try {
+    await operatorSession.query("select public.add_platform_operator($1)", [userId]);
+  } finally {
+    await operatorSession.close();
+  }
+}
+
 /** Creates an organization owned by `adminUserId` through the real RPC. */
 export async function bootstrapOrganization(
   adminUserId: string,
   name = "Consultório Teste",
 ): Promise<string> {
+  await ensurePlatformOperator(adminUserId);
   const session = await openSession({ userId: adminUserId });
   try {
     const slug = `org-${randomUUID().slice(0, 8)}`;
@@ -181,7 +214,7 @@ export async function addMember(
   adminUserId: string,
   organizationId: string,
   memberUserId: string,
-  role: "psychologist_admin" | "secretary",
+  role: "psychologist_admin" | "psychologist" | "secretary",
 ): Promise<void> {
   const session = await openSession({ userId: adminUserId });
   try {

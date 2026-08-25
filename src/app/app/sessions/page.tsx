@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageContainer } from "@/components/ui/page-container";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { RestrictedAccess } from "@/features/shell/restricted-access";
 import { OrganizationSessionsList } from "@/features/sessions/components/organization-sessions-list";
 import { listOrganizationSessions } from "@/features/sessions/queries";
@@ -10,7 +11,7 @@ export const metadata: Metadata = { title: pageTitle("Sessões") };
 
 export default async function SessionsPage() {
   const { organizationId, role, timezone } = await requireOrgContext();
-  if (role !== "psychologist_admin") {
+  if (!isClinicalPractitioner(role)) {
     return <RestrictedAccess sectionLabel="as Sessões clínicas" />;
   }
 

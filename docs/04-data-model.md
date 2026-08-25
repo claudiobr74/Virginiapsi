@@ -16,10 +16,19 @@ Criar migrations SQL versionadas, normalizadas e alinhadas ao modelo de domínio
 - id uuid pk
 - organization_id fk
 - user_id = auth.users.id
-- role enum/text: psychologist_admin | secretary
+- role enum/text: psychologist_admin | psychologist | secretary
 - active
 - timestamps
 - unique (organization_id, user_id)
+
+### platform_operators
+- user_id pk = auth.users.id
+- created_at / created_by
+- Allowlist D5b: só estas pessoas executam `bootstrap_organization`
+
+### organization_invitations
+- organization_id, email, role, status (pending|accepted|revoked|expired)
+- Convite D1 B quando o e-mail ainda não existe no Auth
 
 ### practice_settings
 - organization_id unique

@@ -50,6 +50,7 @@ import { getPatientWhatsAppSnapshot } from "@/features/communications/queries";
 import { SessionHistoryList } from "@/features/sessions/components/session-history-list";
 import { StartSessionButton } from "@/features/sessions/components/start-session-button";
 import { getSessionDpep, listPatientSessions } from "@/features/sessions/queries";
+import { canAccessPatientClinical } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { pageTitle } from "@/lib/brand";
 import { formatInTimeZone } from "@/lib/utils/timezone";
@@ -73,26 +74,30 @@ export default async function PatientHubPage({
     typeof query.tab === "string" ? query.tab : undefined,
     ["overview", "record", "plan", "sessions", "documents", "finance", "consents"],
   );
-  const { organizationId, role, timezone } = await requireOrgContext();
+  const { organizationId, role, timezone, user } = await requireOrgContext();
 
   const patient = await getPatient(organizationId, patientId);
   if (!patient) {
     notFound();
   }
 
-  const isAdmin = role === "psychologist_admin";
-  const clinicalProfile = isAdmin
+  const canAccessClinical = canAccessPatientClinical({
+    role,
+    userId: user.id,
+    responsiblePsychologistUserId: patient.responsible_psychologist_user_id,
+  });
+  const clinicalProfile = canAccessClinical
     ? await getPatientClinicalProfile(patient.id)
     : null;
 
-  const [consentResolution, consents] = isAdmin
+  const [consentResolution, consents] = canAccessClinical
     ? await Promise.all([
         resolveConsentState(organizationId, patient.id),
         listPatientConsents(organizationId, patient.id),
       ])
     : [null, []];
 
-  const clinicalSessions = isAdmin
+  const clinicalSessions = canAccessClinical
     ? await listPatientSessions(organizationId, patient.id)
     : [];
 
@@ -102,7 +107,7 @@ export default async function PatientHubPage({
     listPatientAttachments(organizationId, patient.id),
   ]);
 
-  const minorRequirement = isAdmin ? resolveMinorRequirement(patient.birth_date) : null;
+  const minorRequirement = canAccessClinical ? resolveMinorRequirement(patient.birth_date) : null;
   const finance = await getPatientFinance(
     organizationId,
     role,
@@ -139,7 +144,7 @@ export default async function PatientHubPage({
     <div className="flex flex-col gap-6">
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="flex flex-col gap-5">
-          {isAdmin ? (
+          {canAccessClinical ? (
             <PatientHubSection title="Objetivos Terapêuticos">
               {clinicalProfile?.therapy_goals?.trim() ? (
                 <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
@@ -152,7 +157,7 @@ export default async function PatientHubPage({
               )}
             </PatientHubSection>
           ) : null}
-          {isAdmin ? (
+          {canAccessClinical ? (
             <PatientHubSection title="Última Evolução Clínica">
               {lastDpep?.evolution?.trim() ? (
                 <>
@@ -220,7 +225,7 @@ export default async function PatientHubPage({
         </div>
 
         <div className="flex flex-col gap-5">
-          {isAdmin ? (
+          {canAccessClinical ? (
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-[16px] border border-border bg-card p-4">
                 <p className="text-[13px] text-muted-foreground">Sessões realizadas</p>
@@ -322,10 +327,10 @@ export default async function PatientHubPage({
     </div>
   );
 
-  const recordPanel = isAdmin ? (
+  const recordPanel = canAccessClinical ? (
     <PatientHubSection
       title="Acompanhamento"
-      description="Queixa, histórico e notas clínicas — visível apenas para a psicóloga administradora."
+        description="Queixa, histórico e notas clínicas — visível apenas para a profissional responsável."
       actions={
         <Button asChild variant="secondary" size="sm">
           <Link href={`/app/supervisor?patientId=${patient.id}`}>
@@ -342,10 +347,10 @@ export default async function PatientHubPage({
     </PatientHubSection>
   ) : undefined;
 
-  const planPanel = isAdmin ? (
+  const planPanel = canAccessClinical ? (
     <PatientHubSection
       title="Plano Terapêutico"
-      description="Objetivos, esquemas e crenças — visível apenas para a psicóloga administradora."
+      description="Objetivos, esquemas e crenças — visível apenas para a profissional responsável."
     >
       <ClinicalProfileForm
         patientId={patient.id}
@@ -358,7 +363,7 @@ export default async function PatientHubPage({
   const sessionsPanel = (
     <PatientHubSection
       title="Registro Histórico de Prontuário"
-      description="Sessões clínicas, DPEP e transcrição — apenas psicóloga administradora."
+      description="Sessões clínicas, DPEP e transcrição — apenas a profissional responsável."
     >
       {clinicalSessions.length > 0 ? (
         <SessionHistoryList sessions={clinicalSessions} timezone={timezone} />
@@ -382,7 +387,7 @@ export default async function PatientHubPage({
           patientId={patient.id}
           documents={documents}
           templates={templates}
-          isAdmin={isAdmin}
+          isAdmin={canAccessClinical}
         />
       </PatientHubSection>
       <PatientHubSection
@@ -392,7 +397,7 @@ export default async function PatientHubPage({
         <PatientAttachmentsPanel
           patientId={patient.id}
           attachments={attachments}
-          isAdmin={isAdmin}
+          isAdmin={canAccessClinical}
         />
       </PatientHubSection>
     </div>
@@ -405,7 +410,7 @@ export default async function PatientHubPage({
   );
 
   const consentsPanel =
-    isAdmin && minorRequirement ? (
+    canAccessClinical && minorRequirement ? (
     <div className="flex flex-col gap-6">
       {consentResolution ? (
         <PatientHubSection
@@ -478,14 +483,14 @@ export default async function PatientHubPage({
               <Button asChild size="sm">
                 <Link href="/app/agenda?new=1">Agendar Sessão</Link>
               </Button>
-              {isAdmin ? <StartSessionButton patientId={patient.id} /> : null}
+              {canAccessClinical ? <StartSessionButton patientId={patient.id} /> : null}
             </div>
           </div>
         }
         overview={overview}
         record={recordPanel}
         plan={planPanel}
-        sessions={isAdmin ? sessionsPanel : undefined}
+        sessions={canAccessClinical ? sessionsPanel : undefined}
         documents={documentsPanel}
         finance={financePanel}
         consents={consentsPanel ?? undefined}

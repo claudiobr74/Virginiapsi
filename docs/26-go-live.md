@@ -16,31 +16,25 @@ Trabalho só na fase autorizada. Gate: **PASS**, **FAIL** ou **EXTERNAL_BLOCKED*
 | D4 | Isolamento clínico na mesma clínica | **D4b** — a psicóloga clínica só vê pacientes de quem é responsável (`responsible_psychologist_user_id`). Ver §1.1. |
 | D5 | Quem cria clínica | **D5b** — só a **plataforma** autoriza criar `organizations`. Signup (D1 B) não dispara `bootstrap_organization`. |
 
-### 1.1 Interpretação D4b (confirmar na G2, não implementada na G0)
+### 1.1 Interpretação D4b (confirmada na G2)
 
-O spec atual (`docs/00`, `docs/01`, `docs/05`) tem só `psychologist_admin` e `secretary`, e o clínico da clínica é compartilhado entre admins. D4b **quebra** isso.
-
-Interpretação operacional proposta para a G2 (não é código ainda):
+A administradora da clínica **não** vê dado clínico de pacientes de outras profissionais — só os seus, se for `responsible_psychologist_user_id`. Cadastro administrativo, agenda operacional e settings continuam dela.
 
 | Papel | Cadastro administrativo (`patients`) | Clínico (perfil, sessão, DPEP, transcrição, IA, docs clínicos) | Settings / equipe / criar clínica |
 |---|---|---|---|
-| `psychologist` (**novo**) | só pacientes em que é `responsible_psychologist_user_id` | só esses pacientes | não |
-| `psychologist_admin` | todos da clínica | **todos** da clínica (atribui responsável, cobre férias, auditoria da clínica) | sim, **dentro** da clínica; **não** cria outra clínica sozinha (D5b) |
+| `psychologist` | só pacientes em que é `responsible_psychologist_user_id` | só esses pacientes | não |
+| `psychologist_admin` | todos da clínica (agendar, atribuir responsável) | **só** se for a responsável | sim, **dentro** da clínica; **não** cria outra clínica sozinha (D5b) |
 | `secretary` | todos da clínica | nenhum | não |
-| Operadora da plataforma (D5b, **não existe no schema**) | nenhum dado clínico de tenant | nenhum | allowlist de quem pode `bootstrap_organization` / suspender clínica |
+| Operadora da plataforma (`platform_operators`) | nenhum dado clínico de tenant | nenhum | allowlist de quem pode `bootstrap_organization` |
 
-Se a intenção de D4b for *também* a administradora cega aos pacientes das colegas, a G2 precisa de um fluxo de atribuição/supervisão explícito — senão a clínica não tem quem distribua a carga. **Confirmar antes da G2.**
-
-Secretaria continua sem payload clínico. Isolamento **entre** clínicas continua `organization_id` + membership; D4b é **dentro** da clínica.
+Knowledge é biblioteca da clínica para `psychologist` + `psychologist_admin`, não prontuário. Secretaria continua sem payload clínico. Isolamento **entre** clínicas continua `organization_id` + membership; D4b é **dentro** da clínica.
 
 ### 1.2 Interpretação D5b + D1 B
 
 - D1 B: a pessoa **existe** no Auth (cadastro ou convite com criação de usuário).
-- D5b: existir no Auth **não** cria consultório. `bootstrap_organization` passa a exigir allowlist da plataforma (tabela/RPC ainda inexistentes).
+- D5b: existir no Auth **não** cria consultório. `bootstrap_organization` exige `platform_operators` (implementado na G2 no Git; aplicação no hospedado é G3).
 - Convite **para uma clínica** é da `psychologist_admin` daquela org (equipe), não da plataforma.
 - Convite **para nascer uma clínica nova** é da operadora (plataforma).
-
-Não há hoje `platform_operators`, convite pendente, `signUp()` nem role `psychologist`. Isso é **G2 + G3**, não G0.
 
 ## 2. Fase G0 — inventário (esta entrega)
 
@@ -99,7 +93,7 @@ Nenhum secret foi lido nem gravado.
 | Fase | Conteúdo | Bloqueio atual |
 |---|---|---|
 | G1 | UI P0 dark / P1 timeline | D3 em aberto |
-| G2 | Cadastro, convite que cria usuário, role `psychologist`, allowlist D5b, troca de clínica | Spec RBAC ainda “duas funções”; confirmar §1.1 |
+| G2 | Cadastro, convite que cria usuário, role `psychologist`, allowlist D5b, D4b por responsável | Autorizada 2026-08-25; schema **não** aplicado no hospedado (G3) |
 | G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | Staging com schema deste repo ainda inexistente; prod `kgfcgxagixiynlcewept` (dashboard **Virginiapsi**) sem `photo_path` |
 | G4 | Auth/Vault/cron **por ambiente** | G0 + D2 |
 | G5 | Ataque entre clínicas **e** entre profissionais da mesma clínica (D4b) | Staging real |
@@ -121,6 +115,14 @@ Nenhum secret foi lido nem gravado.
 | Auth Site URL | **EXTERNAL_BLOCKED** (fora do MCP) |
 | Código de cadastro / RLS D4b / allowlist | **não executado** (fora da G0) |
 
-**Veredito G0: FAIL parcial / EXTERNAL_BLOCKED residual.** MCPs ok; produção **Virginiapsi** visível em us-east-1; **não** há staging com este schema; jobs cron sem Vault/`pg_net`; Auth dashboard ainda cego. **Não avançar G1/G2** até autorização. G3 não aplica schema no Serenita.
+**Veredito G0: FAIL parcial / EXTERNAL_BLOCKED residual.** MCPs ok; produção **Virginiapsi** visível em us-east-1; **não** há staging com este schema; jobs cron sem Vault/`pg_net`; Auth dashboard ainda cego. G3 não aplica schema no Serenita.
 
 Data da evidência MCP: 2026-08-25.
+
+## 5. Fase G2 — identidade (autorizada 2026-08-25)
+
+Implementação no Git: cadastro (`/signup`), convite que cria usuário Auth quando o service-role existe (senão convite pendente + `accept_pending_invitations` no login), role `psychologist`, `platform_operators` + `claim_platform_operator` / `bootstrap_organization` só para operadora, D4b por `responsible_psychologist_user_id`.
+
+**Não aplicar** as migrations `20260825100000_g2_identity_enum.sql` e `20260825100001_g2_identity.sql` no projeto hospedado nesta fase — isso é G3.
+
+Atribuição de responsável: administradora e secretaria escolhem no cadastro; psicóloga clínica que cadastra fica responsável automaticamente.
