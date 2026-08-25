@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pageHeading, pageTitle, PRODUCT_NAME } from "@/lib/brand";
+import { parsePatientHubTab } from "@/features/patients/hub-tabs";
 import {
   countByKind,
   groupByPriority,
@@ -40,6 +41,15 @@ describe("navegação Serenità", () => {
   it("não confunde /app/sessions com /session/:id", () => {
     expect(isNavItemActive("/app/sessions", "/app/sessions")).toBe(true);
     expect(isNavItemActive("/session/abc", "/app/sessions")).toBe(false);
+  });
+});
+
+describe("abas do Patient Hub", () => {
+  it("aceita o alias tcle e cai no primeiro disponível", () => {
+    expect(
+      parsePatientHubTab("tcle", ["overview", "consents"]),
+    ).toBe("consents");
+    expect(parsePatientHubTab("missing", ["overview", "record"])).toBe("overview");
   });
 });
 

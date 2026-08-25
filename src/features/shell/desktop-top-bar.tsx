@@ -212,7 +212,12 @@ export function DesktopTopBar({
   return (
     <>
       <header className="sticky top-0 z-20 hidden h-[72px] items-center justify-between gap-4 border-b border-border bg-card px-8 lg:flex">
-        <p className="min-w-0 truncate font-serif text-2xl font-bold text-foreground">{title}</p>
+        <p
+          suppressHydrationWarning
+          className="min-w-0 truncate font-serif text-2xl font-bold text-foreground"
+        >
+          {title}
+        </p>
         <div className="flex items-center gap-4">
           <button
             type="button"
