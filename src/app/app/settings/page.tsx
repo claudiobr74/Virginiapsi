@@ -35,6 +35,11 @@ export default async function SettingsPage() {
         icon={Settings}
         title="Configurações"
         subtitle="Perfil, consultório, segurança, integrações, backup e zona de risco"
+        actions={
+          <span className="rounded-lg bg-sage-light/40 px-3 py-1.5 text-sm font-semibold text-primary">
+            {organizationName}
+          </span>
+        }
       />
       <SettingsConsole snapshot={snapshot} />
     </PageContainer>

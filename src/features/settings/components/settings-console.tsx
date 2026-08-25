@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  AlertTriangle,
+  Archive,
+  CalendarDays,
+  Download,
+  MessageCircle,
+  Mic,
+  Sparkles,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -26,9 +35,9 @@ import {
   updateSecurityAction,
 } from "@/features/settings/actions";
 import type { SettingsSnapshot } from "@/features/settings/contracts";
-import { expectedEliminationPhrase } from "@/features/settings/elimination";
 import type { IntegrationHealth } from "@/features/settings/diagnostics";
-import { AlertTriangle, Archive, Download } from "lucide-react";
+import { expectedEliminationPhrase } from "@/features/settings/elimination";
+import { cn } from "@/lib/utils/cn";
 
 const TABS = [
   { id: "profile", label: "Meu Perfil" },
@@ -38,9 +47,16 @@ const TABS = [
   { id: "team", label: "Equipe e Acessos" },
   { id: "integrations", label: "Integrações" },
   { id: "backup", label: "Backup e Recuperação" },
-  { id: "risk", label: "Zona de Risco" },
+  { id: "risk", label: "Zona de Risco", tone: "danger" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
+
+const INTEGRATION_ICONS = {
+  google: CalendarDays,
+  twilio: MessageCircle,
+  transcription: Mic,
+  gemini: Sparkles,
+} as const;
 
 const selectClass =
   "h-11 w-full rounded-xl border border-border bg-input px-3.5 text-sm text-foreground";
@@ -93,38 +109,47 @@ export function SettingsConsole({ snapshot }: { snapshot: SettingsSnapshot }) {
   const [tab, setTab] = useState<TabId>("profile");
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="grid gap-6 lg:grid-cols-[minmax(14rem,16.25rem)_minmax(0,1fr)] lg:items-start">
       <div
-        className="flex flex-wrap gap-2"
+        className="flex gap-1 overflow-x-auto rounded-3xl border border-border bg-card p-2 shadow-sm [scrollbar-width:none] lg:flex-col lg:overflow-visible lg:p-4 [&::-webkit-scrollbar]:hidden"
         role="tablist"
         aria-label="Seções de configurações"
       >
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.id}
-            className={
-              tab === item.id
-                ? "rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                : "rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface"
-            }
-            onClick={() => setTab(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
+        {TABS.map((item) => {
+          const selected = tab === item.id;
+          const danger = "tone" in item && item.tone === "danger";
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              className={cn(
+                "shrink-0 whitespace-nowrap rounded-xl px-4 py-2.5 text-left text-sm transition-colors lg:w-full",
+                selected
+                  ? "bg-primary font-semibold text-primary-foreground"
+                  : danger
+                    ? "font-medium text-failed hover:bg-failed-bg"
+                    : "font-medium text-foreground hover:bg-surface",
+              )}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          );
+        })}
       </div>
 
-      {tab === "profile" ? <ProfileSection snapshot={snapshot} /> : null}
-      {tab === "clinic" ? <ClinicSection snapshot={snapshot} /> : null}
-      {tab === "appearance" ? <AppearanceSection snapshot={snapshot} /> : null}
-      {tab === "security" ? <SecuritySection snapshot={snapshot} /> : null}
-      {tab === "team" ? <TeamSection snapshot={snapshot} /> : null}
-      {tab === "integrations" ? <IntegrationsSection snapshot={snapshot} /> : null}
-      {tab === "backup" ? <BackupSection snapshot={snapshot} /> : null}
-      {tab === "risk" ? <RiskSection snapshot={snapshot} /> : null}
+      <div className="min-w-0">
+        {tab === "profile" ? <ProfileSection snapshot={snapshot} /> : null}
+        {tab === "clinic" ? <ClinicSection snapshot={snapshot} /> : null}
+        {tab === "appearance" ? <AppearanceSection snapshot={snapshot} /> : null}
+        {tab === "security" ? <SecuritySection snapshot={snapshot} /> : null}
+        {tab === "team" ? <TeamSection snapshot={snapshot} /> : null}
+        {tab === "integrations" ? <IntegrationsSection snapshot={snapshot} /> : null}
+        {tab === "backup" ? <BackupSection snapshot={snapshot} /> : null}
+        {tab === "risk" ? <RiskSection snapshot={snapshot} /> : null}
+      </div>
     </div>
   );
 }
@@ -141,7 +166,7 @@ function ProfileSection({ snapshot }: { snapshot: SettingsSnapshot }) {
         description="Nome de exibição da profissional autenticada. A senha é alterada pelo fluxo de recuperação."
       />
       <form
-        className="mt-4 flex flex-col gap-4"
+        className="mt-4 grid gap-4 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
@@ -167,10 +192,12 @@ function ProfileSection({ snapshot }: { snapshot: SettingsSnapshot }) {
             maxLength={160}
           />
         </Field>
-        <Button type="submit" isLoading={isPending} className="self-start">
-          Salvar perfil
-        </Button>
-        <Message value={message} />
+        <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-center sm:justify-end">
+          <Message value={message} />
+          <Button type="submit" isLoading={isPending} className="self-start sm:self-auto">
+            Salvar perfil
+          </Button>
+        </div>
       </form>
     </section>
   );
@@ -486,16 +513,22 @@ function IntegrationsSection({ snapshot }: { snapshot: SettingsSnapshot }) {
           </Button>
         }
       />
-      <ul className="mt-4 flex flex-col gap-3">
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
         {snapshot.diagnostics.integrations.map((item) => {
           const badge = healthBadge(item.health);
+          const Icon = INTEGRATION_ICONS[item.key];
           return (
-            <li key={item.key} className="rounded-2xl border border-border px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-semibold">{item.label}</h3>
+            <li key={item.key} className="rounded-2xl border border-border px-4 py-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="flex size-9 items-center justify-center rounded-xl bg-sage-light/40 text-primary">
+                    <Icon className="size-4" aria-hidden />
+                  </span>
+                  <h3 className="font-semibold">{item.label}</h3>
+                </div>
                 <StatusBadge status={badge.status} label={badge.label} />
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">{item.summary}</p>
+              <p className="mt-3 text-sm text-muted-foreground">{item.summary}</p>
               {item.lastSuccessAt ? (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Último sucesso: {new Date(item.lastSuccessAt).toLocaleString("pt-BR")}
