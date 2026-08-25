@@ -46,36 +46,47 @@ Não há hoje `platform_operators`, convite pendente, `signUp()` nem role `psych
 
 **Objetivo:** ver os ambientes reais, registrar região, travar decisões. Sem cadastro, sem RLS D4b, sem allowlist.
 
-### 2.1 Evidência obtida nesta sessão
+### 2.1 Evidência MCP (2026-08-25, após autenticação)
+
+MCP **Supabase** e **Vercel**: `namespaceStatus: ready`. Nenhum valor de chave/token foi gravado neste documento.
+
+#### Supabase org `Macedotech Org`
+
+| Projeto (nome dashboard) | Ref | Região | Postgres | Papel para este repo |
+|---|---|---|---|---|
+| **Tesseli** | `kgfcgxagixiynlcewept` | **us-east-1** | 17.6 | Schema Tesseli (`organizations`, RLS). Candidato a **produção** deste código. |
+| **Serenita** | `bsaoujbfanluzggjvhfa` | **us-west-2** | 17.6 | Schema **outro** (`clinics` / `clinic_id`, convites, prontuário por seção). **Não** é staging deste Git. |
+
+URLs API (não são secrets): `https://kgfcgxagixiynlcewept.supabase.co` e `https://bsaoujbfanluzggjvhfa.supabase.co`.
+
+**Tesseli (`kgfcgxagixiynlcewept`):** tabelas públicas alinhadas ao Git (tenancy, pacientes, agenda, sessão, financeiro, WhatsApp, exports); RLS ligado. Há dados: 2 organizações, 2 membros, 89 appointments, 2 conexões Google. `list_migrations` do MCP voltou **vazio** (schema provavelmente aplicado via SQL Editor/bundle, não via `schema_migrations`). Coluna `patients.photo_path` **ausente**. Extensões instaladas: `pg_cron` 1.6.4, `supabase_vault`, `vector`, `pgcrypto`. **`pg_net` não instalado.** Jobs `cron.job`: `tesseli-whatsapp-reminders` (`*/5`) e `tesseli-audio-retention` (`0 3 * * *`). `vault.secrets`: **nenhum nome** (`tesseli_app_url` / `tesseli_cron_secret` ausentes) — os jobs existem mas a função de invoke retorna cedo sem URL/secret.
+
+**Serenita (`bsaoujbfanluzggjvhfa`):** 13 migrations próprias (`clinics_and_profiles` … `patient_treatment_plan`), **não** as 13 de `supabase/migrations/` deste repositório. `pg_cron` / `pg_net` / `vector` não instalados. Vault vazio. **Não usar como D2 staging do Tesseli** — modelo `clinic_id` viola `docs/03` (`organization_id`).
+
+#### Vercel team `claudiobr74-9668s-projects` (hobby)
+
+Um projeto: **tesseli** (`prj_20xq4mI7wu8KqGA5FfMtM6Mu3u0O`), GitHub `claudiobr74/Tesseli`. `framework` no dashboard ainda **`null`**. `live: false`. Domínios: `serena-psi-beta.vercel.app`, `tesseli-claudiobr74-9668s-projects.vercel.app`, alias Fase 13. Deploys recentes com `target: null` (Preview). Último READY: commit G0 `396b576` (PR 20). Preview VirgíniaPsi (SHA `82b2162`, PR 19): `tesseli-git-cursor-virginiaps-b1a1d1-claudiobr74-9668s-projects.vercel.app`.
+
+### 2.2 Evidência HTTP (antes do MCP)
 
 | Item | Resultado | Evidência |
 |---|---|---|
 | Decisões D1/D2/D4/D5 | **PASS** | §1 deste documento |
-| MCP Supabase | **EXTERNAL_BLOCKED** | `namespaceStatus: needsAuth` |
-| MCP Vercel | **EXTERNAL_BLOCKED** | `namespaceStatus: needsAuth` |
-| CLI `supabase` / `.supabase` link | **EXTERNAL_BLOCKED** | CLI ausente; sem `project ref` no repo |
-| Região do Postgres hospedado | **EXTERNAL_BLOCKED** | não observável; `docs/19` permanece sem região concreta |
-| `schema_migrations` / Vault / `cron.job` / Auth Site URL | **EXTERNAL_BLOCKED** | dependem do dashboard/MCP |
-| Staging ≠ prod (D2) | **EXTERNAL_BLOCKED** | não há dois refs conhecidos; risco de um único projeto |
-| GitHub | **PASS** (identidade) | `https://github.com/claudiobr74/Tesseli` (privado); `origin` ainda aponta o nome antigo SerenaPsi; homepage `https://serena-psi-beta.vercel.app` |
-| Alias produção `/login` | **PASS** HTTP; **FAIL** de recorte | `GET https://serena-psi-beta.vercel.app/login` → **200**, `nosniff`, `DENY`, sem `x-powered-by`. Title `Entrar — Tesseli`. Sem “VirgíniaPsi”. `permissions-policy`: `camera=()` (build antigo vs `camera=(self)` no `next.config.ts` atual). O 404 documentado em `docs/25` **não** se reproduziu nesta data. |
-| Preview Fase 13 `/login` | **PASS** HTTP; marca antiga | `GET https://tesseli-git-cursor-fase-13-ha-153b81-claudiobr74-9668s-projects.vercel.app/login` → **200**. Title `Entrar — Tesseli`. `camera=(self)`. Timezone de edge: `iad1` (Vercel), irrelevante para região **Supabase**. |
-| Branch de UI VirgíniaPsi | **PASS** (Git) | `cursor/virginiapsi-serenita-dcad` @ `82b2162` — **não** é o que o alias de produção serve |
-| Postgres local desta VM | **EXTERNAL_BLOCKED** | nada escuta `:5432`; `pnpm test:security` não roda aqui |
+| GitHub | **PASS** (identidade) | `https://github.com/claudiobr74/Tesseli` (privado); homepage `https://serena-psi-beta.vercel.app` |
+| Alias `serena-psi-beta` `/login` | **PASS** HTTP; **FAIL** recorte | 200, headers `nosniff`/`DENY`; title **Entrar — Tesseli**; sem VirgíniaPsi |
+| CLI `supabase` neste agente | **EXTERNAL_BLOCKED** | CLI ausente; inventário feito via MCP |
+| Auth Site URL / providers Google | **EXTERNAL_BLOCKED** | MCP não expõe Authentication → URL Configuration |
+| Postgres local desta VM | **EXTERNAL_BLOCKED** | nada em `:5432` |
 
 Nenhum secret foi lido nem gravado.
 
-### 2.2 O que a G0 **não** fechou
+### 2.3 O que a G0 ainda não fechou (ops, não código)
 
-1. Refs e região dos projetos Supabase (prod e staging).
-2. Se as 13 migrations (e `photo_path`) estão no hospedado.
-3. Site URL do Auth (localhost vs HTTPS).
-4. Provider Google no Auth vs cliente Calendar.
-5. Secrets Vault `tesseli_app_url` / `tesseli_cron_secret`.
-6. Jobs `tesseli-whatsapp-reminders` e `tesseli-audio-retention`.
-7. D3 (P0/P1 visual).
-
-Para desbloquear: autenticar MCP Supabase e Vercel no Cursor desktop **ou** colar só os refs/região (sem chaves).
+1. **D2:** criar (ou designar) um projeto Supabase de **staging com o mesmo schema Tesseli** em região documentada — o projeto Serenita **não** serve.
+2. Aplicar `photo_path` no Tesseli hospedado (G3) e passar a usar `schema_migrations` rastreadas.
+3. Instalar `pg_net` no Tesseli se os jobs HTTP forem usados; provisionar Vault `tesseli_app_url` / `tesseli_cron_secret` (G4).
+4. Site URL do Auth e redirects Google (G4).
+5. D3 (P0/P1 visual) e G1/G2.
 
 ## 3. Mapa das fases seguintes (não iniciar)
 
@@ -83,7 +94,7 @@ Para desbloquear: autenticar MCP Supabase e Vercel no Cursor desktop **ou** cola
 |---|---|---|
 | G1 | UI P0 dark / P1 timeline | D3 em aberto |
 | G2 | Cadastro, convite que cria usuário, role `psychologist`, allowlist D5b, troca de clínica | Spec RBAC ainda “duas funções”; confirmar §1.1 |
-| G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | G0 região/refs |
+| G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | Staging Tesseli ainda inexistente; prod `kgfcgxagixiynlcewept` sem `photo_path` |
 | G4 | Auth/Vault/cron **por ambiente** | G0 + D2 |
 | G5 | Ataque entre clínicas **e** entre profissionais da mesma clínica (D4b) | Staging real |
 | G6 | Produção com ≥2 clínicas e ≥2 profissionais | G3–G5 |
@@ -95,11 +106,15 @@ Para desbloquear: autenticar MCP Supabase e Vercel no Cursor desktop **ou** cola
 | Critério | Resultado |
 |---|---|
 | Decisões D1=B, D2=separado, D4b, D5b escritas e sem implementação antecipada | **PASS** |
-| Inventário HTTP público (alias + Preview) sem secrets | **PASS** |
-| Dois projetos Supabase identificados | **EXTERNAL_BLOCKED** |
-| Região registrada de fato em `docs/19` | **EXTERNAL_BLOCKED** (status explícito; valor ausente) |
+| MCP Supabase + Vercel autenticados e usáveis | **PASS** |
+| Inventário HTTP público sem secrets | **PASS** |
+| Projeto Tesseli identificado + região **us-east-1** | **PASS** |
+| D2 staging Tesseli ≠ prod (mesmo schema) | **FAIL** — existe um segundo projeto (**Serenita**, us-west-2) com **outro** modelo de dados |
+| Schema Tesseli no hospedado (tabelas/RLS) | **PASS** (presente); histórico `list_migrations` **vazio** |
+| `photo_path` / Vault jobs / `pg_net` | **FAIL** no projeto Tesseli |
+| Auth Site URL | **EXTERNAL_BLOCKED** (fora do MCP) |
 | Código de cadastro / RLS D4b / allowlist | **não executado** (fora da G0) |
 
-**Veredito G0: EXTERNAL_BLOCKED** para o banco e o Auth reais. **PASS** como registro de decisões e de o que os aliases HTTPS mostram. **Não avançar G1/G2** até autorização + (para G3+) refs/região.
+**Veredito G0: FAIL parcial / EXTERNAL_BLOCKED residual.** MCPs ok; produção Tesseli visível em us-east-1; **não** há staging Tesseli; jobs cron sem Vault/`pg_net`; Auth dashboard ainda cego. **Não avançar G1/G2** até autorização. G3 não aplica schema no Serenita.
 
-Data da evidência HTTP: 2026-08-25.
+Data da evidência MCP: 2026-08-25.
