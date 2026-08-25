@@ -19,7 +19,7 @@ async function createFinalizedSession(page: Page, patientId: string): Promise<vo
 
   await page.getByRole("button", { name: "Finalizar atendimento" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Apenas finalizar" }).click();
-  await page.waitForURL(/\/app\/patients$/);
+  await expect(page.getByRole("heading", { name: "Revisão da Sessão" })).toBeVisible();
 }
 
 test.describe("Supervisor Clínico IA", () => {

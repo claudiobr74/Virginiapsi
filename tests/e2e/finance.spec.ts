@@ -115,7 +115,7 @@ test.describe("Financeiro", () => {
     const confirm = page.getByRole("dialog").getByRole("button", { name: "Apenas finalizar" });
     await confirm.evaluate((node) => node.scrollIntoView({ block: "center", inline: "nearest" }));
     await confirm.click();
-    await page.waitForURL(/\/app\/patients$/, { timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Revisão da Sessão" })).toBeVisible();
 
     await openFinance(page);
     await page.getByRole("tab", { name: "Recebimentos" }).click();
