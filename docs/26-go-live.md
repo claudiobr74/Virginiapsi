@@ -135,8 +135,9 @@ Atribuição de responsável: administradora e secretaria escolhem no cadastro; 
 | D5b: `bootstrap_organization` exige `platform_operators` | **PASS** no Git |
 | D1 B: `/signup` + convite pendente / `inviteUserByEmail` | **PASS** no Git |
 | lint + typecheck + unit + build + scan client bundle | **PASS** nesta VM |
-| `test:security` (Postgres + pgvector) | **EXTERNAL_BLOCKED** nesta VM (`127.0.0.1:5432` recusou; sem Docker/`pgvector`) — CI `foundation-gate` |
+| `test:security` (Postgres + pgvector) | **EXTERNAL_BLOCKED** nesta VM (`127.0.0.1:5432` recusou; sem Docker/`pgvector`) |
+| CI `foundation-gate` | **EXTERNAL_BLOCKED** — job `gate` não inicia: *“recent account payments have failed or your spending limit needs to be increased”* (anotação em `.github`, runs `32908990497` / `32908987283`, 2026-08-25). Não é falha de código. |
 | E2E G2 (signup, onboarding aguarda convite, hub/sessão admin responsável, secretária sem clínico) | **PASS** desktop+mobile nesta VM |
 | Schema no projeto hospedado Virginiapsi | **não aplicado** (G3) |
 
-**Veredito G2: PASS no Git, com EXTERNAL_BLOCKED residual de Postgres local.** Não avançar G1 nem G3 sem autorização.
+**Veredito G2: PASS no Git, com EXTERNAL_BLOCKED residual de Postgres local e de billing do GitHub Actions.** Não avançar G1 nem G3 sem autorização.
