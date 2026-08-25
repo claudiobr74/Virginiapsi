@@ -54,25 +54,31 @@ MCP **Supabase** e **Vercel**: `namespaceStatus: ready`. Nenhum valor de chave/t
 
 | Projeto (nome dashboard) | Ref | Região | Postgres | Papel para este repo |
 |---|---|---|---|---|
-| **Tesseli** | `kgfcgxagixiynlcewept` | **us-east-1** | 17.6 | Schema Tesseli (`organizations`, RLS). Candidato a **produção** deste código. |
-| **Serenita** | `bsaoujbfanluzggjvhfa` | **us-west-2** | 17.6 | Schema **outro** (`clinics` / `clinic_id`, convites, prontuário por seção). **Não** é staging deste Git. |
+| **Virginiapsi** (ex-Tesseli) | `kgfcgxagixiynlcewept` | **us-east-1** | 17.6 | Schema deste repo (`organizations`, RLS). Candidato a **produção**. Ref **não** mudou com o rename. |
+| **Serenita** | `bsaoujbfanluzggjvhfa` | **us-west-2** | 17.6 | Schema **outro** (`clinics` / `clinic_id`). **Não** é staging deste Git. |
 
 URLs API (não são secrets): `https://kgfcgxagixiynlcewept.supabase.co` e `https://bsaoujbfanluzggjvhfa.supabase.co`.
 
-**Tesseli (`kgfcgxagixiynlcewept`):** tabelas públicas alinhadas ao Git (tenancy, pacientes, agenda, sessão, financeiro, WhatsApp, exports); RLS ligado. Há dados: 2 organizações, 2 membros, 89 appointments, 2 conexões Google. `list_migrations` do MCP voltou **vazio** (schema provavelmente aplicado via SQL Editor/bundle, não via `schema_migrations`). Coluna `patients.photo_path` **ausente**. Extensões instaladas: `pg_cron` 1.6.4, `supabase_vault`, `vector`, `pgcrypto`. **`pg_net` não instalado.** Jobs `cron.job`: `tesseli-whatsapp-reminders` (`*/5`) e `tesseli-audio-retention` (`0 3 * * *`). `vault.secrets`: **nenhum nome** (`tesseli_app_url` / `tesseli_cron_secret` ausentes) — os jobs existem mas a função de invoke retorna cedo sem URL/secret.
+**Virginiapsi (`kgfcgxagixiynlcewept`):** tabelas públicas alinhadas ao Git (tenancy, pacientes, agenda, sessão, financeiro, WhatsApp, exports); RLS ligado. Há dados: 2 organizações, 2 membros, 89 appointments, 2 conexões Google. `list_migrations` do MCP voltou **vazio** (schema provavelmente aplicado via SQL Editor/bundle, não via `schema_migrations`). Coluna `patients.photo_path` **ausente**. Extensões instaladas: `pg_cron` 1.6.4, `supabase_vault`, `vector`, `pgcrypto`. **`pg_net` não instalado.** Jobs `cron.job` (nomes internos, inalterados): `tesseli-whatsapp-reminders` (`*/5`) e `tesseli-audio-retention` (`0 3 * * *`). `vault.secrets`: **nenhum nome** (`tesseli_app_url` / `tesseli_cron_secret` ausentes) — os jobs existem mas a função de invoke retorna cedo sem URL/secret.
 
-**Serenita (`bsaoujbfanluzggjvhfa`):** 13 migrations próprias (`clinics_and_profiles` … `patient_treatment_plan`), **não** as 13 de `supabase/migrations/` deste repositório. `pg_cron` / `pg_net` / `vector` não instalados. Vault vazio. **Não usar como D2 staging do Tesseli** — modelo `clinic_id` viola `docs/03` (`organization_id`).
+**Serenita (`bsaoujbfanluzggjvhfa`):** 13 migrations próprias (`clinics_and_profiles` … `patient_treatment_plan`), **não** as 13 de `supabase/migrations/` deste repositório. `pg_cron` / `pg_net` / `vector` não instalados. Vault vazio. **Não usar o projeto Serenita como D2 staging** — modelo `clinic_id` viola `docs/03` (`organization_id`).
 
 #### Vercel team `claudiobr74-9668s-projects` (hobby)
 
-Um projeto: **tesseli** (`prj_20xq4mI7wu8KqGA5FfMtM6Mu3u0O`), GitHub `claudiobr74/Tesseli`. `framework` no dashboard ainda **`null`**. `live: false`. Domínios: `serena-psi-beta.vercel.app`, `tesseli-claudiobr74-9668s-projects.vercel.app`, alias Fase 13. Deploys recentes com `target: null` (Preview). Último READY: commit G0 `396b576` (PR 20). Preview VirgíniaPsi (SHA `82b2162`, PR 19): `tesseli-git-cursor-virginiaps-b1a1d1-claudiobr74-9668s-projects.vercel.app`.
+Um projeto: **virginiapsi** (`prj_20xq4mI7wu8KqGA5FfMtM6Mu3u0O`; mesmo id de quando se chamava tesseli). Ligação Git no MCP ainda mostra `org/repo: claudiobr74/Tesseli` — o GitHub já redireciona para `claudiobr74/Virginiapsi`; se o deploy quebrar, reconectar o Git no dashboard. `framework` no dashboard ainda **`null`**. `live: false`. Domínios gerados **ainda** usam prefixo `tesseli-` (`serena-psi-beta.vercel.app`, `tesseli-claudiobr74-9668s-projects.vercel.app`, alias Fase 13). Preview VirgíniaPsi (SHA `82b2162`, PR 19): `tesseli-git-cursor-virginiaps-b1a1d1-claudiobr74-9668s-projects.vercel.app`.
+
+#### GitHub
+
+Repositório canônico: **https://github.com/claudiobr74/Virginiapsi** (privado). URLs antigas `SerenaPsi` e `Tesseli` redirecionam para cá. `origin` local deste agente ainda aponta o nome SerenaPsi (redirect). Homepage: `https://serena-psi-beta.vercel.app`.
+
+Código interno (pacote `tesseli`, cookie `tesseli-active-organization`, jobs SQL `tesseli-*`, prompts) **não** foi renomeado — só os nomes de projeto nos três dashboards.
 
 ### 2.2 Evidência HTTP (antes do MCP)
 
 | Item | Resultado | Evidência |
 |---|---|---|
 | Decisões D1/D2/D4/D5 | **PASS** | §1 deste documento |
-| GitHub | **PASS** (identidade) | `https://github.com/claudiobr74/Tesseli` (privado); homepage `https://serena-psi-beta.vercel.app` |
+| GitHub | **PASS** (identidade) | `https://github.com/claudiobr74/Virginiapsi` (privado); homepage `https://serena-psi-beta.vercel.app` |
 | Alias `serena-psi-beta` `/login` | **PASS** HTTP; **FAIL** recorte | 200, headers `nosniff`/`DENY`; title **Entrar — Tesseli**; sem VirgíniaPsi |
 | CLI `supabase` neste agente | **EXTERNAL_BLOCKED** | CLI ausente; inventário feito via MCP |
 | Auth Site URL / providers Google | **EXTERNAL_BLOCKED** | MCP não expõe Authentication → URL Configuration |
@@ -82,10 +88,10 @@ Nenhum secret foi lido nem gravado.
 
 ### 2.3 O que a G0 ainda não fechou (ops, não código)
 
-1. **D2:** criar (ou designar) um projeto Supabase de **staging com o mesmo schema Tesseli** em região documentada — o projeto Serenita **não** serve.
-2. Aplicar `photo_path` no Tesseli hospedado (G3) e passar a usar `schema_migrations` rastreadas.
-3. Instalar `pg_net` no Tesseli se os jobs HTTP forem usados; provisionar Vault `tesseli_app_url` / `tesseli_cron_secret` (G4).
-4. Site URL do Auth e redirects Google (G4).
+1. **D2:** criar (ou designar) um projeto Supabase de **staging com o mesmo schema** (organização/`organization_id`) em região documentada — o projeto Serenita **não** serve.
+2. Aplicar `photo_path` no Virginiapsi hospedado (G3) e passar a usar `schema_migrations` rastreadas.
+3. Instalar `pg_net` no Virginiapsi se os jobs HTTP forem usados; provisionar Vault `tesseli_app_url` / `tesseli_cron_secret` (G4). Nomes Vault internos podem permanecer `tesseli_*` até G4 decidir.
+4. Site URL do Auth e redirects Google (G4). Conferir Redirect URLs se o GitHub/Vercel mudou de host.
 5. D3 (P0/P1 visual) e G1/G2.
 
 ## 3. Mapa das fases seguintes (não iniciar)
@@ -94,7 +100,7 @@ Nenhum secret foi lido nem gravado.
 |---|---|---|
 | G1 | UI P0 dark / P1 timeline | D3 em aberto |
 | G2 | Cadastro, convite que cria usuário, role `psychologist`, allowlist D5b, troca de clínica | Spec RBAC ainda “duas funções”; confirmar §1.1 |
-| G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | Staging Tesseli ainda inexistente; prod `kgfcgxagixiynlcewept` sem `photo_path` |
+| G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | Staging com schema deste repo ainda inexistente; prod `kgfcgxagixiynlcewept` (dashboard **Virginiapsi**) sem `photo_path` |
 | G4 | Auth/Vault/cron **por ambiente** | G0 + D2 |
 | G5 | Ataque entre clínicas **e** entre profissionais da mesma clínica (D4b) | Staging real |
 | G6 | Produção com ≥2 clínicas e ≥2 profissionais | G3–G5 |
@@ -108,13 +114,13 @@ Nenhum secret foi lido nem gravado.
 | Decisões D1=B, D2=separado, D4b, D5b escritas e sem implementação antecipada | **PASS** |
 | MCP Supabase + Vercel autenticados e usáveis | **PASS** |
 | Inventário HTTP público sem secrets | **PASS** |
-| Projeto Tesseli identificado + região **us-east-1** | **PASS** |
-| D2 staging Tesseli ≠ prod (mesmo schema) | **FAIL** — existe um segundo projeto (**Serenita**, us-west-2) com **outro** modelo de dados |
-| Schema Tesseli no hospedado (tabelas/RLS) | **PASS** (presente); histórico `list_migrations` **vazio** |
-| `photo_path` / Vault jobs / `pg_net` | **FAIL** no projeto Tesseli |
+| Projeto Virginiapsi (Supabase) identificado + região **us-east-1** | **PASS** (rename 2026-08-25; ref inalterado) |
+| D2 staging ≠ prod (mesmo schema) | **FAIL** — segundo projeto (**Serenita**, us-west-2) tem **outro** modelo |
+| Schema no hospedado (tabelas/RLS) | **PASS** (presente); histórico `list_migrations` **vazio** |
+| `photo_path` / Vault jobs / `pg_net` | **FAIL** no projeto Virginiapsi |
 | Auth Site URL | **EXTERNAL_BLOCKED** (fora do MCP) |
 | Código de cadastro / RLS D4b / allowlist | **não executado** (fora da G0) |
 
-**Veredito G0: FAIL parcial / EXTERNAL_BLOCKED residual.** MCPs ok; produção Tesseli visível em us-east-1; **não** há staging Tesseli; jobs cron sem Vault/`pg_net`; Auth dashboard ainda cego. **Não avançar G1/G2** até autorização. G3 não aplica schema no Serenita.
+**Veredito G0: FAIL parcial / EXTERNAL_BLOCKED residual.** MCPs ok; produção **Virginiapsi** visível em us-east-1; **não** há staging com este schema; jobs cron sem Vault/`pg_net`; Auth dashboard ainda cego. **Não avançar G1/G2** até autorização. G3 não aplica schema no Serenita.
 
 Data da evidência MCP: 2026-08-25.

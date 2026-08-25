@@ -1,6 +1,6 @@
 # Tesseli — Project
 
-Este repositório define a especificação funcional, visual e técnica do **Tesseli**, o código-fonte do consultório digital **VirgíniaPsi**. A marca visível na interface é VirgíniaPsi; contratos internos, RLS e o nome do pacote podem continuar usando Tesseli.
+Este repositório define a especificação funcional, visual e técnica do **Tesseli**, o código-fonte do consultório digital **VirgíniaPsi**. A marca visível na interface é VirgíniaPsi; contratos internos, RLS e o nome do pacote podem continuar usando Tesseli. Hospedagem (GitHub / Vercel / Supabase dashboard): **Virginiapsi** — `https://github.com/claudiobr74/Virginiapsi`.
 
 Especificação técnica atual: **v1.4**. Runtime Clinical Prompts: **v1.2.0**; structured-output contracts: **revision 1.2.1**. Ver `docs/20-preimplementation-fixes-v1.4.md` para as correções desta versão.
 

@@ -11,13 +11,13 @@ Este documento fecha o achado `LGPD-P1-004` da auditoria pré-implementação. E
 
 ⚠ VALIDAÇÃO JURÍDICA HUMANA: confirmação formal dessa qualificação (SaaS multi-controladora + allowlist de plataforma) antes de titular real. Este parágrafo **não** é parecer nem DPA.
 
-**Região do projeto Supabase (G0, 2026-08-25, MCP):** o projeto **Tesseli** (`kgfcgxagixiynlcewept`), candidato a produção deste repositório, está em **us-east-1** (N. Virginia, EUA). Postgres 17. Há um segundo projeto **Serenita** (`bsaoujbfanluzggjvhfa`) em **us-west-2** com schema distinto (`clinics`) — **não** é o staging Tesseli (D2 ainda FAIL). Transferência internacional EUA: ⚠ VALIDAÇÃO JURÍDICA HUMANA. Staging Tesseli na mesma ou outra região: **ainda não criado**.
+**Região do projeto Supabase (G0, 2026-08-25, MCP):** o projeto dashboard **Virginiapsi** (`kgfcgxagixiynlcewept`; nome antigo Tesseli), candidato a produção deste repositório, está em **us-east-1** (N. Virginia, EUA). Postgres 17. Há um segundo projeto **Serenita** (`bsaoujbfanluzggjvhfa`) em **us-west-2** com schema distinto (`clinics`) — **não** é o staging deste produto (D2 ainda FAIL). Transferência internacional EUA: ⚠ VALIDAÇÃO JURÍDICA HUMANA. Staging com o mesmo schema: **ainda não criado**.
 
 ## 2. Inventário de suboperadores e o que cada um recebe
 
 | Suboperador | Dado recebido | Finalidade | Localização | Base de transferência internacional |
 |---|---|---|---|---|
-| Supabase | Todo o dado estruturado do produto (Postgres, Auth, Storage) | Persistência, autenticação, armazenamento de arquivo | Produção Tesseli: **us-east-1** (`kgfcgxagixiynlcewept`). Staging Tesseli (D2): **ainda não existe**. Projeto Serenita us-west-2 não faz parte deste schema (`docs/26-go-live.md`). | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
+| Supabase | Todo o dado estruturado do produto (Postgres, Auth, Storage) | Persistência, autenticação, armazenamento de arquivo | Produção **Virginiapsi**: **us-east-1** (`kgfcgxagixiynlcewept`). Staging deste schema (D2): **ainda não existe**. Projeto Serenita us-west-2 não faz parte deste schema (`docs/26-go-live.md`). | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
 | Google (Calendar/Meet) | Nome do paciente + `PAC-###` (no título do evento), horário, modalidade | Agenda externa oficial e videochamada | Global (Google Workspace/Cloud) | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
 | Twilio | Número de telefone, conteúdo de template de mensagem | Confirmação e lembrete de consulta via WhatsApp | EUA | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
 | Groq — **somente se o fallback de transcrição for habilitado** | Áudio bruto da sessão (apenas no fallback) | Transcrição de fala em texto quando o dispositivo não sustenta a transcrição local | EUA | ⚠ VALIDAÇÃO JURÍDICA HUMANA — dado de saúde, exige atenção redobrada |
