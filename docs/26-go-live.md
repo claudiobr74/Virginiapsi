@@ -126,3 +126,17 @@ Implementação no Git: cadastro (`/signup`), convite que cria usuário Auth qua
 **Não aplicar** as migrations `20260825100000_g2_identity_enum.sql` e `20260825100001_g2_identity.sql` no projeto hospedado nesta fase — isso é G3.
 
 Atribuição de responsável: administradora e secretaria escolhem no cadastro; psicóloga clínica que cadastra fica responsável automaticamente.
+
+### Gate G2 (esta entrega)
+
+| Critério | Resultado |
+|---|---|
+| D4b: admin não lê clínico alheio; só lê se for responsável | **PASS** no Git (`can_access_patient_clinical`; teste `g2-identity`) |
+| D5b: `bootstrap_organization` exige `platform_operators` | **PASS** no Git |
+| D1 B: `/signup` + convite pendente / `inviteUserByEmail` | **PASS** no Git |
+| lint + typecheck + unit + build + scan client bundle | **PASS** nesta VM |
+| `test:security` (Postgres + pgvector) | **EXTERNAL_BLOCKED** nesta VM (`127.0.0.1:5432` recusou; sem Docker/`pgvector`) — CI `foundation-gate` |
+| E2E G2 (signup, onboarding aguarda convite, hub/sessão admin responsável, secretária sem clínico) | **PASS** desktop+mobile nesta VM |
+| Schema no projeto hospedado Virginiapsi | **não aplicado** (G3) |
+
+**Veredito G2: PASS no Git, com EXTERNAL_BLOCKED residual de Postgres local.** Não avançar G1 nem G3 sem autorização.
