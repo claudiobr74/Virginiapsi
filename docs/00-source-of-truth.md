@@ -2,7 +2,7 @@
 
 ## Hierarquia de autoridade
 
-1. Este diretório `docs/` para produto/arquitetura e `src/lib/ai/prompts/**` para comportamento de IA em runtime.
+1. Este diretório `docs/` para produto/arquitetura e `src/lib/ai/prompts/**` para comportamento de IA em runtime. Go-live multiclínicas (decisões D1–D5 e inventário G0): `docs/26-go-live.md` — **não** substitui este kit; a G2 deve emendar papéis quando D4b/D5b forem implementados (`psychologist` + operadora de plataforma). Até lá o texto abaixo (“duas funções”) descreve o código vigente, não o alvo travado.
 2. `src/lib/ai/contracts/**` para structured outputs da IA.
 3. `.cursor/rules/`.
 4. prompt da fase atual.

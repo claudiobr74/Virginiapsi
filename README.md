@@ -74,6 +74,7 @@ Não fazem parte da arquitetura do Tesseli:
 - `docs/20-preimplementation-fixes-v1.4.md`: registro das correções derivadas da segunda auditoria.
 - `docs/24-rollback.md`: rollback de deploy Vercel e recuperação PITR/backup Supabase. Exportação lógica não é DR.
 - `docs/25-release-gate.md`: checklist PASS/FAIL/EXTERNAL_BLOCKED do gate de release.
+- `docs/26-go-live.md`: go-live multiusuário/multiclínicas (decisões D1–D5, inventário G0).
 
 ## Primeiro objetivo
 

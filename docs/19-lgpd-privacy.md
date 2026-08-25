@@ -4,17 +4,20 @@ Este documento fecha o achado `LGPD-P1-004` da auditoria pré-implementação. E
 
 ## 1. Papéis
 
-- **Controlador**: a profissional/pessoa jurídica titular do consultório (`organizations` + `practice_settings`), para os dados de pacientes atendidos por ela.
-- **Operador (Tesseli como produto)**: no modelo atual (um consultório), controlador e operador da plataforma coincidem. Se o produto virar SaaS multi-organização, a operadora da plataforma (quem hospeda/administra o Supabase/Vercel do produto) passa a ser operadora técnica de múltiplos controladores — revisar este documento nesse momento.
-- **Suboperadores**: prestadores que processam dado em nome do controlador. Ver inventário abaixo.
+- **Controlador**: cada clínica (`organizations` + `practice_settings`), sobre os pacientes que ela atende. Multiclínicas = várias controladoras no mesmo produto.
+- **Operadora da plataforma**: quem hospeda e administra o Supabase/Vercel do produto. **Não** coincide com uma clínica. Go-live D5b (`docs/26-go-live.md`): só a plataforma autoriza criar organização. A operadora **não** usa service-role para ler prontuário de tenant no dia a dia.
+- **Profissional da clínica**: membership na organização; D4b restringe o clínico ao responsável pelo paciente (detalhe de papéis na G2). A secretaria permanece sem payload clínico.
+- **Suboperadores**: prestadores que processam dado em nome da controladora. Ver inventário abaixo.
 
-⚠ VALIDAÇÃO JURÍDICA HUMANA: confirmação formal dessa qualificação para o modelo de negócio real.
+⚠ VALIDAÇÃO JURÍDICA HUMANA: confirmação formal dessa qualificação (SaaS multi-controladora + allowlist de plataforma) antes de titular real. Este parágrafo **não** é parecer nem DPA.
+
+**Região do projeto Supabase (G0, 2026-08-25):** **não registrada**. MCP/CLI sem acesso ao projeto hospedado. Sem região concreta não há base de transferência internacional preenchível. Status: **EXTERNAL_BLOCKED**. Desbloquear com o ref + região (staging e produção, D2) e reescrever a linha do Supabase na tabela abaixo.
 
 ## 2. Inventário de suboperadores e o que cada um recebe
 
 | Suboperador | Dado recebido | Finalidade | Localização | Base de transferência internacional |
 |---|---|---|---|---|
-| Supabase | Todo o dado estruturado do produto (Postgres, Auth, Storage) | Persistência, autenticação, armazenamento de arquivo | Depende da região do projeto Supabase escolhida na Fase 0 — **definir região e registrar aqui antes da Fase 2** | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
+| Supabase | Todo o dado estruturado do produto (Postgres, Auth, Storage) | Persistência, autenticação, armazenamento de arquivo | **G0 EXTERNAL_BLOCKED** — região do projeto hospedado ainda não observada (`docs/26-go-live.md`). Staging e produção devem ser projetos distintos (D2). | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
 | Google (Calendar/Meet) | Nome do paciente + `PAC-###` (no título do evento), horário, modalidade | Agenda externa oficial e videochamada | Global (Google Workspace/Cloud) | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
 | Twilio | Número de telefone, conteúdo de template de mensagem | Confirmação e lembrete de consulta via WhatsApp | EUA | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
 | Groq — **somente se o fallback de transcrição for habilitado** | Áudio bruto da sessão (apenas no fallback) | Transcrição de fala em texto quando o dispositivo não sustenta a transcrição local | EUA | ⚠ VALIDAÇÃO JURÍDICA HUMANA — dado de saúde, exige atenção redobrada |

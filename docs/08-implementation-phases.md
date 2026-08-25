@@ -214,3 +214,7 @@ Gate: no secret leakage + retention job eliminates audio within configured windo
 - rollback docs.
 
 Gate: release checklist 100% ou EXTERNAL_BLOCKED documentado.
+
+## Go-live após a Fase 13 (não é fase de produto)
+
+Multiusuário e multiclínicas: decisões e inventário em `docs/26-go-live.md` (G0–G8). Não avançar G1+ sem autorização. Não implementar D4b/D5b dentro da Fase 13.

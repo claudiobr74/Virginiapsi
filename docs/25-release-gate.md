@@ -2,7 +2,9 @@
 
 Checklist do skill `release-gate`. Somente `PASS`, `FAIL` ou `EXTERNAL_BLOCKED`. Itens que dependem de verificação externa real **não** são mascarados como PASS.
 
-Preenchido na implementação da Fase 13. Reexecutar o gate após cada mudança de produção.
+Preenchido na implementação da Fase 13. Reexecutar o gate após cada mudança de produção. Processo posterior (multiusuário/multiclínicas, G0–G8): `docs/26-go-live.md`. **Não** tratar este arquivo como o inventário atual de produção.
+
+G0 (2026-08-25): `GET /login` em `serena-psi-beta.vercel.app` respondeu **200** (não o 404 abaixo). A página ainda é a marca **Tesseli** antiga — não é o branch VirgíniaPsi. Região/schema Auth hospedados: EXTERNAL_BLOCKED.
 
 ## 1. Resultado por passo
 
