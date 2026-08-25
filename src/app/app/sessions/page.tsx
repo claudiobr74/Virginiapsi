@@ -18,7 +18,7 @@ export default async function SessionsPage() {
 
   return (
     <PageContainer>
-      <h1 className="font-serif text-2xl font-bold text-foreground">Sessões</h1>
+      <h1 className="font-serif text-[28px] font-bold leading-tight text-foreground">Sessões</h1>
       <OrganizationSessionsList rows={rows} timezone={timezone} />
     </PageContainer>
   );

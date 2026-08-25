@@ -13,7 +13,7 @@ export default async function PendenciasPage() {
 
   return (
     <PageContainer>
-      <h1 className="font-serif text-2xl font-bold text-foreground">
+      <h1 className="font-serif text-[28px] font-bold leading-tight text-foreground">
         Central de Pendências Inteligente
       </h1>
       <PendenciesBoard items={items} />

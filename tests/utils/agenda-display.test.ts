@@ -5,6 +5,7 @@ import {
   formatAgendaMonthLabel,
   formatHourLabel,
   hourInTimeZone,
+  monthCellStats,
   summarizeDayAppointments,
 } from "@/features/calendar/display";
 import type { AppointmentRow } from "@/features/calendar/contracts";
@@ -91,5 +92,42 @@ describe("summarizeDayAppointments", () => {
       }),
     ]);
     expect(summary).toEqual({ total: 3, confirmed: 1, scheduled: 2, external: 1 });
+  });
+});
+
+describe("monthCellStats", () => {
+  it("conta sessões e distingue modalidade e eventos externos", () => {
+    const stats = monthCellStats([
+      stubAppointment({
+        starts_at: "2026-08-18T12:00:00.000Z",
+        status: "confirmed",
+        origin: "TESSELI",
+        modality: "online",
+      }),
+      stubAppointment({
+        starts_at: "2026-08-18T13:00:00.000Z",
+        status: "scheduled",
+        origin: "TESSELI",
+        modality: "in_person",
+      }),
+      stubAppointment({
+        starts_at: "2026-08-18T14:00:00.000Z",
+        status: "cancelled",
+        origin: "TESSELI",
+        modality: "online",
+      }),
+      stubAppointment({
+        starts_at: "2026-08-18T15:00:00.000Z",
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        modality: "online",
+      }),
+    ]);
+    expect(stats).toEqual({
+      count: 3,
+      hasOnline: true,
+      hasInPerson: true,
+      hasExternal: true,
+    });
   });
 });

@@ -21,7 +21,6 @@ export function FinalizeSessionWizard({ sessionId }: { sessionId: string }) {
         return;
       }
       setOpen(false);
-      router.push(`/app/patients`);
       router.refresh();
     });
   }
@@ -35,7 +34,6 @@ export function FinalizeSessionWizard({ sessionId }: { sessionId: string }) {
         return;
       }
       setOpen(false);
-      router.push(`/app/patients`);
       router.refresh();
     });
   }

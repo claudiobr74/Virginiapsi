@@ -66,7 +66,8 @@ export function Sidebar({
                 {professionalName}
               </span>
               <span className="truncate text-xs text-muted-foreground">
-                {organizationName || professionalSubtitle || roleLabel}
+                {roleLabel}
+                {organizationName ? ` · ${organizationName}` : professionalSubtitle ? ` · ${professionalSubtitle}` : ""}
               </span>
             </div>
           </div>

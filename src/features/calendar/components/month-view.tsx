@@ -1,4 +1,5 @@
 import type { AppointmentRow } from "@/features/calendar/contracts";
+import { monthCellStats } from "@/features/calendar/display";
 import { cn } from "@/lib/utils/cn";
 
 const WEEKDAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -7,6 +8,28 @@ function leadingBlankDays(firstDay: string): number {
   const [year, month, day] = firstDay.split("-").map(Number);
   const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   return weekday === 0 ? 6 : weekday - 1;
+}
+
+function addDays(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function trailingOverflowDays(firstDay: string, count: number): string[] {
+  const blanks = leadingBlankDays(firstDay);
+  const remainder = (blanks + count) % 7;
+  const need = remainder === 0 ? 0 : 7 - remainder;
+  const lastDay = addDays(firstDay, count - 1);
+  return Array.from({ length: need }, (_, index) => addDays(lastDay, index + 1));
+}
+
+function sessionCountLabel(count: number): string {
+  if (count === 1) {
+    return "1 sessão";
+  }
+  return `${count} sessões`;
 }
 
 export function MonthView({
@@ -21,25 +44,28 @@ export function MonthView({
   onSelectDay: (day: string) => void;
 }) {
   const blanks = leadingBlankDays(days[0]);
+  const overflow = trailingOverflowDays(days[0], days.length);
 
   return (
-    <div className="flex flex-col gap-2 rounded-3xl border border-border bg-card p-3 sm:p-4">
-      <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase tracking-wide text-muted-foreground">
+    <div className="overflow-hidden rounded-[16px] border border-border bg-card">
+      <div className="grid grid-cols-7 border-b border-border text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {WEEKDAY_LABELS.map((label) => (
-          <span key={label}>{label}</span>
+          <span key={label} className="px-2 py-3">
+            {label}
+          </span>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7">
         {Array.from({ length: blanks }).map((_, index) => (
-          <div key={`blank-${index}`} />
+          <div
+            key={`blank-${index}`}
+            className="min-h-[108px] border-b border-r border-border bg-background/40 last:border-r-0"
+          />
         ))}
         {days.map((day) => {
-          const appointments = appointmentsByDay.get(day) ?? [];
+          const stats = monthCellStats(appointmentsByDay.get(day) ?? []);
           const isToday = day === today;
           const dayNumber = Number(day.split("-")[2]);
-          const activeCount = appointments.filter(
-            (appointment) => appointment.status !== "cancelled",
-          ).length;
 
           return (
             <button
@@ -47,28 +73,56 @@ export function MonthView({
               type="button"
               onClick={() => onSelectDay(day)}
               className={cn(
-                "flex min-h-20 flex-col items-start gap-1 rounded-xl border border-border bg-background p-2 text-left transition-colors hover:border-sage-light hover:bg-surface/60",
-                isToday && "border-primary/40",
+                "flex min-h-[108px] flex-col items-start gap-2 border-b border-r border-border p-3 text-left transition-colors hover:bg-surface/60",
+                isToday && "bg-sage-light/70",
               )}
             >
-              <span
-                className={cn(
-                  "flex size-7 items-center justify-center font-mono text-xs font-semibold",
-                  isToday
-                    ? "rounded-full bg-foreground text-background"
-                    : "text-foreground",
-                )}
-              >
-                {dayNumber}
-              </span>
-              {activeCount > 0 ? (
-                <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
-                  {activeCount} {activeCount === 1 ? "consulta" : "consultas"}
+              <div className="flex w-full items-start justify-between gap-2">
+                <span
+                  className={cn(
+                    "font-sans text-sm font-semibold",
+                    isToday ? "text-sage-700" : "text-foreground",
+                  )}
+                >
+                  {dayNumber}
                 </span>
+                {isToday ? (
+                  <span className="rounded-md bg-sage-700 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground">
+                    Hoje
+                  </span>
+                ) : null}
+              </div>
+              {stats.count > 0 ? (
+                <>
+                  <p className="text-[13px] text-muted-foreground">
+                    {sessionCountLabel(stats.count)}
+                  </p>
+                  <span className="flex gap-1" aria-hidden>
+                    {stats.hasOnline ? (
+                      <span className="size-1.5 rounded-full bg-sage-700" />
+                    ) : null}
+                    {stats.hasInPerson ? (
+                      <span className="size-1.5 rounded-full bg-accent" />
+                    ) : null}
+                    {stats.hasExternal ? (
+                      <span className="size-1.5 rounded-full bg-sage-mid" />
+                    ) : null}
+                  </span>
+                </>
               ) : null}
             </button>
           );
         })}
+        {overflow.map((day) => (
+          <button
+            key={`overflow-${day}`}
+            type="button"
+            onClick={() => onSelectDay(day)}
+            className="flex min-h-[108px] flex-col items-start border-b border-r border-border bg-background/40 p-3 text-left text-muted-foreground/70 hover:bg-surface/40"
+          >
+            <span className="font-sans text-sm font-semibold">{Number(day.split("-")[2])}</span>
+          </button>
+        ))}
       </div>
     </div>
   );

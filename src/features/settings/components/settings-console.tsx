@@ -127,7 +127,7 @@ export function SettingsConsole({ snapshot }: { snapshot: SettingsSnapshot }) {
               className={cn(
                 "shrink-0 whitespace-nowrap rounded-xl px-4 py-2.5 text-left text-sm transition-colors lg:w-full",
                 selected
-                  ? "bg-primary font-semibold text-primary-foreground"
+                  ? "bg-sage-light font-semibold text-sage-700"
                   : danger
                     ? "font-medium text-failed hover:bg-failed-bg"
                     : "font-medium text-foreground hover:bg-surface",

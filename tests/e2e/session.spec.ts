@@ -101,14 +101,13 @@ test.describe("Sessão clínica ativa", () => {
   test("finalizar atendimento via wizard encerra a sessão", async ({ page }) => {
     await loginViaUi(page);
     const patientId = await openPatient(page, "Sessão Dois");
-    const sessionId = await startSession(page, patientId);
+    await startSession(page, patientId);
 
     await page.getByRole("button", { name: "Finalizar atendimento" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Apenas finalizar" }).click();
-    await page.waitForURL(/\/app\/patients$/);
 
-    await page.goto(`/session/${sessionId}`);
     await expect(page.getByText("Finalizada")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Revisão da Sessão" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Finalizar atendimento" })).toHaveCount(0);
   });
 });

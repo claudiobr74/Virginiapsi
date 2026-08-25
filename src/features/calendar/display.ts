@@ -75,3 +75,20 @@ export function summarizeDayAppointments(appointments: AppointmentRow[]) {
     external: visible.filter((appointment) => appointment.origin === "GOOGLE_EXTERNAL").length,
   };
 }
+
+export function monthCellStats(appointments: AppointmentRow[]) {
+  const visible = appointments.filter((appointment) => appointment.status !== "cancelled");
+  return {
+    count: visible.length,
+    hasOnline: visible.some(
+      (appointment) =>
+        appointment.origin !== "GOOGLE_EXTERNAL" && appointment.modality === "online",
+    ),
+    hasInPerson: visible.some(
+      (appointment) =>
+        appointment.origin !== "GOOGLE_EXTERNAL" &&
+        (appointment.modality === "in_person" || appointment.modality === "hybrid"),
+    ),
+    hasExternal: visible.some((appointment) => appointment.origin === "GOOGLE_EXTERNAL"),
+  };
+}

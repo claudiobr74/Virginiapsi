@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Search } from "lucide-react";
+import { Bell, FileText, Plus, Search, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -10,6 +10,24 @@ import { searchPatientsCommand } from "@/features/shell/actions";
 import { ALL_NAV_ITEMS } from "@/features/shell/nav-config";
 import { pageHeading } from "@/lib/brand";
 import { cn } from "@/lib/utils/cn";
+
+const QUICK_ACTIONS = [
+  {
+    href: "/app/agenda?new=1",
+    label: "Nova consulta para paciente existente",
+    icon: Plus,
+  },
+  {
+    href: "/app/patients/new",
+    label: "Cadastrar novo paciente no diretório",
+    icon: UserPlus,
+  },
+  {
+    href: "/app/documents",
+    label: "Gerar novo documento ou laudo clínico",
+    icon: FileText,
+  },
+] as const;
 
 export function CommandPalette({
   open,
@@ -31,6 +49,16 @@ export function CommandPalette({
       return ALL_NAV_ITEMS;
     }
     return ALL_NAV_ITEMS.filter((item) =>
+      item.label.toLocaleLowerCase("pt-BR").includes(needle),
+    );
+  }, [query]);
+
+  const actionMatches = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("pt-BR");
+    if (!needle) {
+      return [...QUICK_ACTIONS];
+    }
+    return QUICK_ACTIONS.filter((item) =>
       item.label.toLocaleLowerCase("pt-BR").includes(needle),
     );
   }, [query]);
@@ -71,6 +99,36 @@ export function CommandPalette({
           onChange={setQuery}
           placeholder="Nome, código ou módulo…"
         />
+
+        {actionMatches.length > 0 ? (
+          <div className="mt-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Ações rápidas
+            </p>
+            <ul className="flex flex-col gap-1">
+              {actionMatches.map((action, index) => {
+                const Icon = action.icon;
+                return (
+                  <li key={action.href}>
+                    <button
+                      type="button"
+                      onClick={() => go(action.href)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm",
+                        index === 0 && query.trim().length === 0
+                          ? "bg-sage-light font-semibold text-sage-700"
+                          : "hover:bg-sage-light",
+                      )}
+                    >
+                      <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      {action.label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
 
         {visiblePatients.length > 0 ? (
           <div className="mt-4">

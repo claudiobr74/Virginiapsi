@@ -108,6 +108,13 @@ export function FinanceConsole({
         <SecretaryAccessCard current={snapshot.secretaryAccessSetting} />
       ) : null}
 
+      <FinanceMonthKpis
+        charges={snapshot.charges}
+        payments={snapshot.payments}
+        today={today}
+        timezone={timezone}
+      />
+
       <div
         className="flex flex-wrap gap-1 border-b border-border"
         role="tablist"
@@ -123,7 +130,7 @@ export function FinanceConsole({
             className={cn(
               "-mb-px border-b-2 px-4 py-2.5 text-sm transition-colors",
               tab === item.id
-                ? "border-foreground font-semibold text-foreground"
+                ? "border-sage-700 font-semibold text-sage-700"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
@@ -253,6 +260,91 @@ function daysBetween(fromIsoDate: string, toIsoDate: string): number {
   const from = Date.parse(`${fromIsoDate}T12:00:00`);
   const to = Date.parse(`${toIsoDate}T12:00:00`);
   return Math.round((to - from) / 86_400_000);
+}
+
+function FinanceMonthKpis({
+  charges,
+  payments,
+  today,
+  timezone,
+}: {
+  charges: ChargeView[];
+  payments: FinanceSnapshot["payments"];
+  today: string;
+  timezone: string;
+}) {
+  const bounds = monthBounds(today);
+  const inMonth = (date: string | null) =>
+    Boolean(date && date >= bounds.start && date <= bounds.end);
+  const received = payments
+    .filter(
+      (payment) =>
+        !payment.voided_at && inMonth(dateInTimeZone(payment.paid_at, timezone)),
+    )
+    .reduce((sum, payment) => sum + centsFromCanonical(payment.amount), 0);
+  const receivedCount = payments.filter(
+    (payment) =>
+      !payment.voided_at && inMonth(dateInTimeZone(payment.paid_at, timezone)),
+  ).length;
+  const openCharges = charges.filter((charge) =>
+    ["pending", "partially_paid", "overdue"].includes(charge.row.status),
+  );
+  const pendingBilling = openCharges.reduce((sum, charge) => sum + charge.remainingCents, 0);
+  const sessionCharges = charges.filter(
+    (charge) =>
+      charge.row.origin === "session" &&
+      !["canceled", "refunded"].includes(charge.row.status) &&
+      inMonth(charge.row.competence_date),
+  );
+  const overdue = openCharges.filter(
+    (charge) =>
+      charge.row.status === "overdue" ||
+      (charge.row.due_date != null && charge.row.due_date < today && charge.remainingCents > 0),
+  );
+  const overdueCents = overdue.reduce((sum, charge) => sum + charge.remainingCents, 0);
+  const overduePatients = new Set(
+    overdue.map((charge) => charge.row.patient_id).filter(Boolean),
+  ).size;
+
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <FinanceStatCard
+        label="Recebido este mês"
+        value={formatBRL(received)}
+        hint={
+          receivedCount === 0
+            ? "Nenhum pagamento no mês"
+            : `${receivedCount} pagamento${receivedCount === 1 ? "" : "s"}`
+        }
+        tone="success"
+      />
+      <FinanceStatCard
+        label="Pendente de faturamento"
+        value={formatBRL(pendingBilling)}
+        hint={
+          openCharges.length === 0
+            ? "Nada em aberto"
+            : `${openCharges.length} cobrança${openCharges.length === 1 ? "" : "s"} em aberto`
+        }
+        tone="attention"
+      />
+      <FinanceStatCard
+        label="Sessões este mês"
+        value={String(sessionCharges.length)}
+        hint="Cobranças originadas de sessão"
+      />
+      <FinanceStatCard
+        label="Inadimplência ativa"
+        value={formatBRL(overdueCents)}
+        hint={
+          overduePatients === 0
+            ? "Nenhum paciente em atraso"
+            : `${overduePatients} paciente${overduePatients === 1 ? "" : "s"} pendente${overduePatients === 1 ? "" : "s"}`
+        }
+        tone="failed"
+      />
+    </div>
+  );
 }
 
 function TodayTab({

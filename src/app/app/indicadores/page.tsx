@@ -13,7 +13,7 @@ export default async function IndicadoresPage() {
 
   return (
     <PageContainer>
-      <h1 className="font-serif text-2xl font-bold text-foreground">
+      <h1 className="font-serif text-[28px] font-bold leading-tight text-foreground">
         Indicadores e Métricas Clínicas
       </h1>
       <IndicatorsBoard snapshot={snapshot} />

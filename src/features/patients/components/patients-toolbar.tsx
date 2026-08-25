@@ -2,7 +2,6 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
 import { SearchField } from "@/components/ui/search-field";
 import {
   PATIENT_STATUS_LABELS,
@@ -63,16 +62,19 @@ export function PatientsToolbar() {
       />
       <div className="flex flex-wrap gap-2">
         {STATUS_FILTERS.map((filter) => (
-          <Button
+          <button
             key={filter.value}
             type="button"
-            size="sm"
-            variant={activeStatus === filter.value ? "primary" : "secondary"}
-            className={cn(activeStatus !== filter.value && "border-border")}
             onClick={() => pushParams({ status: filter.value })}
+            className={cn(
+              "rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors",
+              activeStatus === filter.value
+                ? "bg-sage-light text-sage-700"
+                : "border border-border bg-card text-muted-foreground hover:text-foreground",
+            )}
           >
             {filter.label}
-          </Button>
+          </button>
         ))}
       </div>
     </div>

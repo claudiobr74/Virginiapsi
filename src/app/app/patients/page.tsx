@@ -33,19 +33,19 @@ export default async function PatientsPage({
 
   return (
     <PageContainer>
-      <h1 className="font-serif text-2xl font-bold text-foreground lg:hidden">
-        Diretório de Pacientes
-      </h1>
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <PatientsToolbar />
-          <Button asChild className="shrink-0 sm:ml-auto">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="font-serif text-[28px] font-bold leading-tight text-foreground">
+            Diretório de Pacientes
+          </h1>
+          <Button asChild className="shrink-0">
             <Link href="/app/patients/new">
               <Plus className="size-4" aria-hidden />
               Novo paciente
             </Link>
           </Button>
         </div>
+        <PatientsToolbar />
       </div>
 
       {rows.length === 0 ? (

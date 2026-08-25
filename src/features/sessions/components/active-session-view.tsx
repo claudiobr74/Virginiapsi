@@ -3,6 +3,7 @@
 import { ArrowLeft, ChevronDown, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { DpepForm } from "@/features/sessions/components/dpep-form";
 import { FinalizeSessionWizard } from "@/features/sessions/components/finalize-session-wizard";
@@ -18,6 +19,7 @@ import {
   type TranscriptSegmentRow,
 } from "@/features/sessions/contracts";
 import { formatInTimeZone } from "@/lib/utils/timezone";
+import { elapsedSecondsBetween, formatElapsedHms } from "@/lib/utils/elapsed";
 
 export type SessionAppointmentContext = {
   modalityLabel: string;
@@ -60,6 +62,9 @@ export function ActiveSessionView({
   const contextLine = [
     startedClock ? `Início ${startedClock}` : null,
     appointment?.modalityLabel ?? null,
+    isFinalized && session.started_at && session.ended_at
+      ? `Duração ${formatElapsedHms(elapsedSecondsBetween(session.started_at, session.ended_at))}`
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -144,12 +149,23 @@ export function ActiveSessionView({
         <div className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-6 sm:px-12">
           <div>
             <h2 className="font-serif text-[28px] font-bold text-foreground">
-              Anotações da Sessão
+              {isFinalized ? "Revisão da Sessão" : "Anotações da Sessão"}
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Área de trabalho clínico em tempo real. O DPEP abaixo permanece o registro
-              estruturado — nada entra no prontuário sem revisão humana.
+              {isFinalized
+                ? "O DPEP abaixo é o registro estruturado desta sessão. Nada entra no prontuário sem revisão humana."
+                : "Área de trabalho clínico em tempo real. O DPEP abaixo permanece o registro estruturado — nada entra no prontuário sem revisão humana."}
             </p>
+            {isFinalized ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button asChild variant="secondary" size="sm">
+                  <Link href={`/app/patients/${session.patient_id}`}>Ir ao prontuário</Link>
+                </Button>
+                <Button asChild size="sm">
+                  <Link href="/app/agenda?new=1">Agendar próxima sessão</Link>
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           <section className="rounded-2xl border border-border bg-card p-6">

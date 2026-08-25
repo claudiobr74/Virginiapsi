@@ -19,6 +19,7 @@ import {
 import { formatAgendaLongDate, formatAgendaMonthLabel } from "@/features/calendar/display";
 import { syncGoogleCalendarAction } from "@/features/calendar/sync-actions";
 import type { PatientRow } from "@/features/patients/contracts";
+import { pageHeading } from "@/lib/brand";
 
 export interface AgendaBoardProps {
   view: AgendaView;
@@ -112,7 +113,7 @@ export function AgendaBoard({
   return (
     <div className="flex flex-col gap-5">
       <h1 className="font-serif text-[28px] font-bold leading-tight text-foreground">
-        Agenda
+        {pageHeading("/app/agenda", { view })}
       </h1>
 
       <ConnectionStatusBanner connection={connection} canManage={canManageConnection} />

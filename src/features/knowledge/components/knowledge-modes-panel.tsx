@@ -112,7 +112,7 @@ export function KnowledgeModesPanel({
             className={cn(
               "-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors",
               mode === item.id
-                ? "border-foreground font-semibold text-foreground"
+                ? "border-sage-700 font-semibold text-sage-700"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
