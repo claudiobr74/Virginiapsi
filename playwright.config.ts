@@ -11,6 +11,27 @@ const sharedEnv = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_e2e_stub",
   NEXT_PUBLIC_APP_URL: `http://127.0.0.1:${port}`,
   AUTH_STUB_PORT: String(authStubPort),
+  // Placeholders so `pnpm test:e2e` does not depend on a local `.env`.
+  // Real secrets in the process environment still win.
+  SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY ?? "sb_secret_e2e_stub_placeholder",
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "e2e-google-client-id",
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? "e2e-google-client-secret",
+  GOOGLE_OAUTH_REDIRECT_URI:
+    process.env.GOOGLE_OAUTH_REDIRECT_URI ??
+    `http://127.0.0.1:${port}/api/integrations/google/callback`,
+  GOOGLE_TOKEN_ENCRYPTION_KEY:
+    process.env.GOOGLE_TOKEN_ENCRYPTION_KEY ?? "e2e-google-token-encryption-key",
+  SESSION_CAPTURE_SECRET:
+    process.env.SESSION_CAPTURE_SECRET ?? "e2e-session-capture-secret-placeholder",
+  TWILIO_ACCOUNT_SID:
+    process.env.TWILIO_ACCOUNT_SID ?? "AC00000000000000000000000000000000",
+  TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN ?? "e2e-twilio-auth-token",
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? "e2e-gemini-api-key",
+  GEMINI_MODEL_SESSION: process.env.GEMINI_MODEL_SESSION ?? "gemini-session-model",
+  GEMINI_MODEL_SUPERVISOR: process.env.GEMINI_MODEL_SUPERVISOR ?? "gemini-supervisor-model",
+  GEMINI_MODEL_KNOWLEDGE: process.env.GEMINI_MODEL_KNOWLEDGE ?? "gemini-knowledge-model",
+  GEMINI_EMBEDDING_MODEL: process.env.GEMINI_EMBEDDING_MODEL ?? "gemini-embedding-model",
+  CRON_SECRET: process.env.CRON_SECRET ?? "e2e-cron-secret",
 };
 
 export default defineConfig({
