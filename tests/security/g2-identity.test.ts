@@ -80,27 +80,6 @@ describe("G2 identity — D4b / D5b / convites", () => {
     }
   });
 
-  it("secretária lê cadastro e não lê perfil clínico", async () => {
-    const session = await openSession({ userId: secretary });
-    try {
-      const patients = await session.query<{ id: string }>(
-        "select id from public.patients where organization_id = $1",
-        [organizationId],
-      );
-      expect(patients.map((row) => row.id)).toEqual(
-        expect.arrayContaining([ownPatientId, colleaguePatientId]),
-      );
-
-      const clinical = await session.query(
-        "select * from public.patient_clinical_profile where patient_id = $1",
-        [ownPatientId],
-      );
-      expect(clinical).toEqual([]);
-    } finally {
-      await session.close();
-    }
-  });
-
   it("psicóloga lê só os seus pacientes e o próprio clínico", async () => {
     const session = await openSession({ userId: psychologist });
     try {
@@ -135,6 +114,37 @@ describe("G2 identity — D4b / D5b / convites", () => {
     }
   });
 
+  it("psicóloga abre sessão e grava DPEP só no próprio paciente", async () => {
+    const session = await openSession({ userId: psychologist });
+    try {
+      const started = await session.query<{ start_clinical_session: string }>(
+        "select public.start_clinical_session($1, $2) as start_clinical_session",
+        [organizationId, ownPatientId],
+      );
+      expect(started[0].start_clinical_session).toMatch(/^[0-9a-f-]{36}$/i);
+
+      const dpep = await session.query<{ new_version: number }>(
+        `select * from public.save_session_dpep($1, $2, 1, 'Demanda própria', 'Proc', 'Evo', 'Plano')`,
+        [started[0].start_clinical_session, organizationId],
+      );
+      expect(dpep[0].new_version).toBe(2);
+
+      const notes = await session.query<{ new_version: number }>(
+        `select * from public.save_session_working_notes($1, $2, 2, 'Formulação', 'Hipótese', 'Obs')`,
+        [started[0].start_clinical_session, organizationId],
+      );
+      expect(notes[0].new_version).toBe(3);
+
+      const deniedSession = await session.expectError(
+        "select public.start_clinical_session($1, $2)",
+        [organizationId, colleaguePatientId],
+      );
+      expect(deniedSession).toMatch(/row-level security/i);
+    } finally {
+      await session.close();
+    }
+  });
+
   it("administradora não lê o clínico de paciente de outra psicóloga", async () => {
     let sessionId: string;
     const owner = await openSession({ userId: otherPsychologist });
@@ -161,6 +171,24 @@ describe("G2 identity — D4b / D5b / convites", () => {
         `insert into public.documents (organization_id, patient_id, title, document_kind, sensitivity)
          values ($1, $2, 'Laudo colega', 'laudo', 'clinical')`,
         [organizationId, colleaguePatientId],
+      );
+      await owner.query(
+        `insert into public.session_transcript_segments
+           (session_id, organization_id, sequence, text, is_final, provider)
+         values ($1, $2, 0, 'Transcrição da colega', true, 'local-webgpu')`,
+        [sessionId, organizationId],
+      );
+      const run = await owner.query<{ id: string }>(
+        `insert into public.ai_runs
+           (organization_id, patient_id, session_id, purpose, model, prompt_name, prompt_version, schema_version, status)
+         values ($1, $2, $3, 'session_live', 'gemini-test', 'sessionLive', '1.2.0', '1', 'succeeded')
+         returning id`,
+        [organizationId, colleaguePatientId, sessionId],
+      );
+      await owner.query(
+        `insert into public.ai_artifacts (run_id, organization_id, type, structured_content)
+         values ($1, $2, 'session_live', '{"summarySoFar": "colega"}'::jsonb)`,
+        [run[0].id, organizationId],
       );
     } finally {
       await owner.close();
@@ -210,6 +238,81 @@ describe("G2 identity — D4b / D5b / convites", () => {
         [colleaguePatientId],
       );
       expect(docs).toEqual([]);
+
+      const transcripts = await session.query(
+        "select id from public.session_transcript_segments where session_id = $1",
+        [sessionId],
+      );
+      expect(transcripts).toEqual([]);
+
+      const runs = await session.query(
+        "select id from public.ai_runs where patient_id = $1",
+        [colleaguePatientId],
+      );
+      expect(runs).toEqual([]);
+
+      const artifacts = await session.query(
+        "select id from public.ai_artifacts where organization_id = $1",
+        [organizationId],
+      );
+      expect(artifacts).toEqual([]);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("secretária lê cadastro e não lê clínico já existente", async () => {
+    const session = await openSession({ userId: secretary });
+    try {
+      const patients = await session.query<{ id: string }>(
+        "select id from public.patients where organization_id = $1",
+        [organizationId],
+      );
+      expect(patients.map((row) => row.id)).toEqual(
+        expect.arrayContaining([ownPatientId, colleaguePatientId]),
+      );
+
+      const clinical = await session.query(
+        "select * from public.patient_clinical_profile where patient_id in ($1, $2)",
+        [ownPatientId, colleaguePatientId],
+      );
+      expect(clinical).toEqual([]);
+
+      const sessions = await session.query(
+        "select id from public.clinical_sessions where organization_id = $1",
+        [organizationId],
+      );
+      expect(sessions).toEqual([]);
+
+      const dpep = await session.query(
+        "select session_id from public.session_dpep where organization_id = $1",
+        [organizationId],
+      );
+      expect(dpep).toEqual([]);
+
+      const notes = await session.query(
+        "select session_id from public.session_clinical_working_notes where organization_id = $1",
+        [organizationId],
+      );
+      expect(notes).toEqual([]);
+
+      const docs = await session.query(
+        "select id from public.documents where organization_id = $1 and sensitivity = 'clinical'",
+        [organizationId],
+      );
+      expect(docs).toEqual([]);
+
+      const transcripts = await session.query(
+        "select id from public.session_transcript_segments where organization_id = $1",
+        [organizationId],
+      );
+      expect(transcripts).toEqual([]);
+
+      const runs = await session.query(
+        "select id from public.ai_runs where organization_id = $1",
+        [organizationId],
+      );
+      expect(runs).toEqual([]);
     } finally {
       await session.close();
     }
@@ -304,7 +407,7 @@ describe("G2 identity — D4b / D5b / convites", () => {
     }
   });
 
-  it("usuário A+B no contexto B não lê clínico de A", async () => {
+  it("usuário A+B admin das duas clínicas não lê clínico de A se não for responsável (D4b)", async () => {
     const sharedAdmin = await createAuthUser("ab-g2@tesseli.test");
     const orgB = await bootstrapOrganization(sharedAdmin, "Org B G2");
     await addMember(admin, organizationId, sharedAdmin, "psychologist_admin");
@@ -323,33 +426,167 @@ describe("G2 identity — D4b / D5b / convites", () => {
       await session.close();
     }
   });
+
+  it("membro só da clínica B não lê cadastro nem clínico da clínica A", async () => {
+    const adminB = await createAuthUser("tenant-b-g2@tesseli.test");
+    const orgB = await bootstrapOrganization(adminB, "Clínica Isolada B");
+    void orgB;
+
+    const session = await openSession({ userId: adminB });
+    try {
+      const patients = await session.query(
+        "select id from public.patients where id = $1",
+        [colleaguePatientId],
+      );
+      expect(patients).toEqual([]);
+
+      const clinical = await session.query(
+        "select * from public.patient_clinical_profile where patient_id = $1",
+        [colleaguePatientId],
+      );
+      expect(clinical).toEqual([]);
+
+      const sessions = await session.query(
+        "select id from public.clinical_sessions where patient_id = $1",
+        [colleaguePatientId],
+      );
+      expect(sessions).toEqual([]);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("psychologist_admin da clínica sem allowlist não cria outra clínica (D5b)", async () => {
+    const clinicAdmin = await createAuthUser("clinic-admin-d5b@tesseli.test");
+    await addMember(admin, organizationId, clinicAdmin, "psychologist_admin");
+
+    const session = await openSession({ userId: clinicAdmin });
+    try {
+      const operators = await session.query(
+        "select user_id from public.platform_operators where user_id = $1",
+        [clinicAdmin],
+      );
+      expect(operators).toEqual([]);
+
+      const error = await session.expectError(
+        "select public.bootstrap_organization($1, $2)",
+        ["Outra Clínica", `outra-${clinicAdmin.slice(0, 8)}`],
+      );
+      expect(error).toMatch(/platform operator/i);
+    } finally {
+      await session.close();
+    }
+  });
 });
 
 describe("G2 helpers", () => {
-  it("is_clinical_practitioner e can_access_patient_clinical são STABLE DEFINER", async () => {
+  const g2StableHelpers = [
+    "is_platform_operator",
+    "platform_bootstrap_state",
+    "is_clinical_practitioner",
+    "can_manage_org_patients",
+    "can_access_patient_record",
+    "can_access_patient_clinical",
+    "can_access_clinical_session",
+    "can_access_document",
+  ] as const;
+
+  it("helpers G2 de policy são STABLE DEFINER com search_path vazio", async () => {
     const session = await openSession({ userId: await createAuthUser() });
     try {
       const rows = await session.query<{
         proname: string;
         provolatile: string;
         prosecdef: boolean;
+        proconfig: string[] | null;
       }>(
-        `select p.proname, p.provolatile, p.prosecdef
+        `select p.proname, p.provolatile, p.prosecdef, p.proconfig
          from pg_proc p
          join pg_namespace n on n.oid = p.pronamespace
          where n.nspname = 'public'
-           and p.proname in (
-             'is_clinical_practitioner',
-             'can_access_patient_clinical',
-             'is_platform_operator'
-           )
+           and p.proname in (${g2StableHelpers.map((name) => `'${name}'`).join(", ")})
          order by p.proname`,
       );
-      expect(rows).toHaveLength(3);
+      expect(rows).toHaveLength(g2StableHelpers.length);
       for (const row of rows) {
-        expect(row.provolatile).toBe("s");
-        expect(row.prosecdef).toBe(true);
+        expect(row.provolatile, `${row.proname} deve ser STABLE`).toBe("s");
+        expect(row.prosecdef, `${row.proname} deve ser SECURITY DEFINER`).toBe(true);
+        expect(
+          row.proconfig,
+          `${row.proname} deve fixar search_path vazio`,
+        ).toContain('search_path=""');
       }
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("helpers G2 não concedem EXECUTE a public nem a anon", async () => {
+    const session = await openSession({ userId: await createAuthUser() });
+    try {
+      const rows = await session.query<{ proname: string; grantee: string }>(
+        `select p.proname, a.grantee::regrole::text as grantee
+         from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+         cross join aclexplode(p.proacl) a
+         where n.nspname = 'public'
+           and p.proname in (
+             'is_platform_operator',
+             'platform_bootstrap_state',
+             'claim_platform_operator',
+             'add_platform_operator',
+             'is_clinical_practitioner',
+             'can_manage_org_patients',
+             'can_access_patient_record',
+             'can_access_patient_clinical',
+             'can_access_clinical_session',
+             'can_access_document',
+             'invite_organization_member',
+             'accept_pending_invitations',
+             'bootstrap_organization'
+           )
+           and a.privilege_type = 'EXECUTE'`,
+      );
+
+      const grantees = new Set(rows.map((row) => row.grantee));
+      expect(grantees.has("anon")).toBe(false);
+      expect(grantees.has("-")).toBe(false);
+      expect(grantees.has("authenticated")).toBe(true);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("tabelas clínicas não retêm policy *_admin_* leftover", async () => {
+    const session = await openSession({ userId: await createAuthUser() });
+    try {
+      const leftover = await session.query<{ tablename: string; policyname: string }>(
+        `select tablename, policyname
+         from pg_policies
+         where schemaname = 'public'
+           and tablename in (
+             'patient_clinical_profile',
+             'clinical_sessions',
+             'session_dpep',
+             'session_clinical_working_notes',
+             'session_transcript_segments',
+             'session_transcript_artifacts',
+             'ai_runs',
+             'ai_artifacts'
+           )
+           and policyname like '%_admin_%'
+         order by tablename, policyname`,
+      );
+      expect(leftover).toEqual([]);
+
+      const storageAdmin = await session.query<{ policyname: string }>(
+        `select policyname
+         from pg_policies
+         where schemaname = 'storage'
+           and tablename = 'objects'
+           and policyname = 'knowledge_sources_storage_admin_all'`,
+      );
+      expect(storageAdmin).toEqual([]);
     } finally {
       await session.close();
     }

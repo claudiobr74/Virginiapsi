@@ -131,8 +131,8 @@ Atribuição de responsável: administradora e secretaria escolhem no cadastro; 
 
 | Critério | Resultado |
 |---|---|
-| D4b: admin não lê clínico alheio; só lê se for responsável | **PASS** no Git (`can_access_patient_clinical`; teste `g2-identity`) |
-| D5b: `bootstrap_organization` exige `platform_operators` | **PASS** no Git |
+| D4b: admin não lê clínico alheio; só lê se for responsável | **PASS** no Git (`can_access_patient_clinical`; `g2-identity`: admin cega a perfil/sessão/DPEP/notas/docs/transcrição/`ai_runs` já existentes; psicóloga só os seus inclusive sessão; isolamento entre clínicas com ator só da org B) |
+| D5b: `bootstrap_organization` exige `platform_operators` | **PASS** no Git (outsider e `psychologist_admin` da clínica **sem** linha em `platform_operators`) |
 | D1 B: `/signup` + convite pendente / `inviteUserByEmail` | **PASS** no Git |
 | lint + typecheck + unit + build + scan client bundle | **PASS** nesta VM |
 | `test:security` (Postgres + pgvector) | **EXTERNAL_BLOCKED** nesta VM (`127.0.0.1:5432` recusou; sem Docker/`pgvector`) |
