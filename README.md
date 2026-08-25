@@ -1,6 +1,6 @@
 # Tesseli — Project
 
-Este repositório define a especificação funcional, visual e técnica do **Tesseli**, um web app para gestão de consultório de psicologia, desenvolvido no Cursor.
+Este repositório define a especificação funcional, visual e técnica do **Tesseli**, o código-fonte do consultório digital **VirgíniaPsi**. A marca visível na interface é VirgíniaPsi; contratos internos, RLS e o nome do pacote podem continuar usando Tesseli.
 
 Especificação técnica atual: **v1.4**. Runtime Clinical Prompts: **v1.2.0**; structured-output contracts: **revision 1.2.1**. Ver `docs/20-preimplementation-fixes-v1.4.md` para as correções desta versão.
 
@@ -81,7 +81,7 @@ A primeira entrega é **a auditoria pré-implementação**, não código. Após 
 
 ## Asset oficial da marca
 
-A logo oficial está em `public/brand/Logo Tesseli em Gradiente Sereno.png` e deve ser utilizada diretamente, sem qualquer edição ou interpretação. O arquivo faz parte da especificação do produto e é imutável.
+A marca visível é **VirgíniaPsi**. O símbolo oficial está em `public/brand/virginia-psi-mark.png` e deve ser utilizado diretamente, sem qualquer edição. O wordmark é composto na UI (`BrandWordmark`).
 
 ## IA clínica em runtime
 

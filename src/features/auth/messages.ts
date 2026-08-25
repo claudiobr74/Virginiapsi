@@ -18,7 +18,7 @@ export const GOOGLE_AUTH_UNAVAILABLE =
   "O login com Google ainda não está ligado neste ambiente.";
 
 export const GOOGLE_AUTH_REDIRECT_DENIED =
-  "O Google recusou o retorno ao Tesseli. No Google Cloud, o endereço de redirecionamento precisa ser o callback do Supabase, não o do site.";
+  "O Google recusou o retorno ao VirgíniaPsi. No Google Cloud, o endereço de redirecionamento precisa ser o callback do Supabase, não o do site.";
 
 export const AUTH_CALLBACK_FAILED =
   "Não foi possível concluir o login com Google. Se a tela do Google mostrou erro 400, o endereço de retorno ainda não está cadastrado no Google Cloud.";

@@ -54,14 +54,14 @@ export async function pushAppointmentToGoogleAction(
   ]);
 
   if (!appointment || appointment.origin !== "TESSELI") {
-    return { error: "Consulta não encontrada ou não gerenciada pelo Tesseli." };
+    return { error: "Consulta não encontrada ou não gerenciada pelo VirgíniaPsi." };
   }
   if (!connection || connection.status !== "connected" || !connection.calendar_id) {
     return { error: "Conecte e selecione um calendário do Google primeiro." };
   }
 
   const eventBody = {
-    summary: appointment.summary_snapshot ?? "Consulta Tesseli",
+    summary: appointment.summary_snapshot ?? "Consulta VirgíniaPsi",
     start: { dateTime: appointment.starts_at },
     end: { dateTime: appointment.ends_at },
   };
@@ -123,7 +123,7 @@ export async function requestMeetForAppointmentAction(
   ]);
 
   if (!appointment || appointment.origin !== "TESSELI") {
-    return { error: "Consulta não encontrada ou não gerenciada pelo Tesseli." };
+    return { error: "Consulta não encontrada ou não gerenciada pelo VirgíniaPsi." };
   }
   if (!appointment.google_event_id || !connection?.calendar_id) {
     return { error: "Sincronize a consulta com o Google Calendar antes de criar o Meet." };

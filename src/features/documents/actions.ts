@@ -199,7 +199,7 @@ export async function issueDocumentAction(documentId: string): Promise<DocumentA
   const pdfBytes = await generateDocumentPdf({
     title: document.title,
     body: version.body_snapshot,
-    footer: `Documento gerado eletronicamente pelo Tesseli em ${new Date().toLocaleString("pt-BR")}.`,
+    footer: `Documento gerado eletronicamente pelo VirgíniaPsi em ${new Date().toLocaleString("pt-BR")}.`,
   });
   const storagePath = buildStoragePath(organizationId, documentId, `${documentId}-v${version.version}.pdf`);
 

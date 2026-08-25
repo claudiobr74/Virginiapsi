@@ -18,9 +18,13 @@ test.describe("Login", () => {
   test("renderiza marca, formulário e aviso de segurança", async ({ page }) => {
     await page.goto("/login");
 
-    await expect(page.getByRole("img", { name: "Tesseli" })).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Bem-vinda ao seu consultório" }),
+      page.getByRole("img", { name: "VirgíniaPsi" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        name: "Tudo o que você precisa para cuidar dos seus pacientes.",
+      }),
     ).toBeVisible();
     await expect(page.getByLabel("E-mail")).toBeVisible();
     await expect(page.getByLabel("Senha", { exact: true })).toBeVisible();

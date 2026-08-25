@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getAppointment } from "@/features/calendar/appointment-queries";
-import { getPatient } from "@/features/patients/queries";
+import { getPatient, getPatientClinicalProfile } from "@/features/patients/queries";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { ActiveSessionView } from "@/features/sessions/components/active-session-view";
 import {
@@ -18,12 +18,12 @@ export async function generateMetadata({
   const { sessionId } = await params;
   const { organizationId, role } = await requireOrgContext();
   if (role !== "psychologist_admin") {
-    return { title: "Sessão — Tesseli" };
+    return { title: "Sessão — VirgíniaPsi" };
   }
   const session = await getClinicalSession(organizationId, sessionId);
   const patient = session ? await getPatient(organizationId, session.patient_id) : null;
   return {
-    title: patient ? `Sessão — ${patient.preferred_name} — Tesseli` : "Sessão — Tesseli",
+    title: patient ? `Sessão — ${patient.preferred_name} — VirgíniaPsi` : "Sessão — VirgíniaPsi",
   };
 }
 
@@ -50,19 +50,22 @@ export default async function ActiveSessionPage({
     notFound();
   }
 
-  const [dpep, workingNotes, transcriptSegments, appointment] = await Promise.all([
+  const [dpep, workingNotes, transcriptSegments, appointment, clinicalProfile] = await Promise.all([
     getSessionDpep(session.id),
     getSessionWorkingNotes(session.id),
     listTranscriptSegments(session.id),
     session.appointment_id
       ? getAppointment(organizationId, session.appointment_id).catch(() => null)
       : Promise.resolve(null),
+    getPatientClinicalProfile(patient.id),
   ]);
 
   return (
     <ActiveSessionView
       session={session}
       patientDisplayName={patient.preferred_name}
+      patientPublicCode={patient.public_code}
+      therapyGoals={clinicalProfile?.therapy_goals ?? null}
       timezone={timezone}
       dpep={dpep}
       workingNotes={workingNotes}

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import { LockProvider } from "@/features/shell/lock/lock-context";
+import { DesktopTopBar } from "@/features/shell/desktop-top-bar";
 import { MobileBottomNav } from "@/features/shell/mobile-bottom-nav";
 import { MobileMoreDrawer } from "@/features/shell/mobile-more-drawer";
 import { MobileTopBar } from "@/features/shell/mobile-top-bar";
@@ -16,6 +17,8 @@ export interface AppShellProps {
   roleLabel: string;
   canSwitchOrganization: boolean;
   inactivityTimeoutMinutes?: number;
+  syncStatus?: "connected" | "disconnected" | "error" | "unknown";
+  pendingCount?: number;
 }
 
 export function AppShell({
@@ -27,6 +30,8 @@ export function AppShell({
   roleLabel,
   canSwitchOrganization,
   inactivityTimeoutMinutes,
+  syncStatus = "unknown",
+  pendingCount = 0,
 }: AppShellProps) {
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -47,8 +52,15 @@ export function AppShell({
           canSwitchOrganization={canSwitchOrganization}
         />
 
-        <div className="flex min-h-screen flex-1 flex-col">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
           <MobileTopBar onMenuClick={() => setMoreOpen(true)} />
+          <Suspense
+            fallback={
+              <header className="sticky top-0 z-20 hidden h-[72px] border-b border-border bg-card lg:block" />
+            }
+          >
+            <DesktopTopBar syncStatus={syncStatus} pendingCount={pendingCount} />
+          </Suspense>
           <main id="conteudo-principal" tabIndex={-1} className="flex-1 pb-20 lg:pb-0">
             {children}
           </main>

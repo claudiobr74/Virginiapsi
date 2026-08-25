@@ -28,7 +28,7 @@ export function TodayTimeline({
   return (
     <DashboardWidget
       id="timeline-heading"
-      title="Linha do Tempo de Hoje"
+      title="Agenda de Hoje"
       description={
         appointments.length === 0
           ? undefined

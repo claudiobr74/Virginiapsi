@@ -27,7 +27,7 @@ describe("generateDocumentPdf", () => {
     const withFooter = await generateDocumentPdf({
       title: "Recibo",
       body: "Corpo do recibo.",
-      footer: "Documento gerado eletronicamente pelo Tesseli.",
+      footer: "Documento gerado eletronicamente pelo VirgíniaPsi.",
     });
     expect(Buffer.from(withFooter.slice(0, 5)).toString("utf8")).toBe("%PDF-");
     expect(withFooter.length).toBeGreaterThanOrEqual(withoutFooter.length);

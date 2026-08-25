@@ -154,7 +154,7 @@ export function AppointmentDetailDrawer({
 
           {isExternal ? (
             <p className="text-sm text-muted-foreground">
-              Este evento vem do Google Calendar e é somente leitura no Tesseli.
+              Este evento vem do Google Calendar e é somente leitura no VirgíniaPsi.
               Edite-o diretamente no Google.
             </p>
           ) : (

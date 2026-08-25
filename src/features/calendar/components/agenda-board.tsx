@@ -1,6 +1,5 @@
 "use client";
 
-import { CalendarDays } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { AgendaToolbar } from "@/features/calendar/components/agenda-toolbar";
@@ -112,21 +111,9 @@ export function AgendaBoard({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-center gap-4">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <CalendarDays className="size-5" aria-hidden />
-          </span>
-          <div className="flex flex-col gap-1">
-            <h1 className="font-serif text-[28px] italic font-medium leading-tight text-foreground">
-              Agenda
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {formatAgendaLongDate(referenceDate, timeZone)}
-            </p>
-          </div>
-        </div>
-      </div>
+      <h1 className="font-serif text-[28px] font-bold leading-tight text-foreground">
+        Agenda
+      </h1>
 
       <ConnectionStatusBanner connection={connection} canManage={canManageConnection} />
 

@@ -12,7 +12,7 @@ import { SupervisorStepper } from "@/features/supervisor/components/supervisor-s
 import { listSupervisorRuns } from "@/features/supervisor/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata = { title: "Supervisor IA — Tesseli" };
+export const metadata = { title: "Supervisor IA — VirgíniaPsi" };
 
 export default async function SupervisorPage({
   searchParams,

@@ -53,8 +53,8 @@ export function formatHourLabel(hour: number): string {
 export function buildDayTimelineHours(
   appointments: Pick<AppointmentRow, "starts_at">[],
   timeZone: string,
-  startHour = 8,
-  endHour = 19,
+  startHour = 7,
+  endHour = 20,
 ): number[] {
   const hours = new Set<number>();
   for (let hour = startHour; hour <= endHour; hour += 1) {

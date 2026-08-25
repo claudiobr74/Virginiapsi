@@ -4,6 +4,7 @@ import {
   patientClinicalProfileSchema,
   patientRowSchema,
   type PatientClinicalProfile,
+  type PatientDirectoryRow,
   type PatientRow,
   type PatientStatus,
 } from "@/features/patients/contracts";
@@ -44,6 +45,81 @@ export async function listPatients(
   }
 
   return patientRowSchema.array().parse(data ?? []);
+}
+
+export async function listPatientDirectory(
+  organizationId: string,
+  filters: PatientListFilters = {},
+): Promise<PatientDirectoryRow[]> {
+  const patients = await listPatients(organizationId, filters);
+  if (patients.length === 0) {
+    return [];
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("appointments")
+    .select("patient_id, starts_at, status")
+    .eq("organization_id", organizationId)
+    .eq("origin", "TESSELI")
+    .not("patient_id", "is", null)
+    .neq("status", "cancelled");
+
+  if (error) {
+    return patients.map((patient) => ({
+      patient,
+      lastSessionAt: null,
+      nextSessionAt: null,
+      pendingClinical: 0,
+    }));
+  }
+
+  const pendingCount = new Map<string, number>();
+  const { data: pendingRows } = await supabase
+    .from("clinical_sessions")
+    .select("patient_id")
+    .eq("organization_id", organizationId)
+    .in("status", ["draft", "in_progress"]);
+  for (const row of pendingRows ?? []) {
+    const patientId = row.patient_id as string | null;
+    if (!patientId) {
+      continue;
+    }
+    pendingCount.set(patientId, (pendingCount.get(patientId) ?? 0) + 1);
+  }
+
+  const now = Date.now();
+  const lastByPatient = new Map<string, string>();
+  const nextByPatient = new Map<string, string>();
+  for (const row of data ?? []) {
+    const patientId = row.patient_id as string | null;
+    const startsAt = row.starts_at as string;
+    if (!patientId || !startsAt) {
+      continue;
+    }
+    const time = new Date(startsAt).getTime();
+    if (Number.isNaN(time)) {
+      continue;
+    }
+    if (time <= now) {
+      const current = lastByPatient.get(patientId);
+      if (!current || new Date(current).getTime() < time) {
+        lastByPatient.set(patientId, startsAt);
+      }
+    } else {
+      const current = nextByPatient.get(patientId);
+      if (!current || new Date(current).getTime() > time) {
+        nextByPatient.set(patientId, startsAt);
+      }
+    }
+  }
+
+  return patients.map((patient) => ({
+    patient,
+    lastSessionAt: lastByPatient.get(patient.id) ?? null,
+    nextSessionAt: nextByPatient.get(patient.id) ?? null,
+    pendingClinical: pendingCount.get(patient.id) ?? 0,
+  }));
 }
 
 /**
@@ -97,6 +173,41 @@ export async function getPatientClinicalProfile(
   }
 
   return patientClinicalProfileSchema.parse(data);
+}
+
+export async function getPatientScheduleBounds(
+  organizationId: string,
+  patientId: string,
+): Promise<{ lastSessionAt: string | null; nextSessionAt: string | null }> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("appointments")
+    .select("starts_at, status")
+    .eq("organization_id", organizationId)
+    .eq("patient_id", patientId)
+    .eq("origin", "TESSELI")
+    .neq("status", "cancelled")
+    .order("starts_at", { ascending: true });
+
+  if (error || !data) {
+    return { lastSessionAt: null, nextSessionAt: null };
+  }
+
+  const now = Date.now();
+  let lastSessionAt: string | null = null;
+  let nextSessionAt: string | null = null;
+  for (const row of data) {
+    const time = new Date(row.starts_at).getTime();
+    if (Number.isNaN(time)) {
+      continue;
+    }
+    if (time <= now) {
+      lastSessionAt = row.starts_at;
+    } else if (!nextSessionAt) {
+      nextSessionAt = row.starts_at;
+    }
+  }
+  return { lastSessionAt, nextSessionAt };
 }
 
 export async function getPatientPortraitUrl(

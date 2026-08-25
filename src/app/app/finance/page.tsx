@@ -7,7 +7,7 @@ import { getFinanceSnapshot } from "@/features/finance/queries";
 import { listPatients } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata = { title: "Financeiro — Tesseli" };
+export const metadata = { title: "Financeiro — VirgíniaPsi" };
 
 export default async function FinancePage() {
   const { organizationId, role, timezone } = await requireOrgContext();

@@ -98,7 +98,7 @@
     "prompts/11-twilio.md",
     "prompts/12-settings-backup.md",
     "prompts/13-hardening-deploy.md",
-    "public/brand/Logo Tesseli em Gradiente Sereno.png",
+    "public/brand/virginia-psi-mark.png",
     "src/lib/ai/contracts/knowledge.ts",
     "src/lib/ai/contracts/session.ts",
     "src/lib/ai/contracts/supervisor.ts",
@@ -128,8 +128,8 @@
     "PROJECT_MANIFEST.json"
   ],
   "brand_asset": {
-    "path": "public/brand/Logo Tesseli em Gradiente Sereno.png",
-    "sha256": "430e25ae37fd3a52db95ee033c3b71aa303b462de90dd001bad8d2ca2afa887e",
+    "path": "public/brand/virginia-psi-mark.png",
+    "sha256": "a8295a09c1686e3727712c5ff08a9d2ac474e86b38e06fd6782252f13541e8e4",
     "policy": "immutable-exact-upload"
   },
   "runtime_ai_contract_revision": "1.2.1",

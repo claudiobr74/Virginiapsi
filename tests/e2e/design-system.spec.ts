@@ -7,7 +7,7 @@ test.describe("Design system — referência mínima", () => {
     await page.goto("/design-system");
 
     await expect(
-      page.getByRole("heading", { name: "Design System Tesseli" }),
+      page.getByRole("heading", { name: "Design System VirgíniaPsi" }),
     ).toBeVisible();
 
     for (const title of [

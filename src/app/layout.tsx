@@ -4,14 +4,14 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tesseli",
+  title: "VirgíniaPsi",
   description: "Gestão de consultório de psicologia",
   manifest: "/manifest.webmanifest",
 };
 
 export const viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#faf9f6" },
+    { media: "(prefers-color-scheme: light)", color: "#fbf9f6" },
     { media: "(prefers-color-scheme: dark)", color: "#131412" },
   ],
 };

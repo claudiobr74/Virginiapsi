@@ -173,11 +173,11 @@ Integrações são cards com provider, conta conectada, estado, último sucesso/
 
 Zona de Risco fica visualmente separada no final, com confirmações fortes.
 
-## 15. Marca Tesseli
+## 15. Marca VirgíniaPsi
 
-Usar obrigatoriamente o asset oficial `public/brand/Logo Tesseli em Gradiente Sereno.png`.
+Usar obrigatoriamente o símbolo oficial `public/brand/virginia-psi-mark.png` e o wordmark composto na UI.
 
-Não criar placeholder, logo textual alternativa, SVG, ícone reinterpretado ou variação de cor. A imagem deve permanecer íntegra. Para adequação responsiva, modifique somente dimensões do container e preserve a razão de aspecto com `object-fit: contain`.
+Não criar placeholder, SVG reinterpretado ou variação de cor do PNG. A imagem deve permanecer íntegra. Para adequação responsiva, modifique somente dimensões do container e preserve a razão de aspecto com `object-fit: contain`.
 
 ## Gate visual por rota
 

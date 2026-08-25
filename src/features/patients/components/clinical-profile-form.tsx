@@ -12,7 +12,7 @@ import {
   type PatientClinicalProfile,
 } from "@/features/patients/contracts";
 
-const FIELDS: Array<{
+const ALL_FIELDS: Array<{
   name: keyof ClinicalProfileFormValues;
   label: string;
   rows?: number;
@@ -41,9 +41,11 @@ function defaultValues(
 export function ClinicalProfileForm({
   patientId,
   profile,
+  include,
 }: {
   patientId: string;
   profile: PatientClinicalProfile | null;
+  include?: Array<keyof ClinicalProfileFormValues>;
 }) {
   const [isPending, startTransition] = useTransition();
   const [success, setSuccess] = useState(false);
@@ -90,7 +92,10 @@ export function ClinicalProfileForm({
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {FIELDS.map(({ name, label, rows = 3 }) => (
+        {(include
+          ? ALL_FIELDS.filter((field) => include.includes(field.name))
+          : ALL_FIELDS
+        ).map(({ name, label, rows = 3 }) => (
           <div
             key={name}
             className={rows > 3 ? "flex flex-col gap-1.5 sm:col-span-2" : "flex flex-col gap-1.5"}

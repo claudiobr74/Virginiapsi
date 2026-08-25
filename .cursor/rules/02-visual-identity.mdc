@@ -20,6 +20,7 @@ Non-negotiable:
 Componente canônico obrigatório (`docs/02-visual-spec.md` §Biblioteca de Componentes Canônica): `PageContainer`, `PageHeader`, `SectionHeader`, `Modal`, `Drawer`, `EmptyState`, `LoadingState`, `SearchField`, `ConfirmDialog`, `StatusBadge`, `Button`. Nenhuma tela reimplementa modal, drawer, estado vazio, estado de carregamento, busca ou confirmação com Tailwind solto — nem quando o resultado visual parece idêntico. Extensão de comportamento é prop nova no primitivo, nunca cópia local.
 
 Official brand asset:
-- `public/brand/Logo Tesseli em Gradiente Sereno.png` is immutable and authoritative.
-- Render that exact file. Never redraw, reinterpret, vectorize, crop, recolor, remove its background, or generate dark-mode variants.
+- `public/brand/virginia-psi-mark.png` is the immutable symbol (Psi in teal/lavender leaves).
+- The VirgíniaPsi wordmark is composed in UI (`BrandWordmark`); do not bake a second wordmark into the PNG.
+- Render that exact PNG. Never redraw, reinterpret, vectorize, crop, recolor, or generate dark-mode variants.
 - Resize only the display container and preserve aspect ratio with `object-fit: contain`.

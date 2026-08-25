@@ -238,7 +238,7 @@ export async function inviteMemberAction(input: unknown): Promise<SettingsAction
   });
   if (error) {
     if (/user is not registered/i.test(error.message)) {
-      return { error: "Este e-mail ainda não tem conta no Tesseli. A pessoa precisa se cadastrar primeiro." };
+      return { error: "Este e-mail ainda não tem conta no VirgíniaPsi. A pessoa precisa se cadastrar primeiro." };
     }
     if (/unique|duplicate/i.test(error.message)) {
       return { error: "Esta pessoa já faz parte da equipe." };

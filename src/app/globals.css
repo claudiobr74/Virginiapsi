@@ -3,30 +3,30 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #faf9f6;
-  --surface: #e8e4df;
+  --background: #fbf9f6;
+  --surface: #f3f0ea;
   --card: #ffffff;
-  --card-foreground: #3d3d3c;
-  --border: #dcd8d3;
-  --input: #ffffff;
-  --ring: #a5a58d;
+  --card-foreground: #1f2421;
+  --border: #eae6df;
+  --input: #fbf9f6;
+  --ring: #3a4f43;
 
-  --sage-light: #b7b7a4;
-  --sage: #a5a58d;
-  --sage-mid: #8b8b88;
-  --sage-600: #7a7f6b;
-  --sage-700: #737864;
-  --primary: #6b705c;
-  --primary-hover: #575c4a;
-  --primary-foreground: #ffffff;
-  --deep-neutral: #4a4a48;
+  --sage-light: #eaefea;
+  --sage: #c5d0c6;
+  --sage-mid: #8a8f8a;
+  --sage-600: #5d625e;
+  --sage-700: #3a4f43;
+  --primary: #3a4f43;
+  --primary-hover: #2f4137;
+  --primary-foreground: #fbf9f6;
+  --deep-neutral: #1f2421;
 
-  --foreground: #3d3d3c;
-  --muted-foreground: #6f6f6a;
+  --foreground: #1f2421;
+  --muted-foreground: #5d625e;
 
-  --cream: #fff9f2;
-  --soft-amber: #fdebd0;
-  --accent: #d4a373;
+  --cream: #fbf9f6;
+  --soft-amber: #f8f1e9;
+  --accent: #d6a374;
 
   --success: #5f7a52;
   --success-bg: #e5ead9;
@@ -126,6 +126,12 @@
   --color-info-bg: var(--info-bg);
   --color-attention: var(--attention);
   --color-attention-bg: var(--attention-bg);
+
+  --color-sidebar: #ffffff;
+  --color-sidebar-foreground: #1f2421;
+  --color-sidebar-muted: #5d625e;
+  --color-sidebar-active: #eaefea;
+  --color-sidebar-active-foreground: #3a4f43;
 
   --font-sans: var(--font-inter);
   --font-serif: var(--font-playfair);

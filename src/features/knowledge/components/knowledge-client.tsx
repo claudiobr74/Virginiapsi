@@ -43,7 +43,7 @@ export function KnowledgeConsole({
     <PageContainer>
       <PageHeader
         icon={BookOpen}
-        title="Conhecimento Tesseli"
+        title="Conhecimento"
         subtitle="Acervo teórico privado, rastreável e library-only por padrão"
       />
 

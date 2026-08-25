@@ -14,7 +14,7 @@ test.describe("Configurações", () => {
     await expect(
       page.getByText(/Você não tem permissão para abrir as Configurações/),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Voltar ao Meu Dia" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Voltar ao Início" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Configurações", exact: true })).toHaveCount(0);
   });
 

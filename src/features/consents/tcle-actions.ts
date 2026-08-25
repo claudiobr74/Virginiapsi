@@ -92,7 +92,7 @@ export async function acceptTcleAction(input: unknown): Promise<TcleActionResult
     const pdfBytes = await generateDocumentPdf({
       title: "Termo de Consentimento Livre e Esclarecido",
       body,
-      footer: `Versão ${TCLE_VERSION} — aceite registrado eletronicamente pelo Tesseli.`,
+      footer: `Versão ${TCLE_VERSION} — aceite registrado eletronicamente pelo VirgíniaPsi.`,
     });
     const storagePath = buildStoragePath(organizationId, consent.id, `tcle-${TCLE_VERSION}.pdf`);
     await uploadGeneratedFile(DOCUMENT_BUCKETS.consents, storagePath, pdfBytes, "application/pdf");

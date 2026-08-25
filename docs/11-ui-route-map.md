@@ -4,14 +4,17 @@ Rotas podem ser refinadas, mas a hierarquia deve permanecer estável.
 
 - `/login`
 - `/auth/recovery`
-- `/app` → Meu Dia
+- `/app` → Início (dashboard operacional)
 - `/app/patients`
 - `/app/patients/[patientId]`
 - `/app/agenda`
+- `/app/sessions`
+- `/app/pendencias`
 - `/app/finance`
 - `/app/documents`
 - `/app/supervisor`
 - `/app/knowledge`
+- `/app/indicadores`
 - `/app/settings`
 - `/session/[sessionId]` → modo foco clínico
 

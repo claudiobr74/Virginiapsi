@@ -28,11 +28,12 @@ import { getPatientFinance } from "@/features/finance/queries";
 import { centsFromCanonical, formatBRL } from "@/lib/finance/money";
 import { ClinicalProfileForm } from "@/features/patients/components/clinical-profile-form";
 import { PatientAvatar } from "@/features/patients/components/patient-avatar";
-import { PatientHub } from "@/features/patients/components/patient-hub";
+import { PatientHub, parsePatientHubTab } from "@/features/patients/components/patient-hub";
 import { PatientHubSection } from "@/features/patients/components/patient-hub-section";
 import { PatientStatusControl } from "@/features/patients/components/patient-status-control";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import {
+  ageFromBirthDate,
   formatBirthDateLabel,
   formatCadastroDate,
   formatCpfDisplay,
@@ -41,13 +42,15 @@ import {
   getPatient,
   getPatientClinicalProfile,
   getPatientPortraitUrl,
+  getPatientScheduleBounds,
 } from "@/features/patients/queries";
 import { WhatsappPanel } from "@/features/communications/components/whatsapp-panel";
 import { getPatientWhatsAppSnapshot } from "@/features/communications/queries";
 import { SessionHistoryList } from "@/features/sessions/components/session-history-list";
 import { StartSessionButton } from "@/features/sessions/components/start-session-button";
-import { listPatientSessions } from "@/features/sessions/queries";
+import { getSessionDpep, listPatientSessions } from "@/features/sessions/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
+import { pageTitle } from "@/lib/brand";
 import { formatInTimeZone } from "@/lib/utils/timezone";
 
 export async function generateMetadata({
@@ -56,7 +59,7 @@ export async function generateMetadata({
   const { patientId } = await params;
   const { organizationId } = await requireOrgContext();
   const patient = await getPatient(organizationId, patientId);
-  return { title: patient ? `${patient.preferred_name} — Tesseli` : "Paciente — Tesseli" };
+  return { title: patient ? pageTitle(patient.preferred_name) : pageTitle("Paciente") };
 }
 
 export default async function PatientHubPage({
@@ -65,13 +68,10 @@ export default async function PatientHubPage({
 }: PageProps<"/app/patients/[patientId]">) {
   const { patientId } = await params;
   const query = await searchParams;
-  const requestedTab =
-    query.tab === "sessions" ||
-    query.tab === "documents" ||
-    query.tab === "finance" ||
-    query.tab === "tcle"
-      ? query.tab
-      : "overview";
+  const requestedTab = parsePatientHubTab(
+    typeof query.tab === "string" ? query.tab : undefined,
+    ["overview", "record", "plan", "sessions", "documents", "finance", "consents"],
+  );
   const { organizationId, role, timezone } = await requireOrgContext();
 
   const patient = await getPatient(organizationId, patientId);
@@ -114,11 +114,13 @@ export default async function PatientHubPage({
     patient.phone,
   );
   const photoUrl = await getPatientPortraitUrl(patient.photo_path);
+  const schedule = await getPatientScheduleBounds(organizationId, patient.id);
 
   const emergency = patient.responsibles[0];
   const activePlan = finance.plans.find((plan) => plan.status === "active") ?? finance.plans[0];
   const finalized = clinicalSessions.filter((session) => session.status === "finalized");
   const lastFinalized = finalized[0];
+  const lastDpep = lastFinalized ? await getSessionDpep(lastFinalized.id) : null;
   const lastSessionLabel = lastFinalized
     ? formatInTimeZone(lastFinalized.ended_at ?? lastFinalized.started_at ?? lastFinalized.created_at, timezone, {
         day: "2-digit",
@@ -126,11 +128,48 @@ export default async function PatientHubPage({
         year: "numeric",
       })
     : "—";
+  const age = ageFromBirthDate(patient.birth_date);
+  const startMonth = formatInTimeZone(patient.created_at, timezone, {
+    month: "long",
+    year: "numeric",
+  });
 
   const overview = (
     <div className="flex flex-col gap-6">
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <PatientHubSection title="Dados do Paciente">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="flex flex-col gap-5">
+          {isAdmin ? (
+            <PatientHubSection title="Objetivos Terapêuticos">
+              {clinicalProfile?.therapy_goals?.trim() ? (
+                <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                  {clinicalProfile.therapy_goals}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum objetivo terapêutico registrado ainda.
+                </p>
+              )}
+            </PatientHubSection>
+          ) : null}
+          {isAdmin ? (
+            <PatientHubSection title="Última Evolução Clínica">
+              {lastDpep?.evolution?.trim() ? (
+                <>
+                  <p className="font-mono text-[11px] text-muted-foreground">
+                    {lastSessionLabel}
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                    {lastDpep.evolution}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Ainda não há evolução clínica registrada no DPEP.
+                </p>
+              )}
+            </PatientHubSection>
+          ) : null}
+          <PatientHubSection title="Dados do Paciente">
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
             <Field label="Nome completo" value={patient.full_name} />
             <Field label="CPF" value={formatCpfDisplay(patient.cpf)} mono />
@@ -177,8 +216,38 @@ export default async function PatientHubPage({
             </div>
           ) : null}
         </PatientHubSection>
+        </div>
 
         <div className="flex flex-col gap-5">
+          {isAdmin ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-[16px] border border-border bg-card p-4">
+                <p className="text-[13px] text-muted-foreground">Sessões realizadas</p>
+                <p className="font-serif text-[28px] font-bold text-foreground">{finalized.length}</p>
+              </div>
+              <div className="rounded-[16px] border border-border bg-card p-4">
+                <p className="text-[13px] text-muted-foreground">Última sessão</p>
+                <p className="font-serif text-lg font-bold text-foreground">{lastSessionLabel}</p>
+              </div>
+            </div>
+          ) : null}
+          <div className="rounded-[16px] border border-sage-700 bg-sage-light p-5">
+            <p className="text-[13px] font-bold text-sage-700">Próxima sessão</p>
+            <p className="mt-2 font-serif text-xl font-bold text-foreground">
+              {schedule.nextSessionAt
+                ? formatInTimeZone(schedule.nextSessionAt, timezone, {
+                    weekday: "long",
+                    day: "2-digit",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "Nenhuma sessão futura"}
+            </p>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              {MODALITY_LABELS[patient.modality]}
+            </p>
+          </div>
           <PatientHubSection title="Adesão & Plano">
             {activePlan && finance.access !== "none" ? (
               <div className="flex flex-col gap-3 text-sm">
@@ -240,36 +309,8 @@ export default async function PatientHubPage({
               <PatientPendingBlock access={finance.access} charges={finance.charges} />
             )}
           </PatientHubSection>
-
-          {isAdmin ? (
-            <PatientHubSection title="Resumo do acompanhamento">
-              <dl className="flex flex-col gap-3 text-[13px]">
-                <SummaryRow label="Última sessão" value={lastSessionLabel} />
-                <SummaryRow
-                  label="Sessões totais"
-                  value={`${finalized.length} ${finalized.length === 1 ? "concluída" : "concluídas"}`}
-                />
-              </dl>
-            </PatientHubSection>
-          ) : null}
         </div>
       </div>
-
-      {isAdmin ? (
-        <PatientHubSection
-          title="Acompanhamento"
-          description="Conteúdo clínico — visível apenas para a psicóloga administradora."
-          actions={
-            <Button asChild variant="secondary" size="sm">
-              <Link href={`/app/supervisor?patientId=${patient.id}`}>
-                Supervisor Clínico IA
-              </Link>
-            </Button>
-          }
-        >
-          <ClinicalProfileForm patientId={patient.id} profile={clinicalProfile} />
-        </PatientHubSection>
-      ) : null}
 
       <PatientHubSection
         title="WhatsApp"
@@ -279,6 +320,39 @@ export default async function PatientHubPage({
       </PatientHubSection>
     </div>
   );
+
+  const recordPanel = isAdmin ? (
+    <PatientHubSection
+      title="Prontuário"
+      description="Queixa, histórico e notas clínicas — visível apenas para a psicóloga administradora."
+      actions={
+        <Button asChild variant="secondary" size="sm">
+          <Link href={`/app/supervisor?patientId=${patient.id}`}>
+            Supervisor Clínico IA
+          </Link>
+        </Button>
+      }
+    >
+      <ClinicalProfileForm
+        patientId={patient.id}
+        profile={clinicalProfile}
+        include={["chiefComplaint", "history", "generalClinicalNotes"]}
+      />
+    </PatientHubSection>
+  ) : undefined;
+
+  const planPanel = isAdmin ? (
+    <PatientHubSection
+      title="Plano Terapêutico"
+      description="Objetivos, esquemas e crenças — visível apenas para a psicóloga administradora."
+    >
+      <ClinicalProfileForm
+        patientId={patient.id}
+        profile={clinicalProfile}
+        include={["therapyGoals", "schemas", "coreBeliefs"]}
+      />
+    </PatientHubSection>
+  ) : undefined;
 
   const sessionsPanel = (
     <PatientHubSection
@@ -329,7 +403,7 @@ export default async function PatientHubPage({
     </PatientHubSection>
   );
 
-  const tclePanel =
+  const consentsPanel =
     isAdmin && minorRequirement ? (
     <div className="flex flex-col gap-6">
       {consentResolution ? (
@@ -375,33 +449,45 @@ export default async function PatientHubPage({
               />
               <div className="flex flex-col gap-1.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-serif text-2xl italic font-medium text-foreground">
+                  <h1 className="font-serif text-[28px] font-bold text-foreground">
                     {patient.preferred_name}
                   </h1>
+                  <span className="font-mono text-sm text-muted-foreground">
+                    {patient.public_code}
+                  </span>
                   <PatientStatusControl patientId={patient.id} status={patient.status} />
                 </div>
                 <p className="text-[13px] text-muted-foreground">
-                  {patient.public_code}
+                  Início: {startMonth}
                   <span className="mx-1.5">·</span>
-                  {MODALITY_LABELS[patient.modality]}
-                  <span className="mx-1.5">·</span>
-                  {patient.full_name}
+                  Modalidade: {MODALITY_LABELS[patient.modality]}
+                  {age != null ? (
+                    <>
+                      <span className="mx-1.5">·</span>
+                      Idade: {age} {age === 1 ? "ano" : "anos"}
+                    </>
+                  ) : null}
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {isAdmin ? <StartSessionButton patientId={patient.id} /> : null}
               <Button asChild variant="secondary" size="sm">
-                <Link href={`/app/patients/${patient.id}/edit`}>Editar cadastro</Link>
+                <Link href={`/app/patients/${patient.id}/edit`}>Editar Dados</Link>
               </Button>
+              <Button asChild size="sm">
+                <Link href="/app/agenda?new=1">Agendar Sessão</Link>
+              </Button>
+              {isAdmin ? <StartSessionButton patientId={patient.id} /> : null}
             </div>
           </div>
         }
         overview={overview}
+        record={recordPanel}
+        plan={planPanel}
         sessions={isAdmin ? sessionsPanel : undefined}
         documents={documentsPanel}
         finance={financePanel}
-        tcle={tclePanel ?? undefined}
+        consents={consentsPanel ?? undefined}
         initialTab={requestedTab}
       />
     </PageContainer>
@@ -421,15 +507,6 @@ function Field({
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className={mono ? "font-mono text-foreground" : "text-foreground"}>{value}</span>
-    </div>
-  );
-}
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-medium text-foreground">{value}</dd>
     </div>
   );
 }

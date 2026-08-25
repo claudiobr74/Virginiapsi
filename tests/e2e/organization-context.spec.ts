@@ -133,7 +133,9 @@ test.describe("Sessão forjada", () => {
     await page.goto("/app");
     await expect(page).toHaveURL(/\/login/);
     await expect(
-      page.getByRole("heading", { name: "Bem-vinda ao seu consultório" }),
+      page.getByRole("heading", {
+        name: "Tudo o que você precisa para cuidar dos seus pacientes.",
+      }),
     ).toBeVisible();
   });
 });

@@ -36,7 +36,7 @@ export function PageHeader({
           </span>
         ) : null}
         <div className="flex flex-col gap-1">
-          <h1 className="font-serif text-xl italic font-bold leading-tight text-foreground sm:text-2xl">
+          <h1 className="font-serif text-xl font-bold leading-tight text-foreground sm:text-2xl">
             {title}
           </h1>
           {subtitle ? (

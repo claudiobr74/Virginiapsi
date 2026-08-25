@@ -14,7 +14,7 @@ test.describe("Conhecimento Tesseli", () => {
     await expect(
       page.getByText(/Você não tem permissão para abrir o Conhecimento clínico/),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Voltar ao Meu Dia" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Voltar ao Início" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Conhecimento Tesseli" })).toHaveCount(0);
   });
 
@@ -22,7 +22,7 @@ test.describe("Conhecimento Tesseli", () => {
     await loginViaUi(page);
     await page.goto("/app/knowledge");
 
-    await expect(page.getByRole("heading", { name: "Conhecimento Tesseli" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Conhecimento" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Perguntar ao Acervo" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Síntese Temática" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Comparar Fontes" })).toBeVisible();

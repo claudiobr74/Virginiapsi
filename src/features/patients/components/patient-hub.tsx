@@ -7,17 +7,31 @@ import { cn } from "@/lib/utils/cn";
 
 export type PatientHubTabId =
   | "overview"
+  | "record"
+  | "plan"
   | "sessions"
   | "documents"
   | "finance"
-  | "tcle";
+  | "consents";
 
-function tabFromAvailable(
+const TAB_ALIASES: Record<string, PatientHubTabId> = {
+  tcle: "consents",
+  overview: "overview",
+  record: "record",
+  plan: "plan",
+  sessions: "sessions",
+  documents: "documents",
+  finance: "finance",
+  consents: "consents",
+};
+
+export function parsePatientHubTab(
+  value: string | undefined,
   available: PatientHubTabId[],
-  requested?: PatientHubTabId,
 ): PatientHubTabId {
-  if (requested && available.includes(requested)) {
-    return requested;
+  const mapped = value ? TAB_ALIASES[value] : undefined;
+  if (mapped && available.includes(mapped)) {
+    return mapped;
   }
   return available[0] ?? "overview";
 }
@@ -27,34 +41,40 @@ export function PatientHub({
   registeredAt,
   identity,
   overview,
+  record,
+  plan,
   sessions,
   documents,
   finance,
-  tcle,
+  consents,
   initialTab,
 }: {
   backHref: string;
   registeredAt: string;
   identity: ReactNode;
   overview: ReactNode;
+  record?: ReactNode;
+  plan?: ReactNode;
   sessions?: ReactNode;
   documents: ReactNode;
   finance: ReactNode;
-  tcle?: ReactNode;
+  consents?: ReactNode;
   initialTab?: PatientHubTabId;
 }) {
   const tabs: Array<{ id: PatientHubTabId; label: string; panel: ReactNode }> = [
-    { id: "overview", label: "Visão Geral", panel: overview },
-    ...(sessions
-      ? [{ id: "sessions" as const, label: "Sessões", panel: sessions }]
-      : []),
+    { id: "overview", label: "Resumo", panel: overview },
+    ...(record ? [{ id: "record" as const, label: "Prontuário", panel: record }] : []),
+    ...(plan ? [{ id: "plan" as const, label: "Plano Terapêutico", panel: plan }] : []),
+    ...(sessions ? [{ id: "sessions" as const, label: "Sessões", panel: sessions }] : []),
     { id: "documents", label: "Documentos", panel: documents },
     { id: "finance", label: "Financeiro", panel: finance },
-    ...(tcle ? [{ id: "tcle" as const, label: "TCLE", panel: tcle }] : []),
+    ...(consents
+      ? [{ id: "consents" as const, label: "Consentimentos", panel: consents }]
+      : []),
   ];
   const available = tabs.map((tab) => tab.id);
   const [tab, setTab] = useState<PatientHubTabId>(() =>
-    tabFromAvailable(available, initialTab),
+    parsePatientHubTab(initialTab, available),
   );
   const active = tabs.find((item) => item.id === tab) ?? tabs[0];
 
@@ -69,7 +89,7 @@ export function PatientHub({
     } else {
       url.searchParams.set("tab", next);
     }
-    url.hash = next === "tcle" ? "tcle" : "";
+    url.hash = next === "consents" ? "tcle" : "";
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }
 
@@ -78,7 +98,7 @@ export function PatientHub({
       <div className="flex items-center justify-between gap-3">
         <Link
           href={backHref}
-          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary hover:text-primary-hover"
+          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-sage-700 hover:text-primary"
         >
           <ArrowLeft className="size-3.5" aria-hidden />
           Voltar para Lista
@@ -86,7 +106,7 @@ export function PatientHub({
         <p className="font-mono text-xs text-muted-foreground">Cadastro: {registeredAt}</p>
       </div>
 
-      <div className="flex flex-col gap-5 rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+      <div className="flex flex-col gap-5 rounded-[20px] border border-border bg-card p-5 sm:p-6">
         {identity}
         <div
           className="flex flex-wrap gap-5 border-t border-border pt-4"
@@ -102,14 +122,17 @@ export function PatientHub({
                 role="tab"
                 aria-selected={selected}
                 className={cn(
-                  "border-b-2 pb-2 text-sm transition-colors",
+                  "border-b-2 pb-2 text-[15px] transition-colors",
                   selected
-                    ? "border-primary font-semibold text-primary"
+                    ? "border-sage-700 font-semibold text-sage-700"
                     : "border-transparent font-medium text-muted-foreground hover:text-foreground",
                 )}
                 onClick={() => select(item.id)}
               >
                 {item.label}
+                {item.id === "consents" ? (
+                  <span className="sr-only"> TCLE</span>
+                ) : null}
               </button>
             );
           })}

@@ -10,7 +10,7 @@ export default function NotFound() {
       <EmptyState
         icon={Search}
         title="Página não encontrada"
-        description="Este endereço não existe no Tesseli. Volte ao início para continuar."
+        description="Este endereço não existe no VirgíniaPsi. Volte ao início para continuar."
         action={
           <Button asChild variant="secondary">
             <Link href="/app">Ir para o início</Link>

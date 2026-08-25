@@ -1,12 +1,15 @@
 import {
   BookOpen,
   CalendarDays,
+  CreditCard,
   FileText,
+  Home,
+  LineChart,
+  MessageCircle,
   Settings,
   Sparkles,
-  Sun,
+  TriangleAlert,
   Users,
-  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,19 +30,22 @@ export const NAV_GROUPS: NavGroup[] = [
     id: "rotina",
     label: "Rotina",
     items: [
-      { href: "/app", label: "Meu Dia", icon: Sun },
-      { href: "/app/patients", label: "Pacientes", icon: Users },
+      { href: "/app", label: "Início", icon: Home },
       { href: "/app/agenda", label: "Agenda", icon: CalendarDays },
-      { href: "/app/finance", label: "Financeiro", icon: Wallet },
+      { href: "/app/patients", label: "Pacientes", icon: Users },
+      { href: "/app/sessions", label: "Sessões", icon: MessageCircle },
+      { href: "/app/pendencias", label: "Pendências", icon: TriangleAlert },
+      { href: "/app/finance", label: "Financeiro", icon: CreditCard },
     ],
   },
   {
     id: "ia",
     label: "IA & Conhecimento",
     items: [
-      { href: "/app/documents", label: "Documentos", icon: FileText },
-      { href: "/app/supervisor", label: "Supervisor IA", icon: Sparkles },
       { href: "/app/knowledge", label: "Conhecimento", icon: BookOpen },
+      { href: "/app/supervisor", label: "Supervisor IA", icon: Sparkles },
+      { href: "/app/documents", label: "Documentos", icon: FileText },
+      { href: "/app/indicadores", label: "Indicadores", icon: LineChart },
     ],
   },
   {
@@ -50,16 +56,19 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 export const MOBILE_PRIMARY_NAV: NavItem[] = [
-  { href: "/app", label: "Meu Dia", icon: Sun },
+  { href: "/app", label: "Início", icon: Home },
   { href: "/app/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/app/patients", label: "Pacientes", icon: Users },
+  { href: "/app/pendencias", label: "Pendências", icon: TriangleAlert },
 ];
 
 export const MOBILE_MORE_NAV: NavItem[] = [
-  { href: "/app/finance", label: "Financeiro", icon: Wallet },
+  { href: "/app/sessions", label: "Sessões", icon: MessageCircle },
+  { href: "/app/finance", label: "Financeiro", icon: CreditCard },
   { href: "/app/documents", label: "Documentos", icon: FileText },
   { href: "/app/supervisor", label: "Supervisor IA", icon: Sparkles },
   { href: "/app/knowledge", label: "Conhecimento", icon: BookOpen },
+  { href: "/app/indicadores", label: "Indicadores", icon: LineChart },
   { href: "/app/settings", label: "Configurações", icon: Settings },
 ];
 

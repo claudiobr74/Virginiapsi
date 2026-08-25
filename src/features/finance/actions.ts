@@ -729,7 +729,7 @@ function receiptBody(input: {
     `Data do pagamento: ${input.paidAt}`,
     `Forma: ${input.method}`,
     "",
-    "Documento administrativo emitido pelo Tesseli. Não substitui nota fiscal.",
+    "Documento administrativo emitido pelo VirgíniaPsi. Não substitui nota fiscal.",
   ].join("\n");
 }
 
@@ -773,7 +773,7 @@ async function issueReceiptDocument(params: {
   const pdfBytes = await generateDocumentPdf({
     title: params.title,
     body: params.body,
-    footer: `Recibo gerado eletronicamente pelo Tesseli em ${new Date().toLocaleString("pt-BR")}.`,
+    footer: `Recibo gerado eletronicamente pelo VirgíniaPsi em ${new Date().toLocaleString("pt-BR")}.`,
   });
   const storagePath = buildStoragePath(
     params.organizationId,

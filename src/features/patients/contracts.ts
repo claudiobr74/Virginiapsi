@@ -172,6 +172,13 @@ export const patientRowSchema = z.object({
 
 export type PatientRow = z.infer<typeof patientRowSchema>;
 
+export interface PatientDirectoryRow {
+  patient: PatientRow;
+  lastSessionAt: string | null;
+  nextSessionAt: string | null;
+  pendingClinical: number;
+}
+
 /**
  * The administrative patient DTO the Secretary receives is this same shape:
  * `patients` carries no clinical field by design (docs/04-data-model.md), so

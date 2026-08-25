@@ -7,7 +7,7 @@ import { listDocuments, listTemplates } from "@/features/documents/queries";
 import { listPatients } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata = { title: "Documentos — Tesseli" };
+export const metadata = { title: "Centro de Documentos — VirgíniaPsi" };
 
 export default async function DocumentsPage() {
   const { organizationId, role } = await requireOrgContext();
@@ -25,7 +25,7 @@ export default async function DocumentsPage() {
     <PageContainer>
       <PageHeader
         icon={FileText}
-        title="Documentos"
+        title="Centro de Documentos"
         subtitle="Modelos, versões e PDFs — visibilidade por classificação administrativa/clínica"
       />
 

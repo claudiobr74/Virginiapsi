@@ -89,6 +89,13 @@ export interface RecentDocumentItem {
   createdAt: string;
 }
 
+export interface MyDayMetrics {
+  sessionsThisWeek: number;
+  activePatients: number;
+  clinicalPendencies: number;
+  monthReceiptsCents: number;
+}
+
 export interface MyDaySnapshot {
   greeting: MyDayGreeting;
   timezone: string;
@@ -102,6 +109,7 @@ export interface MyDaySnapshot {
   recentDocuments: RecentDocumentItem[];
   tasks: PracticeTask[];
   phases: PhaseAvailability;
+  metrics: MyDayMetrics;
 }
 
 export type { AppointmentModality, AppointmentStatus };

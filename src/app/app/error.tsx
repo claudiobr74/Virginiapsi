@@ -35,7 +35,7 @@ export default function AppSegmentError({
             Tentar novamente
           </Button>
           <Button asChild variant="secondary">
-            <Link href="/app">Voltar ao Meu Dia</Link>
+            <Link href="/app">Voltar ao Início</Link>
           </Button>
         </div>
       </div>

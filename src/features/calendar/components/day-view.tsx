@@ -34,12 +34,12 @@ export function DayView({
         <SummaryCard
           label="Consultas do dia"
           value={`${summary.total} ${summary.total === 1 ? "consulta" : "consultas"}`}
-          hint="Tesseli e eventos externos visíveis"
+          hint="VirgíniaPsi e eventos externos visíveis"
         />
         <SummaryCard
           label="Confirmadas"
           value={`${summary.confirmed} ${summary.confirmed === 1 ? "confirmada" : "confirmadas"}`}
-          hint="Status de confirmação no Tesseli"
+          hint="Status de confirmação no VirgíniaPsi"
         />
         <SummaryCard
           label="Agendadas"
@@ -49,7 +49,7 @@ export function DayView({
         <SummaryCard
           label="Eventos Google"
           value={`${summary.external} ${summary.external === 1 ? "externo" : "externos"}`}
-          hint="Somente leitura no Tesseli"
+          hint="Somente leitura no VirgíniaPsi"
         />
       </div>
 

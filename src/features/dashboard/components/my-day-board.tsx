@@ -18,14 +18,6 @@ export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
           canStartSession={snapshot.canStartSession}
           emptyDay={emptyDay}
         />
-        <TodayTimeline
-          appointments={snapshot.timeline}
-          timeZone={snapshot.timezone}
-          highlightedId={snapshot.nextSession?.id}
-          canStartSession={snapshot.canStartSession}
-        />
-      </div>
-      <aside className="flex w-full flex-col gap-5 lg:w-[320px] lg:shrink-0">
         <SessionsToFinalizePanel
           sessions={snapshot.sessionsToFinalize}
           timeZone={snapshot.timezone}
@@ -33,6 +25,14 @@ export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
         <FinancialPendingPanel charges={snapshot.financialPending} />
         <TasksPanel tasks={snapshot.tasks} />
         <RecentDocumentsPanel documents={snapshot.recentDocuments} />
+      </div>
+      <aside className="flex w-full flex-col gap-5 lg:w-[500px] lg:shrink-0">
+        <TodayTimeline
+          appointments={snapshot.timeline}
+          timeZone={snapshot.timezone}
+          highlightedId={snapshot.nextSession?.id}
+          canStartSession={snapshot.canStartSession}
+        />
       </aside>
     </div>
   );

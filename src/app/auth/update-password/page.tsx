@@ -4,7 +4,7 @@ import { AuthScreen } from "@/features/auth/components/auth-screen";
 import { UpdatePasswordForm } from "@/features/auth/components/update-password-form";
 
 export const metadata: Metadata = {
-  title: "Redefinir senha — Tesseli",
+  title: "Redefinir senha — VirgíniaPsi",
 };
 
 export default function UpdatePasswordPage() {

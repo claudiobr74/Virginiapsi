@@ -51,11 +51,11 @@ Fonts:
 
 ## Marca
 
-O Tesseli possui um único asset oficial de marca neste repositório:
+O produto visível é **VirgíniaPsi**. O símbolo oficial neste repositório é:
 
-`public/brand/Logo Tesseli em Gradiente Sereno.png`
+`public/brand/virginia-psi-mark.png`
 
-Regras absolutas para a logo:
+O wordmark é composto na UI (`BrandWordmark`). Regras absolutas para o símbolo:
 - use **esse arquivo diretamente**, sem recriar, redesenhar ou interpretar a marca;
 - não converter para SVG;
 - não recortar, remover o fundo, aplicar transparência, recolorir, retocar ou alterar contraste;

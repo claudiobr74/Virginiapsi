@@ -15,9 +15,11 @@ export function isNavItemActive(pathname: string, href: string) {
 export function NavLink({
   item,
   onNavigate,
+  tone = "default",
 }: {
   item: NavItem;
   onNavigate?: () => void;
+  tone?: "default" | "sidebar";
 }) {
   const pathname = usePathname();
   const active = isNavItemActive(pathname, item.href);
@@ -29,10 +31,14 @@ export function NavLink({
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors",
-        active
-          ? "bg-primary text-primary-foreground shadow-sm"
-          : "text-deep-neutral hover:bg-surface",
+        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+        tone === "sidebar"
+          ? active
+            ? "relative border border-transparent bg-sage-light font-semibold text-sage-700 before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-[3px] before:rounded-full before:bg-sage-700"
+            : "border border-transparent font-medium text-foreground hover:bg-background"
+          : active
+            ? "bg-primary font-medium text-primary-foreground shadow-sm"
+            : "font-medium text-deep-neutral hover:bg-surface",
       )}
     >
       <Icon className="size-[18px] shrink-0" aria-hidden />

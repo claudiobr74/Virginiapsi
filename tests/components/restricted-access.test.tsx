@@ -28,7 +28,7 @@ describe("RestrictedAccess", () => {
       screen.getByText(/Você não tem permissão para abrir o Conhecimento clínico/),
     ).toBeInTheDocument();
     expect(screen.getByText(/Seu perfil atual: Secretaria/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Voltar ao Meu Dia" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Voltar ao Início" })).toHaveAttribute(
       "href",
       "/app",
     );

@@ -4,8 +4,9 @@ import { MyDayWelcome } from "@/features/dashboard/components/my-day-welcome";
 import { getMyDaySnapshot } from "@/features/dashboard/queries";
 import { getShellSettings } from "@/features/organizations/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
+import { pageTitle } from "@/lib/brand";
 
-export const metadata = { title: "Meu Dia — Tesseli" };
+export const metadata = { title: pageTitle("Início") };
 
 function displayNameFromEmail(email: string | undefined) {
   const localPart = email?.split("@")[0] ?? "Profissional";

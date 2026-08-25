@@ -52,7 +52,7 @@ export function PatientsToolbar() {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-1 flex-col gap-3">
       <SearchField
         value={search}
         onChange={(value) => {

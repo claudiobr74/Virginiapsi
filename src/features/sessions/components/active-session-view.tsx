@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ChevronDown, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -27,6 +27,8 @@ export type SessionAppointmentContext = {
 export function ActiveSessionView({
   session,
   patientDisplayName,
+  patientPublicCode,
+  therapyGoals,
   timezone,
   dpep,
   workingNotes,
@@ -36,6 +38,8 @@ export function ActiveSessionView({
 }: {
   session: ClinicalSessionRow;
   patientDisplayName: string;
+  patientPublicCode: string | null;
+  therapyGoals: string | null;
   timezone: string;
   dpep: SessionDpepRow | null;
   workingNotes: SessionWorkingNotesRow | null;
@@ -60,12 +64,6 @@ export function ActiveSessionView({
     .filter(Boolean)
     .join(" · ");
 
-  // clinical_sessions.version is a single counter shared by DPEP and working
-  // notes (see the migration header). Rather than juggle version/content
-  // state by hand on the client — and risk one panel's re-render reverting
-  // the other's just-saved text to a stale prop — every successful save
-  // asks the server component to refetch, which is the only place that can
-  // hand back DPEP, working notes and version all in sync.
   function refreshAfterSave() {
     router.refresh();
   }
@@ -73,20 +71,31 @@ export function ActiveSessionView({
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <header className="sticky top-0 z-10 border-b border-border bg-card">
-        <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-8">
+          <div className="flex min-w-0 items-center gap-3">
             <Link
-              href="/app/patients"
-              aria-label="Voltar para a lista de pacientes"
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-surface"
+              href={`/app/patients/${session.patient_id}`}
+              aria-label="Voltar para o prontuário do paciente"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:bg-background"
             >
               <ArrowLeft className="size-4" aria-hidden />
             </Link>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate font-serif text-lg font-semibold italic text-foreground">
+                <h1 className="truncate font-serif text-2xl font-bold text-foreground">
                   {patientDisplayName}
+                  {patientPublicCode ? (
+                    <span className="font-sans text-base font-medium text-muted-foreground">
+                      {" "}
+                      • {patientPublicCode}
+                    </span>
+                  ) : null}
                 </h1>
+                {appointment?.modalityLabel ? (
+                  <span className="rounded-md bg-sage-light px-2 py-1 text-xs font-semibold text-sage-700">
+                    {appointment.modalityLabel}
+                  </span>
+                ) : null}
                 <StatusBadge
                   status={
                     session.status === "in_progress"
@@ -107,28 +116,20 @@ export function ActiveSessionView({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="hidden items-center gap-2 md:flex">
-              {isInProgress ? (
-                <span className="relative flex size-2" aria-hidden>
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
-                  <span className="relative inline-flex size-2 rounded-full bg-success" />
-                </span>
-              ) : null}
-              <SessionElapsedTimer
-                startedAt={session.started_at}
-                endedAt={session.ended_at}
-                running={isInProgress}
-                initialElapsedSeconds={initialElapsedSeconds}
-                className="text-base text-primary"
-              />
-            </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <SessionElapsedTimer
+              startedAt={session.started_at}
+              endedAt={session.ended_at}
+              running={isInProgress}
+              initialElapsedSeconds={initialElapsedSeconds}
+              className="text-base text-attention"
+            />
             {appointment?.meetUrl ? (
               <a
                 href={appointment.meetUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-9 items-center gap-1.5 rounded-2xl border border-border bg-surface px-3 text-sm font-semibold text-deep-neutral hover:bg-sage-light/30"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground hover:bg-sage-light/40"
               >
                 Meet
                 <ExternalLink className="size-3.5" aria-hidden />
@@ -137,44 +138,22 @@ export function ActiveSessionView({
             {!isFinalized ? <FinalizeSessionWizard sessionId={session.id} /> : null}
           </div>
         </div>
-
-        <div className="flex items-center justify-between gap-3 border-t border-border bg-sage-light/25 px-4 py-2 sm:px-6 md:hidden">
-          <div className="flex items-center gap-2">
-            {isInProgress ? (
-              <span className="relative flex size-2" aria-hidden>
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
-                <span className="relative inline-flex size-2 rounded-full bg-success" />
-              </span>
-            ) : null}
-            <SessionElapsedTimer
-              startedAt={session.started_at}
-              endedAt={session.ended_at}
-              running={isInProgress}
-              initialElapsedSeconds={initialElapsedSeconds}
-              className="text-base text-primary"
-            />
-          </div>
-          <p className="text-[11px] font-medium text-muted-foreground">
-            {isFinalized ? "Sessão encerrada" : "Atendimento em curso"}
-          </p>
-        </div>
       </header>
 
-      <div className="mx-auto grid w-full max-w-[1400px] flex-1 grid-cols-1 gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)] lg:items-start">
-        <div className="flex flex-col gap-5">
-          <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-4 font-serif text-lg font-bold italic text-foreground">DPEP</h2>
-            <DpepForm
-              sessionId={session.id}
-              dpep={dpep}
-              version={session.version}
-              disabled={isFinalized}
-              onSaved={refreshAfterSave}
-            />
-          </section>
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-6 sm:px-12">
+          <div>
+            <h2 className="font-serif text-[28px] font-bold text-foreground">
+              Anotações da Sessão
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Área de trabalho clínico em tempo real. O DPEP abaixo permanece o registro
+              estruturado — nada entra no prontuário sem revisão humana.
+            </p>
+          </div>
 
-          <section className="rounded-3xl border border-border bg-sage-light/10 p-5 shadow-sm">
-            <h2 className="mb-4 font-serif text-lg font-bold italic text-foreground">
+          <section className="rounded-2xl border border-border bg-card p-6">
+            <h2 className="mb-4 font-serif text-lg font-bold text-foreground">
               Área de Trabalho Clínico
             </h2>
             <WorkingNotesForm
@@ -186,27 +165,50 @@ export function ActiveSessionView({
             />
           </section>
 
-          <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-4 font-serif text-lg font-bold italic text-foreground">Session AI</h2>
-            <SessionAiPanel
+          <section className="rounded-2xl border border-border bg-card p-6">
+            <h2 className="mb-4 font-serif text-lg font-bold text-foreground">DPEP</h2>
+            <DpepForm
               sessionId={session.id}
+              dpep={dpep}
               version={session.version}
-              onDpepAppended={refreshAfterSave}
+              disabled={isFinalized}
+              onSaved={refreshAfterSave}
             />
           </section>
         </div>
 
-        <aside className="lg:sticky lg:top-[5.5rem] lg:self-start">
-          <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-4 font-serif text-lg font-bold italic text-foreground">
-              Transcrição
+        <aside className="flex w-full flex-col gap-6 border-t border-border bg-card px-4 py-6 sm:px-8 lg:w-[480px] lg:shrink-0 lg:border-l lg:border-t-0">
+          <section className="flex flex-col gap-3">
+            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Transcrição em tempo real
             </h2>
             <TranscriptPanel
               sessionId={session.id}
               patientId={session.patient_id}
               initialSegments={transcriptSegments}
               disabled={isFinalized}
-              feedClassName="max-h-72 lg:max-h-[min(36rem,calc(100dvh-18rem))]"
+              feedClassName="max-h-72 lg:max-h-[min(28rem,calc(100dvh-22rem))]"
+            />
+          </section>
+
+          {therapyGoals?.trim() ? (
+            <details className="rounded-lg border border-border p-4">
+              <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-foreground">
+                Objetivos terapêuticos
+                <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
+              </summary>
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                {therapyGoals}
+              </p>
+            </details>
+          ) : null}
+
+          <section className="rounded-2xl border border-border bg-background p-5">
+            <h2 className="mb-4 font-serif text-lg font-bold text-foreground">Session AI</h2>
+            <SessionAiPanel
+              sessionId={session.id}
+              version={session.version}
+              onDpepAppended={refreshAfterSave}
             />
           </section>
         </aside>

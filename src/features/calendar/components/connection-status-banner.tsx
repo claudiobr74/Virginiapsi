@@ -35,7 +35,7 @@ export function ConnectionStatusBanner({
                 : "Google Calendar não conectado"}
           </p>
           <p className="text-xs text-attention/80">
-            Sem conexão, a Agenda funciona só com eventos criados no Tesseli —
+            Sem conexão, a Agenda funciona só com eventos criados no VirgíniaPsi —
             sem eventos externos e sem Meet automático.
           </p>
         </div>

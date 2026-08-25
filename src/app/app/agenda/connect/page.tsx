@@ -7,7 +7,7 @@ import { ensureGoogleCalendarReady } from "@/features/calendar/ensure-calendar";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { peekGoogleCalendarRedirectUri } from "@/lib/env/server";
 
-export const metadata: Metadata = { title: "Conexão Google Calendar — Tesseli" };
+export const metadata: Metadata = { title: "Conexão Google Calendar — VirgíniaPsi" };
 
 export default async function GoogleConnectionPage() {
   const { organizationId, role } = await requireOrgContext();

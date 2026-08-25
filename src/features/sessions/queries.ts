@@ -34,6 +34,52 @@ export async function getClinicalSession(
   return session.organization_id === organizationId ? session : null;
 }
 
+export async function listOrganizationSessions(
+  organizationId: string,
+  limit = 80,
+): Promise<
+  Array<{
+    session: ClinicalSessionRow;
+    patientPreferredName: string | null;
+    patientPublicCode: string | null;
+  }>
+> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("clinical_sessions")
+    .select(
+      "id, organization_id, patient_id, appointment_id, therapist_user_id, status, started_at, ended_at, version, created_at, patients(preferred_name, public_code)",
+    )
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(`failed to list organization sessions: ${error.message}`);
+  }
+
+  return (data ?? []).flatMap((row) => {
+    const { patients, ...sessionRow } = row as typeof row & {
+      patients:
+        | { preferred_name: string; public_code: string }
+        | { preferred_name: string; public_code: string }[]
+        | null;
+    };
+    const parsed = clinicalSessionRowSchema.safeParse(sessionRow);
+    if (!parsed.success) {
+      return [];
+    }
+    const patient = Array.isArray(patients) ? patients[0] : patients;
+    return [
+      {
+        session: parsed.data,
+        patientPreferredName: patient?.preferred_name ?? null,
+        patientPublicCode: patient?.public_code ?? null,
+      },
+    ];
+  });
+}
+
 export async function listPatientSessions(
   organizationId: string,
   patientId: string,

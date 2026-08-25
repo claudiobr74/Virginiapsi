@@ -6,7 +6,7 @@ import { listActiveMemberships } from "@/features/organizations/queries";
 import { requireUser } from "@/lib/auth/require-user";
 
 export const metadata: Metadata = {
-  title: "Escolher consultório — Tesseli",
+  title: "Escolher consultório — VirgíniaPsi",
 };
 
 export const dynamic = "force-dynamic";

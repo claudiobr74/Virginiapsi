@@ -5,9 +5,10 @@ import { Logo } from "@/components/ui/logo";
 import { AuthScreen } from "@/features/auth/components/auth-screen";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { oauthCodeCallbackPath } from "@/features/auth/oauth-redirect";
+import { pageTitle, PRODUCT_LOGIN_FOOTER, PRODUCT_LOGIN_TAGLINE } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Entrar — Tesseli",
+  title: pageTitle("Entrar"),
 };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
@@ -19,24 +20,20 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   return (
     <AuthScreen>
-      <div className="flex flex-col items-center gap-2 text-center">
-        <Logo width={160} priority />
-        <h1 className="mt-4 font-serif text-[28px] italic font-medium leading-tight text-foreground">
-          Bem-vinda ao seu consultório
-        </h1>
-        <p className="text-sm text-muted-foreground">Acesse sua conta para continuar</p>
+      <div className="flex flex-col items-center gap-4 text-center">
+        <Logo variant="stacked" width={120} priority />
+        <h1 className="text-sm font-normal text-muted-foreground">{PRODUCT_LOGIN_TAGLINE}</h1>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-10">
         <Suspense>
           <LoginForm />
         </Suspense>
       </div>
 
-      <div className="mt-8 flex flex-col gap-1 text-center text-[11px] leading-[1.4] text-muted-foreground">
-        <p>Acesso protegido e auditado.</p>
-        <p>Em conformidade com LGPD e CFP.</p>
-      </div>
+      <p className="mt-10 text-center text-xs leading-[1.4] text-muted-foreground">
+        {PRODUCT_LOGIN_FOOTER}
+      </p>
     </AuthScreen>
   );
 }

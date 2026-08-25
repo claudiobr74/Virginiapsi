@@ -18,7 +18,7 @@ export default function GlobalError({
         <PageContainer narrow>
           <EmptyState
             icon={AlertTriangle}
-            title="O Tesseli encontrou um erro inesperado"
+            title="O VirgíniaPsi encontrou um erro inesperado"
             description="Nenhum dado clínico foi exibido aqui. Tente recarregar. Se persistir, saia e entre novamente."
             action={
               <Button type="button" onClick={() => reset()}>

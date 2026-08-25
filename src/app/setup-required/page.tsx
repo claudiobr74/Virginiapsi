@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Logo } from "@/components/ui/logo";
 
 export const metadata: Metadata = {
-  title: "Preparar banco — Tesseli",
+  title: "Preparar banco — VirgíniaPsi",
 };
 
 export default function SetupRequiredPage() {
@@ -15,7 +15,7 @@ export default function SetupRequiredPage() {
             O consultório ainda não tem banco
           </h1>
           <p className="text-sm text-muted-foreground">
-            O login funcionou. Falta criar as tabelas do Tesseli neste projeto
+            O login funcionou. Falta criar as tabelas do VirgíniaPsi neste projeto
             Supabase. Aplique as migrations e recarregue esta página.
           </p>
         </div>

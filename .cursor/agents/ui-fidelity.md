@@ -13,4 +13,4 @@ Priorities:
 - accessibility and responsive behavior;
 - reusable primitives rather than page-local style drift.
 
-Before finishing, compare the work against the fidelity questions in the visual spec and run relevant UI tests. The official Tesseli logo is `public/brand/Logo Tesseli em Gradiente Sereno.png`. Use that exact file whenever the logo is required. Do not create placeholders or variants, and do not redraw, crop, recolor, remove its background, vectorize, or otherwise transform it.
+Before finishing, compare the work against the fidelity questions in the visual spec and run relevant UI tests. The official VirgíniaPsi symbol is `public/brand/virginia-psi-mark.png`. Use that exact file whenever the mark is required. The wordmark is composed in UI. Do not create placeholders or variants, and do not redraw, crop, recolor, vectorize, or otherwise transform the PNG.

@@ -94,7 +94,7 @@ test.describe("Supervisor Clínico IA", () => {
     await expect(
       page.getByText(/Você não tem permissão para abrir o Supervisor IA/),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Voltar ao Meu Dia" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Voltar ao Início" })).toBeVisible();
     await expect(page.getByText("Selecione um paciente para iniciar")).toHaveCount(0);
   });
 });

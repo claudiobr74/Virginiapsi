@@ -23,9 +23,9 @@ export function NextSessionCard({
 }) {
   if (emptyDay) {
     return (
-      <section className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
+      <section className="flex flex-col gap-4 rounded-[20px] border border-border bg-card p-6">
         <p className="text-xs font-bold uppercase tracking-wide text-sage-700">Dia livre</p>
-        <h2 className="font-serif text-2xl italic font-semibold text-foreground">
+        <h2 className="font-serif text-2xl font-semibold text-foreground">
           Não há atendimentos agendados para hoje
         </h2>
         <p className="max-w-xl text-sm leading-6 text-muted-foreground">
@@ -43,68 +43,77 @@ export function NextSessionCard({
 
   if (!appointment) {
     return (
-      <section className="flex flex-col gap-2 rounded-3xl border border-border bg-card p-6 shadow-sm">
+      <section className="flex flex-col gap-2 rounded-[20px] border border-border bg-card p-6">
         <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
           <CalendarClock className="size-3.5" aria-hidden />
           Próxima sessão
         </p>
-        <h2 className="font-serif text-xl italic font-semibold text-foreground">
+        <h2 className="font-serif text-xl font-semibold text-foreground">
           Nenhuma sessão restante hoje
         </h2>
         <p className="text-sm text-muted-foreground">
-          O restante do dia está livre. A linha do tempo abaixo mostra o que já aconteceu,
-          se houver.
+          O restante do dia está livre. A agenda ao lado mostra o que já aconteceu, se
+          houver.
         </p>
       </section>
     );
   }
 
   const starts = formatInTimeZone(appointment.startsAt, timeZone);
-  const ends = formatInTimeZone(appointment.endsAt, timeZone);
   const modalityLabel = MODALITY_LABELS[appointment.modality];
-  const meetHint =
-    appointment.modality === "online" && appointment.meetStatus === "success"
-      ? "Online · Google Meet"
-      : modalityLabel;
+  const isOnline = appointment.modality === "online";
 
   return (
     <section
       aria-labelledby="next-session-heading"
-      className="flex flex-col gap-6 rounded-3xl bg-primary p-6 text-primary-foreground shadow-[0_12px_16px_rgba(107,112,92,0.17)] sm:p-7"
+      className="flex flex-col gap-5 rounded-[20px] border border-border bg-card p-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="rounded-full bg-[#4f5341] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white">
-          Próximo atendimento
-        </span>
-        <span className="flex items-center gap-2 font-mono text-[13px] font-bold">
-          <span className="size-2 rounded-full bg-success" aria-hidden />
-          {starts} — {ends}
-        </span>
+        <p className="text-xs font-bold uppercase tracking-wide text-sage-700">
+          Próxima sessão
+        </p>
+        {isOnline ? (
+          <span className="rounded-md bg-sage-light px-2 py-1 text-[11px] font-semibold uppercase text-sage-700">
+            Online
+          </span>
+        ) : (
+          <span className="rounded-md bg-surface px-2 py-1 text-[11px] font-semibold uppercase text-muted-foreground">
+            {modalityLabel}
+          </span>
+        )}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <h2 id="next-session-heading" className="text-[28px] font-bold leading-tight">
+      <div className="flex flex-col gap-1">
+        <h2 id="next-session-heading" className="font-serif text-[28px] font-bold leading-tight text-foreground">
           {heroPatientName(appointment)}
         </h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="rounded-md bg-white/15 px-2.5 py-1 text-xs font-semibold">
-            {meetHint}
-          </span>
-          {appointment.patientPublicCode ? (
-            <span className="font-mono text-[13px] text-white/80">
-              {patientDisplayLabel(appointment)}
-            </span>
-          ) : null}
-        </div>
+        <p className="text-sm text-muted-foreground">
+          {appointment.patientPublicCode ? `${patientDisplayLabel(appointment)} · ` : null}
+          {starts}
+        </p>
       </div>
 
-      <SessionActions
-        appointment={appointment}
-        timeZone={timeZone}
-        canStartSession={canStartSession}
-        tone="onPrimary"
-        layout="hero"
-      />
+      {appointment.meetUrl && appointment.meetStatus === "success" ? (
+        <p className="truncate rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-muted-foreground">
+          {appointment.meetUrl}
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {appointment.patientId ? (
+          <Button asChild variant="secondary" size="sm">
+            <Link href={`/app/patients/${appointment.patientId}?tab=record`}>
+              Preparar sessão
+            </Link>
+          </Button>
+        ) : null}
+        <SessionActions
+          appointment={appointment}
+          timeZone={timeZone}
+          canStartSession={canStartSession}
+          layout="full"
+        />
+      </div>
     </section>
   );
 }

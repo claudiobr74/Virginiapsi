@@ -4,7 +4,7 @@ import { listPatients } from "@/features/patients/queries";
 import { RestrictedAccess } from "@/features/shell/restricted-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata = { title: "Conhecimento — Tesseli" };
+export const metadata = { title: "Conhecimento — VirgíniaPsi" };
 
 export default async function KnowledgePage() {
   const { organizationId, role } = await requireOrgContext();

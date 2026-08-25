@@ -41,7 +41,7 @@ A auditoria pré-implementação é parte obrigatória do processo Tesseli.
 16. Antes de provider call de IA/gravação/transcrição, aplique consent gate server-side conforme `docs/16-runtime-ai-data-contracts.md`.
 17. Não automatize avaliação psicológica, interpretação/pontuação de testes restritos, diagnóstico definitivo ou ajuste de medicação.
 18. Lembretes 24h/2h usam Supabase Cron/pg_cron + pg_net + outbox idempotente; não depender de Vercel Cron para cadência sub-diária.
-19. A logo oficial é `public/brand/Logo Tesseli em Gradiente Sereno.png`. Use o arquivo exatamente como fornecido; não redesenhe, converta, recorte, recolora, remova o fundo ou gere variações.
+19. A marca visível é VirgíniaPsi. O símbolo oficial é `public/brand/virginia-psi-mark.png`. Use o arquivo exatamente como fornecido; não redesenhe, converta, recorte, recolora ou gere variações. O wordmark é composto na UI.
 
 ## Stack
 

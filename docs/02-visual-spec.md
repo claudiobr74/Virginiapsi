@@ -1,39 +1,43 @@
-# Tesseli — Especificação de Identidade Visual
+# VirgíniaPsi — Especificação de Identidade Visual
 
 ## Intenção
 
-A interface deve parecer um consultório digital acolhedor: calma, humana, sofisticada, com baixo ruído visual. Evitar estética “SaaS azul genérico”, excesso de gradientes, cards compactos ou dashboard corporativo agressivo.
+A interface deve parecer um consultório digital acolhedor: calma, humana, sofisticada, com baixo ruído visual — **warm clinical modernism**. Evitar estética “SaaS azul genérico”, excesso de gradientes, cards compactos ou dashboard corporativo agressivo.
+
+A marca visível do produto é **VirgíniaPsi**. O repositório e os contratos internos podem continuar usando o nome de código Tesseli.
 
 ## Tipografia
 
 - Sans UI: **Inter** — 300 a 800.
-- Serif editorial: **Playfair Display** — usada principalmente em títulos, frequentemente itálica e bold.
+- Serif editorial: **Playfair Display** — títulos da top bar, saudação, KPIs e headings de seção.
 - Mono: **JetBrains Mono** — horários, CRP/códigos e dados que se beneficiem de alinhamento.
+
+O arquivo Figma Serenità cita Newsreader + Instrument Sans. No produto, Playfair + Inter + JetBrains são os equivalentes canônicos.
 
 ## Paleta light
 
 ### Base warm/bone
 
-- background principal: `#FAF9F6`
-- superfície secundária: `#E8E4DF`
-- borda suave: `#DCD8D3`
+- background principal: `#FBF9F6`
+- superfície secundária: `#F3F0EA`
+- card: `#FFFFFF`
+- borda suave: `#EAE6DF`
 
 ### Sage / primary
 
-- sage light: `#B7B7A4`
-- sage: `#A5A58D`
-- mid neutral sage: `#8B8B88`
-- sage 600: `#7A7F6B`
-- sage 700: `#737864`
-- **primary sage 800: `#6B705C`**
-- deep neutral: `#4A4A48`
-- texto principal: `#3D3D3C`
+- sage light / wash: `#EAEFEA`
+- sage: `#C5D0C6`
+- mid neutral sage: `#8A8F8A`
+- sage 600: `#5D625E`
+- **primary sage: `#3A4F43`**
+- primary hover: `#2F4137`
+- deep neutral / texto: `#1F2421`
 
 ### Warm accent
 
-- cream amber: `#FFF9F2`
-- soft amber: `#FDEBD0`
-- accent: `#D4A373`
+- cream: `#FBF9F6`
+- soft amber: `#F8F1E9`
+- accent: `#D6A374`
 
 Cores semânticas podem usar vermelho, azul e âmbar para erro/confirmado/atenção, mas não devem dominar o produto.
 
@@ -49,39 +53,38 @@ Cores semânticas podem usar vermelho, azul e âmbar para erro/confirmado/atenç
 
 ## Formas
 
-- cards principais: radius ~24 px (`rounded-3xl`)
+- cards principais: radius 16–20 px (`rounded-[16px]` / `rounded-[20px]`)
 - modais: 24 px no desktop; fullscreen adequado no mobile
-- botões: 12–16 px de radius
-- badges: 12 px / pill quando status
-- logo/avatar: 12 px ou circular conforme contexto
+- botões: 8 px (`rounded-lg`)
+- badges: 6–8 px / pill quando status
+- logo/avatar: circular no perfil; mark com ratio do PNG
 - sombras: discretas; card normal `shadow-sm`, modal `shadow-2xl`
 
 ## Shell desktop
 
-- sidebar 256 px;
-- fundo branco/card;
-- borda direita sage muito suave;
-- logo + Tesseli + profissional no topo;
-- navegação em três grupos: rotina, IA/conhecimento, sistema;
-- item ativo: fundo `#6B705C`, texto branco;
-- item inativo: sage escuro, hover bone;
-- perfil, CRP, instalar app, bloquear tela e logout no rodapé.
+- sidebar **260 px**, fundo branco/card;
+- borda direita `#EAE6DF`;
+- logo inline (mark 32 px + wordmark VirgíniaPsi);
+- navegação em lista contínua: Início, Agenda, Pacientes, Sessões, Pendências, Financeiro, Conhecimento, Supervisor IA, Documentos, Indicadores, Configurações;
+- item ativo: fundo sage wash `#EAEFEA`, texto `#3A4F43`, indicador vertical 3 px à esquerda;
+- item inativo: texto `#1F2421`, hover bone;
+- top bar 72 px: título serif da rota, busca ⌘K, “Nuvem sincronizada”, sino de pendências;
+- perfil, tema, instalar app, bloquear tela e logout no rodapé da sidebar.
 
 ## Shell mobile
 
 ### Top bar
 
-- sage escuro;
-- logo pequeno;
-- “Tesseli” em Inter extra-bold;
-- badge “Ativo” discreto;
+- fundo card claro;
+- logo inline pequeno;
 - botão menu.
 
 ### Bottom navigation
 
 - superfície branca translúcida / dark equivalente;
 - backdrop blur;
-- Meu Dia, Agenda, Pacientes, Mais;
+- Início, Agenda, Pacientes, Pendências;
+- demais módulos no menu “Mais”;
 - ícones Lucide;
 - item ativo sage e bold.
 
@@ -125,8 +128,8 @@ Esta seção é normativa, não descritiva: define os primitivos de UI que exist
 
 ### Botão primary
 
-- fundo `#6B705C`;
-- texto branco;
+- fundo `#3A4F43`;
+- texto `#FBF9F6`;
 - bold;
 - hover um tom mais escuro;
 - active scale 0.98;
@@ -187,26 +190,24 @@ Esta seção é normativa, não descritiva: define os primitivos de UI que exist
 - logo grande;
 - texto de acolhimento;
 - campos e-mail/senha;
-- primary button “Entrar”;
-- divisor “ou”;
-- botão Google branco com ícone oficial;
+- primary button “Entrar no VirgíniaPsi”;
+- botão Google branco com ícone oficial (sem divisor “ou”);
 - avisos de segurança em cards suaves.
 
 ## Logo — asset oficial
 
-O arquivo oficial da marca é:
+O arquivo oficial do **símbolo** é:
 
-`public/brand/Logo Tesseli em Gradiente Sereno.png`
+`public/brand/virginia-psi-mark.png`
 
-Esse arquivo deve ser usado **exatamente como fornecido**. Ele é a fonte de verdade para símbolo, wordmark, tipografia, cores, gradientes, fundo, proporções e espaçamento da marca.
+O wordmark **VirgíniaPsi** é composto na UI (`BrandWordmark`): “Virgínia” em navy `#1F2A44` e “Psi” em gradiente lavanda→roxo. Não redesenhar o PNG do símbolo.
+
+Esse PNG deve ser usado **exatamente como fornecido**. Ele é a fonte de verdade para o símbolo (Psi em folhas teal/lavanda).
 
 É proibido:
 - redesenhar ou gerar uma nova logo a partir de descrição textual;
 - converter para SVG ou vetorizar;
-- remover ou substituir o fundo;
-- recortar a arte;
-- recolorir ou adaptar para dark mode;
-- alterar símbolo ou wordmark;
+- recortar, recolorir ou adaptar o PNG para dark mode;
 - aplicar filtros, sombras, bordas ou efeitos à própria imagem;
 - comprimir ou reprocessar de modo destrutivo.
 
@@ -216,7 +217,7 @@ Na interface, apenas o **container de exibição** pode ser redimensionado. Pres
 
 Antes de aceitar uma tela, o agente de UI deve responder:
 
-1. O layout preserva a hierarquia Tesseli?
+1. O layout preserva a hierarquia Serenità / VirgíniaPsi?
 2. Usa a paleta e tipografia acima?
 3. Parece acolhedor e leve, não “dashboard genérico”?
 4. Funciona em desktop e mobile sem mudar a identidade?

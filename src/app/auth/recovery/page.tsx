@@ -4,7 +4,7 @@ import { AuthScreen } from "@/features/auth/components/auth-screen";
 import { RecoveryRequestForm } from "@/features/auth/components/recovery-request-form";
 
 export const metadata: Metadata = {
-  title: "Recuperar senha — Tesseli",
+  title: "Recuperar senha — VirgíniaPsi",
 };
 
 export default function RecoveryPage() {

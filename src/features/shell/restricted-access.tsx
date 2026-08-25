@@ -26,7 +26,7 @@ export function RestrictedAccess({
           Seu perfil atual: Secretaria
         </p>
         <Button asChild className="mt-6">
-          <Link href="/app">Voltar ao Meu Dia</Link>
+          <Link href="/app">Voltar ao Início</Link>
         </Button>
       </div>
     </PageContainer>

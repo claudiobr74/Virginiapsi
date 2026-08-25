@@ -1,17 +1,17 @@
 {
-  "name": "Tesseli",
-  "short_name": "Tesseli",
+  "name": "VirgíniaPsi",
+  "short_name": "VirgíniaPsi",
   "description": "Gestão de consultório de psicologia",
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#faf9f6",
-  "theme_color": "#6b705c",
+  "background_color": "#fbf9f6",
+  "theme_color": "#3a4f43",
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "/brand/Logo%20Tesseli%20em%20Gradiente%20Sereno.png",
-      "sizes": "1254x1254",
+      "src": "/brand/virginia-psi-mark.png",
+      "sizes": "701x523",
       "type": "image/png",
       "purpose": "any"
     }

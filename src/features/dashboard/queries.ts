@@ -18,6 +18,7 @@ import { ROLE_LABELS } from "@/features/organizations/labels";
 import { listRecentDocuments } from "@/features/documents/queries";
 import { getFinanceAccess, listCharges, listPayments, buildChargeViews } from "@/features/finance/queries";
 import { todayIsoDate } from "@/features/finance/contracts";
+import { monthReceiptsCents } from "@/features/dashboard/metrics";
 import { listPatients } from "@/features/patients/queries";
 import type { OrganizationRole } from "@/features/organizations/contracts";
 import { computeAgendaWindow, todayInTimeZone } from "@/features/calendar/date-window";
@@ -106,7 +107,7 @@ interface SessionJoinRow {
     | null;
 }
 
-async function listSessionsToFinalize(
+export async function listSessionsToFinalize(
   organizationId: string,
 ): Promise<SessionToFinalize[]> {
   const supabase = await createSupabaseServerClient();
@@ -158,6 +159,28 @@ export async function listOpenTasks(
   return practiceTaskSchema.array().parse(data ?? []);
 }
 
+async function countWeekSessions(
+  organizationId: string,
+  timezone: string,
+): Promise<number> {
+  const today = todayInTimeZone(timezone);
+  const window = computeAgendaWindow("week", today, timezone);
+  const supabase = await createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from("appointments")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("origin", "TESSELI")
+    .neq("status", "cancelled")
+    .gte("starts_at", window.fromIso)
+    .lt("starts_at", window.toIso);
+
+  if (error) {
+    return 0;
+  }
+  return count ?? 0;
+}
+
 export async function getMyDaySnapshot(input: {
   organizationId: string;
   timezone: string;
@@ -165,14 +188,17 @@ export async function getMyDaySnapshot(input: {
   settings: ShellSettings | null;
   role: OrganizationRole;
 }): Promise<MyDaySnapshot> {
-  const [timeline, tasks, documents, sessionsToFinalize] = await Promise.all([
-    listTodayManagedAppointments(input.organizationId, input.timezone),
-    listOpenTasks(input.organizationId),
-    listRecentDocuments(input.organizationId),
-    input.role === "psychologist_admin"
-      ? listSessionsToFinalize(input.organizationId)
-      : Promise.resolve([]),
-  ]);
+  const [timeline, tasks, documents, sessionsToFinalize, patients, sessionsThisWeek] =
+    await Promise.all([
+      listTodayManagedAppointments(input.organizationId, input.timezone),
+      listOpenTasks(input.organizationId),
+      listRecentDocuments(input.organizationId),
+      input.role === "psychologist_admin"
+        ? listSessionsToFinalize(input.organizationId)
+        : Promise.resolve([]),
+      listPatients(input.organizationId),
+      countWeekSessions(input.organizationId, input.timezone),
+    ]);
 
   const greetingPrefix =
     input.settings?.greeting_prefix?.trim() || DEFAULT_GREETING_PREFIX;
@@ -180,11 +206,11 @@ export async function getMyDaySnapshot(input: {
 
   const access = await getFinanceAccess(input.organizationId, input.role);
   let financialPending: MyDaySnapshot["financialPending"] = [];
+  let monthReceiptsCentsValue = 0;
   if (access !== "none") {
-    const [charges, payments, patients] = await Promise.all([
+    const [charges, payments] = await Promise.all([
       listCharges(input.organizationId),
       listPayments(input.organizationId),
-      listPatients(input.organizationId),
     ]);
     const names = new Map(patients.map((patient) => [patient.id, patient.preferred_name]));
     const today = todayIsoDate(input.timezone);
@@ -195,6 +221,7 @@ export async function getMyDaySnapshot(input: {
           charge.row.due_date === today ||
           charge.row.competence_date === today),
     );
+    monthReceiptsCentsValue = monthReceiptsCents(payments, input.timezone, today);
   }
 
   return {
@@ -220,5 +247,11 @@ export async function getMyDaySnapshot(input: {
     })),
     tasks,
     phases: PHASE_AVAILABILITY,
+    metrics: {
+      sessionsThisWeek,
+      activePatients: patients.filter((patient) => patient.status === "active").length,
+      clinicalPendencies: sessionsToFinalize.length + tasks.length,
+      monthReceiptsCents: monthReceiptsCentsValue,
+    },
   };
 }

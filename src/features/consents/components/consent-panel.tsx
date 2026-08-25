@@ -85,7 +85,7 @@ export function ConsentPanel({
 
       <p className="text-sm text-muted-foreground">
         {AGE_GROUP_LABELS[resolution.ageGroup]}. Sem consentimento válido, o
-        Tesseli não emite token de transcrição nem permissão de upload de
+        VirgíniaPsi não emite token de transcrição nem permissão de upload de
         áudio — e o atendimento segue normalmente sem gravação.
       </p>
 

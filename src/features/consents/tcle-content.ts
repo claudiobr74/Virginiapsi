@@ -23,7 +23,7 @@ Paciente: {{patient.full_name}} ({{patient.public_code}})
 Data: {{date.today}}
 
 1. NATUREZA DO ATENDIMENTO
-Este documento formaliza o consentimento para o acompanhamento psicoterapêutico e para o uso das ferramentas administrativas e de apoio clínico do Tesseli descritas abaixo.
+Este documento formaliza o consentimento para o acompanhamento psicoterapêutico e para o uso das ferramentas administrativas e de apoio clínico do VirgíniaPsi descritas abaixo.
 
 2. TERCEIROS QUE PROCESSAM DADOS EM NOME DO CONSULTÓRIO (SUBOPERADORES)
 - Supabase: armazenamento de todo o dado estruturado do prontuário, autenticação e arquivos.

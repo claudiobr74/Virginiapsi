@@ -12,7 +12,7 @@ import {
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { peekGoogleCalendarRedirectUri } from "@/lib/env/server";
 
-export const metadata: Metadata = { title: "Agenda — Tesseli" };
+export const metadata: Metadata = { title: "Agenda — VirgíniaPsi" };
 
 function parseView(value: string | undefined): AgendaView {
   return value === "week" || value === "month" ? value : "day";

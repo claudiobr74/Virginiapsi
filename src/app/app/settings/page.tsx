@@ -6,7 +6,7 @@ import { getSettingsSnapshot } from "@/features/settings/queries";
 import { RestrictedAccess } from "@/features/shell/restricted-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata = { title: "Configurações — Tesseli" };
+export const metadata = { title: "Configurações — VirgíniaPsi" };
 
 export default async function SettingsPage() {
   const { organizationId, organizationName, timezone, role, user } =

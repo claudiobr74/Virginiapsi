@@ -10,7 +10,7 @@ export async function generateMetadata({
   const { documentId } = await params;
   const { organizationId } = await requireOrgContext();
   const document = await getDocument(organizationId, documentId);
-  return { title: document ? `${document.title} — Tesseli` : "Documento — Tesseli" };
+  return { title: document ? `${document.title} — VirgíniaPsi` : "Documento — VirgíniaPsi" };
 }
 
 export default async function DocumentDetailPage({

@@ -20,10 +20,10 @@ export function DashboardWidget({
   return (
     <section
       aria-labelledby={id}
-      className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6"
+        className="flex flex-col gap-4 rounded-[20px] border border-border bg-card p-5 sm:p-6"
     >
       <div className="flex items-start justify-between gap-3">
-        <h2 id={id} className="font-serif text-[22px] italic font-semibold text-foreground">
+        <h2 id={id} className="font-serif text-[22px] font-semibold text-foreground">
           {title}
         </h2>
         {description ? (

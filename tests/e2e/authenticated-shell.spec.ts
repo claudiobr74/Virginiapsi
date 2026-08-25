@@ -34,9 +34,7 @@ test.describe("Login autenticado", () => {
   }) => {
     await loginViaUi(page);
     await expect(page).toHaveURL(/\/app$/);
-    await expect(
-      page.getByRole("heading", { name: "Meu Dia" }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Ana Serena/ })).toBeVisible();
 
     if (isDesktopViewport(page)) {
       await expect(
@@ -82,6 +80,27 @@ test.describe("Navegação entre módulos", () => {
     await expect(page.getByRole("tab", { name: "Recebimentos" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Despesas" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Relatórios" })).toBeVisible();
+  });
+
+  test("abre Pendências, Sessões e Indicadores a partir da navegação", async ({
+    page,
+  }) => {
+    await loginViaUi(page);
+    await openNavItem(page, "Pendências");
+    await expect(page).toHaveURL(/\/app\/pendencias$/);
+    await expect(
+      page.getByRole("heading", { name: "Central de Pendências Inteligente" }),
+    ).toBeVisible();
+
+    await openNavItem(page, "Sessões");
+    await expect(page).toHaveURL(/\/app\/sessions$/);
+    await expect(page.getByRole("heading", { name: "Sessões" })).toBeVisible();
+
+    await openNavItem(page, "Indicadores");
+    await expect(page).toHaveURL(/\/app\/indicadores$/);
+    await expect(
+      page.getByRole("heading", { name: "Indicadores e Métricas Clínicas" }),
+    ).toBeVisible();
   });
 });
 

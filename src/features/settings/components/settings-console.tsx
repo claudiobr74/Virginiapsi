@@ -301,7 +301,7 @@ function AppearanceSection({ snapshot }: { snapshot: SettingsSnapshot }) {
     <section className="rounded-3xl border border-border bg-card p-5">
       <SectionHeader
         title="Aparência"
-        description="Saudação do Meu Dia, citação e tema claro/escuro neste dispositivo."
+        description="Saudação do Início, citação e tema claro/escuro neste dispositivo."
       />
       <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3">
         <div>
@@ -395,7 +395,7 @@ function SecuritySection({ snapshot }: { snapshot: SettingsSnapshot }) {
           </select>
         </Field>
         <p className="text-sm text-muted-foreground">
-          Para alterar a senha, use “Esqueci minha senha” na tela de login — o Tesseli nunca pede a senha atual nesta página.
+          Para alterar a senha, use “Esqueci minha senha” na tela de login — o VirgíniaPsi nunca pede a senha atual nesta página.
         </p>
         <Button type="submit" isLoading={isPending} className="self-start">
           Salvar segurança
@@ -556,7 +556,7 @@ function BackupSection({ snapshot }: { snapshot: SettingsSnapshot }) {
       <section className="rounded-3xl border border-border bg-card p-5">
         <SectionHeader
           title="Backup da plataforma"
-          description="A recuperação de desastre é o backup do projeto Supabase (PITR/backups gerenciados). O Tesseli não implementa DR próprio e não usa Google Drive."
+          description="A recuperação de desastre é o backup do projeto Supabase (PITR/backups gerenciados). O VirgíniaPsi não implementa DR próprio e não usa Google Drive."
         />
         <p className="mt-3 text-sm text-muted-foreground">
           Operadores configuram retenção e restauração no painel Supabase. A exportação abaixo é portabilidade lógica, não substituto de backup.
@@ -565,7 +565,7 @@ function BackupSection({ snapshot }: { snapshot: SettingsSnapshot }) {
 
       <section className="rounded-3xl border border-border bg-card p-5">
         <SectionHeader
-          title="Exportação lógica Tesseli"
+          title="Exportação lógica VirgíniaPsi"
           description="Pacote ZIP versionado (manifest.json + JSON/CSV + hashes SHA-256), gerado neste servidor e baixado por URL assinada de curta duração."
         />
         <div className="mt-4 flex flex-wrap gap-2">

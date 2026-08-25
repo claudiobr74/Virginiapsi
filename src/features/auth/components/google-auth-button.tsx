@@ -64,7 +64,7 @@ export function GoogleAuthButton() {
         type="button"
         variant="secondary"
         size="lg"
-        className="w-full rounded-xl border border-border bg-white text-deep-neutral hover:bg-surface dark:bg-card"
+        className="w-full rounded-lg border border-border bg-card text-foreground hover:bg-background dark:bg-card"
         isLoading={isLoading}
         onClick={handleClick}
       >

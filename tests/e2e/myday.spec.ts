@@ -19,18 +19,18 @@ test.describe("Meu Dia — dashboard operacional", () => {
   test("saudação, timeline do dia e widgets operacionais", async ({ page }) => {
     await loginViaUi(page);
 
-    await expect(page.getByRole("heading", { name: "Meu Dia" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Ana Serena/ })).toBeVisible();
     await expect(page.getByText("Olá, Ana Serena")).toBeVisible();
     await expect(
       page.getByText("Um dia de cada vez — presença e cuidado na rotina clínica."),
     ).toBeVisible();
 
     await expect(
-      page.getByRole("heading", { name: "Linha do Tempo de Hoje" }),
+      page.getByRole("heading", { name: "Agenda de Hoje" }),
     ).toBeVisible();
     await expect(page.getByText("Beatriz • PAC-001").first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Atendimento Avulso" })).toBeVisible();
-    await expect(page.getByText("Atendimentos Hoje")).toBeVisible();
+    await expect(page.getByText("Sessões esta semana")).toBeVisible();
 
     await expect(
       page.getByRole("heading", { name: "Sessões a Finalizar" }),
