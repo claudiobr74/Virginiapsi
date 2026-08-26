@@ -1,8 +1,11 @@
 name: foundation-gate
 
 on:
+  # Feature branches already open a PR; running push+PR doubled GitHub
+  # Actions minutes (that exhausted the private-repo quota). `main` still
+  # gets a push gate; cursor/** is covered by pull_request only.
   push:
-    branches: [main, "cursor/**"]
+    branches: [main]
   pull_request:
 
 concurrency:

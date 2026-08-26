@@ -164,17 +164,17 @@ Virginiapsi (`list_tables` / `execute_sql` / `list_migrations` / `list_branches`
 | Extensões | `pg_cron`, `supabase_vault`, `vector` | + `pg_net` na G4 |
 | Persistent branches | nenhuma | — |
 
-Delta **seguro** para a produção (quando houver autorização de apply, **depois** de staging): só o que falta — `patient_photo` + G2 enum/identity + lock do claim. **Não** reexecutar `tenancy_core` … `settings_backup`. Staging limpo = cadeia completa das migrations.
+Delta **seguro** para a produção (quando houver autorização de apply): só o que falta — `patient_photo` + G2 enum/identity + lock do claim. **Não** reexecutar `tenancy_core` … `settings_backup`. A prova da cadeia Git é o `test:security` do CI (Postgres+pgvector), sem projeto Supabase extra.
 
-### 6.2 D2 staging (não criado)
+### 6.2 D2 staging — sem recurso pago
 
-| Opção | Cotação MCP `get_cost` | Ação |
-|---|---|---|
-| Novo projeto na mesma org | **US$ 0 / mês** | Não criado: já existem 2 projetos (teto típico do plano free); falta confirmação explícita do **nome** e do custo |
-| Persistent branch de Virginiapsi | **US$ 0,01344 / hora** | Não criado: custa ~US$ 10/mês; falta confirmação |
-| Reusar Serenita | — | **Não** — modelo `clinic_id` |
+Org **Macedotech** está no plano **free**. O número US$ 0,01344/h veio do MCP `get_cost(type=branch)`, não do app Tesseli. Persistent branch **não é caminho** neste plano (saindo do free). **Não criar.**
 
-Para criar staging, autorizar explicitamente: nome do projeto **ou** aceite do branch + `confirm_cost`.
+Terceiro projeto: `get_cost(type=project)` devolveu US$ 0/mês, mas a org já tem Virginiapsi + Serenita (teto de 2 no free). Criar um terceiro provavelmente exige upgrade. **Não criar agora.**
+
+Serenita continua inviável (`clinic_id`).
+
+G3a **não depende** de staging hospedado. Apply em `kgfcgxagixiynlcewept` continua bloqueado até autorização explícita, independente de D2.
 
 ### 6.3 Seed D5b no apply futuro
 
@@ -190,10 +190,10 @@ Migration: `20260826100000_g3_claim_platform_operator_lock.sql`. Teste: `tests/s
 |---|---|
 | Inventário Git × prod sem apply | **PASS** (MCP 2026-08-26) |
 | `claim_platform_operator` com advisory lock | **PASS** no Git e no CI (`d37aa39`, [push 32917995966](https://github.com/claudiobr74/Virginiapsi/actions/runs/32917995966): lint, typecheck, unit, `test:security`, build, Playwright) |
-| Staging D2 criado | **EXTERNAL_BLOCKED** (custo / teto de projetos; falta confirmação) |
+| Staging D2 criado | **EXTERNAL_BLOCKED** (plano **free**, 2/2 projetos; branch pago recusado) |
 | Apply em Virginiapsi produção | **não executado** |
 | Apply em Serenita | **não executado** (proibido) |
 | G1 visual | **não iniciado** (D3 em aberto) |
 
-**Veredito G3a: PASS no Git e no CI `foundation-gate` (`d37aa39`). Staging e apply em produção continuam EXTERNAL_BLOCKED / não executados.**
+**Veredito G3a: PASS no Git e no CI `foundation-gate` (`d37aa39` / `97f0c7d`). Sem recurso pago. Apply em produção não executado. D2 staging EXTERNAL_BLOCKED no plano free (2/2).**
 
