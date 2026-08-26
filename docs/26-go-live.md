@@ -176,6 +176,8 @@ Serenita continua inviável (`clinic_id`).
 
 G3a **não depende** de staging hospedado. Apply em `kgfcgxagixiynlcewept` continua bloqueado até autorização explícita, independente de D2.
 
+O PR #22 disparou Preview Vercel (Hobby) contra o Postgres de produção — Preview e Production compartilham as mesmas chaves (`docs/09`). Isso viola D2 e gasta build. `vercel.json` agora desliga deploy automático em `cursor/go-live-g0-*` / `g2-*` / `g3-*`; `scripts/vercel-ignore.mjs` ignora o build de Preview nesses branches.
+
 ### 6.3 Seed D5b no apply futuro
 
 1. Aplicar migrations só com autorização (prod: delta §6.1). Sem projeto extra no plano free.

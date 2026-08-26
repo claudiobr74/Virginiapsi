@@ -1,4 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": {
+      "cursor/go-live-g0-*": false,
+      "cursor/go-live-g2-*": false,
+      "cursor/go-live-g3-*": false
+    }
+  },
+  "ignoreCommand": "node scripts/vercel-ignore.mjs"
 }
