@@ -83,7 +83,7 @@ Nenhum secret foi lido nem gravado.
 ### 2.3 O que a G0 ainda não fechou (ops, não código)
 
 1. **D2:** criar (ou designar) um projeto Supabase de **staging com o mesmo schema** (organização/`organization_id`) em região documentada — o projeto Serenita **não** serve.
-2. Aplicar `photo_path` no Virginiapsi hospedado (G3) e passar a usar `schema_migrations` rastreadas.
+2. ~~Aplicar `photo_path` no Virginiapsi hospedado e passar a usar `schema_migrations` rastreadas~~ — **feito na G3b** (§6.4).
 3. Instalar `pg_net` no Virginiapsi se os jobs HTTP forem usados; provisionar Vault `tesseli_app_url` / `tesseli_cron_secret` (G4). Nomes Vault internos podem permanecer `tesseli_*` até G4 decidir.
 4. Site URL do Auth e redirects Google (G4). Conferir Redirect URLs se o GitHub/Vercel mudou de host.
 5. D3 (P0/P1 visual) e G1/G2.
@@ -93,8 +93,8 @@ Nenhum secret foi lido nem gravado.
 | Fase | Conteúdo | Bloqueio atual |
 |---|---|---|
 | G1 | UI P0 dark / P1 timeline | D3 em aberto |
-| G2 | Cadastro, convite que cria usuário, role `psychologist`, allowlist D5b, D4b por responsável | Autorizada 2026-08-25; schema **não** aplicado no hospedado (G3) |
-| G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | **G3a em curso** (inventário + lock do claim). Staging ainda inexistente; prod sem apply |
+| G2 | Cadastro, convite que cria usuário, role `psychologist`, allowlist D5b, D4b por responsável | **PASS** no Git (PR #21); delta no hospedado na G3b |
+| G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | **G3b PASS** no Virginiapsi (§6.4). Staging D2 **EXTERNAL_BLOCKED** (plano free 2/2). Sem merge na G0 / sem Vercel Production |
 | G4 | Auth/Vault/cron **por ambiente** | G0 + D2 |
 | G5 | Ataque entre clínicas **e** entre profissionais da mesma clínica (D4b) | Staging real |
 | G6 | Produção com ≥2 clínicas e ≥2 profissionais | G3–G5 |
@@ -205,12 +205,13 @@ Projeto: **Virginiapsi** `kgfcgxagixiynlcewept`. **Não** aplicado em Serenita. 
 | `20260826021538` | `g3_hosted_g2_identity_rls_docs` |
 | `20260826021556` | `g3_hosted_claim_platform_operator_lock` |
 | `20260826021607` | `g3_hosted_seed_platform_operators` |
+| `20260826022139` | `g3_hosted_drop_leftover_consent_policies` |
 
 Seed D5b: `insert … select distinct user_id` dos `organization_members` com `role = psychologist_admin` e `active`, `on conflict do nothing`. Contagem pós-seed: **2** operadores. Nenhum e-mail foi logado.
 
 Prova MCP (sem PII): `organization_role` inclui `psychologist`; `platform_operators` e `organization_invitations` existem; `patients.photo_path` existe; `can_access_patient_clinical` existe; `claim_platform_operator` contém `pg_advisory_xact_lock`; `bootstrap_organization` exige `is_platform_operator`; policies clínicas admin-wide (`*_admin_select`, `patient_clinical_profile_all_admin`) substituídas pelas `*_responsible` / `*_clinical`.
 
-Policies WhatsApp `consents_insert_administrative` / `consents_update_administrative` (redundantes após G2) foram dropadas no hospedado e no Git (`20260826110000_g3_drop_leftover_consent_policies.sql`).
+Policies WhatsApp `consents_insert_administrative` / `consents_update_administrative` (redundantes após G2) foram dropadas no hospedado (`g3_hosted_g2_identity_rls_docs` e de novo em `g3_hosted_drop_leftover_consent_policies` para constar em `schema_migrations`) e no Git (`20260826110000_g3_drop_leftover_consent_policies.sql`).
 
 ### Gate G3a
 
