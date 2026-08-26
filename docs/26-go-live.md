@@ -189,11 +189,11 @@ Migration: `20260826100000_g3_claim_platform_operator_lock.sql`. Teste: `tests/s
 | Critério | Resultado |
 |---|---|
 | Inventário Git × prod sem apply | **PASS** (MCP 2026-08-26) |
-| `claim_platform_operator` com advisory lock | **PASS** no Git |
+| `claim_platform_operator` com advisory lock | **PASS** no Git e no CI (`d37aa39`, [push 32917995966](https://github.com/claudiobr74/Virginiapsi/actions/runs/32917995966): lint, typecheck, unit, `test:security`, build, Playwright) |
 | Staging D2 criado | **EXTERNAL_BLOCKED** (custo / teto de projetos; falta confirmação) |
 | Apply em Virginiapsi produção | **não executado** |
 | Apply em Serenita | **não executado** (proibido) |
 | G1 visual | **não iniciado** (D3 em aberto) |
 
-**Veredito G3a: PASS no Git (inventário + lock). Staging e apply continuam EXTERNAL_BLOCKED / não executados.**
+**Veredito G3a: PASS no Git e no CI `foundation-gate` (`d37aa39`). Staging e apply em produção continuam EXTERNAL_BLOCKED / não executados.**
 
