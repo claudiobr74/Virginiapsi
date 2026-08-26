@@ -94,8 +94,8 @@ Nenhum secret foi lido nem gravado.
 |---|---|---|
 | G1 | UI P0 dark / P1 timeline | D3 em aberto |
 | G2 | Cadastro, convite que cria usuário, role `psychologist`, allowlist D5b, D4b por responsável | **PASS** no Git (PR #21); delta no hospedado na G3b |
-| G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | **G3b PASS** no Virginiapsi (§6.4). Staging D2 **EXTERNAL_BLOCKED** (plano free 2/2). Sem merge na G0 / sem Vercel Production |
-| G4 | Auth/Vault/cron **por ambiente** | **G4a em curso** — Production Vercel da pilha G2/G3 (sem Preview). Vault/`pg_net` = G4b. Site URL Auth = dashboard (MCP cego) |
+| G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | **G3b PASS** no Virginiapsi (§6.4). Staging D2 **EXTERNAL_BLOCKED** (plano free 2/2) |
+| G4 | Auth/Vault/cron **por ambiente** | **G4a PASS** Production Vercel (`dpl_FyctuSPkTVYfF3srCN2W9p9dDQb5`, alias `serena-psi-beta`). Site URL Auth = dashboard. Vault/`pg_net` = G4b |
 | G5 | Ataque entre clínicas **e** entre profissionais da mesma clínica (D4b) | Staging real |
 | G6 | Produção com ≥2 clínicas e ≥2 profissionais | G3–G5 |
 | G7 | PITR em staging + LGPD de N controladoras | G0 região; parecer humano |
@@ -261,10 +261,12 @@ Sem isso, o Google devolve `/?code=` em localhost.
 |---|---|
 | Branch G4a a partir da G2 + merge de `main` | **PASS** no Git |
 | Preview G4 ignorado (D2) | **PASS** no Git (`vercel-ignore` + `git.deploymentEnabled`) |
-| Production no `main` (alias `serena-psi-beta`) | a registrar após o merge |
-| Site URL Auth | **EXTERNAL_BLOCKED** (dashboard) |
+| Production no `main` (alias `serena-psi-beta`) | **PASS** `dpl_FyctuSPkTVYfF3srCN2W9p9dDQb5` (`target=production`, SHA `c0fd29f`). `GET /signup` 200 título **Criar conta — VirgíniaPsi**; `GET /login` 200 **Entrar — VirgíniaPsi**. Inspector: https://vercel.com/claudiobr74-9668s-projects/virginiapsi/FyctuSPkTVYfF3srCN2W9p9dDQb5 |
+| Site URL Auth | **EXTERNAL_BLOCKED** (dashboard; MCP não altera Authentication) |
 | G4b Vault/`pg_net` | **não executado** |
-| G1 visual | **não iniciado** |
+| G1 visual | **não iniciado** (P0 dark / P1 timeline; login já usa marca VirgíniaPsi da pilha Figma) |
+
+**Veredito G4a: PASS na Production Vercel.** Schema G3b + app G2 no alias `https://serena-psi-beta.vercel.app`. Login Google ainda exige Site URL no dashboard. G4b e G1 fora.
 
 
 
