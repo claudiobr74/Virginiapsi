@@ -95,7 +95,7 @@ Nenhum secret foi lido nem gravado.
 | G1 | UI P0 dark / P1 timeline | D3 em aberto |
 | G2 | Cadastro, convite que cria usuário, role `psychologist`, allowlist D5b, D4b por responsável | **PASS** no Git (PR #21); delta no hospedado na G3b |
 | G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | **G3b PASS** no Virginiapsi (§6.4). Staging D2 **EXTERNAL_BLOCKED** (plano free 2/2). Sem merge na G0 / sem Vercel Production |
-| G4 | Auth/Vault/cron **por ambiente** | G0 + D2 |
+| G4 | Auth/Vault/cron **por ambiente** | **G4a em curso** — Production Vercel da pilha G2/G3 (sem Preview). Vault/`pg_net` = G4b. Site URL Auth = dashboard (MCP cego) |
 | G5 | Ataque entre clínicas **e** entre profissionais da mesma clínica (D4b) | Staging real |
 | G6 | Produção com ≥2 clínicas e ≥2 profissionais | G3–G5 |
 | G7 | PITR em staging + LGPD de N controladoras | G0 região; parecer humano |
@@ -228,5 +228,43 @@ Policies WhatsApp `consents_insert_administrative` / `consents_update_administra
 
 **Veredito G3a: PASS no Git e no CI `foundation-gate` (`d37aa39` / `97f0c7d`). Sem recurso pago. D2 staging EXTERNAL_BLOCKED no plano free (2/2).**
 
-**Veredito G3b: PASS no hospedado Virginiapsi (`kgfcgxagixiynlcewept`). Seed de 2 operadores. Sem Serenita. Sem Vercel Production. Sem merge da G2 na G0.**
+**Veredito G3b: PASS no hospedado Virginiapsi (`kgfcgxagixiynlcewept`). Seed de 2 operadores. Sem Serenita. Sem Vercel Production (G4a). Sem merge da G2 na G0.**
+
+## 7. Fase G4a — Production Vercel (sem Preview, sem G1)
+
+Recorte: o schema G2/G3 já está no Virginiapsi. O alias `serena-psi-beta.vercel.app` ainda serve o Tesseli antigo (`main` = `9136183`). **G4a** = apontar **Production** para esta pilha. **Não** G1 (D3). **Não** G4b (`pg_net` / Vault / lembretes). **Não** Preview (D2: as chaves do projeto são as de produção).
+
+Caminho Git: branch `cursor/go-live-g4-production-dcad` (G2 HEAD + merge de `main`) → PR para **`main`**. O `vercel.json` desliga git deploy automático em `cursor/go-live-g4-*`; `scripts/vercel-ignore.mjs` ignora Preview G4. Production (`VERCEL_ENV=production`) no `main` continua a construir.
+
+`framework` no dashboard do projeto ainda pode estar `null`; `vercel.json` força `nextjs` (já provado nos Previews READY).
+
+### 7.1 Auth (dashboard — MCP não altera)
+
+Depois do alias apontar para esta pilha, no Supabase Virginiapsi (`kgfcgxagixiynlcewept`):
+
+- Authentication → URL Configuration → **Site URL** = `https://serena-psi-beta.vercel.app`
+- Redirect URLs: `https://serena-psi-beta.vercel.app/auth/callback` e `http://localhost:3000/auth/callback`
+- Login Google (Auth): no Google Cloud, Authorized redirect URI = `https://kgfcgxagixiynlcewept.supabase.co/auth/v1/callback` (não é o OAuth da Agenda)
+- Agenda: `GOOGLE_OAUTH_REDIRECT_URI` = `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback`
+
+Sem isso, o Google devolve `/?code=` em localhost.
+
+### 7.2 Fora desta entrega
+
+- G4b: `pg_net` + Vault `tesseli_app_url` / `tesseli_cron_secret` (jobs WhatsApp/retenção)
+- Conferir no dashboard Vercel (sem logar valores) que `NEXT_PUBLIC_SUPABASE_URL` é `https://kgfcgxagixiynlcewept.supabase.co` e **não** o projeto Serenita
+- G1 visual; merge da PR #21 na G0 (esta entrega vai a `main`)
+
+### Gate G4a
+
+| Critério | Resultado |
+|---|---|
+| Branch G4a a partir da G2 + merge de `main` | **PASS** no Git |
+| Preview G4 ignorado (D2) | **PASS** no Git (`vercel-ignore` + `git.deploymentEnabled`) |
+| Production no `main` (alias `serena-psi-beta`) | a registrar após o merge |
+| Site URL Auth | **EXTERNAL_BLOCKED** (dashboard) |
+| G4b Vault/`pg_net` | **não executado** |
+| G1 visual | **não iniciado** |
+
+
 

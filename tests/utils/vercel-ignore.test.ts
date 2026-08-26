@@ -21,7 +21,7 @@ describe("vercel-ignore", () => {
     ).toBe(1);
   });
 
-  it("ignora Preview de G0/G2/G3 (não compartilhar Postgres de produção)", () => {
+  it("ignora Preview de G0/G2/G3/G4 (não compartilhar Postgres de produção)", () => {
     expect(
       ignoreExit({
         VERCEL_ENV: "preview",
@@ -38,6 +38,12 @@ describe("vercel-ignore", () => {
       ignoreExit({
         VERCEL_ENV: "preview",
         VERCEL_GIT_COMMIT_REF: "cursor/go-live-g3-staging-prep-dcad",
+      }),
+    ).toBe(0);
+    expect(
+      ignoreExit({
+        VERCEL_ENV: "preview",
+        VERCEL_GIT_COMMIT_REF: "cursor/go-live-g4-production-dcad",
       }),
     ).toBe(0);
   });
