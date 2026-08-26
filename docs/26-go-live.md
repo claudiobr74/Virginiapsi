@@ -95,7 +95,7 @@ Nenhum secret foi lido nem gravado.
 | G1 | UI P0 dark / P1 timeline | D3 em aberto |
 | G2 | Cadastro, convite que cria usuário, role `psychologist`, allowlist D5b, D4b por responsável | **PASS** no Git (PR #21); delta no hospedado na G3b |
 | G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | **G3b PASS** no Virginiapsi (§6.4). Staging D2 **EXTERNAL_BLOCKED** (plano free 2/2) |
-| G4 | Auth/Vault/cron **por ambiente** | **G4a PASS** Production Vercel (`dpl_FyctuSPkTVYfF3srCN2W9p9dDQb5`, alias `serena-psi-beta`). Site URL Auth = dashboard. Vault/`pg_net` = G4b |
+| G4 | Auth/Vault/cron **por ambiente** | **G4a PASS** Production Vercel. Google Cloud = Virginiapsi + URLs (relato). Site URL Auth = dashboard Supabase. Vault/`pg_net` = G4b |
 | G5 | Ataque entre clínicas **e** entre profissionais da mesma clínica (D4b) | Staging real |
 | G6 | Produção com ≥2 clínicas e ≥2 profissionais | G3–G5 |
 | G7 | PITR em staging + LGPD de N controladoras | G0 região; parecer humano |
@@ -247,7 +247,21 @@ Depois do alias apontar para esta pilha, no Supabase Virginiapsi (`kgfcgxagixiyn
 - Login Google (Auth): no Google Cloud, Authorized redirect URI = `https://kgfcgxagixiynlcewept.supabase.co/auth/v1/callback` (não é o OAuth da Agenda)
 - Agenda: `GOOGLE_OAUTH_REDIRECT_URI` = `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback`
 
-Sem isso, o Google devolve `/?code=` em localhost.
+Sem o Site URL no Supabase, o Google devolve `/?code=` em localhost.
+
+#### 7.1.1 Google Cloud (operadora, 2026-08-26)
+
+A operadora renomeou o projeto Google Cloud de **Tesseli** para **Virginiapsi** e cadastrou as URLs no cliente OAuth. O MCP **não** lê o Google Cloud Console; Client ID/secret **não** mudam com o rename do projeto.
+
+URLs que o cliente OAuth precisa ter (Authorized redirect URIs):
+
+- Login (Supabase Auth): `https://kgfcgxagixiynlcewept.supabase.co/auth/v1/callback`
+- Agenda: `https://serena-psi-beta.vercel.app/api/integrations/google/callback`
+- Dev Agenda (opcional): `http://localhost:3000/api/integrations/google/callback`
+
+Authorized JavaScript origins (se o console pedir): `https://serena-psi-beta.vercel.app` e `http://localhost:3000`.
+
+O **Site URL** do Auth continua no dashboard **Supabase** (não no Google). MCP cego nesse ecrã.
 
 ### 7.2 Fora desta entrega
 
@@ -262,11 +276,12 @@ Sem isso, o Google devolve `/?code=` em localhost.
 | Branch G4a a partir da G2 + merge de `main` | **PASS** no Git |
 | Preview G4 ignorado (D2) | **PASS** no Git (`vercel-ignore` + `git.deploymentEnabled`) |
 | Production no `main` (alias `serena-psi-beta`) | **PASS** `dpl_FyctuSPkTVYfF3srCN2W9p9dDQb5` (`target=production`, SHA `c0fd29f`). `GET /signup` 200 título **Criar conta — VirgíniaPsi**; `GET /login` 200 **Entrar — VirgíniaPsi**. Inspector: https://vercel.com/claudiobr74-9668s-projects/virginiapsi/FyctuSPkTVYfF3srCN2W9p9dDQb5 |
-| Site URL Auth | **EXTERNAL_BLOCKED** (dashboard; MCP não altera Authentication) |
+| Google Cloud (nome Virginiapsi + URLs OAuth) | **PASS** por relato da operadora (2026-08-26). MCP não inspeciona o Console |
+| Site URL Auth (Supabase) | **EXTERNAL_BLOCKED** (dashboard Supabase; distinto do Google Cloud) |
 | G4b Vault/`pg_net` | **não executado** |
 | G1 visual | **não iniciado** (P0 dark / P1 timeline; login já usa marca VirgíniaPsi da pilha Figma) |
 
-**Veredito G4a: PASS na Production Vercel.** Schema G3b + app G2 no alias `https://serena-psi-beta.vercel.app`. Login Google ainda exige Site URL no dashboard. G4b e G1 fora.
+**Veredito G4a: PASS na Production Vercel.** Schema G3b + app G2 no alias `https://serena-psi-beta.vercel.app`. Google Cloud renomeado e URLs cadastradas (relato). Site URL do Auth no Supabase continua dashboard. G4b e G1 fora.
 
 
 
