@@ -573,11 +573,23 @@ drop policy if exists patients_select_members on public.patients;
 drop policy if exists patients_insert_members on public.patients;
 drop policy if exists patients_update_members on public.patients;
 
+-- Cadastro uses the row's own responsible column. `can_access_patient_record`
+-- subqueries `patients` by id, so INSERT ... RETURNING cannot see the new row
+-- and would deny a psychologist even when WITH CHECK passed.
 create policy patients_select_members
   on public.patients
   for select
   to authenticated
-  using (public.can_access_patient_record(organization_id, id));
+  using (
+    public.is_org_member(organization_id)
+    and (
+      public.can_manage_org_patients(organization_id)
+      or (
+        public.is_clinical_practitioner(organization_id)
+        and responsible_psychologist_user_id = auth.uid()
+      )
+    )
+  );
 
 create policy patients_insert_members
   on public.patients
@@ -601,8 +613,26 @@ create policy patients_update_members
   on public.patients
   for update
   to authenticated
-  using (public.can_access_patient_record(organization_id, id))
-  with check (public.can_access_patient_record(organization_id, id));
+  using (
+    public.is_org_member(organization_id)
+    and (
+      public.can_manage_org_patients(organization_id)
+      or (
+        public.is_clinical_practitioner(organization_id)
+        and responsible_psychologist_user_id = auth.uid()
+      )
+    )
+  )
+  with check (
+    public.is_org_member(organization_id)
+    and (
+      public.can_manage_org_patients(organization_id)
+      or (
+        public.is_clinical_practitioner(organization_id)
+        and responsible_psychologist_user_id = auth.uid()
+      )
+    )
+  );
 
 drop policy if exists patient_clinical_profile_all_admin on public.patient_clinical_profile;
 
