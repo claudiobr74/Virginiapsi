@@ -39,17 +39,18 @@ describe("G2 identity — D4b / D5b / convites", () => {
       await adminSession.close();
     }
 
-    const psiSession = await openSession({ userId: psychologist });
+    const adminOwn = await openSession({ userId: admin });
     try {
-      const own = await psiSession.query<{ id: string }>(
-        `insert into public.patients (organization_id, preferred_name, full_name)
-         values ($1, 'Paciente Próprio', 'Paciente Próprio')
+      const own = await adminOwn.query<{ id: string }>(
+        `insert into public.patients (
+           organization_id, preferred_name, full_name, responsible_psychologist_user_id
+         ) values ($1, 'Paciente Próprio', 'Paciente Próprio', $2)
          returning id`,
-        [organizationId],
+        [organizationId, psychologist],
       );
       ownPatientId = own[0].id;
     } finally {
-      await psiSession.close();
+      await adminOwn.close();
     }
   });
 
@@ -109,6 +110,38 @@ describe("G2 identity — D4b / D5b / convites", () => {
         [colleaguePatientId],
       );
       expect(denied).toMatch(/row-level security/i);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("psicóloga cadastra paciente e fica responsável", async () => {
+    const session = await openSession({ userId: psychologist });
+    try {
+      const flags = await session.query<{
+        clinical: boolean;
+        member: boolean;
+        psi_role: boolean;
+      }>(
+        `select
+           public.is_clinical_practitioner($1) as clinical,
+           public.is_org_member($1) as member,
+           public.has_org_role($1, array['psychologist']::text[]) as psi_role`,
+        [organizationId],
+      );
+      expect(flags[0]).toEqual({ clinical: true, member: true, psi_role: true });
+
+      const inserted = await session.query<{
+        id: string;
+        responsible_psychologist_user_id: string;
+      }>(
+        `insert into public.patients (
+           organization_id, preferred_name, full_name, responsible_psychologist_user_id
+         ) values ($1, 'Cadastro próprio', 'Cadastro próprio', $2)
+         returning id, responsible_psychologist_user_id`,
+        [organizationId, psychologist],
+      );
+      expect(inserted[0].responsible_psychologist_user_id).toBe(psychologist);
     } finally {
       await session.close();
     }

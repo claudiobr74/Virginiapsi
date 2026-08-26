@@ -71,7 +71,7 @@ async function insertCharge(
         values.origin ?? "administrative",
         values.description ?? "Cobrança de teste",
         values.amount,
-        values.dueDate ?? "2026-08-25",
+        values.dueDate ?? "2027-12-31",
         values.competenceDate ?? "2026-08-20",
         values.idempotencyKey ?? null,
       ],

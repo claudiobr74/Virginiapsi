@@ -399,14 +399,13 @@ describe("consent_files — espelha a visibilidade administrative/clinical do co
     const adminSession = await openSession({ userId: admin });
     let administrativeFileId: string;
     let clinicalFileId: string;
-    let serviceTermsConsentId: string;
+    let psychotherapyConsentId: string;
     try {
       const [serviceTermsConsent] = await adminSession.query<{ id: string }>(
         `insert into public.consents (organization_id, patient_id, type, title, version, status)
          values ($1, $2, 'service_terms', 'Termos de Serviço', 'v1', 'accepted') returning id`,
         [organizationId, patientId],
       );
-      serviceTermsConsentId = serviceTermsConsent.id;
       const administrativeFile = await adminSession.query<{ id: string }>(
         `insert into public.consent_files (consent_id, organization_id, version, storage_path, sha256)
          values ($1, $2, 'v1', $3, 'sha-terms') returning id`,
@@ -419,6 +418,7 @@ describe("consent_files — espelha a visibilidade administrative/clinical do co
          values ($1, $2, 'psychotherapy', 'TCLE Psicoterapia', 'v1', 'accepted') returning id`,
         [organizationId, patientId],
       );
+      psychotherapyConsentId = psychotherapyConsent.id;
       const clinicalFile = await adminSession.query<{ id: string }>(
         `insert into public.consent_files (consent_id, organization_id, version, storage_path, sha256)
          values ($1, $2, 'v1', $3, 'sha-tcle') returning id`,
@@ -446,7 +446,7 @@ describe("consent_files — espelha a visibilidade administrative/clinical do co
       const forbiddenInsert = await secretarySession.expectError(
         `insert into public.consent_files (consent_id, organization_id, version, storage_path, sha256)
          values ($1, $2, 'v2', $3, 'sha-forjado')`,
-        [serviceTermsConsentId, organizationId, `${organizationId}/forjado.pdf`],
+        [psychotherapyConsentId, organizationId, `${organizationId}/forjado.pdf`],
       );
       expect(forbiddenInsert).toMatch(/violates row-level security/i);
     } finally {

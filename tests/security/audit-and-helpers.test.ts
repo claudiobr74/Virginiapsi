@@ -3,6 +3,7 @@ import {
   addMember,
   bootstrapOrganization,
   createAuthUser,
+  ensurePlatformOperator,
   openSession,
 } from "./support/db";
 
@@ -236,6 +237,8 @@ describe("bootstrap de organização", () => {
   it("rejeita slug duplicado sem deixar organização órfã", async () => {
     const first = await createAuthUser();
     const second = await createAuthUser();
+    await ensurePlatformOperator(first);
+    await ensurePlatformOperator(second);
 
     const firstSession = await openSession({ userId: first });
     let slug = "";
