@@ -32,6 +32,14 @@ export const STUB_SECRETARY = {
   password: PASSWORD,
 };
 
+/**
+ * Product alert. Next.js App Router injects `#__next-route-announcer__` with
+ * `role="alert"`, so a bare `getByRole("alert")` is ambiguous under `pnpm start`.
+ */
+export function productAlert(page: Page, text: string | RegExp) {
+  return page.getByRole("alert").filter({ hasText: text });
+}
+
 export async function signIn(
   page: Page,
   credentials: { email: string; password: string },

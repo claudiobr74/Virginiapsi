@@ -136,7 +136,7 @@ Atribuição de responsável: administradora e secretaria escolhem no cadastro; 
 | D1 B: `/signup` + convite pendente / `inviteUserByEmail` | **PASS** no Git |
 | lint + typecheck + unit + build + scan client bundle | **PASS** nesta VM |
 | `test:security` (Postgres + pgvector) | **EXTERNAL_BLOCKED** nesta VM (`127.0.0.1:5432` recusou; sem Docker/`pgvector`) |
-| CI `foundation-gate` | Repo **público** (2026-08-25): job **sobe**. Primeira execução pós-público: lint/typecheck/unit **PASS**; `test:security` **FAIL** (ajustes de teste G2: bootstrap D5b, `consent_files` administrativo, due date financeiro). |
+| CI `foundation-gate` | Repo **público**. Run `d0b753b`: lint, typecheck, unit, `test:security` (RLS G2), build e scan **PASS**. Playwright **FAIL** (2/186): `getByRole("alert")` colidia com `#__next-route-announcer__` do App Router em `pnpm start`. Locator do aviso de login filtrado pelo texto. |
 | E2E G2 (signup, onboarding aguarda convite, hub/sessão admin responsável, secretária sem clínico) | **PASS** desktop+mobile nesta VM |
 | Schema no projeto hospedado Virginiapsi | **não aplicado** (G3) |
 

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { productAlert } from "./support/fixtures";
 
 test.describe("Root e gate de sessão", () => {
   test("raiz sem sessão redireciona para /login", async ({ page }) => {
@@ -46,9 +47,11 @@ test.describe("Login", () => {
   test("mostra aviso quando o callback do Google falha", async ({ page }) => {
     await page.goto("/login?error=auth_callback_failed");
 
-    await expect(page.getByRole("alert")).toContainText(
-      "Não foi possível concluir o login com Google",
-    );
+    // Next.js App Router injeta `#__next-route-announcer__` com role="alert".
+    // Em `pnpm start` (CI) um getByRole("alert") solto vira strict-mode violation.
+    await expect(
+      productAlert(page, "Não foi possível concluir o login com Google"),
+    ).toBeVisible();
   });
 
   test("mostra erros de validação com campos vazios", async ({ page }) => {
