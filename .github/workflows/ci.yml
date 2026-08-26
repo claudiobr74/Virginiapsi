@@ -10,9 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      # Must match playwright.config.ts (auth stub). NEXT_PUBLIC_* is inlined
+      # at `next build`; a different URL here makes `pnpm start` hang on login.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54331
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_e2e_stub
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      AUTH_STUB_PORT: "54331"
       TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
       # Self-issued signing secret (never a third-party credential) — safe to
       # fix in CI, unlike GOOGLE_CLIENT_ID/GEMINI_API_KEY/etc., which come
