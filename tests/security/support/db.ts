@@ -38,6 +38,13 @@ async function withAdmin<T>(fn: (client: Client) => Promise<T>): Promise<T> {
   }
 }
 
+/** Superuser helper for test setup/teardown only — never to assert RLS. */
+export async function runAsAdmin<T>(
+  fn: (client: Client) => Promise<T>,
+): Promise<T> {
+  return withAdmin(fn);
+}
+
 async function ensureApiRoles(client: Client) {
   await client.query(`
     do $$

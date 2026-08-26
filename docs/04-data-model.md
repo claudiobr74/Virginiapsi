@@ -24,7 +24,7 @@ Criar migrations SQL versionadas, normalizadas e alinhadas ao modelo de domínio
 ### platform_operators
 - user_id pk = auth.users.id
 - created_at / created_by
-- Allowlist D5b: só estas pessoas executam `bootstrap_organization`
+- Allowlist D5b: só estas pessoas executam `bootstrap_organization`. `claim_platform_operator` na mesa vazia é serializado com `pg_advisory_xact_lock`.
 
 ### organization_invitations
 - organization_id, email, role, status (pending|accepted|revoked|expired)

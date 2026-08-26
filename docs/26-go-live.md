@@ -94,7 +94,7 @@ Nenhum secret foi lido nem gravado.
 |---|---|---|
 | G1 | UI P0 dark / P1 timeline | D3 em aberto |
 | G2 | Cadastro, convite que cria usuário, role `psychologist`, allowlist D5b, D4b por responsável | Autorizada 2026-08-25; schema **não** aplicado no hospedado (G3) |
-| G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | Staging com schema deste repo ainda inexistente; prod `kgfcgxagixiynlcewept` (dashboard **Virginiapsi**) sem `photo_path` |
+| G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | **G3a em curso** (inventário + lock do claim). Staging ainda inexistente; prod sem apply |
 | G4 | Auth/Vault/cron **por ambiente** | G0 + D2 |
 | G5 | Ataque entre clínicas **e** entre profissionais da mesma clínica (D4b) | Staging real |
 | G6 | Produção com ≥2 clínicas e ≥2 profissionais | G3–G5 |
@@ -141,4 +141,59 @@ Atribuição de responsável: administradora e secretaria escolhem no cadastro; 
 | E2E G2 (signup, onboarding aguarda convite, hub/sessão admin responsável, secretária sem clínico) | **PASS** desktop+mobile nesta VM |
 | Schema no projeto hospedado Virginiapsi | **não aplicado** (G3) |
 
-**Veredito G2: PASS no Git e no CI `foundation-gate` (`7bbfbf1`, push + pull_request).** Postgres local nesta VM continua **EXTERNAL_BLOCKED**. Não avançar G1 nem G3 sem autorização.
+**Veredito G2: PASS no Git e no CI `foundation-gate` (`7bbfbf1`, push + pull_request).** Postgres local nesta VM continua **EXTERNAL_BLOCKED**. G3a (inventário + trava do claim, sem apply) autorizada em 2026-08-26. G1 e apply em produção continuam à parte.
+
+## 6. Fase G3a — inventário e trava do claim (sem apply)
+
+Escolha desta entrega: o caminho crítico depois da G2 no Git é **schema hospedado**, não G1 (D3 ainda em aberto). Recorte **G3a** = inventário Git × produção + serialização de `claim_platform_operator`. **Não** aplicar DDL em `kgfcgxagixiynlcewept`. **Não** aplicar em Serenita. **Não** criar projeto/branch pago nesta entrega.
+
+### 6.1 Inventário 2026-08-26 (MCP, sem secrets)
+
+Projetos na org: **Virginiapsi** `kgfcgxagixiynlcewept` (us-east-1, produção deste repo) e **Serenita** `bsaoujbfanluzggjvhfa` (us-west-2, schema `clinic_id` — inviável para D2).
+
+Virginiapsi (`list_tables` / `execute_sql` / `list_migrations` / `list_branches`):
+
+| Item | Produção | Git HEAD |
+|---|---|---|
+| `schema_migrations` | **vazio** (schema via SQL Editor/bundle) | 16 arquivos em `supabase/migrations/` |
+| `organization_role` | `psychologist_admin`, `secretary` | + `psychologist` |
+| `platform_operators` / `organization_invitations` | **ausentes** | G2 |
+| `patients.responsible_psychologist_user_id` | presente (Fase 3) | presente |
+| `patients.photo_path` | **ausente** | `20260821194500_patient_photo.sql` |
+| `logical_exports` | presente (2 orgs, 2 membros, 89 appointments, 2 conexões Google, 0 patients) | presente |
+| Extensões | `pg_cron`, `supabase_vault`, `vector` | + `pg_net` na G4 |
+| Persistent branches | nenhuma | — |
+
+Delta **seguro** para a produção (quando houver autorização de apply, **depois** de staging): só o que falta — `patient_photo` + G2 enum/identity + lock do claim. **Não** reexecutar `tenancy_core` … `settings_backup`. Staging limpo = cadeia completa das migrations.
+
+### 6.2 D2 staging (não criado)
+
+| Opção | Cotação MCP `get_cost` | Ação |
+|---|---|---|
+| Novo projeto na mesma org | **US$ 0 / mês** | Não criado: já existem 2 projetos (teto típico do plano free); falta confirmação explícita do **nome** e do custo |
+| Persistent branch de Virginiapsi | **US$ 0,01344 / hora** | Não criado: custa ~US$ 10/mês; falta confirmação |
+| Reusar Serenita | — | **Não** — modelo `clinic_id` |
+
+Para criar staging, autorizar explicitamente: nome do projeto **ou** aceite do branch + `confirm_cost`.
+
+### 6.3 Seed D5b no apply futuro
+
+1. Aplicar migrations (staging: cadeia completa; prod: delta §6.1).
+2. Inserir a operadora em `platform_operators` **antes** de usuários comuns abrirem `/onboarding` (`claim_platform_operator` se a mesa estiver vazia).
+3. A G3a serializa dois claims concorrentes com `pg_advisory_xact_lock`. O seed manual continua o caminho preferido em produção.
+
+Migration: `20260826100000_g3_claim_platform_operator_lock.sql`. Teste: `tests/security/g3-claim-lock.test.ts`.
+
+### Gate G3a
+
+| Critério | Resultado |
+|---|---|
+| Inventário Git × prod sem apply | **PASS** (MCP 2026-08-26) |
+| `claim_platform_operator` com advisory lock | **PASS** no Git |
+| Staging D2 criado | **EXTERNAL_BLOCKED** (custo / teto de projetos; falta confirmação) |
+| Apply em Virginiapsi produção | **não executado** |
+| Apply em Serenita | **não executado** (proibido) |
+| G1 visual | **não iniciado** (D3 em aberto) |
+
+**Veredito G3a: PASS no Git (inventário + lock). Staging e apply continuam EXTERNAL_BLOCKED / não executados.**
+
