@@ -178,7 +178,7 @@ G3a **não depende** de staging hospedado. Apply em `kgfcgxagixiynlcewept` conti
 
 ### 6.3 Seed D5b no apply futuro
 
-1. Aplicar migrations (staging: cadeia completa; prod: delta §6.1).
+1. Aplicar migrations só com autorização (prod: delta §6.1). Sem projeto extra no plano free.
 2. Inserir a operadora em `platform_operators` **antes** de usuários comuns abrirem `/onboarding` (`claim_platform_operator` se a mesa estiver vazia).
 3. A G3a serializa dois claims concorrentes com `pg_advisory_xact_lock`. O seed manual continua o caminho preferido em produção.
 
