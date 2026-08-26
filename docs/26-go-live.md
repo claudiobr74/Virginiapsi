@@ -232,7 +232,7 @@ Policies WhatsApp `consents_insert_administrative` / `consents_update_administra
 
 ## 7. Fase G4a — Production Vercel (sem Preview, sem G1)
 
-Recorte: o schema G2/G3 já está no Virginiapsi. O alias `serena-psi-beta.vercel.app` ainda serve o Tesseli antigo (`main` = `9136183`). **G4a** = apontar **Production** para esta pilha. **Não** G1 (D3). **Não** G4b (`pg_net` / Vault / lembretes). **Não** Preview (D2: as chaves do projeto são as de produção).
+Recorte: o schema G2/G3 já está no Virginiapsi. **G4a** apontou **Production** para esta pilha: o alias `serena-psi-beta.vercel.app` serve `/login` e `/signup` VirgíniaPsi (não o Tesseli `9136183`). **Não** G1 (D3). **Não** G4b (`pg_net` / Vault / lembretes). **Não** Preview (D2: as chaves do projeto são as de produção).
 
 Caminho Git: branch `cursor/go-live-g4-production-dcad` (G2 HEAD + merge de `main`) → PR para **`main`**. O `vercel.json` desliga git deploy automático em `cursor/go-live-g4-*`; `scripts/vercel-ignore.mjs` ignora Preview G4. Production (`VERCEL_ENV=production`) no `main` continua a construir.
 
