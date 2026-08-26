@@ -139,17 +139,19 @@ Atribuição de responsável: administradora e secretaria escolhem no cadastro; 
 | CI `foundation-gate` | **PASS** em `7bbfbf1` (push [32916619578](https://github.com/claudiobr74/Virginiapsi/actions/runs/32916619578) e pull_request [32916622857](https://github.com/claudiobr74/Virginiapsi/actions/runs/32916622857)): lint, typecheck, unit, `test:security` (RLS G2), build, scan e Playwright. Correções de smoke: anunciador `role=alert` do App Router; lista de exportações acumulada no stub desktop/mobile. |
 
 | E2E G2 (signup, onboarding aguarda convite, hub/sessão admin responsável, secretária sem clínico) | **PASS** desktop+mobile nesta VM |
-| Schema no projeto hospedado Virginiapsi | **não aplicado** (G3) |
+| Schema no projeto hospedado Virginiapsi | **aplicado** 2026-08-26 (G3b, ver §6.4) |
 
-**Veredito G2: PASS no Git e no CI `foundation-gate` (`7bbfbf1`, push + pull_request).** Postgres local nesta VM continua **EXTERNAL_BLOCKED**. G3a (inventário + trava do claim, sem apply) autorizada em 2026-08-26. G1 e apply em produção continuam à parte.
+**Veredito G2: PASS no Git e no CI `foundation-gate` (`7bbfbf1`, push + pull_request).** Postgres local nesta VM continua **EXTERNAL_BLOCKED**. G3a (inventário + trava do claim) e G3b (apply do delta em `kgfcgxagixiynlcewept`) em 2026-08-26. G1 e promote Vercel Production continuam à parte.
 
-## 6. Fase G3a — inventário e trava do claim (sem apply)
+## 6. Fase G3a — inventário e trava do claim
 
-Escolha desta entrega: o caminho crítico depois da G2 no Git é **schema hospedado**, não G1 (D3 ainda em aberto). Recorte **G3a** = inventário Git × produção + serialização de `claim_platform_operator`. **Não** aplicar DDL em `kgfcgxagixiynlcewept`. **Não** aplicar em Serenita. **Não** criar projeto/branch pago nesta entrega.
+Escolha desta entrega: o caminho crítico depois da G2 no Git é **schema hospedado**, não G1 (D3 ainda em aberto). Recorte **G3a** = inventário Git × produção + serialização de `claim_platform_operator`. Apply do delta ficou na **G3b** (§6.4). **Não** aplicar em Serenita. **Não** criar projeto/branch pago nesta entrega.
 
 ### 6.1 Inventário 2026-08-26 (MCP, sem secrets)
 
 Projetos na org: **Virginiapsi** `kgfcgxagixiynlcewept` (us-east-1, produção deste repo) e **Serenita** `bsaoujbfanluzggjvhfa` (us-west-2, schema `clinic_id` — inviável para D2).
+
+Tabela abaixo é o estado **antes** da G3b. Pós-apply: §6.4.
 
 Virginiapsi (`list_tables` / `execute_sql` / `list_migrations` / `list_branches`):
 
@@ -174,11 +176,11 @@ Terceiro projeto: `get_cost(type=project)` devolveu US$ 0/mês, mas a org já te
 
 Serenita continua inviável (`clinic_id`).
 
-G3a **não depende** de staging hospedado. Apply em `kgfcgxagixiynlcewept` continua bloqueado até autorização explícita, independente de D2.
+G3a **não depende** de staging hospedado. Apply em `kgfcgxagixiynlcewept` foi autorizado na G3b (2026-08-26). D2 staging continua EXTERNAL_BLOCKED no plano free.
 
 O PR #22 disparou Preview Vercel (Hobby) contra o Postgres de produção — Preview e Production compartilham as mesmas chaves (`docs/09`). Isso viola D2 e gasta build. `vercel.json` agora desliga deploy automático em `cursor/go-live-g0-*` / `g2-*` / `g3-*`; `scripts/vercel-ignore.mjs` ignora o build de Preview nesses branches.
 
-### 6.3 Seed D5b no apply futuro
+### 6.3 Seed D5b no apply
 
 1. Aplicar migrations só com autorização (prod: delta §6.1). Sem projeto extra no plano free.
 2. Inserir a operadora em `platform_operators` **antes** de usuários comuns abrirem `/onboarding` (`claim_platform_operator` se a mesa estiver vazia).
@@ -186,16 +188,44 @@ O PR #22 disparou Preview Vercel (Hobby) contra o Postgres de produção — Pre
 
 Migration: `20260826100000_g3_claim_platform_operator_lock.sql`. Teste: `tests/security/g3-claim-lock.test.ts`.
 
+### 6.4 G3b — apply do delta em Virginiapsi (2026-08-26)
+
+Autorização: “o passo mais importante agora” = **schema hospedado**, não promote Vercel, não merge da PR #21 na G0.
+
+Projeto: **Virginiapsi** `kgfcgxagixiynlcewept`. **Não** aplicado em Serenita. **Não** reexecutados `tenancy_core` … `settings_backup`.
+
+`schema_migrations` no hospedado (MCP `apply_migration`; versões geradas no apply, nomes abaixo). Cadeia Git local permanece `supabase/migrations/*.sql`.
+
+| version | name |
+|---|---|
+| `20260826021110` | `g3_hosted_patient_photo` |
+| `20260826021231` | `g3_hosted_g2_identity_enum` |
+| `20260826021417` | `g3_hosted_g2_identity_core` |
+| `20260826021458` | `g3_hosted_g2_identity_rls_clinical` |
+| `20260826021538` | `g3_hosted_g2_identity_rls_docs` |
+| `20260826021556` | `g3_hosted_claim_platform_operator_lock` |
+| `20260826021607` | `g3_hosted_seed_platform_operators` |
+
+Seed D5b: `insert … select distinct user_id` dos `organization_members` com `role = psychologist_admin` e `active`, `on conflict do nothing`. Contagem pós-seed: **2** operadores. Nenhum e-mail foi logado.
+
+Prova MCP (sem PII): `organization_role` inclui `psychologist`; `platform_operators` e `organization_invitations` existem; `patients.photo_path` existe; `can_access_patient_clinical` existe; `claim_platform_operator` contém `pg_advisory_xact_lock`; `bootstrap_organization` exige `is_platform_operator`; policies clínicas admin-wide (`*_admin_select`, `patient_clinical_profile_all_admin`) substituídas pelas `*_responsible` / `*_clinical`.
+
+Policies WhatsApp `consents_insert_administrative` / `consents_update_administrative` (redundantes após G2) foram dropadas no hospedado e no Git (`20260826110000_g3_drop_leftover_consent_policies.sql`).
+
 ### Gate G3a
 
 | Critério | Resultado |
 |---|---|
-| Inventário Git × prod sem apply | **PASS** (MCP 2026-08-26) |
+| Inventário Git × prod sem apply | **PASS** (MCP 2026-08-26, estado pré-G3b) |
 | `claim_platform_operator` com advisory lock | **PASS** no Git e no CI (`d37aa39`, [push 32917995966](https://github.com/claudiobr74/Virginiapsi/actions/runs/32917995966): lint, typecheck, unit, `test:security`, build, Playwright) |
 | Staging D2 criado | **EXTERNAL_BLOCKED** (plano **free**, 2/2 projetos; branch pago recusado) |
-| Apply em Virginiapsi produção | **não executado** |
+| Apply em Virginiapsi produção | **PASS** (G3b, §6.4) |
 | Apply em Serenita | **não executado** (proibido) |
 | G1 visual | **não iniciado** (D3 em aberto) |
+| Promote Vercel Production | **não executado** |
+| Merge PR #21 na G0 | **não executado** |
 
-**Veredito G3a: PASS no Git e no CI `foundation-gate` (`d37aa39` / `97f0c7d`). Sem recurso pago. Apply em produção não executado. D2 staging EXTERNAL_BLOCKED no plano free (2/2).**
+**Veredito G3a: PASS no Git e no CI `foundation-gate` (`d37aa39` / `97f0c7d`). Sem recurso pago. D2 staging EXTERNAL_BLOCKED no plano free (2/2).**
+
+**Veredito G3b: PASS no hospedado Virginiapsi (`kgfcgxagixiynlcewept`). Seed de 2 operadores. Sem Serenita. Sem Vercel Production. Sem merge da G2 na G0.**
 

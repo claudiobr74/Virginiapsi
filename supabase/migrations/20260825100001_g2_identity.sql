@@ -871,6 +871,8 @@ create policy ai_artifacts_clinical_update
 drop policy if exists consents_select_admin_or_administrative on public.consents;
 drop policy if exists consents_insert_admin on public.consents;
 drop policy if exists consents_update_admin on public.consents;
+drop policy if exists consents_insert_administrative on public.consents;
+drop policy if exists consents_update_administrative on public.consents;
 
 create policy consents_select_admin_or_administrative
   on public.consents
