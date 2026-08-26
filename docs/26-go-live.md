@@ -136,8 +136,9 @@ Atribuição de responsável: administradora e secretaria escolhem no cadastro; 
 | D1 B: `/signup` + convite pendente / `inviteUserByEmail` | **PASS** no Git |
 | lint + typecheck + unit + build + scan client bundle | **PASS** nesta VM |
 | `test:security` (Postgres + pgvector) | **EXTERNAL_BLOCKED** nesta VM (`127.0.0.1:5432` recusou; sem Docker/`pgvector`) |
-| CI `foundation-gate` | Repo **público**. `490aeff` **push PASS** (lint, typecheck, unit, RLS G2, build, scan, Playwright). `pull_request` **FAIL** (1/186): lista de exportações do stub compartilhado entre desktop/mobile fazia `getByRole("Baixar")` / `tesseli-export-v1` ambíguos. Teste de backup afirma incremento; `concurrency` cancela runs velhos no mesmo branch/PR. |
+| CI `foundation-gate` | **PASS** em `7bbfbf1` (push [32916619578](https://github.com/claudiobr74/Virginiapsi/actions/runs/32916619578) e pull_request [32916622857](https://github.com/claudiobr74/Virginiapsi/actions/runs/32916622857)): lint, typecheck, unit, `test:security` (RLS G2), build, scan e Playwright. Correções de smoke: anunciador `role=alert` do App Router; lista de exportações acumulada no stub desktop/mobile. |
+
 | E2E G2 (signup, onboarding aguarda convite, hub/sessão admin responsável, secretária sem clínico) | **PASS** desktop+mobile nesta VM |
 | Schema no projeto hospedado Virginiapsi | **não aplicado** (G3) |
 
-**Veredito G2: PASS no Git. CI do Actions voltou a executar após o repositório ficar público; a suíte RLS é a prova live.** Postgres local nesta VM continua **EXTERNAL_BLOCKED**. Não avançar G1 nem G3 sem autorização.
+**Veredito G2: PASS no Git e no CI `foundation-gate` (`7bbfbf1`, push + pull_request).** Postgres local nesta VM continua **EXTERNAL_BLOCKED**. Não avançar G1 nem G3 sem autorização.
