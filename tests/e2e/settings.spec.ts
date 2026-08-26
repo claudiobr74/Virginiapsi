@@ -64,10 +64,20 @@ test.describe("Configurações", () => {
     await expect(
       page.getByText(/recuperação de desastre é o backup do projeto Supabase/i),
     ).toBeVisible();
+
+    // O stub in-memory é compartilhado entre desktop e mobile: exportações
+    // anteriores continuam na lista. O teste afirma o incremento, não a unicidade.
+    const orgExports = page.getByRole("listitem").filter({
+      hasText: "Organização · tesseli-export-v1",
+    });
+    const before = await orgExports.count();
+
     await page.getByRole("button", { name: "Exportar organização" }).click();
     await expect(page.getByText("Exportação da organização pronta.")).toBeVisible();
-    await expect(page.getByText(/tesseli-export-v1/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Baixar" })).toBeVisible();
+    await expect(orgExports).toHaveCount(before + 1);
+    await expect(
+      orgExports.first().getByRole("button", { name: "Baixar", exact: true }),
+    ).toBeVisible();
   });
 
   test("eliminação exige a frase correta", async ({ page }) => {
