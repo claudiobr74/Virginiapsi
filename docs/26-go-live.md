@@ -1,0 +1,270 @@
+# Go-live — processo G0–G8 (multiusuário / multiclínicas)
+
+Este documento **não** é uma Fase 14 de `docs/08-implementation-phases.md`. As Fases 0–13 do produto já existem. Aqui fecha-se o que falta para o consultório digital **VirgíniaPsi** operar com **várias pessoas e várias clínicas**, sem misturar tenants.
+
+Arquitetura inalterada: um Next.js App Router + Supabase; RLS como autorização; login Google ≠ OAuth da Agenda; jobs `pg_cron`/`pg_net` (sem Vercel Cron); transcrição no dispositivo; prompts em `src/lib/ai/prompts/**` intocados.
+
+Trabalho só na fase autorizada. Gate: **PASS**, **FAIL** ou **EXTERNAL_BLOCKED**.
+
+## 1. Decisões travadas (2026-08-25)
+
+| Id | Decisão | Valor travado |
+|---|---|---|
+| D1 | Nascimento da conta | **B** — cadastro no app (e-mail confirmado e/ou Google) + convite que cria pessoa se o e-mail ainda não existir. Uma conta Auth, N memberships. |
+| D2 | Ambientes de dados | **Separados** — projeto Supabase de staging ≠ produção. Preview da Vercel não aponta ao Postgres de produção de N clínicas. Vault `tesseli_app_url` de produção nunca recebe URL de Preview. |
+| D3 | Escopo visual imediato | **Em aberto** — G1 (P0 dark / P1 timeline) não começa até haver autorização explícita. |
+| D4 | Isolamento clínico na mesma clínica | **D4b** — a psicóloga clínica só vê pacientes de quem é responsável (`responsible_psychologist_user_id`). Ver §1.1. |
+| D5 | Quem cria clínica | **D5b** — só a **plataforma** autoriza criar `organizations`. Signup (D1 B) não dispara `bootstrap_organization`. |
+
+### 1.1 Interpretação D4b (confirmada na G2)
+
+A administradora da clínica **não** vê dado clínico de pacientes de outras profissionais — só os seus, se for `responsible_psychologist_user_id`. Cadastro administrativo, agenda operacional e settings continuam dela.
+
+| Papel | Cadastro administrativo (`patients`) | Clínico (perfil, sessão, DPEP, transcrição, IA, docs clínicos) | Settings / equipe / criar clínica |
+|---|---|---|---|
+| `psychologist` | só pacientes em que é `responsible_psychologist_user_id` | só esses pacientes | não |
+| `psychologist_admin` | todos da clínica (agendar, atribuir responsável) | **só** se for a responsável | sim, **dentro** da clínica; **não** cria outra clínica sozinha (D5b) |
+| `secretary` | todos da clínica | nenhum | não |
+| Operadora da plataforma (`platform_operators`) | nenhum dado clínico de tenant | nenhum | allowlist de quem pode `bootstrap_organization` |
+
+Knowledge é biblioteca da clínica para `psychologist` + `psychologist_admin`, não prontuário. Secretaria continua sem payload clínico. Isolamento **entre** clínicas continua `organization_id` + membership; D4b é **dentro** da clínica.
+
+### 1.2 Interpretação D5b + D1 B
+
+- D1 B: a pessoa **existe** no Auth (cadastro ou convite com criação de usuário).
+- D5b: existir no Auth **não** cria consultório. `bootstrap_organization` exige `platform_operators` (implementado na G2 no Git; aplicação no hospedado é G3).
+- Convite **para uma clínica** é da `psychologist_admin` daquela org (equipe), não da plataforma.
+- Convite **para nascer uma clínica nova** é da operadora (plataforma).
+
+## 2. Fase G0 — inventário (esta entrega)
+
+**Objetivo:** ver os ambientes reais, registrar região, travar decisões. Sem cadastro, sem RLS D4b, sem allowlist.
+
+### 2.1 Evidência MCP (2026-08-25, após autenticação)
+
+MCP **Supabase** e **Vercel**: `namespaceStatus: ready`. Nenhum valor de chave/token foi gravado neste documento.
+
+#### Supabase org `Macedotech Org`
+
+| Projeto (nome dashboard) | Ref | Região | Postgres | Papel para este repo |
+|---|---|---|---|---|
+| **Virginiapsi** (ex-Tesseli) | `kgfcgxagixiynlcewept` | **us-east-1** | 17.6 | Schema deste repo (`organizations`, RLS). Candidato a **produção**. Ref **não** mudou com o rename. |
+| **Serenita** | `bsaoujbfanluzggjvhfa` | **us-west-2** | 17.6 | Schema **outro** (`clinics` / `clinic_id`). **Não** é staging deste Git. |
+
+URLs API (não são secrets): `https://kgfcgxagixiynlcewept.supabase.co` e `https://bsaoujbfanluzggjvhfa.supabase.co`.
+
+**Virginiapsi (`kgfcgxagixiynlcewept`):** tabelas públicas alinhadas ao Git (tenancy, pacientes, agenda, sessão, financeiro, WhatsApp, exports); RLS ligado. Há dados: 2 organizações, 2 membros, 89 appointments, 2 conexões Google. `list_migrations` do MCP voltou **vazio** (schema provavelmente aplicado via SQL Editor/bundle, não via `schema_migrations`). Coluna `patients.photo_path` **ausente**. Extensões instaladas: `pg_cron` 1.6.4, `supabase_vault`, `vector`, `pgcrypto`. **`pg_net` não instalado.** Jobs `cron.job` (nomes internos, inalterados): `tesseli-whatsapp-reminders` (`*/5`) e `tesseli-audio-retention` (`0 3 * * *`). `vault.secrets`: **nenhum nome** (`tesseli_app_url` / `tesseli_cron_secret` ausentes) — os jobs existem mas a função de invoke retorna cedo sem URL/secret.
+
+**Serenita (`bsaoujbfanluzggjvhfa`):** 13 migrations próprias (`clinics_and_profiles` … `patient_treatment_plan`), **não** as 13 de `supabase/migrations/` deste repositório. `pg_cron` / `pg_net` / `vector` não instalados. Vault vazio. **Não usar o projeto Serenita como D2 staging** — modelo `clinic_id` viola `docs/03` (`organization_id`).
+
+#### Vercel team `claudiobr74-9668s-projects` (hobby)
+
+Um projeto: **virginiapsi** (`prj_20xq4mI7wu8KqGA5FfMtM6Mu3u0O`; mesmo id de quando se chamava tesseli). Ligação Git no MCP ainda mostra `org/repo: claudiobr74/Tesseli` — o GitHub já redireciona para `claudiobr74/Virginiapsi`; se o deploy quebrar, reconectar o Git no dashboard. `framework` no dashboard ainda **`null`**. `live: false`. Domínios gerados **ainda** usam prefixo `tesseli-` (`serena-psi-beta.vercel.app`, `tesseli-claudiobr74-9668s-projects.vercel.app`, alias Fase 13). Preview VirgíniaPsi (SHA `82b2162`, PR 19): `tesseli-git-cursor-virginiaps-b1a1d1-claudiobr74-9668s-projects.vercel.app`.
+
+#### GitHub
+
+Repositório canônico: **https://github.com/claudiobr74/Virginiapsi** (privado). URLs antigas `SerenaPsi` e `Tesseli` redirecionam para cá. `origin` local deste agente ainda aponta o nome SerenaPsi (redirect). Homepage: `https://serena-psi-beta.vercel.app`.
+
+Código interno (pacote `tesseli`, cookie `tesseli-active-organization`, jobs SQL `tesseli-*`, prompts) **não** foi renomeado — só os nomes de projeto nos três dashboards.
+
+### 2.2 Evidência HTTP (antes do MCP)
+
+| Item | Resultado | Evidência |
+|---|---|---|
+| Decisões D1/D2/D4/D5 | **PASS** | §1 deste documento |
+| GitHub | **PASS** (identidade) | `https://github.com/claudiobr74/Virginiapsi` (privado); homepage `https://serena-psi-beta.vercel.app` |
+| Alias `serena-psi-beta` `/login` | **PASS** HTTP; **FAIL** recorte | 200, headers `nosniff`/`DENY`; title **Entrar — Tesseli**; sem VirgíniaPsi |
+| CLI `supabase` neste agente | **EXTERNAL_BLOCKED** | CLI ausente; inventário feito via MCP |
+| Auth Site URL / providers Google | **EXTERNAL_BLOCKED** | MCP não expõe Authentication → URL Configuration |
+| Postgres local desta VM | **EXTERNAL_BLOCKED** | nada em `:5432` |
+
+Nenhum secret foi lido nem gravado.
+
+### 2.3 O que a G0 ainda não fechou (ops, não código)
+
+1. **D2:** criar (ou designar) um projeto Supabase de **staging com o mesmo schema** (organização/`organization_id`) em região documentada — o projeto Serenita **não** serve.
+2. ~~Aplicar `photo_path` no Virginiapsi hospedado e passar a usar `schema_migrations` rastreadas~~ — **feito na G3b** (§6.4).
+3. Instalar `pg_net` no Virginiapsi se os jobs HTTP forem usados; provisionar Vault `tesseli_app_url` / `tesseli_cron_secret` (G4). Nomes Vault internos podem permanecer `tesseli_*` até G4 decidir.
+4. Site URL do Auth e redirects Google (G4). Conferir Redirect URLs se o GitHub/Vercel mudou de host.
+5. D3 (P0/P1 visual) e G1/G2.
+
+## 3. Mapa das fases seguintes (não iniciar)
+
+| Fase | Conteúdo | Bloqueio atual |
+|---|---|---|
+| G1 | UI P0 dark / P1 timeline | D3 em aberto |
+| G2 | Cadastro, convite que cria usuário, role `psychologist`, allowlist D5b, D4b por responsável | **PASS** no Git (PR #21); delta no hospedado na G3b |
+| G3 | Schema hospedado staging → prod (inclui RLS D4b + convites + plataforma) | **G3b PASS** no Virginiapsi (§6.4). Staging D2 **EXTERNAL_BLOCKED** (plano free 2/2). Sem merge na G0 / sem Vercel Production |
+| G4 | Auth/Vault/cron **por ambiente** | **G4a em curso** — Production Vercel da pilha G2/G3 (sem Preview). Vault/`pg_net` = G4b. Site URL Auth = dashboard (MCP cego) |
+| G5 | Ataque entre clínicas **e** entre profissionais da mesma clínica (D4b) | Staging real |
+| G6 | Produção com ≥2 clínicas e ≥2 profissionais | G3–G5 |
+| G7 | PITR em staging + LGPD de N controladoras | G0 região; parecer humano |
+| G8 | Reexecução de `docs/25` | G5–G6 |
+
+## 4. Gate G0
+
+| Critério | Resultado |
+|---|---|
+| Decisões D1=B, D2=separado, D4b, D5b escritas e sem implementação antecipada | **PASS** |
+| MCP Supabase + Vercel autenticados e usáveis | **PASS** |
+| Inventário HTTP público sem secrets | **PASS** |
+| Projeto Virginiapsi (Supabase) identificado + região **us-east-1** | **PASS** (rename 2026-08-25; ref inalterado) |
+| D2 staging ≠ prod (mesmo schema) | **FAIL** — segundo projeto (**Serenita**, us-west-2) tem **outro** modelo |
+| Schema no hospedado (tabelas/RLS) | **PASS** (presente); histórico `list_migrations` **vazio** |
+| `photo_path` / Vault jobs / `pg_net` | **FAIL** no projeto Virginiapsi |
+| Auth Site URL | **EXTERNAL_BLOCKED** (fora do MCP) |
+| Código de cadastro / RLS D4b / allowlist | **não executado** (fora da G0) |
+
+**Veredito G0: FAIL parcial / EXTERNAL_BLOCKED residual.** MCPs ok; produção **Virginiapsi** visível em us-east-1; **não** há staging com este schema; jobs cron sem Vault/`pg_net`; Auth dashboard ainda cego. G3 não aplica schema no Serenita.
+
+Data da evidência MCP: 2026-08-25.
+
+## 5. Fase G2 — identidade (autorizada 2026-08-25)
+
+Implementação no Git: cadastro (`/signup`), convite que cria usuário Auth quando o service-role existe (senão convite pendente + `accept_pending_invitations` no login), role `psychologist`, `platform_operators` + `claim_platform_operator` / `bootstrap_organization` só para operadora, D4b por `responsible_psychologist_user_id`.
+
+**Não aplicar** as migrations `20260825100000_g2_identity_enum.sql` e `20260825100001_g2_identity.sql` no projeto hospedado nesta fase — isso é G3.
+
+Atribuição de responsável: administradora e secretaria escolhem no cadastro; psicóloga clínica que cadastra fica responsável automaticamente.
+
+### Gate G2 (esta entrega)
+
+| Critério | Resultado |
+|---|---|
+| D4b: admin não lê clínico alheio; só lê se for responsável | **PASS** no Git (`can_access_patient_clinical`; `g2-identity`: admin cega a perfil/sessão/DPEP/notas/docs/transcrição/`ai_runs` já existentes; psicóloga só os seus inclusive sessão; isolamento entre clínicas com ator só da org B) |
+| D5b: `bootstrap_organization` exige `platform_operators` | **PASS** no Git (outsider e `psychologist_admin` da clínica **sem** linha em `platform_operators`) |
+| D1 B: `/signup` + convite pendente / `inviteUserByEmail` | **PASS** no Git |
+| lint + typecheck + unit + build + scan client bundle | **PASS** nesta VM |
+| `test:security` (Postgres + pgvector) | **EXTERNAL_BLOCKED** nesta VM (`127.0.0.1:5432` recusou; sem Docker/`pgvector`) |
+| CI `foundation-gate` | **PASS** em `7bbfbf1` (push [32916619578](https://github.com/claudiobr74/Virginiapsi/actions/runs/32916619578) e pull_request [32916622857](https://github.com/claudiobr74/Virginiapsi/actions/runs/32916622857)): lint, typecheck, unit, `test:security` (RLS G2), build, scan e Playwright. Correções de smoke: anunciador `role=alert` do App Router; lista de exportações acumulada no stub desktop/mobile. |
+
+| E2E G2 (signup, onboarding aguarda convite, hub/sessão admin responsável, secretária sem clínico) | **PASS** desktop+mobile nesta VM |
+| Schema no projeto hospedado Virginiapsi | **aplicado** 2026-08-26 (G3b, ver §6.4) |
+
+**Veredito G2: PASS no Git e no CI `foundation-gate` (`7bbfbf1`, push + pull_request).** Postgres local nesta VM continua **EXTERNAL_BLOCKED**. G3a (inventário + trava do claim) e G3b (apply do delta em `kgfcgxagixiynlcewept`) em 2026-08-26. G1 e promote Vercel Production continuam à parte.
+
+## 6. Fase G3a — inventário e trava do claim
+
+Escolha desta entrega: o caminho crítico depois da G2 no Git é **schema hospedado**, não G1 (D3 ainda em aberto). Recorte **G3a** = inventário Git × produção + serialização de `claim_platform_operator`. Apply do delta ficou na **G3b** (§6.4). **Não** aplicar em Serenita. **Não** criar projeto/branch pago nesta entrega.
+
+### 6.1 Inventário 2026-08-26 (MCP, sem secrets)
+
+Projetos na org: **Virginiapsi** `kgfcgxagixiynlcewept` (us-east-1, produção deste repo) e **Serenita** `bsaoujbfanluzggjvhfa` (us-west-2, schema `clinic_id` — inviável para D2).
+
+Tabela abaixo é o estado **antes** da G3b. Pós-apply: §6.4.
+
+Virginiapsi (`list_tables` / `execute_sql` / `list_migrations` / `list_branches`):
+
+| Item | Produção | Git HEAD |
+|---|---|---|
+| `schema_migrations` | **vazio** (schema via SQL Editor/bundle) | 16 arquivos em `supabase/migrations/` |
+| `organization_role` | `psychologist_admin`, `secretary` | + `psychologist` |
+| `platform_operators` / `organization_invitations` | **ausentes** | G2 |
+| `patients.responsible_psychologist_user_id` | presente (Fase 3) | presente |
+| `patients.photo_path` | **ausente** | `20260821194500_patient_photo.sql` |
+| `logical_exports` | presente (2 orgs, 2 membros, 89 appointments, 2 conexões Google, 0 patients) | presente |
+| Extensões | `pg_cron`, `supabase_vault`, `vector` | + `pg_net` na G4 |
+| Persistent branches | nenhuma | — |
+
+Delta **seguro** para a produção (quando houver autorização de apply): só o que falta — `patient_photo` + G2 enum/identity + lock do claim. **Não** reexecutar `tenancy_core` … `settings_backup`. A prova da cadeia Git é o `test:security` do CI (Postgres+pgvector), sem projeto Supabase extra.
+
+### 6.2 D2 staging — sem recurso pago
+
+Org **Macedotech** está no plano **free**. O número US$ 0,01344/h veio do MCP `get_cost(type=branch)`, não do app Tesseli. Persistent branch **não é caminho** neste plano (saindo do free). **Não criar.**
+
+Terceiro projeto: `get_cost(type=project)` devolveu US$ 0/mês, mas a org já tem Virginiapsi + Serenita (teto de 2 no free). Criar um terceiro provavelmente exige upgrade. **Não criar agora.**
+
+Serenita continua inviável (`clinic_id`).
+
+G3a **não depende** de staging hospedado. Apply em `kgfcgxagixiynlcewept` foi autorizado na G3b (2026-08-26). D2 staging continua EXTERNAL_BLOCKED no plano free.
+
+O PR #22 disparou Preview Vercel (Hobby) contra o Postgres de produção — Preview e Production compartilham as mesmas chaves (`docs/09`). Isso viola D2 e gasta build. `vercel.json` agora desliga deploy automático em `cursor/go-live-g0-*` / `g2-*` / `g3-*`; `scripts/vercel-ignore.mjs` ignora o build de Preview nesses branches.
+
+### 6.3 Seed D5b no apply
+
+1. Aplicar migrations só com autorização (prod: delta §6.1). Sem projeto extra no plano free.
+2. Inserir a operadora em `platform_operators` **antes** de usuários comuns abrirem `/onboarding` (`claim_platform_operator` se a mesa estiver vazia).
+3. A G3a serializa dois claims concorrentes com `pg_advisory_xact_lock`. O seed manual continua o caminho preferido em produção.
+
+Migration: `20260826100000_g3_claim_platform_operator_lock.sql`. Teste: `tests/security/g3-claim-lock.test.ts`.
+
+### 6.4 G3b — apply do delta em Virginiapsi (2026-08-26)
+
+Autorização: “o passo mais importante agora” = **schema hospedado**, não promote Vercel, não merge da PR #21 na G0.
+
+Projeto: **Virginiapsi** `kgfcgxagixiynlcewept`. **Não** aplicado em Serenita. **Não** reexecutados `tenancy_core` … `settings_backup`.
+
+`schema_migrations` no hospedado (MCP `apply_migration`; versões geradas no apply, nomes abaixo). Cadeia Git local permanece `supabase/migrations/*.sql`.
+
+| version | name |
+|---|---|
+| `20260826021110` | `g3_hosted_patient_photo` |
+| `20260826021231` | `g3_hosted_g2_identity_enum` |
+| `20260826021417` | `g3_hosted_g2_identity_core` |
+| `20260826021458` | `g3_hosted_g2_identity_rls_clinical` |
+| `20260826021538` | `g3_hosted_g2_identity_rls_docs` |
+| `20260826021556` | `g3_hosted_claim_platform_operator_lock` |
+| `20260826021607` | `g3_hosted_seed_platform_operators` |
+| `20260826022139` | `g3_hosted_drop_leftover_consent_policies` |
+
+Seed D5b: `insert … select distinct user_id` dos `organization_members` com `role = psychologist_admin` e `active`, `on conflict do nothing`. Contagem pós-seed: **2** operadores. Nenhum e-mail foi logado.
+
+Prova MCP (sem PII): `organization_role` inclui `psychologist`; `platform_operators` e `organization_invitations` existem; `patients.photo_path` existe; `can_access_patient_clinical` existe; `claim_platform_operator` contém `pg_advisory_xact_lock`; `bootstrap_organization` exige `is_platform_operator`; policies clínicas admin-wide (`*_admin_select`, `patient_clinical_profile_all_admin`) substituídas pelas `*_responsible` / `*_clinical`.
+
+Policies WhatsApp `consents_insert_administrative` / `consents_update_administrative` (redundantes após G2) foram dropadas no hospedado (`g3_hosted_g2_identity_rls_docs` e de novo em `g3_hosted_drop_leftover_consent_policies` para constar em `schema_migrations`) e no Git (`20260826110000_g3_drop_leftover_consent_policies.sql`).
+
+### Gate G3a
+
+| Critério | Resultado |
+|---|---|
+| Inventário Git × prod sem apply | **PASS** (MCP 2026-08-26, estado pré-G3b) |
+| `claim_platform_operator` com advisory lock | **PASS** no Git e no CI (`d37aa39`, [push 32917995966](https://github.com/claudiobr74/Virginiapsi/actions/runs/32917995966): lint, typecheck, unit, `test:security`, build, Playwright) |
+| Staging D2 criado | **EXTERNAL_BLOCKED** (plano **free**, 2/2 projetos; branch pago recusado) |
+| Apply em Virginiapsi produção | **PASS** (G3b, §6.4) |
+| Apply em Serenita | **não executado** (proibido) |
+| G1 visual | **não iniciado** (D3 em aberto) |
+| Promote Vercel Production | **não executado** |
+| Merge PR #21 na G0 | **não executado** |
+
+**Veredito G3a: PASS no Git e no CI `foundation-gate` (`d37aa39` / `97f0c7d`). Sem recurso pago. D2 staging EXTERNAL_BLOCKED no plano free (2/2).**
+
+**Veredito G3b: PASS no hospedado Virginiapsi (`kgfcgxagixiynlcewept`). Seed de 2 operadores. Sem Serenita. Sem Vercel Production (G4a). Sem merge da G2 na G0.**
+
+## 7. Fase G4a — Production Vercel (sem Preview, sem G1)
+
+Recorte: o schema G2/G3 já está no Virginiapsi. O alias `serena-psi-beta.vercel.app` ainda serve o Tesseli antigo (`main` = `9136183`). **G4a** = apontar **Production** para esta pilha. **Não** G1 (D3). **Não** G4b (`pg_net` / Vault / lembretes). **Não** Preview (D2: as chaves do projeto são as de produção).
+
+Caminho Git: branch `cursor/go-live-g4-production-dcad` (G2 HEAD + merge de `main`) → PR para **`main`**. O `vercel.json` desliga git deploy automático em `cursor/go-live-g4-*`; `scripts/vercel-ignore.mjs` ignora Preview G4. Production (`VERCEL_ENV=production`) no `main` continua a construir.
+
+`framework` no dashboard do projeto ainda pode estar `null`; `vercel.json` força `nextjs` (já provado nos Previews READY).
+
+### 7.1 Auth (dashboard — MCP não altera)
+
+Depois do alias apontar para esta pilha, no Supabase Virginiapsi (`kgfcgxagixiynlcewept`):
+
+- Authentication → URL Configuration → **Site URL** = `https://serena-psi-beta.vercel.app`
+- Redirect URLs: `https://serena-psi-beta.vercel.app/auth/callback` e `http://localhost:3000/auth/callback`
+- Login Google (Auth): no Google Cloud, Authorized redirect URI = `https://kgfcgxagixiynlcewept.supabase.co/auth/v1/callback` (não é o OAuth da Agenda)
+- Agenda: `GOOGLE_OAUTH_REDIRECT_URI` = `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback`
+
+Sem isso, o Google devolve `/?code=` em localhost.
+
+### 7.2 Fora desta entrega
+
+- G4b: `pg_net` + Vault `tesseli_app_url` / `tesseli_cron_secret` (jobs WhatsApp/retenção)
+- Conferir no dashboard Vercel (sem logar valores) que `NEXT_PUBLIC_SUPABASE_URL` é `https://kgfcgxagixiynlcewept.supabase.co` e **não** o projeto Serenita
+- G1 visual; merge da PR #21 na G0 (esta entrega vai a `main`)
+
+### Gate G4a
+
+| Critério | Resultado |
+|---|---|
+| Branch G4a a partir da G2 + merge de `main` | **PASS** no Git |
+| Preview G4 ignorado (D2) | **PASS** no Git (`vercel-ignore` + `git.deploymentEnabled`) |
+| Production no `main` (alias `serena-psi-beta`) | a registrar após o merge |
+| Site URL Auth | **EXTERNAL_BLOCKED** (dashboard) |
+| G4b Vault/`pg_net` | **não executado** |
+| G1 visual | **não iniciado** |
+
+
+

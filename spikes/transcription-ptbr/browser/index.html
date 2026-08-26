@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Spike — transcrição local no navegador</title>
+  </head>
+  <body>
+    <pre id="log">carregando…</pre>
+    <script type="module">
+      // Este arquivo existe para provar, em navegador real, a afirmação central
+      // de docs/22: no caminho padrão o áudio NÃO sai do dispositivo. O
+      // browser-check.mjs grava todas as requisições de rede durante a
+      // execução e falha se alguma carregar áudio.
+      import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.6";
+
+      const log = (line) => {
+        document.getElementById("log").textContent += `\n${line}`;
+        console.log(line);
+      };
+
+      function decodeWav(buffer) {
+        const view = new DataView(buffer);
+        let offset = 12;
+        let dataStart = -1;
+        let dataSize = 0;
+        while (offset < view.byteLength - 8) {
+          const id = String.fromCharCode(
+            view.getUint8(offset), view.getUint8(offset + 1),
+            view.getUint8(offset + 2), view.getUint8(offset + 3),
+          );
+          const size = view.getUint32(offset + 4, true);
+          if (id === "data") { dataStart = offset + 8; dataSize = size; break; }
+          offset += 8 + size + (size % 2);
+        }
+        const samples = new Float32Array(dataSize / 2);
+        for (let i = 0; i < samples.length; i += 1) {
+          samples[i] = view.getInt16(dataStart + i * 2, true) / 32768;
+        }
+        return samples;
+      }
+
+      /**
+       * `navigator.gpu` existir NÃO significa WebGPU utilizável: em máquina sem
+       * GPU o objeto existe e requestAdapter() devolve null. A detecção correta
+       * — e a que a Fase 6 deve usar — é pedir o adapter de fato.
+       */
+      async function pickDevice() {
+        try {
+          const adapter = await navigator.gpu?.requestAdapter();
+          return adapter ? "webgpu" : "wasm";
+        } catch {
+          return "wasm";
+        }
+      }
+
+      window.spike = async ({ model, wav }) => {
+        env.allowLocalModels = false;
+        const device = await pickDevice();
+        log(`backend: ${device}`);
+
+        const audio = decodeWav(await (await fetch(wav)).arrayBuffer());
+        const audioSeconds = audio.length / 16000;
+        log(`áudio: ${audioSeconds.toFixed(1)}s`);
+
+        const loadStart = performance.now();
+        const transcriber = await pipeline("automatic-speech-recognition", model, {
+          dtype: { encoder_model: "fp32", decoder_model_merged: "q4" },
+          device,
+        });
+        const loadSeconds = (performance.now() - loadStart) / 1000;
+        log(`modelo carregado em ${loadSeconds.toFixed(1)}s`);
+
+        const start = performance.now();
+        const output = await transcriber(audio, { language: "pt", task: "transcribe", chunk_length_s: 30 });
+        const processSeconds = (performance.now() - start) / 1000;
+
+        log(`transcrito em ${processSeconds.toFixed(1)}s (${(audioSeconds / processSeconds).toFixed(2)}x tempo real)`);
+        log(`texto: ${output.text}`);
+
+        return {
+          text: output.text,
+          audioSeconds,
+          processSeconds,
+          realtimeFactor: audioSeconds / processSeconds,
+          loadSeconds,
+          device,
+        };
+      };
+
+      log("pronto");
+    </script>
+  </body>
+</html>

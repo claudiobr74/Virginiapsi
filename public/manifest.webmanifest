@@ -1,0 +1,19 @@
+{
+  "name": "VirgíniaPsi",
+  "short_name": "VirgíniaPsi",
+  "description": "Gestão de consultório de psicologia",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbf9f6",
+  "theme_color": "#3a4f43",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/brand/virginia-psi-mark.png",
+      "sizes": "701x523",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

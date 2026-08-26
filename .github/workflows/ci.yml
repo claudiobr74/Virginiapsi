@@ -1,0 +1,87 @@
+name: foundation-gate
+
+on:
+  # Feature branches already open a PR; running push+PR doubled GitHub
+  # Actions minutes (that exhausted the private-repo quota). `main` still
+  # gets a push gate; cursor/** is covered by pull_request only.
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Must match playwright.config.ts (auth stub). NEXT_PUBLIC_* is inlined
+      # at `next build`; a different URL here makes `pnpm start` hang on login.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54331
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_e2e_stub
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      AUTH_STUB_PORT: "54331"
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+      # Self-issued signing secret (never a third-party credential) — safe to
+      # fix in CI, unlike GOOGLE_CLIENT_ID/GEMINI_API_KEY/etc., which come
+      # from the Cursor Dashboard secret store when real integration tests
+      # need them.
+      SESSION_CAPTURE_SECRET: ci-session-capture-secret-placeholder
+    services:
+      postgres:
+        # pgvector/pgvector:pg16 = official postgres:16 + pgvector
+        # pre-installed (Fase 8: knowledge_embeddings). A real Supabase
+        # project ships pgvector by default; the vanilla postgres:16 image
+        # does not, so the security harness needs this image instead.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests and architecture scan
+        run: pnpm test
+
+      - name: Security suite (migrations + RLS against PostgreSQL)
+        run: pnpm test:security
+
+      - name: Production build
+        run: pnpm build
+
+      - name: Scan client bundle for server-only secrets
+        run: pnpm scan:client-bundle
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright smoke
+        run: pnpm test:e2e
+        env:
+          CI: true

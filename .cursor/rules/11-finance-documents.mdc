@@ -1,0 +1,16 @@
+---
+description: Finance and documents correctness, versioning and storage rules.
+globs: "src/features/finance/**/*,src/features/documents/**/*"
+alwaysApply: false
+---
+# Finance and documents
+
+- Monetary values use decimal/numeric semantics, never JS floating-point as source of truth.
+- Payments, charges and session-to-charge generation are idempotent.
+- Cancellation/voiding should preserve audit history; avoid destructive deletes for financial facts.
+- Final documents are versioned and immutable; new edits create versions.
+- PDFs/attachments live in private Supabase Storage with sha256 metadata.
+- Signed download links are short-lived.
+
+- Secretary finance permissions are enforced server-side/RLS from `practice_settings.secretary_finance_access`: none=no access, view=SELECT only, manage=SELECT/INSERT/UPDATE operational.
+- Hard DELETE of financial facts is denied by default for all roles; use void/cancel/reversal states with audit.

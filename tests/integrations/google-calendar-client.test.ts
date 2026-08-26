@@ -1,0 +1,115 @@
+import { describe, expect, it } from "vitest";
+import {
+  GoogleApiError,
+  GoogleCalendarClient,
+} from "@/lib/integrations/google/calendar-client";
+import { mockFetch } from "./support/mock-fetch";
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status });
+}
+
+describe("GoogleCalendarClient", () => {
+  it("lista calendários com o Bearer token correto", async () => {
+    const fetchImpl = mockFetch(async () =>
+      jsonResponse({ items: [{ id: "primary", summary: "Consultório" }] }),
+    );
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+
+    const calendars = await client.listCalendars();
+
+    expect(calendars).toEqual([{ id: "primary", summary: "Consultório" }]);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe(
+      "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+    );
+    expect((init?.headers as Record<string, string>).Authorization).toBe(
+      "Bearer token-abc",
+    );
+  });
+
+  it("lista eventos com timeMin/timeMax/singleEvents/orderBy", async () => {
+    const fetchImpl = mockFetch(async () => jsonResponse({ items: [] }));
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+
+    await client.listEvents("primary", {
+      timeMin: "2026-01-01T00:00:00.000Z",
+      timeMax: "2026-01-31T00:00:00.000Z",
+    });
+
+    const [url] = fetchImpl.mock.calls[0];
+    const parsed = new URL(url);
+    expect(parsed.pathname).toBe("/calendar/v3/calendars/primary/events");
+    expect(parsed.searchParams.get("timeMin")).toBe("2026-01-01T00:00:00.000Z");
+    expect(parsed.searchParams.get("timeMax")).toBe("2026-01-31T00:00:00.000Z");
+    expect(parsed.searchParams.get("singleEvents")).toBe("true");
+    expect(parsed.searchParams.get("orderBy")).toBe("startTime");
+  });
+
+  it("insertEvent envia conferenceDataVersion=1 quando solicitado", async () => {
+    const fetchImpl = mockFetch(async () =>
+      jsonResponse({ id: "evt-1", summary: "Consulta" }),
+    );
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+
+    await client.insertEvent(
+      "primary",
+      { summary: "Consulta" },
+      { conferenceDataVersion: 1 },
+    );
+
+    const [url, init] = fetchImpl.mock.calls[0];
+    const parsed = new URL(url);
+    expect(init?.method).toBe("POST");
+    expect(parsed.searchParams.get("conferenceDataVersion")).toBe("1");
+    expect(JSON.parse(init?.body as string)).toEqual({ summary: "Consulta" });
+  });
+
+  it("patchEvent usa PATCH no evento correto", async () => {
+    const fetchImpl = mockFetch(async () => jsonResponse({ id: "evt-1" }));
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+
+    await client.patchEvent("primary", "evt-1", { summary: "Atualizado" });
+
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe(
+      "https://www.googleapis.com/calendar/v3/calendars/primary/events/evt-1",
+    );
+    expect(init?.method).toBe("PATCH");
+  });
+
+  it("deleteEvent usa DELETE e não espera corpo", async () => {
+    const fetchImpl = mockFetch(async () => new Response(null, { status: 204 }));
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+
+    await expect(client.deleteEvent("primary", "evt-1")).resolves.toBeUndefined();
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init?.method).toBe("DELETE");
+  });
+
+  it("lança GoogleApiError com status e corpo quando a API responde com erro", async () => {
+    const fetchImpl = mockFetch(async () =>
+      jsonResponse({ error: { message: "Not Found" } }, 404),
+    );
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+
+    await expect(client.getEvent("primary", "missing")).rejects.toMatchObject({
+      status: 404,
+    });
+    await expect(client.getEvent("primary", "missing")).rejects.toBeInstanceOf(
+      GoogleApiError,
+    );
+  });
+
+  it("codifica calendarId/eventId na URL (ex.: e-mail como calendarId)", async () => {
+    const fetchImpl = mockFetch(async () => jsonResponse({ id: "evt-1" }));
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+
+    await client.getEvent("consultorio@example.com", "evt/with/slash");
+
+    const [url] = fetchImpl.mock.calls[0];
+    expect(url).toBe(
+      "https://www.googleapis.com/calendar/v3/calendars/consultorio%40example.com/events/evt%2Fwith%2Fslash",
+    );
+  });
+});

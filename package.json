@@ -1,0 +1,77 @@
+{
+  "name": "tesseli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tesseli — gestão de consultório de psicologia",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "postinstall": "node scripts/copy-onnx-wasm.mjs",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:security": "vitest run --config vitest.security.config.ts",
+    "test:e2e": "playwright test",
+    "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
+    "scan:architecture": "vitest run tests/architecture",
+    "scan:client-bundle": "node scripts/check-client-bundle-secrets.mjs",
+    "gate": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:security && pnpm build && pnpm scan:client-bundle"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.9.1",
+    "@huggingface/transformers": "^4.2.0",
+    "@radix-ui/react-alert-dialog": "^1.1.4",
+    "@radix-ui/react-dialog": "^1.1.4",
+    "@radix-ui/react-label": "^2.1.1",
+    "@radix-ui/react-slot": "^1.1.1",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.57.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.469.0",
+    "next": "16.3.1",
+    "next-themes": "^0.4.4",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^2.4.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-hook-form": "^7.54.2",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^2.6.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^20",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.1",
+    "jsdom": "^25.0.1",
+    "pg": "^8.23.0",
+    "supabase": "^2.40.7",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^3.2.4"
+  },
+  "packageManager": "pnpm@10.33.3",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "supabase",
+      "unrs-resolver"
+    ]
+  }
+}

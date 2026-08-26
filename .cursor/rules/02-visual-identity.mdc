@@ -1,0 +1,26 @@
+---
+description: Applies whenever editing UI, CSS, components, pages, layouts or UX.
+globs: "**/*.{tsx,ts,css}"
+alwaysApply: false
+---
+# Tesseli visual fidelity
+
+Before UI work, read `docs/02-visual-spec.md`.
+
+Non-negotiable:
+- warm bone background, sage primary, elegant low-noise surfaces;
+- Inter UI, Playfair Display serif/italic headings, JetBrains Mono for time/codes;
+- rounded-3xl cards, subtle borders/shadows;
+- 256px desktop sidebar; mobile top bar + bottom navigation;
+- microanimations ~200–300ms, subtle only;
+- dark mode must feel intentionally designed, not inverted by accident;
+- do not default to generic shadcn/blue SaaS aesthetics;
+- keep few-click guided workflows.
+
+Componente canônico obrigatório (`docs/02-visual-spec.md` §Biblioteca de Componentes Canônica): `PageContainer`, `PageHeader`, `SectionHeader`, `Modal`, `Drawer`, `EmptyState`, `LoadingState`, `SearchField`, `ConfirmDialog`, `StatusBadge`, `Button`. Nenhuma tela reimplementa modal, drawer, estado vazio, estado de carregamento, busca ou confirmação com Tailwind solto — nem quando o resultado visual parece idêntico. Extensão de comportamento é prop nova no primitivo, nunca cópia local.
+
+Official brand asset:
+- `public/brand/virginia-psi-mark.png` is the immutable symbol (Psi in teal/lavender leaves).
+- The VirgíniaPsi wordmark is composed in UI (`BrandWordmark`); do not bake a second wordmark into the PNG.
+- Render that exact PNG. Never redraw, reinterpret, vectorize, crop, recolor, or generate dark-mode variants.
+- Resize only the display container and preserve aspect ratio with `object-fit: contain`.

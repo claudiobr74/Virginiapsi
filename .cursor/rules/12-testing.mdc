@@ -1,0 +1,17 @@
+---
+description: Testing and verification requirements; always apply.
+alwaysApply: true
+---
+# Verification
+
+- Never claim completion without running relevant checks.
+- Base gate: lint + typecheck + unit/integration + production build.
+- Security features require adversarial integration tests through real code paths.
+- UI features require Playwright desktop/mobile for critical flows.
+- A mocked `requireAuth` cannot prove auth security.
+- No unsigned JWT helper.
+- Report results as PASS, FAIL or EXTERNAL_BLOCKED with evidence and exact missing external configuration.
+- Use verifier subagent after implementation before declaring a phase complete.
+
+- Add contract regression that Session/Core/Supervisor safety severity enums are identical (`none|attention|urgent_review`).
+- Test public_code concurrency, secretary finance none/view/manage RLS, capture-grant/fallback-consent denial and no-audio-egress on the local transcription path, Meet pending/success/failure, and overlapping reminder jobs.

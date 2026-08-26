@@ -1,0 +1,250 @@
+"use client";
+
+import { CheckCircle2, Copy, MessageCircle, Video } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  confirmAppointmentFromMyDayAction,
+  markNoShowFromMyDayAction,
+} from "@/features/dashboard/actions";
+import {
+  buildWhatsAppReminderUrl,
+  type MyDayAppointment,
+} from "@/features/dashboard/contracts";
+import { meetHostLabel } from "@/features/dashboard/stats";
+import { StartSessionButton } from "@/features/sessions/components/start-session-button";
+import { cn } from "@/lib/utils/cn";
+
+export function SessionActions({
+  appointment,
+  timeZone,
+  canStartSession,
+  tone = "default",
+  layout = "full",
+}: {
+  appointment: MyDayAppointment;
+  timeZone: string;
+  canStartSession?: boolean;
+  tone?: "default" | "onPrimary";
+  layout?: "full" | "hero" | "timeline";
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [noShowOpen, setNoShowOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const whatsappUrl =
+    appointment.patientPhone && appointment.origin === "TESSELI"
+      ? buildWhatsAppReminderUrl(
+          appointment.patientPhone,
+          appointment.patientPreferredName ?? "",
+          appointment.startsAt,
+          timeZone,
+        )
+      : null;
+  const meetReady = appointment.meetStatus === "success" && Boolean(appointment.meetUrl);
+  const canConfirm =
+    appointment.origin === "TESSELI" &&
+    appointment.status !== "confirmed" &&
+    appointment.status !== "cancelled" &&
+    appointment.status !== "completed" &&
+    appointment.status !== "no_show";
+  const canMarkNoShow =
+    appointment.origin === "TESSELI" &&
+    appointment.status !== "cancelled" &&
+    appointment.status !== "completed" &&
+    appointment.status !== "no_show";
+  const onPrimary = tone === "onPrimary";
+  const ghostClass = onPrimary
+    ? "border border-white/30 bg-transparent text-white hover:bg-white/10"
+    : undefined;
+  const meetLabel = meetHostLabel(appointment.meetUrl);
+
+  function run(action: () => Promise<{ error?: string }>) {
+    setError(null);
+    startTransition(async () => {
+      const result = await action();
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  async function copyMeet() {
+    if (!appointment.meetUrl) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(appointment.meetUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  const hasTimelineActions = Boolean(
+    whatsappUrl || canConfirm || (canStartSession && appointment.patientId),
+  );
+
+  if (layout === "timeline") {
+    if (!hasTimelineActions && !error) {
+      return null;
+    }
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {error ? (
+          <p role="alert" className="w-full text-xs text-failed">
+            {error}
+          </p>
+        ) : null}
+        {whatsappUrl ? (
+          <Button asChild size="sm" variant="secondary">
+            <a href={whatsappUrl} target="_blank" rel="noreferrer">
+              <MessageCircle className="size-3.5" aria-hidden />
+              Lembrete WhatsApp
+            </a>
+          </Button>
+        ) : null}
+        {canConfirm ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            isLoading={isPending}
+            onClick={() => run(() => confirmAppointmentFromMyDayAction(appointment.id))}
+          >
+            Confirmar
+          </Button>
+        ) : null}
+        {canStartSession && appointment.patientId ? (
+          <StartSessionButton
+            patientId={appointment.patientId}
+            appointmentId={appointment.id}
+            label="Atender"
+            className="rounded-xl"
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {error ? (
+        <p role="alert" className={cn("text-xs", onPrimary ? "text-white/90" : "text-failed")}>
+          {error}
+        </p>
+      ) : null}
+
+      {layout === "hero" && meetReady && meetLabel ? (
+        <div className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-3">
+          <Video className="size-4 shrink-0 text-white" aria-hidden />
+          <p className="min-w-0 flex-1 truncate font-mono text-xs text-white">{meetLabel}</p>
+          <button
+            type="button"
+            onClick={() => void copyMeet()}
+            className="rounded-md p-1 text-white/80 hover:text-white"
+            aria-label={copied ? "Link copiado" : "Copiar link do Meet"}
+          >
+            <Copy className="size-3.5" aria-hidden />
+          </button>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2">
+        {canStartSession && appointment.patientId ? (
+          <StartSessionButton
+            patientId={appointment.patientId}
+            appointmentId={appointment.id}
+            label="Iniciar sessão"
+            size="lg"
+            className={
+              onPrimary
+                ? "rounded-[14px] bg-white px-7 text-[15px] text-primary hover:bg-white/90"
+                : undefined
+            }
+          />
+        ) : null}
+
+        {whatsappUrl ? (
+          <Button asChild size={layout === "hero" ? "icon" : "sm"} variant="secondary" className={ghostClass}>
+            <a href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="Lembrete WhatsApp">
+              <MessageCircle className="size-4" aria-hidden />
+              {layout === "hero" ? null : "Lembrete WhatsApp"}
+            </a>
+          </Button>
+        ) : appointment.origin === "TESSELI" ? (
+          <Button
+            type="button"
+            size={layout === "hero" ? "icon" : "sm"}
+            variant="secondary"
+            disabled
+            title="Cadastre o telefone do paciente para enviar o lembrete."
+            className={ghostClass}
+            aria-label="Lembrete WhatsApp"
+          >
+            <MessageCircle className="size-4" aria-hidden />
+            {layout === "hero" ? null : "Lembrete WhatsApp"}
+          </Button>
+        ) : null}
+
+        {canConfirm ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            isLoading={isPending}
+            onClick={() => run(() => confirmAppointmentFromMyDayAction(appointment.id))}
+            className={ghostClass}
+          >
+            {layout === "hero" ? null : <CheckCircle2 className="size-3.5" aria-hidden />}
+            Confirmar
+          </Button>
+        ) : null}
+
+        {layout === "hero" && canMarkNoShow ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="border-white/15 bg-transparent text-[#e8d1d1] hover:bg-white/10"
+            onClick={() => setNoShowOpen(true)}
+          >
+            Marcar Falta
+          </Button>
+        ) : null}
+
+        {layout !== "hero" && meetReady ? (
+          <Button asChild size="sm">
+            <a href={appointment.meetUrl ?? "#"} target="_blank" rel="noreferrer">
+              <Video className="size-3.5" aria-hidden />
+              Entrar no Meet
+            </a>
+          </Button>
+        ) : appointment.meetStatus === "pending" && layout !== "hero" ? (
+          <span className="self-center text-xs font-semibold text-pending">Meet em criação…</span>
+        ) : null}
+      </div>
+
+      <ConfirmDialog
+        open={noShowOpen}
+        onOpenChange={setNoShowOpen}
+        title="Marcar falta?"
+        description="A consulta permanece no histórico do dia como faltou. Isso não apaga o paciente nem o prontuário."
+        confirmLabel="Marcar falta"
+        destructive
+        isLoading={isPending}
+        onConfirm={() => {
+          setNoShowOpen(false);
+          run(() => markNoShowFromMyDayAction(appointment.id));
+        }}
+      />
+    </div>
+  );
+}
