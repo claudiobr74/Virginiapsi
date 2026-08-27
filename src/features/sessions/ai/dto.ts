@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { ConsentState } from "@/features/consents/contracts";
 import { packContext } from "@/lib/ai/context-packer";
 
@@ -93,6 +95,11 @@ export function buildSessionPreparationContext(input: SessionPreparationInput): 
     { label: "PATIENT_CONTEXT", value: input.patientRef },
     { label: "CLINICAL_CONTEXT_DESCRIPTOR", value: input.clinicalContext },
     { label: "SELECTED_SESSION", value: input.selectedSessions },
+    { label: "CURRENT_TREATMENT_GOALS", value: input.currentTreatmentGoals },
+    { label: "PATIENT_PREFERENCES", value: input.patientPreferences },
+    { label: "PREVIOUS_PLANS", value: input.previousPlans },
+    { label: "PRIOR_INTERVENTION_RESPONSE", value: input.priorInterventionResponse },
+    { label: "HOMEWORK", value: input.homework },
     { label: "CLINICIAN_NOTE", value: input.authorizedClinicalNotes },
     {
       label: "USER_QUESTION",
@@ -107,6 +114,9 @@ export function buildSessionClosingContext(input: SessionClosingInput): string {
     { label: "CLINICAL_CONTEXT_DESCRIPTOR", value: input.clinicalContext },
     { label: "TRANSCRIPT_WINDOW", value: input.finalTranscriptOrSummary },
     { label: "CLINICIAN_NOTE", value: input.clinicianNotes },
+    { label: "INTERVENTIONS_ACTUALLY_RECORDED", value: input.interventionsActuallyRecorded },
+    { label: "PRIOR_PLAN", value: input.priorPlan },
+    { label: "ITEMS_ALREADY_CONFIRMED_BY_CLINICIAN", value: input.itemsAlreadyConfirmedByClinician },
     {
       label: "USER_QUESTION",
       value: "Produza o rascunho DPEP conforme MODO: ENCERRAMENTO / PÓS-SESSÃO.",

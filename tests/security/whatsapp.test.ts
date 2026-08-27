@@ -375,4 +375,16 @@ describe("whatsapp — consentimento, outbox, claim e scheduler", () => {
       await service.close();
     }
   });
+
+  it("anon não executa match_patients_by_whatsapp_e164", async () => {
+    const session = await openSession({ role: "anon" });
+    try {
+      const error = await session.expectError(
+        "select * from public.match_patients_by_whatsapp_e164('+5511988887777')",
+      );
+      expect(error).toMatch(/permission denied|not authorized/i);
+    } finally {
+      await session.close();
+    }
+  });
 });

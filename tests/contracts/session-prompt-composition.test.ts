@@ -90,9 +90,15 @@ describe("packContext — serialização de contexto delimitado", () => {
       patientRef: { displayLabel: "Paciente Teste" },
       sessionId: "session-1",
       finalTranscriptOrSummary: "Transcrição completa da sessão.",
+      interventionsActuallyRecorded: "Exposição gradual",
+      priorPlan: "Revisar hierarquia",
+      itemsAlreadyConfirmedByClinician: ["Demanda já registrada"],
     });
     expect(rendered).toContain("[TRANSCRIPT_WINDOW]");
     expect(rendered).toContain("Transcrição completa da sessão.");
+    expect(rendered).toContain("[INTERVENTIONS_ACTUALLY_RECORDED]");
+    expect(rendered).toContain("[PRIOR_PLAN]");
+    expect(rendered).toContain("[ITEMS_ALREADY_CONFIRMED_BY_CLINICIAN]");
   });
 
   it("prompt injection no transcript window é tratado como dado, nunca escapa o delimitador", () => {

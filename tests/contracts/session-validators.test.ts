@@ -194,4 +194,24 @@ describe("toGeminiResponseJsonSchema — adapter round-trip", () => {
     const result = sessionClosingOutputSchema.safeParse(simulatedModelResponse);
     expect(result.success).toBe(true);
   });
+
+  it("omite incertezas falha fechado — não trata ausência como lista vazia", () => {
+    const live = sessionLiveOutputSchema.safeParse({
+      summarySoFar: "Resumo",
+      observations: [],
+      hypotheses: [],
+      suggestedQuestions: [],
+      possibleInterventions: [],
+      contextualConsiderations: [],
+      safety: {
+        severity: "none",
+        domains: [],
+        explicitSignals: [],
+        missingInformation: [],
+        clinicianReview: null,
+      },
+      criticalDataGaps: [],
+    });
+    expect(live.success).toBe(false);
+  });
 });

@@ -13,7 +13,7 @@ export const buttonVariants = cva(
           "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover",
         secondary:
           "bg-surface text-deep-neutral border border-border hover:bg-sage-light/30",
-        destructive: "bg-failed text-white hover:opacity-90",
+        destructive: "bg-failed text-white dark:text-primary-foreground hover:opacity-90",
         ghost: "text-deep-neutral hover:bg-surface",
       },
       size: {

@@ -58,3 +58,27 @@ export function formatInTimeZone(
 ): string {
   return new Intl.DateTimeFormat("pt-BR", { timeZone, ...options }).format(new Date(iso));
 }
+
+export function civilDateTimeInTimeZone(
+  iso: string,
+  timeZone: string,
+): { date: string; time: string } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    date: `${map.year}-${map.month}-${map.day}`,
+    time: `${map.hour}:${map.minute}`,
+  };
+}
+
+export function civilDateInTimeZone(iso: string, timeZone: string): string {
+  return civilDateTimeInTimeZone(iso, timeZone).date;
+}

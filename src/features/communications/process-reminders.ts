@@ -128,7 +128,7 @@ export async function processDueWhatsappReminders(
     await admin.rpc("ensure_whatsapp_templates", { p_org_id: row.organization_id });
     const { data: template } = await admin
       .from("whatsapp_templates")
-      .select("body")
+      .select("body, twilio_content_sid")
       .eq("organization_id", row.organization_id)
       .eq("template_key", templateKey)
       .maybeSingle();
@@ -170,6 +170,7 @@ export async function processDueWhatsappReminders(
     );
 
     try {
+      const contentSid = (template.twilio_content_sid as string | null) ?? undefined;
       const sent = await client.send({
         accountSid: env.TWILIO_ACCOUNT_SID,
         authToken: env.TWILIO_AUTH_TOKEN,
@@ -179,6 +180,13 @@ export async function processDueWhatsappReminders(
         messagingServiceSid: env.TWILIO_MESSAGING_SERVICE_SID,
         statusCallback: `${env.NEXT_PUBLIC_APP_URL}/api/webhooks/twilio/status`,
         idempotencyKey,
+        contentSid,
+        contentVariables: contentSid
+          ? {
+              patient_name: patient.preferred_name as string,
+              starts_at: formatStartsAt(appointment.starts_at as string, timezone),
+            }
+          : undefined,
       });
       await admin.rpc("mark_whatsapp_outbox_sent", { p_id: row.id, p_sid: sent.sid });
       await admin

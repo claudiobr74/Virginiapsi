@@ -98,6 +98,16 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
     } finally {
       await secretarySession.close();
     }
+
+    const refreshSession = await openSession({ userId: secretary });
+    try {
+      await refreshSession.query(
+        `select public.upsert_google_credentials($1, 'refreshed', now() + interval '1 hour', null)`,
+        [organizationId],
+      );
+    } finally {
+      await refreshSession.close();
+    }
   });
 
   it("get_google_credentials só retorna dados para membro da própria organização", async () => {

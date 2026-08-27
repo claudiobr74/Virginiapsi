@@ -47,15 +47,15 @@ export function MonthView({
   const overflow = trailingOverflowDays(days[0], days.length);
 
   return (
-    <div className="overflow-hidden rounded-[16px] border border-border bg-card">
-      <div className="grid grid-cols-7 border-b border-border text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="overflow-x-auto overflow-y-hidden rounded-[16px] border border-border bg-card">
+      <div className="grid min-w-[640px] grid-cols-7 border-b border-border text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {WEEKDAY_LABELS.map((label) => (
           <span key={label} className="px-2 py-3">
             {label}
           </span>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      <div className="grid min-w-[640px] grid-cols-7">
         {Array.from({ length: blanks }).map((_, index) => (
           <div
             key={`blank-${index}`}

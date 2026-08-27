@@ -51,7 +51,9 @@ export function LockProvider({
 
   return (
     <LockContext.Provider value={value}>
-      {children}
+      <div inert={locked || undefined} aria-hidden={locked || undefined}>
+        {children}
+      </div>
       {locked ? <LockScreen userEmail={userEmail} onUnlock={unlock} /> : null}
     </LockContext.Provider>
   );

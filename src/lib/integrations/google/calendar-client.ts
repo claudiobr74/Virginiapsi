@@ -135,7 +135,12 @@ export class GoogleCalendarClient {
 
   async listEvents(
     calendarId: string,
-    options: { timeMin: string; timeMax: string; pageToken?: string } = {
+    options: {
+      timeMin: string;
+      timeMax: string;
+      pageToken?: string;
+      showDeleted?: boolean;
+    } = {
       timeMin: "",
       timeMax: "",
     },
@@ -148,7 +153,9 @@ export class GoogleCalendarClient {
           timeMax: options.timeMax,
           pageToken: options.pageToken,
           singleEvents: true,
-          orderBy: "startTime",
+          // showDeleted is incompatible with orderBy=startTime.
+          orderBy: options.showDeleted ? undefined : "startTime",
+          showDeleted: options.showDeleted ? true : undefined,
         },
       },
     );

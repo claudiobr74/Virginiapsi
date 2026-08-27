@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { RUNTIME_PROMPTS, RUNTIME_PROMPT_VERSION } from "@/lib/ai/prompts";
+import { RUNTIME_PROMPTS, RUNTIME_PROMPT_VERSION, RUNTIME_SCHEMA_VERSION } from "@/lib/ai/prompts";
 import { KNOWLEDGE_SCHEMA } from "@/lib/ai/contracts/knowledge";
 import { knowledgeOutputSchema, type KnowledgeOutput } from "@/lib/ai/validators/knowledge";
 import { toGeminiResponseJsonSchema } from "@/lib/ai/schema-adapter";
@@ -51,6 +51,17 @@ function rejectIfAiRateLimited(
   const rate = consumeAiRateLimit(organizationId, userId);
   if (!rate.allowed) {
     return { error: AI_RATE_LIMIT_MESSAGE };
+  }
+  return null;
+}
+
+function rejectIfNoChunks(
+  chunks: { sourceId: string }[],
+): KnowledgeActionResult | null {
+  if (chunks.length === 0) {
+    return {
+      error: "Não há trechos recuperados na biblioteca para esta consulta.",
+    };
   }
   return null;
 }
@@ -170,6 +181,7 @@ interface RunKnowledgeCallArgs {
   userContent: string;
   retrievedSourceIds: string[];
   patientId?: string;
+  consentVersion?: string;
 }
 
 async function runKnowledgeCall(args: RunKnowledgeCallArgs): Promise<KnowledgeActionResult> {
@@ -186,7 +198,8 @@ async function runKnowledgeCall(args: RunKnowledgeCallArgs): Promise<KnowledgeAc
       model: env.GEMINI_MODEL_KNOWLEDGE,
       prompt_name: args.promptName,
       prompt_version: RUNTIME_PROMPT_VERSION,
-      schema_version: RUNTIME_PROMPT_VERSION,
+      schema_version: RUNTIME_SCHEMA_VERSION,
+      consent_version: args.consentVersion ?? null,
       status: "running",
       source_ids: { sourceIds: args.retrievedSourceIds },
     })
@@ -262,6 +275,10 @@ export async function askKnowledgeAction(input: unknown): Promise<KnowledgeActio
   const chunks = await retrieveChunks(organizationId, parsed.data.question, {
     collectionIds: parsed.data.collectionIds,
   });
+  const empty = rejectIfNoChunks(chunks);
+  if (empty) {
+    return empty;
+  }
 
   return runKnowledgeCall({
     organizationId,
@@ -295,6 +312,10 @@ export async function synthesizeKnowledgeAction(input: unknown): Promise<Knowled
     collectionIds: parsed.data.collectionIds,
     matchCount: 12,
   });
+  const empty = rejectIfNoChunks(chunks);
+  if (empty) {
+    return empty;
+  }
 
   return runKnowledgeCall({
     organizationId,
@@ -359,6 +380,11 @@ export async function compareKnowledgeSourcesAction(
     };
   });
 
+  const empty = rejectIfNoChunks(chunks);
+  if (empty) {
+    return empty;
+  }
+
   return runKnowledgeCall({
     organizationId,
     purpose: "knowledge_compare_sources",
@@ -391,6 +417,10 @@ export async function studyKnowledgeAction(input: unknown): Promise<KnowledgeAct
     collectionIds: parsed.data.collectionIds,
     matchCount: 12,
   });
+  const empty = rejectIfNoChunks(chunks);
+  if (empty) {
+    return empty;
+  }
 
   return runKnowledgeCall({
     organizationId,
@@ -438,6 +468,10 @@ export async function applyToCaseAction(input: unknown): Promise<KnowledgeAction
   const chunks = await retrieveChunks(organizationId, parsed.data.question, {
     collectionIds: parsed.data.collectionIds,
   });
+  const empty = rejectIfNoChunks(chunks);
+  if (empty) {
+    return empty;
+  }
 
   return runKnowledgeCall({
     organizationId,
@@ -445,6 +479,7 @@ export async function applyToCaseAction(input: unknown): Promise<KnowledgeAction
     promptName: "knowledgeClinicalApplication",
     systemInstruction: RUNTIME_PROMPTS.knowledgeClinicalApplication,
     patientId: parsed.data.patientId,
+    consentVersion: gate.consentState.consentVersion,
     userContent: buildApplyToCaseContext({
       organizationId,
       patientRef: { displayLabel: patient.preferred_name },

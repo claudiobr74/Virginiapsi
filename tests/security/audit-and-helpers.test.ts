@@ -165,6 +165,24 @@ describe("hardening dos helpers de RLS", () => {
     }
   });
 
+  it("nenhuma função public concede EXECUTE a anon", async () => {
+    const session = await openSession({ userId: await createAuthUser() });
+    try {
+      const rows = await session.query<{ proname: string }>(
+        `select p.proname
+         from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+         cross join aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+         where n.nspname = 'public'
+           and a.privilege_type = 'EXECUTE'
+           and a.grantee::regrole::text in ('anon', '-')`,
+      );
+      expect(rows).toEqual([]);
+    } finally {
+      await session.close();
+    }
+  });
+
   it("as policies usam helpers sem recursão infinita", async () => {
     // Uma consulta em organization_members cujo policy chama
     // is_psychologist_admin (que lê a própria tabela) só termina porque o

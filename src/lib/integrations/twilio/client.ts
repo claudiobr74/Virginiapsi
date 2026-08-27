@@ -1,3 +1,5 @@
+import { toWhatsAppAddress } from "@/lib/integrations/twilio/e164";
+
 const TWILIO_API = "https://api.twilio.com/2010-04-01";
 
 export class TwilioApiError extends Error {
@@ -21,6 +23,8 @@ export interface TwilioSendRequest {
   messagingServiceSid?: string;
   statusCallback?: string;
   idempotencyKey: string;
+  contentSid?: string;
+  contentVariables?: Record<string, string>;
 }
 
 export interface TwilioSendResult {
@@ -45,11 +49,18 @@ export class TwilioMessagingClient {
     }
     const body = new URLSearchParams();
     body.set("To", request.to);
-    body.set("Body", request.body);
+    if (request.contentSid) {
+      body.set("ContentSid", request.contentSid);
+      if (request.contentVariables) {
+        body.set("ContentVariables", JSON.stringify(request.contentVariables));
+      }
+    } else {
+      body.set("Body", request.body);
+    }
     if (request.messagingServiceSid) {
       body.set("MessagingServiceSid", request.messagingServiceSid);
     } else if (request.from) {
-      body.set("From", request.from);
+      body.set("From", toWhatsAppAddress(request.from.replace(/^whatsapp:/i, "")));
     }
     if (request.statusCallback) {
       body.set("StatusCallback", request.statusCallback);

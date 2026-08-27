@@ -13,6 +13,7 @@ import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { zonedTimeToUtcIso } from "@/lib/utils/timezone";
+import { propagateLocalAppointmentToGoogle } from "@/features/calendar/sync-actions";
 
 export interface AppointmentActionResult {
   error?: string;
@@ -131,6 +132,9 @@ export async function updateAppointmentStatusAction(
 
   revalidatePath("/app/agenda");
   revalidatePath("/app");
+  if (parsedStatus.data === "cancelled") {
+    await propagateLocalAppointmentToGoogle(organizationId, appointmentId, "delete");
+  }
   return { appointmentId };
 }
 
@@ -184,6 +188,7 @@ export async function rescheduleAppointmentAction(
   });
 
   revalidatePath("/app/agenda");
+  await propagateLocalAppointmentToGoogle(organizationId, appointmentId, "upsert");
   return { appointmentId };
 }
 

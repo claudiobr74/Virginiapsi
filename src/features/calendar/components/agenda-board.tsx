@@ -20,6 +20,7 @@ import { formatAgendaLongDate, formatAgendaMonthLabel } from "@/features/calenda
 import { syncGoogleCalendarAction } from "@/features/calendar/sync-actions";
 import type { PatientRow } from "@/features/patients/contracts";
 import { pageHeading } from "@/lib/brand";
+import { civilDateInTimeZone } from "@/lib/utils/timezone";
 
 export interface AgendaBoardProps {
   view: AgendaView;
@@ -81,13 +82,13 @@ export function AgendaBoard({
   const appointmentsByDay = useMemo(() => {
     const map = new Map<string, AppointmentRow[]>();
     for (const appointment of appointments) {
-      const day = appointment.starts_at.slice(0, 10);
+      const day = civilDateInTimeZone(appointment.starts_at, timeZone);
       const list = map.get(day) ?? [];
       list.push(appointment);
       map.set(day, list);
     }
     return map;
-  }, [appointments]);
+  }, [appointments, timeZone]);
 
   function pushParams(nextView: AgendaView, nextDate: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -188,6 +189,7 @@ export function AgendaBoard({
         }}
         patients={patients}
         defaultDate={dialogState.date}
+        timeZone={timeZone}
         appointment={openFromQuery ? undefined : dialogState.appointment}
         onSaved={() => router.refresh()}
       />
@@ -203,7 +205,7 @@ export function AgendaBoard({
           setDialogState({
             open: true,
             appointment: selectedAppointment,
-            date: selectedAppointment.starts_at.slice(0, 10),
+            date: civilDateInTimeZone(selectedAppointment.starts_at, timeZone),
           });
           setSelectedAppointment(null);
         }}

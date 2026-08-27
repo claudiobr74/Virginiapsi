@@ -33,6 +33,28 @@ describe("TwilioMessagingClient", () => {
     expect(body.get("Body")).toBe("Olá");
   });
 
+  it("envia ContentSid e ContentVariables no lugar de Body", async () => {
+    const fetchImpl = mockFetch(async () => jsonResponse({ sid: "SM3", status: "queued" }));
+    const client = new TwilioMessagingClient({ fetchImpl });
+    await client.send({
+      accountSid: "ACabc",
+      authToken: "token",
+      to: "whatsapp:+5511999999999",
+      body: "Olá",
+      from: "+14155238886",
+      contentSid: "HXabc",
+      contentVariables: { patient_name: "Ana", starts_at: "terça" },
+      idempotencyKey: "k",
+    });
+    const body = new URLSearchParams(fetchImpl.mock.calls[0][1]?.body as string);
+    expect(body.get("ContentSid")).toBe("HXabc");
+    expect(body.get("ContentVariables")).toBe(
+      JSON.stringify({ patient_name: "Ana", starts_at: "terça" }),
+    );
+    expect(body.get("Body")).toBeNull();
+    expect(body.get("From")).toBe("whatsapp:+14155238886");
+  });
+
   it("usa MessagingServiceSid quando From não é informado", async () => {
     const fetchImpl = mockFetch(async () => jsonResponse({ sid: "SM2", status: "queued" }));
     const client = new TwilioMessagingClient({ fetchImpl });
