@@ -1,6 +1,6 @@
 import "server-only";
 
-import { RUNTIME_PROMPTS, RUNTIME_PROMPT_VERSION } from "@/lib/ai/prompts";
+import { RUNTIME_PROMPTS, RUNTIME_PROMPT_VERSION, RUNTIME_SCHEMA_VERSION } from "@/lib/ai/prompts";
 import { KNOWLEDGE_INGESTION_SCHEMA } from "@/lib/ai/contracts/knowledge";
 import { knowledgeIngestionOutputSchema } from "@/lib/ai/validators/knowledge";
 import { toGeminiResponseJsonSchema } from "@/lib/ai/schema-adapter";
@@ -172,7 +172,7 @@ async function extractCatalogMetadata(
       model: env.GEMINI_MODEL_KNOWLEDGE,
       prompt_name: "knowledgeIngestion",
       prompt_version: RUNTIME_PROMPT_VERSION,
-      schema_version: RUNTIME_PROMPT_VERSION,
+      schema_version: RUNTIME_SCHEMA_VERSION,
       status: "running",
       source_ids: { sourceId },
     })

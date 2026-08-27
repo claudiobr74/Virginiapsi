@@ -34,6 +34,7 @@ describe("Button", () => {
     render(<Button variant="destructive">Excluir</Button>);
     expect(screen.getByRole("button", { name: "Excluir" })).toHaveClass(
       "bg-failed",
+      "dark:text-primary-foreground",
     );
   });
 

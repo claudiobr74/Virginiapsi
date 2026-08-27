@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { getServerEnv } from "@/lib/env/server";
 import { authorizeCaptureCapability } from "@/lib/consent/capability-gate";
 import { createFallbackUploadGrant } from "@/lib/integrations/transcription/fallback-storage";
 import {
@@ -55,6 +56,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: gate.reason, message: gate.message },
       { status: gate.status },
+    );
+  }
+
+  const env = getServerEnv();
+  if (!env.GROQ_API_KEY) {
+    return NextResponse.json(
+      { error: "fallback_not_configured", message: "Fallback de transcrição não habilitado." },
+      { status: 400 },
     );
   }
 

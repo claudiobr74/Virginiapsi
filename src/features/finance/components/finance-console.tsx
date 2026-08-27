@@ -155,6 +155,7 @@ export function FinanceConsole({
           patients={patients}
           canWrite={canWrite}
           today={today}
+          timezone={timezone}
         />
       ) : null}
       {tab === "expenses" ? (
@@ -436,7 +437,13 @@ function TodayTab({
           ) : (
             <ul className="flex flex-col gap-3">
               {todayList.map((charge) => (
-                <ChargeCard key={charge.row.id} charge={charge} canWrite={canWrite} compact />
+                <ChargeCard
+                  key={charge.row.id}
+                  charge={charge}
+                  canWrite={canWrite}
+                  compact
+                  timezone={timezone}
+                />
               ))}
             </ul>
           )}
@@ -512,12 +519,14 @@ function ReceivablesTab({
   patients,
   canWrite,
   today,
+  timezone,
 }: {
   charges: ChargeView[];
   payments: FinanceSnapshot["payments"];
   patients: { id: string; preferred_name: string }[];
   canWrite: boolean;
   today: string;
+  timezone: string;
 }) {
   const pendingCents = charges
     .filter((charge) => ["pending", "partially_paid"].includes(charge.row.status))
@@ -576,6 +585,7 @@ function ReceivablesTab({
                 charge={charge}
                 canWrite={canWrite}
                 payments={payments.filter((payment) => payment.charge_id === charge.row.id)}
+                timezone={timezone}
               />
             ))}
           </ul>
@@ -675,16 +685,18 @@ function ChargeCard({
   canWrite,
   compact = false,
   payments = [],
+  timezone,
 }: {
   charge: ChargeView;
   canWrite: boolean;
   compact?: boolean;
   payments?: FinanceSnapshot["payments"];
+  timezone: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const late = charge.row.due_date != null && charge.row.due_date < todayIsoDate() && charge.remainingCents > 0;
+  const late = charge.row.due_date != null && charge.row.due_date < todayIsoDate(timezone) && charge.remainingCents > 0;
 
   function run(action: () => Promise<{ error?: string; warning?: string }>) {
     setError(null);
@@ -1256,7 +1268,7 @@ function CsvExportForm({ bounds }: { bounds: { start: string; end: string } }) {
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
-            link.download = `tesseli-financeiro-${form.get("periodStart")}.csv`;
+            link.download = `virginiapsi-financeiro-${form.get("periodStart")}.csv`;
             link.click();
             URL.revokeObjectURL(url);
           });

@@ -409,6 +409,35 @@ describe("G2 identity — D4b / D5b / convites", () => {
     }
   });
 
+  it("convite não é aceito se o e-mail ainda não foi confirmado", async () => {
+    const inviteeEmail = "unconfirmed-g2@tesseli.test";
+    const adminSession = await openSession({ userId: admin });
+    try {
+      await adminSession.query(
+        "select public.invite_organization_member($1, $2, 'psychologist')",
+        [organizationId, inviteeEmail],
+      );
+    } finally {
+      await adminSession.close();
+    }
+
+    const invitee = await createAuthUser(inviteeEmail, { emailConfirmed: false });
+    const inviteeSession = await openSession({ userId: invitee });
+    try {
+      const accepted = await inviteeSession.query<{ accept_pending_invitations: number }>(
+        "select public.accept_pending_invitations() as accept_pending_invitations",
+      );
+      expect(accepted[0].accept_pending_invitations).toBe(0);
+      const memberships = await inviteeSession.query<{ id: string }>(
+        "select id from public.organization_members where organization_id = $1 and user_id = $2",
+        [organizationId, invitee],
+      );
+      expect(memberships).toHaveLength(0);
+    } finally {
+      await inviteeSession.close();
+    }
+  });
+
   it("convite de e-mail já membro de outra org adiciona membership nesta", async () => {
     const shared = await createAuthUser("shared-g2@tesseli.test");
     const otherOrg = await bootstrapOrganization(shared, "Outra Clínica G2");

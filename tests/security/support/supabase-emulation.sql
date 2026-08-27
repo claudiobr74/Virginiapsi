@@ -12,6 +12,7 @@ create schema if not exists auth;
 create table if not exists auth.users (
   id uuid primary key default gen_random_uuid(),
   email text unique,
+  email_confirmed_at timestamptz default now(),
   raw_user_meta_data jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
@@ -52,6 +53,12 @@ as $$
 $$;
 
 grant usage on schema auth to anon, authenticated, service_role;
+
+-- Hosted Supabase grants EXECUTE on new public functions to anon/authenticated
+-- via ALTER DEFAULT PRIVILEGES. Emulate that so GRANT tests are meaningful:
+-- `revoke … from public` does not remove a direct GRANT to anon.
+alter default privileges in schema public grant execute on functions to anon;
+alter default privileges in schema public grant execute on functions to authenticated;
 
 -- Minimal emulation of Supabase Storage's schema, just enough for a
 -- project migration to `insert into storage.buckets` and, if it chooses to,

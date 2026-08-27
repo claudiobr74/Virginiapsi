@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { RUNTIME_PROMPTS, RUNTIME_PROMPT_VERSION } from "@/lib/ai/prompts";
+import { RUNTIME_PROMPTS, RUNTIME_PROMPT_VERSION, RUNTIME_SCHEMA_VERSION } from "@/lib/ai/prompts";
 import { SUPERVISOR_SCHEMA } from "@/lib/ai/contracts/supervisor";
 import { supervisorOutputSchema } from "@/lib/ai/validators/supervisor";
 import { toGeminiResponseJsonSchema } from "@/lib/ai/schema-adapter";
@@ -127,7 +127,7 @@ export async function runSupervisorAssist(input: unknown): Promise<SupervisorAct
       model: env.GEMINI_MODEL_SUPERVISOR,
       prompt_name: "supervisor",
       prompt_version: RUNTIME_PROMPT_VERSION,
-      schema_version: RUNTIME_PROMPT_VERSION,
+      schema_version: RUNTIME_SCHEMA_VERSION,
       consent_version: gate.consentState.consentVersion ?? null,
       status: "running",
       source_ids: { selectedSessionIds: values.selectedSessionIds },
@@ -208,7 +208,7 @@ export async function appendSupervisorArtifact(input: unknown): Promise<Supervis
   const supabase = await createSupabaseServerClient();
   const { data: artifact, error: artifactError } = await supabase
     .from("ai_artifacts")
-    .select("id, type, structured_content, review_status")
+    .select("id, type, structured_content, review_status, run_id")
     .eq("id", parsed.data.artifactId)
     .maybeSingle();
 
@@ -217,6 +217,25 @@ export async function appendSupervisorArtifact(input: unknown): Promise<Supervis
   }
   if (artifact.review_status !== "pending") {
     return { error: "Este rascunho já foi revisado." };
+  }
+
+  const targetSession = await getClinicalSession(organizationId, parsed.data.targetSessionId);
+  if (!targetSession) {
+    return { error: "Sessão não encontrada." };
+  }
+
+  const { data: run } = await supabase
+    .from("ai_runs")
+    .select("patient_id, organization_id")
+    .eq("id", artifact.run_id)
+    .maybeSingle();
+
+  if (
+    !run ||
+    run.organization_id !== organizationId ||
+    (run.patient_id != null && run.patient_id !== targetSession.patient_id)
+  ) {
+    return { error: "Rascunho de supervisão não encontrado." };
   }
 
   const content = artifact.structured_content as {

@@ -84,7 +84,7 @@ export const sessionLiveOutputSchema = z
       })
       .strict(),
     criticalDataGaps: z.array(z.string()).default([]),
-    uncertainties: z.array(z.string()).default([]),
+    uncertainties: z.array(z.string()),
   })
   .strict();
 export type SessionLiveOutput = z.infer<typeof sessionLiveOutputSchema>;
@@ -162,7 +162,7 @@ export const sessionClosingOutputSchema = z
         missingInformation: z.array(z.string()),
       })
       .strict(),
-    uncertainties: z.array(z.string()).default([]),
+    uncertainties: z.array(z.string()),
   })
   .strict();
 export type SessionClosingOutput = z.infer<typeof sessionClosingOutputSchema>;

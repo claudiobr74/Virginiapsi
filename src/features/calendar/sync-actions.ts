@@ -9,6 +9,7 @@ import {
 import { requestMeetForEvent } from "@/lib/integrations/google/meet";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { zonedTimeToUtcIso } from "@/lib/utils/timezone";
 
 export interface SyncActionResult {
   error?: string;
@@ -177,16 +178,19 @@ export async function requestMeetForAppointmentAction(
 
 const SYNC_WINDOW_DAYS = 30;
 
-function eventWindowIso(event: {
-  start?: { dateTime?: string; date?: string };
-  end?: { dateTime?: string; date?: string };
-}): { startIso: string; endIso: string } | null {
+function eventWindowIso(
+  event: {
+    start?: { dateTime?: string; date?: string };
+    end?: { dateTime?: string; date?: string };
+  },
+  timeZone: string,
+): { startIso: string; endIso: string } | null {
   const startIso =
     event.start?.dateTime ??
-    (event.start?.date ? `${event.start.date}T00:00:00.000Z` : null);
+    (event.start?.date ? zonedTimeToUtcIso(event.start.date, "00:00", timeZone) : null);
   const endIso =
     event.end?.dateTime ??
-    (event.end?.date ? `${event.end.date}T00:00:00.000Z` : null);
+    (event.end?.date ? zonedTimeToUtcIso(event.end.date, "00:00", timeZone) : null);
   if (!startIso || !endIso) {
     return null;
   }
@@ -206,6 +210,12 @@ export async function syncGoogleCalendarPull(
   const timeMax = new Date(Date.now() + SYNC_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   const supabase = await createSupabaseServerClient();
+  const { data: organization } = await supabase
+    .from("organizations")
+    .select("timezone")
+    .eq("id", organizationId)
+    .maybeSingle();
+  const timeZone = (organization?.timezone as string | undefined) ?? "America/Sao_Paulo";
 
   try {
     const client = await getCalendarClientForOrganization(organizationId);
@@ -217,13 +227,19 @@ export async function syncGoogleCalendarPull(
         timeMin,
         timeMax,
         pageToken,
+        showDeleted: true,
       });
 
       for (const event of page.items) {
         if (event.status === "cancelled") {
+          await supabase.rpc("mark_external_appointment_cancelled", {
+            org_id: organizationId,
+            p_google_calendar_id: connection.calendar_id,
+            p_google_event_id: event.id,
+          });
           continue;
         }
-        const window = eventWindowIso(event);
+        const window = eventWindowIso(event, timeZone);
         if (!window) {
           continue;
         }
@@ -280,4 +296,63 @@ export async function syncGoogleCalendarPull(
 export async function syncGoogleCalendarAction(): Promise<SyncActionResult> {
   const { organizationId } = await requireOrgContext();
   return syncGoogleCalendarPull(organizationId);
+}
+
+/**
+ * Best-effort push after a local cancel/reschedule. Never blocks the
+ * clinical write: Google errors are logged on calendar_sync_events.
+ */
+export async function propagateLocalAppointmentToGoogle(
+  organizationId: string,
+  appointmentId: string,
+  kind: "upsert" | "delete",
+): Promise<void> {
+  const [appointment, connection] = await Promise.all([
+    getAppointment(organizationId, appointmentId),
+    getConnection(organizationId),
+  ]);
+
+  if (!appointment || appointment.origin !== "TESSELI" || !appointment.google_event_id) {
+    return;
+  }
+  if (!connection || connection.status !== "connected" || !connection.calendar_id) {
+    return;
+  }
+
+  try {
+    const client = await getCalendarClientForOrganization(organizationId);
+    if (kind === "delete") {
+      await client.deleteEvent(connection.calendar_id, appointment.google_event_id);
+      await logSyncEvent({
+        organizationId,
+        direction: "push",
+        action: "delete_event",
+        appointmentId,
+        responseStatus: "204",
+      });
+      return;
+    }
+
+    await client.patchEvent(connection.calendar_id, appointment.google_event_id, {
+      summary: appointment.summary_snapshot ?? "Consulta VirgíniaPsi",
+      start: { dateTime: appointment.starts_at },
+      end: { dateTime: appointment.ends_at },
+    });
+    await logSyncEvent({
+      organizationId,
+      direction: "push",
+      action: "update_event",
+      appointmentId,
+      requestPayload: { starts_at: appointment.starts_at, ends_at: appointment.ends_at },
+      responseStatus: "200",
+    });
+  } catch (error) {
+    await logSyncEvent({
+      organizationId,
+      direction: "push",
+      action: kind === "delete" ? "delete_event" : "update_event",
+      appointmentId,
+      errorMessage: error instanceof Error ? error.message : "unknown_error",
+    });
+  }
 }

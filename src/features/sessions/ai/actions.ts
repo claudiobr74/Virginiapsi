@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { RUNTIME_PROMPTS, RUNTIME_PROMPT_VERSION } from "@/lib/ai/prompts";
+import { RUNTIME_PROMPTS, RUNTIME_PROMPT_VERSION, RUNTIME_SCHEMA_VERSION } from "@/lib/ai/prompts";
 import {
   SESSION_CLOSING_SCHEMA,
   SESSION_LIVE_SCHEMA,
@@ -24,6 +24,7 @@ import { getPatient } from "@/features/patients/queries";
 import {
   getClinicalSession,
   getSessionDpep,
+  getSessionWorkingNotes,
   listPatientSessions,
   listTranscriptSegments,
 } from "@/features/sessions/queries";
@@ -72,7 +73,7 @@ async function runSessionAiCall<T>(args: RunSessionAiCallArgs<T>): Promise<Sessi
       model: env.GEMINI_MODEL_SESSION,
       prompt_name: args.promptName,
       prompt_version: RUNTIME_PROMPT_VERSION,
-      schema_version: RUNTIME_PROMPT_VERSION,
+      schema_version: RUNTIME_SCHEMA_VERSION,
       consent_version: args.consentVersion ?? null,
       status: "running",
     })
@@ -297,6 +298,14 @@ export async function runSessionClosingAssist(
     (candidate) => candidate.status === "finalized",
   );
   const priorDpep = priorSessions[0] ? await getSessionDpep(priorSessions[0].id) : null;
+  const currentDpep = await getSessionDpep(sessionId);
+  const notes = await getSessionWorkingNotes(sessionId);
+  const confirmed = [
+    currentDpep?.demand,
+    currentDpep?.procedures,
+    currentDpep?.evolution,
+    currentDpep?.plan,
+  ].filter((value): value is string => Boolean(value && value.trim()));
 
   const closingInput: SessionClosingInput = {
     organizationId,
@@ -304,8 +313,10 @@ export async function runSessionClosingAssist(
     sessionId,
     finalTranscriptOrSummary,
     clinicianNotes: input.clinicianNotes,
-    interventionsActuallyRecorded: input.interventionsActuallyRecorded,
+    interventionsActuallyRecorded:
+      input.interventionsActuallyRecorded ?? notes?.working_observations ?? undefined,
     priorPlan: priorDpep?.plan ?? undefined,
+    itemsAlreadyConfirmedByClinician: confirmed.length > 0 ? confirmed : undefined,
   };
 
   return runSessionAiCall({
@@ -349,7 +360,7 @@ export async function appendClosingArtifactToDpep(
   const supabase = await createSupabaseServerClient();
   const { data: artifact, error: artifactError } = await supabase
     .from("ai_artifacts")
-    .select("id, type, structured_content, review_status")
+    .select("id, type, structured_content, review_status, run_id")
     .eq("id", parsed.data.artifactId)
     .maybeSingle();
 
@@ -358,6 +369,23 @@ export async function appendClosingArtifactToDpep(
   }
   if (artifact.review_status !== "pending") {
     return { error: "Este rascunho já foi revisado." };
+  }
+
+  const { data: run } = await supabase
+    .from("ai_runs")
+    .select("session_id, patient_id, organization_id")
+    .eq("id", artifact.run_id)
+    .maybeSingle();
+
+  const targetSession = await getClinicalSession(organizationId, parsed.data.sessionId);
+  if (
+    !run ||
+    run.organization_id !== organizationId ||
+    run.session_id !== parsed.data.sessionId ||
+    !targetSession ||
+    (run.patient_id != null && run.patient_id !== targetSession.patient_id)
+  ) {
+    return { error: "Rascunho de IA não encontrado." };
   }
 
   const dpepDraft = (

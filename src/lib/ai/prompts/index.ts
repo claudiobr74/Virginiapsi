@@ -1,3 +1,5 @@
+import "server-only";
+
 import { CLINICAL_PRINCIPLES_PROMPT } from "./core/clinical-principles";
 import { CLINICAL_SAFETY_PROMPT } from "./core/safety";
 import { UNCERTAINTY_PROMPT } from "./core/uncertainty";
@@ -22,6 +24,7 @@ import { KNOWLEDGE_INGESTION_PROMPT } from "./knowledge/ingestion";
 import { KNOWLEDGE_RETRIEVAL_PROMPT } from "./knowledge/retrieval";
 
 export const RUNTIME_PROMPT_VERSION = "1.2.0" as const;
+export const RUNTIME_SCHEMA_VERSION = "1.2.1" as const;
 
 const CLINICAL_CORE = [
   CLINICAL_PRINCIPLES_PROMPT,

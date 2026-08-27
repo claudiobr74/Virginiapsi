@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatInTimeZone, zonedTimeToUtcIso } from "@/lib/utils/timezone";
+import { formatInTimeZone, zonedTimeToUtcIso, civilDateTimeInTimeZone, civilDateInTimeZone } from "@/lib/utils/timezone";
 
 describe("zonedTimeToUtcIso", () => {
   it("converte horário de São Paulo (UTC-3, sem DST) para UTC", () => {
@@ -25,5 +25,21 @@ describe("formatInTimeZone", () => {
       "America/Sao_Paulo",
     );
     expect(formatted).toBe("14:00");
+  });
+});
+
+describe("civilDateTimeInTimeZone", () => {
+  it("não fatia o prefixo ISO UTC — usa o dia civil da organização", () => {
+    const civil = civilDateTimeInTimeZone(
+      "2026-09-18T11:00:00+00:00",
+      "America/Sao_Paulo",
+    );
+    expect(civil).toEqual({ date: "2026-09-18", time: "08:00" });
+  });
+
+  it("sessão noturna UTC permanece no dia civil anterior em São Paulo", () => {
+    expect(civilDateInTimeZone("2026-03-11T02:00:00.000Z", "America/Sao_Paulo")).toBe(
+      "2026-03-10",
+    );
   });
 });

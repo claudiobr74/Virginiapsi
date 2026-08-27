@@ -99,12 +99,16 @@ export async function resetDatabase(): Promise<void> {
   });
 }
 
-export async function createAuthUser(email?: string): Promise<string> {
+export async function createAuthUser(
+  email?: string,
+  options: { emailConfirmed?: boolean } = {},
+): Promise<string> {
   const id = randomUUID();
+  const confirmedAt = options.emailConfirmed === false ? null : new Date().toISOString();
   await withAdmin(async (client) => {
     await client.query(
-      "insert into auth.users (id, email) values ($1, $2)",
-      [id, email ?? `${id}@tesseli.test`],
+      "insert into auth.users (id, email, email_confirmed_at) values ($1, $2, $3)",
+      [id, email ?? `${id}@tesseli.test`, confirmedAt],
     );
   });
   return id;

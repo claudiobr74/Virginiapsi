@@ -62,7 +62,7 @@ export const supervisorOutputSchema = z
         summary: z.string(),
         maintenanceCycles: stringArray,
         resources: stringArray,
-        uncertainties: stringArray,
+        uncertainties: z.array(z.string()),
       })
       .strict(),
     schemaTherapyFormulation: z
@@ -73,7 +73,7 @@ export const supervisorOutputSchema = z
         copingStyles: stringArray,
         needs: stringArray,
         healthyResources: stringArray,
-        uncertainties: stringArray,
+        uncertainties: z.array(z.string()),
       })
       .strict(),
     additionalFrameworks: z
@@ -95,7 +95,7 @@ export const supervisorOutputSchema = z
         repairsOrStrengths: stringArray,
         therapistFactors: stringArray,
         boundaries: stringArray,
-        uncertainties: stringArray,
+        uncertainties: z.array(z.string()),
       })
       .strict(),
     possibleBlindSpots: z

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RUNTIME_PROMPT_VERSION } from "@/lib/ai/prompts";
+import { RUNTIME_PROMPT_VERSION, RUNTIME_SCHEMA_VERSION } from "@/lib/ai/prompts";
 import {
   SESSION_CLOSING_SCHEMA,
   SESSION_LIVE_SCHEMA,
@@ -11,6 +11,7 @@ const EXPECTED_SAFETY = ["none", "attention", "urgent_review"];
 describe("contratos de runtime AI", () => {
   it("mantém a versão oficial dos prompts clínicos", () => {
     expect(RUNTIME_PROMPT_VERSION).toBe("1.2.0");
+    expect(RUNTIME_SCHEMA_VERSION).toBe("1.2.1");
   });
 
   it("usa o mesmo enum de severidade de segurança na sessão e no supervisor", () => {
