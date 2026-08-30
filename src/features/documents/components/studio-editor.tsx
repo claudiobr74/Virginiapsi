@@ -13,6 +13,7 @@ import {
   DOCUMENT_KIND_LABELS,
   DOCUMENT_STATUS_LABELS,
   DOCUMENT_TONE_VALUES,
+  DOCUMENT_AI_COMMANDS,
   LENGTH_PRESET_VALUES,
   LOGO_ALIGN_VALUES,
   LOGO_MODE_VALUES,
@@ -175,6 +176,8 @@ export function StudioEditor({
       logoSize,
       purpose,
       recipientName,
+      setError,
+      startTransition,
       tone,
       visualProfile,
     ],
@@ -485,19 +488,7 @@ export function StudioEditor({
                     onChange={(event) => setAiCommand(event.target.value)}
                   >
                     <option value="">Gerar rascunho das seções</option>
-                    {[
-                      "desenvolver",
-                      "expandir",
-                      "resumir",
-                      "tornar mais técnico",
-                      "tornar mais formal",
-                      "melhorar clareza",
-                      "melhorar coesão",
-                      "reduzir redundância",
-                      "adaptar ao destinatário",
-                      "adaptar à finalidade",
-                      "reformular",
-                    ].map((command) => (
+                    {DOCUMENT_AI_COMMANDS.map((command) => (
                       <option key={command} value={command}>
                         {command}
                       </option>
@@ -517,7 +508,7 @@ export function StudioEditor({
                         documentId: document.id,
                         contextPreviewAcknowledged: contextAck,
                         command: aiCommand
-                          ? (aiCommand as Parameters<typeof generateDocumentAiDraftAction>[0]["command"])
+                          ? (aiCommand as (typeof DOCUMENT_AI_COMMANDS)[number])
                           : undefined,
                         answers: aiPreview ? { notas: aiPreview } : undefined,
                         selectedContext: importing ? { ...chartImport, additionalNotes: false } : undefined,
