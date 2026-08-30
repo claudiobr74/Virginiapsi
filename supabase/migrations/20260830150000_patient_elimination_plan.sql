@@ -467,7 +467,7 @@ begin
     remaining := array_append(remaining, 'patient_attachments');
   end if;
 
-  if exists (select 1 from public.documents where patient_id = p_patient_id and status = 'draft') then
+  if exists (select 1 from public.documents d where d.patient_id = p_patient_id and d.status = 'draft') then
     remaining := array_append(remaining, 'documents_draft');
   end if;
 
@@ -552,7 +552,7 @@ begin
     retained := array_append(retained, 'consent_files');
   end if;
   if exists (
-    select 1 from public.documents where patient_id = p_patient_id and status <> 'draft'
+    select 1 from public.documents d where d.patient_id = p_patient_id and d.status <> 'draft'
   ) then
     retained := array_append(retained, 'documents_issued');
   end if;
