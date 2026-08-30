@@ -40,7 +40,7 @@ export async function GET(
                   pageBreakBefore: false,
                 },
               ],
-        includeManualSignature: document.status !== "draft",
+        includeManualSignature: true,
       })
     : await generateDocumentPdf({
         title: document.title,

@@ -110,7 +110,7 @@ export async function renderDocumentStudioPdf(input: {
     cover,
     layout: input.document.layout_format,
     signatureLines: input.signatureLines,
-    manualSignatureBlock: input.includeManualSignature
+    manualSignatureBlock: input.includeManualSignature !== false
       ? { professionalLines, clientLines }
       : undefined,
     classicMode: !input.document.system_template_key,
