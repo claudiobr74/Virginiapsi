@@ -53,6 +53,9 @@ export async function createTemplateAction(input: unknown): Promise<DocumentActi
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
+  const forced = forcedSensitivity(parsed.data.documentKind);
+  const defaultSensitivity = forced ?? parsed.data.defaultSensitivity;
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("document_templates")
@@ -60,7 +63,7 @@ export async function createTemplateAction(input: unknown): Promise<DocumentActi
       organization_id: organizationId,
       name: parsed.data.name,
       document_kind: parsed.data.documentKind,
-      default_sensitivity: parsed.data.defaultSensitivity,
+      default_sensitivity: defaultSensitivity,
       body_template: parsed.data.bodyTemplate,
     })
     .select("id")

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveTcleStatus } from "@/features/consents/tcle";
+import { TCLE_BODY_TEMPLATE, TCLE_VERSION } from "@/features/consents/tcle-content";
 import type { ConsentRow } from "@/features/consents/contracts";
 
 function row(overrides: Partial<ConsentRow> = {}): ConsentRow {
@@ -9,7 +10,7 @@ function row(overrides: Partial<ConsentRow> = {}): ConsentRow {
     patient_id: "patient-1",
     type: "psychotherapy",
     title: "TCLE",
-    version: "tcle-2026-08-v1",
+    version: TCLE_VERSION,
     status: "accepted",
     accepted_at: "2026-08-01T00:00:00.000Z",
     expires_at: null,
@@ -24,13 +25,13 @@ function row(overrides: Partial<ConsentRow> = {}): ConsentRow {
 
 describe("resolveTcleStatus", () => {
   it("never_accepted quando não há registro do tipo", () => {
-    const result = resolveTcleStatus([], "psychotherapy", "tcle-2026-08-v1");
+    const result = resolveTcleStatus([], "psychotherapy", TCLE_VERSION);
     expect(result.status).toBe("never_accepted");
     expect(result.latest).toBeNull();
   });
 
   it("current quando o aceite mais recente bate com a versão vigente", () => {
-    const result = resolveTcleStatus([row()], "psychotherapy", "tcle-2026-08-v1");
+    const result = resolveTcleStatus([row()], "psychotherapy", TCLE_VERSION);
     expect(result.status).toBe("current");
   });
 
@@ -38,7 +39,7 @@ describe("resolveTcleStatus", () => {
     const result = resolveTcleStatus(
       [row({ version: "tcle-2026-01-v1" })],
       "psychotherapy",
-      "tcle-2026-08-v1",
+      TCLE_VERSION,
     );
     expect(result.status).toBe("outdated");
   });
@@ -47,7 +48,7 @@ describe("resolveTcleStatus", () => {
     const result = resolveTcleStatus(
       [row({ status: "revoked", revoked_at: "2026-08-05T00:00:00.000Z" })],
       "psychotherapy",
-      "tcle-2026-08-v1",
+      TCLE_VERSION,
     );
     expect(result.status).toBe("revoked");
   });
@@ -64,7 +65,7 @@ describe("resolveTcleStatus", () => {
       type: "service_terms",
       created_at: "2026-08-15T00:00:00.000Z",
     });
-    const result = resolveTcleStatus([older, newer, otherType], "psychotherapy", "tcle-2026-08-v1");
+    const result = resolveTcleStatus([older, newer, otherType], "psychotherapy", TCLE_VERSION);
     expect(result.latest?.id).toBe("newer");
     expect(result.status).toBe("current");
   });
@@ -73,8 +74,13 @@ describe("resolveTcleStatus", () => {
     const result = resolveTcleStatus(
       [row({ status: "pending", accepted_at: null })],
       "psychotherapy",
-      "tcle-2026-08-v1",
+      TCLE_VERSION,
     );
     expect(result.status).toBe("never_accepted");
+  });
+
+  it("informa a redação assistida de documentos como finalidade do Gemini", () => {
+    expect(TCLE_BODY_TEMPLATE).toContain("redação assistida de documentos");
+    expect(TCLE_VERSION).toBe("tcle-2026-08-v2");
   });
 });

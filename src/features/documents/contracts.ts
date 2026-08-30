@@ -413,3 +413,31 @@ export const registerAttachmentSchema = z.object({
   byteSize: z.number().int().positive(),
   sha256: z.string().min(1),
 });
+
+export const documentChartImportSelectionSchema = z
+  .object({
+    formulation: z.boolean().optional(),
+    therapyGoals: z.boolean().optional(),
+    lastSession: z.boolean().optional(),
+    lastThreeSessions: z.boolean().optional(),
+    dpep: z.boolean().optional(),
+    additionalNotes: z.boolean().optional(),
+  })
+  .strict();
+
+export const generateDocumentAiDraftSchema = z.object({
+  documentId: z.string().uuid(),
+  command: z.enum(DOCUMENT_AI_COMMANDS).optional(),
+  sectionId: z.string().max(80).optional(),
+  answers: z.record(z.string().max(80), z.string().max(8000)).optional(),
+  selectedContext: documentChartImportSelectionSchema.optional(),
+  contextPreviewAcknowledged: z.literal(true),
+  previewHash: z.string().regex(/^[a-f0-9]{64}$/, "Prévia do contexto ausente ou inválida."),
+});
+
+export const previewDocumentAiContextSchema = z.object({
+  documentId: z.string().uuid(),
+  command: z.enum(DOCUMENT_AI_COMMANDS).optional(),
+  answers: z.record(z.string().max(80), z.string().max(8000)).optional(),
+  selectedContext: documentChartImportSelectionSchema.optional(),
+});

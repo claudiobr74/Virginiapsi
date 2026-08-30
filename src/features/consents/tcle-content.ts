@@ -10,7 +10,7 @@
  * this text changes materially (docs/19 §2: "adição de novo suboperador...
  * exige... nova versão de consentimento").
  */
-export const TCLE_VERSION = "tcle-2026-08-v1";
+export const TCLE_VERSION = "tcle-2026-08-v2";
 
 export const TCLE_LEGAL_REVIEW_DISCLAIMER =
   "Rascunho estrutural pendente de validação jurídica humana (docs/19-lgpd-privacy.md §7). Não usar com paciente real antes dessa revisão.";
@@ -30,13 +30,13 @@ Este documento formaliza o consentimento para o acompanhamento psicoterapêutico
 - Google (Calendar/Meet): nome e código do paciente, horário e modalidade da consulta, para agenda e videochamada, quando a consulta for online.
 - Twilio: número de telefone e conteúdo de mensagens de confirmação/lembrete via WhatsApp, quando esse canal for utilizado.
 - Groq: processa o áudio da sessão SOMENTE se o consultório habilitar explicitamente o modo de transcrição alternativo (fallback); no modo padrão, a transcrição roda no dispositivo da profissional e nenhum áudio sai dele.
-- Google (Gemini): recebe contexto clínico minimizado para apoio de IA (Supervisor Clínico, apoio durante a sessão e acervo de conhecimento) — nunca o áudio bruto da sessão, nunca o prontuário completo indiscriminado.
+- Google (Gemini): recebe contexto clínico minimizado para apoio de IA (Supervisor Clínico, apoio durante a sessão, acervo de conhecimento e redação assistida de documentos profissionais) — nunca o áudio bruto da sessão, nunca o prontuário completo indiscriminado.
 
 3. TRANSCRIÇÃO DA SESSÃO
 No modo padrão, a transcrição da sessão é feita no próprio dispositivo da profissional, sem envio de áudio a qualquer serviço externo. Caso o consultório habilite o modo alternativo, o áudio é processado por serviço de transcrição fora do país e eliminado após o uso.
 
 4. APOIO DE INTELIGÊNCIA ARTIFICIAL
-As ferramentas de apoio de IA (Supervisor Clínico, apoio durante a sessão e acervo de conhecimento) processam um recorte minimizado do contexto clínico, nunca decidem de forma autônoma sobre diagnóstico, avaliação psicológica ou conduta, e todo resultado passa por revisão humana da profissional antes de ser incorporado ao prontuário.
+As ferramentas de apoio de IA (Supervisor Clínico, apoio durante a sessão, acervo de conhecimento e redação assistida de documentos) processam um recorte minimizado do contexto clínico, nunca decidem de forma autônoma sobre diagnóstico, avaliação psicológica, conduta ou emissão de documento, e todo resultado passa por revisão humana da profissional antes de ser incorporado ao prontuário ou emitido.
 
 5. PRAZOS DE GUARDA
 - Áudio bruto do modo alternativo: eliminado automaticamente após a transcrição.

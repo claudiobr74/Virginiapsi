@@ -8,7 +8,9 @@
 
 **Recomendação:** `READY_WITH_FIXES`
 
-Os critérios de pronto da seção 124 do master prompt estão atendidos na prática: a profissional consegue gerar, revisar, emitir e entregar um PDF A4 com identidade configurável, texto desenvolvido e o mesmo renderer no preview. Os “fixes” abaixo são polimento (editor visual, busca semântica, diff visual, catálogo além do primeiro lote) — não bloqueiam o uso profissional do primeiro lote.
+Os critérios de pronto da seção 124 do master prompt estão atendidos na prática: a profissional consegue gerar, revisar, emitir e entregar um PDF A4 com identidade configurável, texto desenvolvido e o mesmo renderer no preview. Correção pós-revisão de IA (30/08): o gate `aiProcessingAllowed` passa a valer em **toda** chamada Gemini com `patient_id`, independentemente de importar o prontuário; o contexto vai em `packContext`; a saída é JSON validado (fail-closed).
+
+Os “fixes” restantes são polimento (editor visual, busca semântica, diff visual, catálogo além do primeiro lote) — não bloqueiam o uso profissional do primeiro lote.
 
 ---
 
@@ -140,10 +142,13 @@ Auditoria: `document_created`, `document_updated`, `document_template_used`, `do
 - Modelo padrão **`gemini-3.6-flash`**, override único `GEMINI_MODEL_DOCUMENTS`
 - Prompt em `src/lib/ai/prompts/documents/studio.ts`, composto em `RUNTIME_PROMPTS.documentStudio` com o núcleo clínico
 - **`RUNTIME_PROMPT_VERSION` permanece `1.2.0`** (não foi incrementado)
+- **Consentimento:** `authorizeDocumentStudioAi(..., "provider")` exige `aiProcessingAllowed` em **toda** chamada Gemini com `patient_id`, mesmo sem importar o prontuário. Omitir `selectedContext` não contorna o gate. Parecer sem paciente não resolve consentimento de titular. Prévia do envelope (`preview`) exige só acesso clínico.
+- Contexto empacotado com `packContext` (`DOCUMENT_BODY`, `CLINICIAN_ANSWERS`, `SELECTED_CHART_CONTEXT` como dados).
+- Saída estruturada (`DOCUMENT_STUDIO_DRAFT_SCHEMA` + Zod `.strict()`); malformação falha fechada; a action não altera `status`.
+- Prévia com hash SHA-256 do envelope; emissão da IA exige hash coincidente.
+- TCLE `tcle-2026-08-v2` inclui redação assistida de documentos como finalidade do Gemini.
 - Modos: Manual / Assistido; comandos de redação no editor
-- Preview obrigatório do contexto antes de gerar
 - Proibição de fabricação (diagnóstico, CID, DSM, sintomas, fatos, datas, sessões, testes, técnicas, resultados, medicamentos, profissionais, acontecimentos, referências)
-- Lacuna → `[[REVISAR: …]]` ou omissão; nunca emissão automática
 - Atestado/laudo: decisão humana, não da IA
 - Contrato principal **não** embute consentimento completo de IA
 
@@ -166,8 +171,8 @@ Auditoria: `document_created`, `document_updated`, `document_template_used`, `do
 |---|---|---|
 | `pnpm lint` | **PASS** | eslint sem erros |
 | `pnpm typecheck` | **PASS** | `next typegen` + `tsc --noEmit` |
-| `pnpm test` | **PASS** | 64 arquivos, **350/350** |
-| `pnpm test:security` | **PASS** | 16 arquivos, **173/173** (Postgres local `127.0.0.1:5432`) |
+| `pnpm test` | **PASS** | 66 arquivos, **365/365** (após correção do gate de IA) |
+| `pnpm test:security` | **PASS** | 16 arquivos, **175/175** (Postgres local `127.0.0.1:5432`) |
 | `pnpm test:e2e` | **PASS** | **194/194** (desktop + mobile Chromium, 8,1 min) |
 | `pnpm build` | **PASS** | Next.js 16.3.1 compilou |
 | `pnpm scan:client-bundle` | **PASS** | 59 chunks, nenhum nome de env server-only |
@@ -192,6 +197,9 @@ Screenshots de impressão fotográfica da clínica real **não** foram anexados 
 | Typecheck: `renderTemplate` / tipos de status / CRP UF | Corrigido; CRP só de `document_branding.crp_state` |
 | Lint: `"use server"` exportando constantes de IA | `DOCUMENT_AI_COMMANDS` movido para `contracts.ts` |
 | 17 corpos únicos em 18 templates (contratos iguais) | Contrato online passou a forçar cláusulas digitais + seção de escopo |
+| Gate de IA só rodava se houvesse importação de prontuário (P0 da revisão runtime) | Consentimento em toda chamada com `patient_id`; `packContext`; JSON + Zod; hash da prévia |
+| Template `parecer` podia nascer `administrative` (P1 RLS) | Trigger força `default_sensitivity` pelo `document_kind` |
+| `print_storage_path` sem prefixo de org (P1) | Trigger + validação TypeScript |
 | Hash de logo no cliente | Web Crypto (`crypto.subtle`), sem `node:crypto` |
 | Rebase em `main` sem o PR de integridade `#26` | Importação de prontuário via `chart-import.ts`; PDF clássico reexporta o renderer do estúdio |
 

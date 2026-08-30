@@ -66,10 +66,7 @@ export async function loadDocumentChartContext(input: {
 
   const sessions = await listPatientSessions(input.organizationId, input.patientId);
   const finalized = sessions.filter((session) => session.status === "finalized");
-  const recent = (finalized.length > 0 ? finalized : sessions).slice(
-    0,
-    input.selection.lastThreeSessions ? 3 : 1,
-  );
+  const recent = finalized.slice(0, input.selection.lastThreeSessions ? 3 : 1);
 
   if (input.selection.formulation) {
     const notes = recent[0] ? await getSessionWorkingNotes(recent[0].id) : null;

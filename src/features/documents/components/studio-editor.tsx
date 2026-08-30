@@ -36,6 +36,7 @@ import {
   importScheduledEncountersAction,
   issueStudioDocumentAction,
   markDocumentReviewedAction,
+  previewDocumentAiContextAction,
   registerDeliveryAction,
   saveDocumentAsTemplateAction,
   saveStudioDraftAction,
@@ -109,6 +110,8 @@ export function StudioEditor({
   const [previewOk, setPreviewOk] = useState(false);
   const [aiPreview, setAiPreview] = useState("");
   const [aiDraft, setAiDraft] = useState<string | null>(null);
+  const [aiReviewNotes, setAiReviewNotes] = useState<string[]>([]);
+  const [packedPreview, setPackedPreview] = useState<string>("");
   const [compareId, setCompareId] = useState<string>("");
   const [delivery, setDelivery] = useState({
     recipientName: "",
@@ -462,15 +465,52 @@ export function StudioEditor({
                   </fieldset>
                 ) : null}
                 <p className="mt-2 text-[11px] font-semibold text-muted-foreground">
-                  Dados que serão utilizados
+                  Notas da profissional (opcional)
                 </p>
                 <textarea
                   rows={4}
                   className="mt-1 w-full rounded-lg border border-border bg-input px-2 py-1.5 text-xs"
-                  placeholder="Cole só o selecionado do prontuário ou suas respostas às perguntas acima"
+                  placeholder="Respostas às perguntas acima — não substituem o texto do documento nem a importação selecionada"
                   value={aiPreview}
                   onChange={(event) => setAiPreview(event.target.value)}
                 />
+                <p className="mt-2 text-[11px] font-semibold text-muted-foreground">
+                  Dados que serão utilizados
+                </p>
+                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-surface p-2 text-[10px] text-muted-foreground">
+                  {packedPreview ||
+                    "Atualize a prévia para ver exatamente o envelope enviado à IA (finalidade, texto atual, notas e fatias selecionadas do prontuário)."}
+                </pre>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="mt-2"
+                  disabled={isPending}
+                  onClick={() =>
+                    startTransition(async () => {
+                      const importing = Object.values(chartImport).some(Boolean);
+                      const result = await previewDocumentAiContextAction({
+                        documentId: document.id,
+                        command: aiCommand
+                          ? (aiCommand as (typeof DOCUMENT_AI_COMMANDS)[number])
+                          : undefined,
+                        answers: aiPreview ? { notas: aiPreview } : undefined,
+                        selectedContext: importing
+                          ? { ...chartImport, additionalNotes: false }
+                          : undefined,
+                      });
+                      if (result.error) {
+                        setError(result.error);
+                        return;
+                      }
+                      setPackedPreview(result.preview ?? "");
+                      setContextAck(false);
+                    })
+                  }
+                >
+                  Atualizar prévia do contexto
+                </Button>
                 <label className="mt-2 flex items-start gap-2 text-[11px]">
                   <input
                     type="checkbox"
@@ -504,20 +544,33 @@ export function StudioEditor({
                   onClick={() =>
                     startTransition(async () => {
                       const importing = Object.values(chartImport).some(Boolean);
-                      const result = await generateDocumentAiDraftAction({
+                      const payload = {
                         documentId: document.id,
-                        contextPreviewAcknowledged: contextAck,
                         command: aiCommand
                           ? (aiCommand as (typeof DOCUMENT_AI_COMMANDS)[number])
                           : undefined,
                         answers: aiPreview ? { notas: aiPreview } : undefined,
-                        selectedContext: importing ? { ...chartImport, additionalNotes: false } : undefined,
+                        selectedContext: importing
+                          ? { ...chartImport, additionalNotes: false }
+                          : undefined,
+                      };
+                      const preview = await previewDocumentAiContextAction(payload);
+                      if (preview.error || !preview.previewHash) {
+                        setError(preview.error ?? "Não foi possível montar a prévia do contexto.");
+                        return;
+                      }
+                      setPackedPreview(preview.preview ?? "");
+                      const result = await generateDocumentAiDraftAction({
+                        ...payload,
+                        contextPreviewAcknowledged: true as const,
+                        previewHash: preview.previewHash,
                       });
                       if (result.error) {
                         setError(result.error);
                         return;
                       }
                       setAiDraft(result.draft ?? null);
+                      setAiReviewNotes(result.reviewNotes ?? []);
                       setSuccess(
                         result.model
                           ? `Rascunho gerado (${result.model}). Revise antes de incorporar.`
@@ -533,6 +586,13 @@ export function StudioEditor({
                     <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-surface p-2 text-[11px]">
                       {aiDraft}
                     </pre>
+                    {aiReviewNotes.length > 0 ? (
+                      <ul className="mt-2 list-disc pl-4 text-[11px] text-muted-foreground">
+                        {aiReviewNotes.map((note) => (
+                          <li key={note}>{note}</li>
+                        ))}
+                      </ul>
+                    ) : null}
                     <Button
                       type="button"
                       size="sm"
