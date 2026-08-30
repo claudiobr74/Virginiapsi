@@ -54,9 +54,10 @@ Fluxo operacional de `docs/01-product-spec.md` §5, com suporte em `patients.eli
 1. Psicóloga Administradora inicia solicitação de exclusão para um paciente.
 2. Sistema gera relatório do que será eliminado versus o que precisa ser mantido (ex.: prontuário dentro da guarda mínima, registros financeiros com obrigação fiscal).
 3. Confirmação forte (reautenticação ou frase de confirmação) antes de prosseguir.
-4. `elimination_status` muda para `elimination_requested`, depois `partially_eliminated` ou `eliminated` conforme o que a norma permite eliminar.
-5. Campos identificadores dos registros elegíveis são anonimizados por rotina server-side; o que é retido registra `elimination_retained_reason`.
-6. Evento correspondente em `audit_events`.
+4. `execute_patient_elimination_plan(patient_id)` (RPC transacional, só `psychologist_admin` da organização do paciente) executa DELETE / ANONYMIZE / RETAIN_WITH_LEGAL_REASON conforme `patient_data_class_policies` e `src/domain/patient-data-inventory.ts`. Fundamentos jurídicos são chaves configuráveis (`*_pending_review`), não parecer automático.
+5. `verify_patient_elimination(patient_id)` relê o banco. `eliminated` só é devolvido se não restar classe que deveria ter sido apagada ou anonimizada. Objetos de Storage entram no plano (foto, anexos, rascunhos, áudio de fallback, exports).
+6. `elimination_status` fica `elimination_requested` durante a execução e termina em `partially_eliminated` ou `eliminated`. O que é retido registra `patient_retention_records` (categoria, fundamento, prazo, revisão) e `elimination_retained_reason`.
+7. Evento correspondente em `audit_events` (`settings.lgpd.eliminate`).
 
 Direitos cobertos pelo fluxo acima: eliminação. Os demais direitos do titular (acesso, correção, portabilidade) são cobertos pela exportação lógica já especificada em `docs/06-integrations.md` §5 (escopo paciente) e pelas telas normais de edição de cadastro.
 

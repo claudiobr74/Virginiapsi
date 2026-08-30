@@ -11,12 +11,16 @@ import { getServerEnv } from "@/lib/env/server";
 import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getPatient } from "@/features/patients/queries";
 import { authorizeSupervisorAi } from "@/features/supervisor/gate";
 import { retrieveChunks } from "@/features/knowledge/retrieval";
 import { ingestKnowledgeSource } from "@/features/knowledge/ingestion";
 import { findFabricatedCitations } from "@/features/knowledge/citation-validator";
 import { buildApplyToCaseContext, buildKnowledgeContext } from "@/features/knowledge/dto";
+import {
+  applyToCasePreviewText,
+  loadApplyToCaseBuiltContext,
+} from "@/features/knowledge/apply-to-case-load";
+import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import {
   applyToCaseSchema,
   askKnowledgeSchema,
@@ -34,6 +38,8 @@ export interface KnowledgeActionResult {
   runId?: string;
   artifactId?: string;
   content?: KnowledgeOutput;
+  preview?: string;
+  categories?: string[];
 }
 
 async function requireClinicalPractitioner() {
@@ -413,6 +419,33 @@ export async function studyKnowledgeAction(input: unknown): Promise<KnowledgeAct
  * gate as Supervisor (docs/16 §Apply to Case Input), minimized clinical
  * context, and patient data never touches the library/collections.
  */
+export async function previewApplyToCaseAction(input: unknown): Promise<KnowledgeActionResult> {
+  const { organizationId } = await requireClinicalPractitioner();
+  const parsed = applyToCaseSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const gate = await authorizeSupervisorAi(parsed.data.patientId);
+  if (!gate.allowed) {
+    return { error: gate.message };
+  }
+
+  const built = await loadApplyToCaseBuiltContext({
+    organizationId,
+    patientId: parsed.data.patientId,
+    selection: parsed.data.selection,
+    additionalNotes: parsed.data.additionalNotes,
+  });
+  if ("error" in built) {
+    return { error: built.error };
+  }
+  return {
+    preview: applyToCasePreviewText(built),
+    categories: built.categories,
+  };
+}
+
 export async function applyToCaseAction(input: unknown): Promise<KnowledgeActionResult> {
   const { organizationId, userId } = await requireClinicalPractitioner();
   const parsed = applyToCaseSchema.safeParse(input);
@@ -430,16 +463,22 @@ export async function applyToCaseAction(input: unknown): Promise<KnowledgeAction
     return limited;
   }
 
-  const patient = await getPatient(organizationId, parsed.data.patientId);
-  if (!patient) {
-    return { error: "Paciente não encontrado." };
+  const built = await loadApplyToCaseBuiltContext({
+    organizationId,
+    patientId: parsed.data.patientId,
+    selection: parsed.data.selection,
+    additionalNotes: parsed.data.additionalNotes,
+  });
+  if ("error" in built) {
+    return { error: built.error };
   }
 
   const chunks = await retrieveChunks(organizationId, parsed.data.question, {
     collectionIds: parsed.data.collectionIds,
   });
+  const env = getServerEnv();
 
-  return runKnowledgeCall({
+  const result = await runKnowledgeCall({
     organizationId,
     purpose: "knowledge_clinical_application",
     promptName: "knowledgeClinicalApplication",
@@ -447,12 +486,27 @@ export async function applyToCaseAction(input: unknown): Promise<KnowledgeAction
     patientId: parsed.data.patientId,
     userContent: buildApplyToCaseContext({
       organizationId,
-      patientRef: { displayLabel: patient.preferred_name },
+      patientRef: { displayLabel: "paciente" },
       question: parsed.data.question,
-      minimizedCaseContext: `Modalidade: ${patient.modality}.`,
+      minimizedCaseContext: built.minimizedCaseContext,
       retrievedChunks: chunks,
       explicitApplyToCase: true,
     }),
     retrievedSourceIds: chunks.map((chunk) => chunk.sourceId),
   });
+
+  await logAuditEvent({
+    organizationId,
+    action: "knowledge.apply_to_case",
+    resourceType: "patient",
+    resourceId: parsed.data.patientId,
+    metadata: {
+      categories: built.categories.join(","),
+      model: env.GEMINI_MODEL_KNOWLEDGE,
+      source_count: chunks.length,
+      result: result.error ? "failed" : "succeeded",
+    },
+  });
+
+  return result;
 }

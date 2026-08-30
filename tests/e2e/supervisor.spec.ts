@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginViaUi, signIn, STUB_SECRETARY } from "./support/fixtures";
+import { completeFinalizeWizard } from "./support/finalize-wizard";
 
 async function openPatient(page: Page, preferredName: string): Promise<string> {
   await page.goto("/app/patients");
@@ -18,7 +19,7 @@ async function createFinalizedSession(page: Page, patientId: string): Promise<vo
   await expect(page.getByText("DPEP salvo.")).toBeVisible();
 
   await page.getByRole("button", { name: "Finalizar atendimento" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Apenas finalizar" }).click();
+  await completeFinalizeWizard(page);
   await expect(page.getByRole("heading", { name: "Revisão da Sessão" })).toBeVisible();
 }
 

@@ -1,13 +1,24 @@
 /**
- * Best-effort in-memory sliding window. On Vercel this is per-instance, not a
- * global cluster limit — document that honestly in the release gate. Do not
- * treat this as a substitute for an edge/WAF quota.
+ * Rate limiting is per process instance. On Vercel this is not a global
+ * cluster quota — each isolate has its own window. The RateLimiter
+ * interface exists so a distributed store can replace InMemoryRateLimiter
+ * without changing call sites that depend on consumeAiRateLimit /
+ * consumeCaptureGrantRateLimit.
  */
 
 export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   retryAfterSeconds: number;
+}
+
+export interface RateLimitPolicy {
+  limit: number;
+  windowMs: number;
+}
+
+export interface RateLimiter {
+  consume(key: string, policy: RateLimitPolicy): Promise<RateLimitResult>;
 }
 
 export interface SlidingWindowLimiter {
@@ -25,7 +36,7 @@ export interface SlidingWindowLimiterOptions {
 export const RATE_LIMITS = {
   captureGrant: { limit: 30, windowMs: 60_000 },
   aiActions: { limit: 20, windowMs: 60_000 },
-} as const;
+} as const satisfies Record<string, RateLimitPolicy>;
 
 export const AI_RATE_LIMIT_MESSAGE =
   "Muitas solicitações de IA neste minuto. Aguarde e tente novamente.";
@@ -67,6 +78,49 @@ export function createSlidingWindowLimiter(
   };
 }
 
+/**
+ * In-process limiter. Not shared across Vercel instances. Swap this
+ * singleton via `setRateLimiter` when a Redis/edge store is introduced.
+ */
+export class InMemoryRateLimiter implements RateLimiter {
+  private readonly buckets = new Map<string, SlidingWindowLimiter>();
+
+  constructor(private readonly now: () => number = Date.now) {}
+
+  consumeNow(key: string, policy: RateLimitPolicy): RateLimitResult {
+    const bucketId = `${policy.limit}:${policy.windowMs}`;
+    let limiter = this.buckets.get(bucketId);
+    if (!limiter) {
+      limiter = createSlidingWindowLimiter({
+        limit: policy.limit,
+        windowMs: policy.windowMs,
+        now: this.now,
+      });
+      this.buckets.set(bucketId, limiter);
+    }
+    return limiter.consume(key);
+  }
+
+  consume(key: string, policy: RateLimitPolicy): Promise<RateLimitResult> {
+    return Promise.resolve(this.consumeNow(key, policy));
+  }
+
+  reset(): void {
+    this.buckets.clear();
+  }
+}
+
+let activeRateLimiter: InMemoryRateLimiter = new InMemoryRateLimiter();
+
+export function getRateLimiter(): RateLimiter {
+  return activeRateLimiter;
+}
+
+/** Test helper — not a public runtime API. */
+export function setRateLimiterForTests(limiter: InMemoryRateLimiter): void {
+  activeRateLimiter = limiter;
+}
+
 export const captureGrantLimiter = createSlidingWindowLimiter(RATE_LIMITS.captureGrant);
 export const aiActionLimiter = createSlidingWindowLimiter(RATE_LIMITS.aiActions);
 
@@ -88,9 +142,9 @@ export function clientIpFromHeaders(headers: Headers): string {
 }
 
 export function consumeCaptureGrantRateLimit(ip: string): RateLimitResult {
-  return captureGrantLimiter.consume(`capture-grant:${ip}`);
+  return activeRateLimiter.consumeNow(`capture-grant:${ip}`, RATE_LIMITS.captureGrant);
 }
 
 export function consumeAiRateLimit(organizationId: string, userId: string): RateLimitResult {
-  return aiActionLimiter.consume(`ai:${organizationId}:${userId}`);
+  return activeRateLimiter.consumeNow(`ai:${organizationId}:${userId}`, RATE_LIMITS.aiActions);
 }

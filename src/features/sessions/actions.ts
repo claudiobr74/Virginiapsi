@@ -183,20 +183,10 @@ export async function finalizeSessionAction(
     resourceId: sessionId,
   });
 
-  const { error: chargeError } = await supabase.rpc("create_session_charge", {
-    p_session_id: sessionId,
-    org_id: organizationId,
-  });
-
   revalidatePath(`/session/${sessionId}`);
   revalidatePath("/app/finance");
   revalidatePath("/app");
-  return {
-    sessionId,
-    warning: chargeError
-      ? "Sessão finalizada, mas a cobrança não foi gerada automaticamente."
-      : undefined,
-  };
+  return { sessionId };
 }
 
 export async function cancelSessionAction(

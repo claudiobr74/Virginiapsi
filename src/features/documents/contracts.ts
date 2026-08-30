@@ -122,6 +122,30 @@ export const saveDraftSchema = z.object({
   body: z.string().max(20000),
 });
 
+export const signDocumentSchema = z.object({
+  documentId: z.string().uuid(),
+  confirmationAcknowledged: z.literal(true, {
+    errorMap: () => ({ message: "Confirme que revisou o documento antes de assinar." }),
+  }),
+});
+
+export const documentProfessionalSignatureRowSchema = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  document_id: z.string().uuid(),
+  document_version_id: z.string().uuid(),
+  professional_user_id: z.string().uuid(),
+  professional_name: z.string(),
+  professional_registration: z.string().nullable(),
+  professional_registration_state: z.string().nullable(),
+  document_sha256: z.string(),
+  signed_at: z.string(),
+  signature_method: z.literal("virginiapsi_internal"),
+});
+export type DocumentProfessionalSignatureRow = z.infer<
+  typeof documentProfessionalSignatureRowSchema
+>;
+
 export const patientAttachmentRowSchema = z.object({
   id: z.string().uuid(),
   organization_id: z.string().uuid(),

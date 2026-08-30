@@ -2,11 +2,13 @@ import "server-only";
 
 import {
   documentFileRowSchema,
+  documentProfessionalSignatureRowSchema,
   documentRowSchema,
   documentTemplateRowSchema,
   documentVersionRowSchema,
   patientAttachmentRowSchema,
   type DocumentFileRow,
+  type DocumentProfessionalSignatureRow,
   type DocumentRow,
   type DocumentTemplateRow,
   type DocumentVersionRow,
@@ -107,6 +109,23 @@ export async function getFileForVersion(
     throw new Error(`failed to load document file: ${error.message}`);
   }
   return data ? documentFileRowSchema.parse(data) : null;
+}
+
+export async function getSignatureForVersion(
+  documentVersionId: string,
+): Promise<DocumentProfessionalSignatureRow | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("document_professional_signatures")
+    .select(
+      "id, organization_id, document_id, document_version_id, professional_user_id, professional_name, professional_registration, professional_registration_state, document_sha256, signed_at, signature_method",
+    )
+    .eq("document_version_id", documentVersionId)
+    .maybeSingle();
+  if (error && error.code !== "PGRST116") {
+    throw new Error(`failed to load document signature: ${error.message}`);
+  }
+  return data ? documentProfessionalSignatureRowSchema.parse(data) : null;
 }
 
 export async function listPatientAttachments(

@@ -18,6 +18,7 @@ export async function generateDocumentPdf(params: {
   title: string;
   body: string;
   footer?: string;
+  signatureBlock?: string[];
 }): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -58,6 +59,15 @@ export async function generateDocumentPdf(params: {
 
   for (const line of bodyLines) {
     drawLine(line, font, FONT_SIZE);
+  }
+
+  if (params.signatureBlock && params.signatureBlock.length > 0) {
+    cursorY -= LINE_HEIGHT;
+    for (const line of params.signatureBlock) {
+      for (const wrapped of wrapText(line, font, FONT_SIZE - 2, maxWidth)) {
+        drawLine(wrapped, font, FONT_SIZE - 2);
+      }
+    }
   }
 
   if (params.footer) {

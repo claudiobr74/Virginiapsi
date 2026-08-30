@@ -22,5 +22,9 @@ test.describe("Hardening de acessibilidade e headers", () => {
     expect(headers["x-frame-options"]).toBe("DENY");
     expect(headers["x-powered-by"]).toBeUndefined();
     expect(headers["permissions-policy"]).toContain("microphone=(self)");
+    expect(headers["content-security-policy"]).toBeTruthy();
+    expect(headers["content-security-policy"]).not.toMatch(/script-src\s+\*/);
+    expect(headers["content-security-policy"]).toMatch(/script-src[^;]*'nonce-/);
+    expect(headers["content-security-policy"]).toMatch(/frame-ancestors 'none'/);
   });
 });

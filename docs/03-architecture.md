@@ -109,7 +109,7 @@ Obrigatória em:
 
 ## Limites de abuso (Fase 13)
 
-Rate limit in-memory por instância serverless: grants de captura 30/min por IP; ações de IA 20/min por organização+usuário. Payload de webhook/JSON tem teto explícito. Isso reduz abuso e custo; não substitui WAF nem cota global.
+Rate limit in-memory por instância serverless, atrás da interface `RateLimiter` (`InMemoryRateLimiter` hoje): grants de captura 30/min por IP; ações de IA 20/min por organização+usuário. **Não é cota global de cluster.** Payload de webhook/JSON tem teto explícito. CSP por request com nonce em `src/proxy.ts`. Isso reduz abuso e custo; não substitui WAF nem rate limiting distribuído.
 
 ## Rollback
 

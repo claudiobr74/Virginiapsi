@@ -19,7 +19,7 @@ import {
   sha256Hex,
   uploadGeneratedFile,
 } from "@/lib/documents/storage";
-import { TCLE_BODY_TEMPLATE, TCLE_VERSION } from "@/features/consents/tcle-content";
+import { TCLE_BODY_TEMPLATE, TCLE_LEGAL_REVIEW_STATUS, TCLE_VERSION } from "@/features/consents/tcle-content";
 import { TCLE_CONSENT_TYPES } from "@/features/consents/tcle";
 
 export interface TcleActionResult {
@@ -86,6 +86,8 @@ export async function acceptTcleAction(input: unknown): Promise<TcleActionResult
       guardian_authorization: parsed.data.guardianAuthorization,
       guardian_name: parsed.data.guardianName || null,
       patient_assent: parsed.data.patientAssent,
+      body_sha256: sha256Hex(Buffer.from(TCLE_BODY_TEMPLATE, "utf8")),
+      legal_review_status: TCLE_LEGAL_REVIEW_STATUS,
     })
     .select("id")
     .single();
@@ -123,7 +125,11 @@ export async function acceptTcleAction(input: unknown): Promise<TcleActionResult
     action: "tcle.accept",
     resourceType: "consent",
     resourceId: consent.id,
-    metadata: { type: parsed.data.type, version: TCLE_VERSION },
+    metadata: {
+      type: parsed.data.type,
+      version: TCLE_VERSION,
+      legal_review_status: TCLE_LEGAL_REVIEW_STATUS,
+    },
   });
 
   revalidatePath(`/app/patients/${parsed.data.patientId}`);

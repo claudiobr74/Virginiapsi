@@ -285,6 +285,7 @@ describe("contrato de ambiente", () => {
     });
     expect(flags.googleOAuth).toBe(true);
     expect(flags.twilioAccount).toBe(false);
+    expect(flags.twilioEnabled).toBe(false);
     expect(flags.twilioSender).toBe(false);
     expect(flags.gemini).toBe(false);
   });
@@ -293,6 +294,31 @@ describe("contrato de ambiente", () => {
     expect(() =>
       parseServerEnv({ ...validServer, GOOGLE_CLIENT_ID: "" }),
     ).toThrow(/GOOGLE_CLIENT_ID/);
+  });
+
+  it("aceita o contrato servidor sem credenciais Twilio quando a integração está desativada", () => {
+    const parsed = parseServerEnv({
+      ...validServer,
+      TWILIO_ENABLED: "false",
+      TWILIO_ACCOUNT_SID: "",
+      TWILIO_AUTH_TOKEN: "",
+      TWILIO_WHATSAPP_FROM: "",
+      TWILIO_MESSAGING_SERVICE_SID: "",
+    });
+    expect(parsed.TWILIO_ENABLED).toBe(false);
+    expect(parsed.TWILIO_ACCOUNT_SID).toBeUndefined();
+    expect(parsed.TWILIO_AUTH_TOKEN).toBeUndefined();
+  });
+
+  it("exige SID e token somente quando TWILIO_ENABLED=true", () => {
+    expect(() =>
+      parseServerEnv({
+        ...validServer,
+        TWILIO_ENABLED: "true",
+        TWILIO_ACCOUNT_SID: "",
+        TWILIO_AUTH_TOKEN: "",
+      }),
+    ).toThrow(/TWILIO_ACCOUNT_SID/);
   });
 
   it("aceita o contrato servidor sem remetente Twilio (exigido só no envio)", () => {

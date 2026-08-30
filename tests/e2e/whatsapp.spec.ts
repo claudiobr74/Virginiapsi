@@ -56,18 +56,20 @@ test.describe("WhatsApp — preferência, job e webhooks", () => {
     expect(await response.json()).toEqual({ error: "unauthorized" });
   });
 
-  test("webhook de status rejeita assinatura inválida", async ({ request }) => {
+  test("webhook de status recusa quando Twilio está desativado", async ({ request }) => {
     const response = await request.post("/api/webhooks/twilio/status", {
       form: { MessageSid: "SMinvalid", MessageStatus: "delivered" },
       headers: { "X-Twilio-Signature": "assinatura-invalida" },
     });
-    expect(response.status()).toBe(403);
+    expect(response.status()).toBe(503);
+    expect(await response.json()).toEqual({ error: "not_configured" });
   });
 
-  test("webhook inbound rejeita assinatura ausente", async ({ request }) => {
+  test("webhook inbound recusa quando Twilio está desativado", async ({ request }) => {
     const response = await request.post("/api/webhooks/twilio/inbound", {
       form: { MessageSid: "SMno-sig", From: "whatsapp:+5511999999999", Body: "SIM" },
     });
-    expect(response.status()).toBe(403);
+    expect(response.status()).toBe(503);
+    expect(await response.json()).toEqual({ error: "not_configured" });
   });
 });

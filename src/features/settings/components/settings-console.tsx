@@ -228,6 +228,7 @@ function ClinicSection({ snapshot }: { snapshot: SettingsSnapshot }) {
               professionalName: String(form.get("professionalName") ?? ""),
               subtitle: String(form.get("subtitle") ?? ""),
               crp: String(form.get("crp") ?? ""),
+              crpState: String(form.get("crpState") ?? ""),
               taxId: String(form.get("taxId") ?? ""),
               pixKey: String(form.get("pixKey") ?? ""),
               clinicName: String(form.get("clinicName") ?? ""),
@@ -254,6 +255,9 @@ function ClinicSection({ snapshot }: { snapshot: SettingsSnapshot }) {
         </Field>
         <Field label="CRP">
           <Input name="crp" defaultValue={p.crp ?? ""} />
+        </Field>
+        <Field label="UF do CRP">
+          <Input name="crpState" defaultValue={p.crp_state ?? ""} maxLength={2} />
         </Field>
         <Field label="CPF/CNPJ">
           <Input name="taxId" defaultValue={p.tax_id ?? ""} />

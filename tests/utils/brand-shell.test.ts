@@ -32,7 +32,7 @@ describe("marca VirgíniaPsi", () => {
   });
 });
 
-describe("navegação Serenità", () => {
+describe("navegação do shell", () => {
   it("marca Início só em /app", () => {
     expect(isNavItemActive("/app", "/app")).toBe(true);
     expect(isNavItemActive("/app/patients", "/app")).toBe(false);

@@ -29,8 +29,8 @@ G0 (2026-08-25): `GET /login` em `serena-psi-beta.vercel.app` respondeu **200** 
 
 - Error boundaries (`src/app/error.tsx`, `src/app/global-error.tsx`) e `not-found.tsx` com primitivos canônicos. Mensagens genéricas; o `error` não é logado (pode carregar contexto operacional).
 - Skip-link “Ir para o conteúdo principal” no `AppShell` → `#conteudo-principal`. Sessão em modo foco também expõe `<main id="conteudo-principal">`.
-- Headers globais: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy` (microfone só `self`). COEP/COOP permanecem só em `/session/:sessionId`. Sem CSP estrito que quebre o App Router.
-- Rate limit **best-effort por instância** (Map in-memory): 30/min por IP nos endpoints de grant (`/api/session-capture/grant`, `upload-grant`); 20/min por organização+usuário nas server actions de Supervisor, Session AI e Knowledge. **Não** é cota global de cluster.
+- Headers globais: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy` (microfone só `self`). COEP/COOP permanecem só em `/session/:sessionId`. CSP por request com nonce (`src/lib/security/csp.ts` + `src/proxy.ts`): `script-src 'self' 'nonce-…' 'strict-dynamic'` — nunca `script-src *`.
+- Rate limit **best-effort por instância** via interface `RateLimiter` + `InMemoryRateLimiter` (`src/lib/security/rate-limit.ts`): 30/min por IP nos endpoints de grant (`/api/session-capture/grant`, `upload-grant`); 20/min por organização+usuário nas server actions de Supervisor, Session AI e Knowledge. **Não** é cota global de cluster. Troca futura por store distribuído não deve alterar os consumidores `consumeAiRateLimit` / `consumeCaptureGrantRateLimit`.
 - Teto de body: webhooks Twilio 32 KiB; JSON de grant/segmento 64 KiB; metadata de transcribe 16 KiB. Segmentos ao vivo **não** compartilham o rate limit de grant.
 - Sem Cron na Vercel: `vercel.json` só declara `framework: nextjs` (o preset do projeto estava `null` e o Preview READY 404-ava em todas as rotas). Scheduler continua `pg_cron`/`pg_net`.
 - CI Playwright com timeout de 45 min para a suíte completa.
@@ -57,7 +57,7 @@ O que ainda falta:
 1. Login Google: no cliente OAuth do Google Cloud, cadastrar `https://<ref>.supabase.co/auth/v1/callback`. Agenda: `{origem-do-Preview}/api/integrations/google/callback` no mesmo cliente, API Google Calendar **Ativar**, e o Gmail da clínica na lista de testadores (modo Testing). Depois do OAuth, o Tesseli tenta selecionar o calendário principal e puxar 30 dias; se a API estiver desligada, a modal mostra o erro em vez de “Carregando…”.
 2. `TWILIO_WHATSAPP_FROM` / Messaging Service podem permanecer vazios.
 3. **Não** criar Cron Jobs na Vercel.
-4. Só promover Production depois de merge da Fase 13 (não o `main` SerenaPsi).
+4. Só promover Production depois de merge da Fase 13 (não o `main` antigo anterior à marca VirgíniaPsi).
 
 ### Saúde de integrações em produção (passo 11)
 
@@ -79,7 +79,7 @@ A suíte `pnpm test:security` emula `auth.uid()` / JWT claims em PostgreSQL loca
 
 | Método | Caminho | Auth | Notas |
 |---|---|---|---|
-| POST | `/api/auth/callback` | OAuth code | Callback Supabase Auth |
+| GET | `/auth/callback` | OAuth code (query) | Callback Supabase Auth (App Router). Não existe `POST /api/auth/callback`. |
 | GET | `/api/integrations/google/start` | sessão | Início OAuth Calendar |
 | GET | `/api/integrations/google/callback` | state OAuth | Troca de code; sem secret no client |
 | POST | `/api/session-capture/grant` | sessão + consent + rate limit | Grant de captura local |

@@ -12,13 +12,9 @@ import {
   type TeamMemberRow,
 } from "@/features/settings/contracts";
 import { buildIntegrationDiagnostics } from "@/features/settings/diagnostics";
-import { buildEliminationReport, type EliminationCounts } from "@/features/settings/elimination";
+import { buildEliminationReport } from "@/features/settings/elimination";
 import { readIntegrationEnvFlags } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-function emptyNumber(value: unknown): number {
-  return typeof value === "number" ? value : Number(value ?? 0);
-}
 
 export async function getPracticeSettings(
   organizationId: string,
@@ -114,6 +110,7 @@ export async function getIntegrationDiagnosticsForOrg(organizationId: string) {
       lastError: connection?.last_sync_error ?? null,
     },
     twilio: {
+      enabled: flags.twilioEnabled,
       accountConfigured: flags.twilioAccount,
       senderConfigured: flags.twilioSender,
       lastError: twilioError,
@@ -128,20 +125,39 @@ export async function getIntegrationDiagnosticsForOrg(organizationId: string) {
   });
 }
 
-export async function countEliminationRecords(
+export async function listPresentEliminationClasses(
   organizationId: string,
   patientId: string,
-): Promise<EliminationCounts> {
+): Promise<string[]> {
   const supabase = await createSupabaseServerClient();
-  const [sessions, profiles, consents, charges, transcripts] = await Promise.all([
+  const present: string[] = ["patient_identifiers"];
+
+  const [
+    patient,
+    profiles,
+    sessions,
+    consents,
+    charges,
+    plans,
+    attachments,
+    documents,
+    prefs,
+    aiRuns,
+    exports,
+  ] = await Promise.all([
     supabase
-      .from("clinical_sessions")
-      .select("id", { count: "exact", head: true })
-      .eq("organization_id", organizationId)
-      .eq("patient_id", patientId),
+      .from("patients")
+      .select("photo_path")
+      .eq("id", patientId)
+      .maybeSingle(),
     supabase
       .from("patient_clinical_profile")
       .select("patient_id", { count: "exact", head: true })
+      .eq("organization_id", organizationId)
+      .eq("patient_id", patientId),
+    supabase
+      .from("clinical_sessions")
+      .select("id")
       .eq("organization_id", organizationId)
       .eq("patient_id", patientId),
     supabase
@@ -155,51 +171,77 @@ export async function countEliminationRecords(
       .eq("organization_id", organizationId)
       .eq("patient_id", patientId),
     supabase
-      .from("session_transcript_segments")
+      .from("financial_plans")
       .select("id", { count: "exact", head: true })
-      .eq("organization_id", organizationId),
+      .eq("organization_id", organizationId)
+      .eq("patient_id", patientId),
+    supabase
+      .from("patient_attachments")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", organizationId)
+      .eq("patient_id", patientId),
+    supabase
+      .from("documents")
+      .select("id, status")
+      .eq("organization_id", organizationId)
+      .eq("patient_id", patientId),
+    supabase
+      .from("communication_preferences")
+      .select("patient_id", { count: "exact", head: true })
+      .eq("patient_id", patientId),
+    supabase
+      .from("ai_runs")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", organizationId)
+      .eq("patient_id", patientId),
+    supabase
+      .from("logical_exports")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", organizationId)
+      .eq("patient_id", patientId),
   ]);
 
-  // Transcripts do not carry patient_id — count via the patient's sessions.
-  let transcriptCount = 0;
-  if ((sessions.count ?? 0) > 0) {
-    const { data: sessionRows } = await supabase
-      .from("clinical_sessions")
-      .select("id")
-      .eq("organization_id", organizationId)
-      .eq("patient_id", patientId);
-    const ids = (sessionRows ?? []).map((row) => row.id as string);
-    if (ids.length > 0) {
-      const { count } = await supabase
+  if (patient.data?.photo_path) present.push("patient_photo");
+  if ((profiles.count ?? 0) > 0) present.push("patient_clinical_profile");
+  const sessionIds = (sessions.data ?? []).map((row) => row.id as string);
+  if (sessionIds.length > 0) {
+    present.push("clinical_sessions");
+    const [{ count: dpepCount }, { count: transcriptCount }] = await Promise.all([
+      supabase
+        .from("session_dpep")
+        .select("session_id", { count: "exact", head: true })
+        .in("session_id", sessionIds),
+      supabase
         .from("session_transcript_segments")
         .select("id", { count: "exact", head: true })
-        .in("session_id", ids);
-      transcriptCount = count ?? 0;
-    }
-  } else {
-    transcriptCount = 0;
+        .in("session_id", sessionIds),
+    ]);
+    if ((dpepCount ?? 0) > 0) present.push("session_dpep");
+    if ((transcriptCount ?? 0) > 0) present.push("session_transcript_segments");
   }
-
-  void transcripts;
-
-  return {
-    clinicalSessions: emptyNumber(sessions.count),
-    clinicalProfiles: emptyNumber(profiles.count),
-    consents: emptyNumber(consents.count),
-    financialCharges: emptyNumber(charges.count),
-    transcriptSegments: transcriptCount,
-  };
+  if ((consents.count ?? 0) > 0) present.push("consents", "consent_files");
+  if ((charges.count ?? 0) > 0) present.push("financial_charges_payments");
+  if ((plans.count ?? 0) > 0) present.push("financial_plans");
+  if ((attachments.count ?? 0) > 0) present.push("patient_attachments");
+  const docs = documents.data ?? [];
+  if (docs.some((row) => row.status === "draft")) present.push("documents_draft");
+  if (docs.some((row) => row.status !== "draft")) present.push("documents_issued");
+  if ((prefs.count ?? 0) > 0) present.push("communication_preferences");
+  if ((aiRuns.count ?? 0) > 0) present.push("ai_runs_artifacts");
+  if ((exports.count ?? 0) > 0) present.push("logical_exports");
+  present.push("audit_events");
+  return present;
 }
 
 export async function previewPatientElimination(
   organizationId: string,
   patient: { public_code: string; preferred_name: string; id: string },
 ) {
-  const counts = await countEliminationRecords(organizationId, patient.id);
+  const presentClasses = await listPresentEliminationClasses(organizationId, patient.id);
   return buildEliminationReport({
     publicCode: patient.public_code,
     preferredName: patient.preferred_name,
-    counts,
+    presentClasses,
   });
 }
 
@@ -221,6 +263,7 @@ export async function getSettingsSnapshot(input: {
         lastError: null,
       },
       twilio: {
+        enabled: false,
         accountConfigured: false,
         senderConfigured: false,
         lastError: null,

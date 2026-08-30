@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { parsePublicEnv } from "@/lib/env/schema";
+import { buildContentSecurityPolicy, createCspNonce, supabaseOriginFromUrl } from "@/lib/security/csp";
 
 const PROTECTED_PREFIXES = [
   "/app",
@@ -10,16 +11,40 @@ const PROTECTED_PREFIXES = [
 ];
 const AUTH_ONLY_WHEN_ANONYMOUS = ["/login"];
 
+function applyCsp(
+  response: NextResponse,
+  nonce: string,
+  supabaseOrigin: string | null,
+): NextResponse {
+  const csp = buildContentSecurityPolicy({
+    nonce,
+    supabaseOrigin,
+    isDev: process.env.NODE_ENV !== "production",
+  });
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const nonce = createCspNonce();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
 
   let env;
   try {
     env = parsePublicEnv(process.env);
   } catch {
-    // Invalid public env must not 500 the entire site (including /login).
-    return response;
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    return applyCsp(response, nonce, null);
   }
+
+  const supabaseOrigin = supabaseOriginFromUrl(env.NEXT_PUBLIC_SUPABASE_URL);
+  let response = applyCsp(
+    NextResponse.next({ request: { headers: requestHeaders } }),
+    nonce,
+    supabaseOrigin,
+  );
+
   const supabase = createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
@@ -32,7 +57,11 @@ export async function proxy(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
           });
-          response = NextResponse.next({ request });
+          response = applyCsp(
+            NextResponse.next({ request: { headers: requestHeaders } }),
+            nonce,
+            supabaseOrigin,
+          );
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);
           });
@@ -59,14 +88,14 @@ export async function proxy(request: NextRequest) {
   if (isProtected && !user) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    return applyCsp(NextResponse.redirect(loginUrl), nonce, supabaseOrigin);
   }
 
   const isAnonymousOnly = AUTH_ONLY_WHEN_ANONYMOUS.some(
     (path) => pathname === path,
   );
   if (isAnonymousOnly && user) {
-    return NextResponse.redirect(new URL("/app", request.url));
+    return applyCsp(NextResponse.redirect(new URL("/app", request.url)), nonce, supabaseOrigin);
   }
 
   return response;

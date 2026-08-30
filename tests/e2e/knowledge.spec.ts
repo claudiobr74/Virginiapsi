@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginViaUi, signIn, STUB_SECRETARY } from "./support/fixtures";
 
-test.describe("Conhecimento Tesseli", () => {
+test.describe("Conhecimento", () => {
   test("secretária vê acesso restrito em /app/knowledge", async ({ page }) => {
     await loginViaUi(page);
     await page.context().clearCookies();
@@ -68,7 +68,7 @@ test.describe("Conhecimento Tesseli", () => {
     await page
       .getByPlaceholder("Pergunta clínica para aplicar a literatura ao caso…")
       .fill("Como aplicar isso ao caso?");
-    await page.getByRole("button", { name: "Consultar" }).click();
+    await page.getByRole("button", { name: "Pré-visualizar contexto" }).click();
 
     await expect(
       page.getByText("Consentimento de apoio de IA não está válido para este paciente."),

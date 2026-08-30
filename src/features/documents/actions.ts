@@ -8,9 +8,16 @@ import {
   createTemplateSchema,
   registerAttachmentSchema,
   saveDraftSchema,
+  signDocumentSchema,
   type DocumentKind,
   type DocumentSensitivity,
 } from "@/features/documents/contracts";
+import {
+  buildInternalSignaturePdfLines,
+  hashCanonicalSignatureContent,
+  INTERNAL_SIGNATURE_METHOD,
+} from "@/features/documents/internal-signature";
+import { getPracticeSettings } from "@/features/settings/queries";
 import { buildDocumentVariables } from "@/features/documents/variables";
 import { renderTemplate } from "@/lib/documents/render-template";
 import { generateDocumentPdf } from "@/lib/documents/generate-pdf";
@@ -260,6 +267,182 @@ export async function issueDocumentAction(documentId: string): Promise<DocumentA
     revalidatePath(`/app/patients/${document.patient_id}`);
   }
   return { id: documentId };
+}
+
+export async function signDocumentAction(input: unknown): Promise<DocumentActionResult> {
+  const { organizationId, role, user } = await requireOrgContext();
+  if (!isClinicalPractitioner(role)) {
+    return { error: "Somente a profissional responsável confirma a emissão eletrônica." };
+  }
+  const parsed = signDocumentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Confirme a revisão do documento." };
+  }
+
+  const document = await getDocument(organizationId, parsed.data.documentId);
+  if (!document) {
+    return { error: "Documento não encontrado." };
+  }
+  if (document.status === "signed") {
+    return { error: "Este documento já foi confirmado. Alterações exigem uma nova versão." };
+  }
+  if (document.status !== "issued") {
+    return { error: "Só é possível confirmar a emissão de um documento já emitido." };
+  }
+  if (
+    document.sensitivity === "clinical" &&
+    document.patient_id &&
+    !(await (async () => {
+      const patient = await getPatient(organizationId, document.patient_id);
+      if (!patient) return false;
+      return canAccessPatientClinical({
+        role,
+        userId: user.id,
+        responsiblePsychologistUserId: patient.responsible_psychologist_user_id,
+      });
+    })())
+  ) {
+    return { error: "Somente a psicóloga responsável confirma este documento clínico." };
+  }
+
+  const previous = await getLatestVersion(document.id);
+  if (!previous) {
+    return { error: "Nenhuma versão para confirmar." };
+  }
+
+  const practice = await getPracticeSettings(organizationId);
+  const professionalName =
+    practice?.professional_name?.trim() || user.email || "Profissional";
+  const signedAt = new Date();
+  const signedAtIso = signedAt.toISOString();
+  const nextVersion = previous.version + 1;
+  const contentSha256 = hashCanonicalSignatureContent({
+    organizationId,
+    documentId: document.id,
+    documentVersion: nextVersion,
+    body: previous.body_snapshot,
+    professionalUserId: user.id,
+    professionalName,
+    professionalRegistration: practice?.crp ?? null,
+    professionalRegistrationState: practice?.crp_state ?? null,
+    signedAt: signedAtIso,
+  });
+
+  const supabase = await createSupabaseServerClient();
+  const { data: version, error: versionError } = await supabase
+    .from("document_versions")
+    .insert({
+      document_id: document.id,
+      organization_id: organizationId,
+      version: nextVersion,
+      body_snapshot: previous.body_snapshot,
+      variables_snapshot: previous.variables_snapshot,
+    })
+    .select("id, version")
+    .single();
+  if (versionError || !version) {
+    return { error: "Não foi possível criar a versão assinada." };
+  }
+
+  const signatureBlock = buildInternalSignaturePdfLines({
+    professionalName,
+    professionalRegistration: practice?.crp ?? null,
+    professionalRegistrationState: practice?.crp_state ?? null,
+    signedAtLabel: signedAt.toLocaleString("pt-BR"),
+    identifier: version.id,
+    contentSha256,
+  });
+
+  const pdfBytes = await generateDocumentPdf({
+    title: document.title,
+    body: previous.body_snapshot,
+    signatureBlock,
+    footer: `Confirmação eletrônica interna do VirgíniaPsi — não é assinatura digital ICP-Brasil.`,
+  });
+  const storagePath = buildStoragePath(
+    organizationId,
+    document.id,
+    `${document.id}-v${version.version}-assinado.pdf`,
+  );
+
+  try {
+    await uploadGeneratedFile(
+      DOCUMENT_BUCKETS.clinicalDocuments,
+      storagePath,
+      pdfBytes,
+      "application/pdf",
+    );
+  } catch {
+    return { error: "Não foi possível gerar o PDF confirmado agora." };
+  }
+
+  const fileSha256 = sha256Hex(pdfBytes);
+  const { data: file, error: fileError } = await supabase
+    .from("document_files")
+    .insert({
+      document_id: document.id,
+      document_version_id: version.id,
+      organization_id: organizationId,
+      storage_path: storagePath,
+      byte_size: pdfBytes.byteLength,
+      sha256: fileSha256,
+    })
+    .select("id")
+    .single();
+  if (fileError || !file) {
+    await removeFile(DOCUMENT_BUCKETS.clinicalDocuments, storagePath);
+    return { error: "Não foi possível registrar o arquivo confirmado." };
+  }
+
+  const { error: signatureError } = await supabase.from("document_professional_signatures").insert({
+    organization_id: organizationId,
+    document_id: document.id,
+    document_version_id: version.id,
+    document_file_id: file.id,
+    professional_user_id: user.id,
+    professional_name: professionalName,
+    professional_registration: practice?.crp ?? null,
+    professional_registration_state: practice?.crp_state ?? null,
+    document_sha256: fileSha256,
+    signed_at: signedAtIso,
+    signature_method: INTERNAL_SIGNATURE_METHOD,
+    confirmation_acknowledged: true,
+  });
+  if (signatureError) {
+    await removeFile(DOCUMENT_BUCKETS.clinicalDocuments, storagePath);
+    return { error: "Não foi possível registrar a confirmação eletrônica." };
+  }
+
+  const { error: updateError } = await supabase
+    .from("documents")
+    .update({
+      status: "signed",
+      current_version: nextVersion,
+    })
+    .eq("id", document.id)
+    .eq("organization_id", organizationId);
+  if (updateError) {
+    return { error: "PDF confirmado, mas não foi possível atualizar o status do documento." };
+  }
+
+  await logAuditEvent({
+    organizationId,
+    action: "document.internal_sign",
+    resourceType: "document",
+    resourceId: document.id,
+    metadata: {
+      document_version: nextVersion,
+      signature_method: INTERNAL_SIGNATURE_METHOD,
+      content_sha256: contentSha256,
+    },
+  });
+
+  revalidatePath(`/app/documents/${document.id}`);
+  revalidatePath("/app/documents");
+  if (document.patient_id) {
+    revalidatePath(`/app/patients/${document.patient_id}`);
+  }
+  return { id: document.id };
 }
 
 export async function cancelDocumentAction(documentId: string): Promise<DocumentActionResult> {

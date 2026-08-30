@@ -33,8 +33,16 @@ describe("generateDocumentPdf", () => {
     expect(withFooter.length).toBeGreaterThanOrEqual(withoutFooter.length);
   });
 
-  it("lida com corpo vazio sem lançar erro", async () => {
-    const bytes = await generateDocumentPdf({ title: "Vazio", body: "" });
+  it("inclui o bloco de confirmação eletrônica sem selo ICP", async () => {
+    const bytes = await generateDocumentPdf({
+      title: "Atestado",
+      body: "Compareceu.",
+      signatureBlock: [
+        "Documento confirmado eletronicamente no VirgíniaPsi. Isto não é assinatura digital ICP-Brasil.",
+        "Hash SHA-256: abc",
+      ],
+    });
     expect(Buffer.from(bytes.slice(0, 5)).toString("utf8")).toBe("%PDF-");
+    expect(bytes.length).toBeGreaterThan(100);
   });
 });

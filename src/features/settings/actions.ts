@@ -18,19 +18,19 @@ import {
 import { packLogicalExport } from "@/features/settings/export-pack";
 import {
   eliminationPhraseMatches,
-  resolveEliminationOutcome,
+  mapVerifyRow,
 } from "@/features/settings/elimination";
+import { purgeEliminationStorage } from "@/features/settings/elimination-storage";
 import {
-  countEliminationRecords,
   getLogicalExport,
   getPracticeSettings,
   previewPatientElimination,
 } from "@/features/settings/queries";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
-import { DOCUMENT_BUCKETS, removeFile } from "@/lib/documents/storage";
 import { SIGNED_URL_TTL_SECONDS } from "@/lib/documents/storage-meta";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { firstRpcRow } from "@/lib/supabase/rpc-result";
 
 function revalidateSettings() {
   revalidatePath("/app/settings");
@@ -101,6 +101,7 @@ export async function updateClinicAction(input: unknown): Promise<SettingsAction
         professional_name: emptyToNull(parsed.data.professionalName),
         subtitle: emptyToNull(parsed.data.subtitle),
         crp: emptyToNull(parsed.data.crp),
+        crp_state: emptyToNull(parsed.data.crpState),
         tax_id: emptyToNull(parsed.data.taxId),
         pix_key: emptyToNull(parsed.data.pixKey),
         clinic_name: emptyToNull(parsed.data.clinicName),
@@ -475,8 +476,8 @@ export async function confirmEliminationAction(input: unknown): Promise<Settings
   if (!patient || patient.organization_id !== ctx.organizationId) {
     return { error: "Paciente não encontrado neste consultório." };
   }
-  if (patient.elimination_status !== "active") {
-    return { error: "Este paciente já passou por um fluxo de eliminação." };
+  if (patient.elimination_status === "eliminated") {
+    return { error: "Este paciente já passou por um fluxo de eliminação concluído." };
   }
   if (!eliminationPhraseMatches(parsed.data.confirmationPhrase, patient.public_code as string)) {
     return {
@@ -484,52 +485,39 @@ export async function confirmEliminationAction(input: unknown): Promise<Settings
     };
   }
 
-  const counts = await countEliminationRecords(ctx.organizationId, patient.id as string);
-  const outcome = resolveEliminationOutcome(counts);
-  const now = new Date().toISOString();
-  const publicCode = patient.public_code as string;
-
-  const { error } = await supabase
-    .from("patients")
-    .update({
-      preferred_name: `Eliminado ${publicCode}`,
-      full_name: `Paciente eliminado (${publicCode})`,
-      email: null,
-      phone: null,
-      cpf: null,
-      birth_date: null,
-      responsibles: [],
-      status: "archived",
-      photo_path: null,
-      elimination_status: outcome.status,
-      elimination_requested_at: now,
-      elimination_completed_at: now,
-      elimination_retained_reason: outcome.retainedReason,
-    })
-    .eq("id", patient.id)
-    .eq("organization_id", ctx.organizationId);
-
+  const { data: executed, error } = await supabase.rpc("execute_patient_elimination_plan", {
+    p_patient_id: parsed.data.patientId,
+  });
   if (error) {
     return { error: "Não foi possível concluir a eliminação." };
   }
+  const run = firstRpcRow<{
+    run_id: string;
+    elimination_status: string;
+    summary: unknown;
+    storage_objects: Array<{ bucket?: string; path?: string }>;
+  }>(executed);
 
-  const portraitPath = typeof patient.photo_path === "string" ? patient.photo_path : null;
-  if (portraitPath) {
-    try {
-      await removeFile(DOCUMENT_BUCKETS.patientAttachments, portraitPath);
-    } catch {
-      // Identifiers are already anonymized; leftover bytes are swept by storage hygiene.
-    }
+  await purgeEliminationStorage(run?.storage_objects ?? []);
+
+  const { data: verified } = await supabase.rpc("verify_patient_elimination", {
+    p_patient_id: parsed.data.patientId,
+  });
+  const verify = mapVerifyRow(
+    firstRpcRow<{
+      status: string;
+      remaining_data_classes: string[] | null;
+      retained_data_classes: string[] | null;
+      errors: string[] | null;
+    }>(verified) ?? {},
+  );
+
+  if (verify.remainingDataClasses.length > 0) {
+    return { error: "A verificação encontrou dados que deveriam ter sido eliminados." };
   }
 
-  await logAuditEvent({
-    organizationId: ctx.organizationId,
-    action: "settings.lgpd.eliminate",
-    resourceType: "patient",
-    resourceId: publicCode,
-    metadata: { outcome: outcome.status },
-  });
+  void run;
   revalidateSettings();
   revalidatePath("/app/patients");
-  return { id: patient.id as string };
+  return { id: parsed.data.patientId as string };
 }

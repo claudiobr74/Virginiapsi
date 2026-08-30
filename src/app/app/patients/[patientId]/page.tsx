@@ -320,7 +320,7 @@ export default async function PatientHubPage({
 
       <PatientHubSection
         title="WhatsApp"
-        description="Consentimento, canal, modelos e lembretes 24h/2h. Confirmação de agenda por resposta só ocorre com SIM explícito."
+        description="Integração opcional. Atualmente desativada enquanto custos e provedor são avaliados."
       >
         <WhatsappPanel patientId={patient.id} snapshot={whatsapp} />
       </PatientHubSection>

@@ -10,15 +10,18 @@ import {
   cancelDocumentAction,
   issueDocumentAction,
   saveDraftAction,
+  signDocumentAction,
 } from "@/features/documents/actions";
 import { DocumentDownloadButton } from "@/features/documents/components/patient-documents-panel";
 import {
   DOCUMENT_KIND_LABELS,
   DOCUMENT_STATUS_LABELS,
   type DocumentFileRow,
+  type DocumentProfessionalSignatureRow,
   type DocumentRow,
   type DocumentVersionRow,
 } from "@/features/documents/contracts";
+import { INTERNAL_SIGNATURE_DISCLAIMER } from "@/features/documents/internal-signature";
 
 const STATUS_BADGE = {
   draft: "pending",
@@ -41,11 +44,13 @@ export function DocumentEditor({
   latestVersion,
   file,
   versions,
+  signature,
 }: {
   document: DocumentRow;
   latestVersion: DocumentVersionRow | null;
   file: DocumentFileRow | null;
   versions: DocumentVersionRow[];
+  signature: DocumentProfessionalSignatureRow | null;
 }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -54,7 +59,9 @@ export function DocumentEditor({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmReview, setConfirmReview] = useState(false);
   const isDraft = document.status === "draft";
+  const canSign = document.status === "issued";
 
   function insertVariable(key: string) {
     const token = `{{${key}}}`;
@@ -96,6 +103,23 @@ export function DocumentEditor({
         setError(result.error);
         return;
       }
+      router.refresh();
+    });
+  }
+
+  function sign() {
+    setError(null);
+    startTransition(async () => {
+      const result = await signDocumentAction({
+        documentId: document.id,
+        confirmationAcknowledged: true,
+      });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setSuccess("Emissão confirmada eletronicamente no VirgíniaPsi.");
+      setConfirmReview(false);
       router.refresh();
     });
   }
@@ -219,6 +243,74 @@ export function DocumentEditor({
               <div className="mt-3">
                 <DocumentDownloadButton documentVersionId={file.document_version_id} />
               </div>
+            </div>
+          ) : null}
+
+          {canSign ? (
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Confirmação eletrônica
+              </span>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                {INTERNAL_SIGNATURE_DISCLAIMER}
+              </p>
+              <label htmlFor="confirm-document-review" className="mt-3 flex items-start gap-2 text-sm text-foreground">
+                <input
+                  id="confirm-document-review"
+                  type="checkbox"
+                  className="mt-1"
+                  checked={confirmReview}
+                  onChange={(event) => setConfirmReview(event.target.checked)}
+                />
+                Confirmo que revisei este documento e autorizo sua emissão.
+              </label>
+              <Button
+                type="button"
+                size="sm"
+                className="mt-3"
+                isLoading={isPending}
+                disabled={!confirmReview}
+                onClick={sign}
+              >
+                Confirmar emissão
+              </Button>
+            </div>
+          ) : null}
+
+          {signature ? (
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Confirmação registrada
+              </span>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                {INTERNAL_SIGNATURE_DISCLAIMER}
+              </p>
+              <dl className="mt-3 space-y-1 text-xs text-muted-foreground">
+                <div>
+                  <dt className="font-semibold text-foreground">Profissional</dt>
+                  <dd>{signature.professional_name}</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-foreground">CRP</dt>
+                  <dd>
+                    {[signature.professional_registration, signature.professional_registration_state]
+                      .filter(Boolean)
+                      .join(" / ") || "não informado"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-foreground">Data e hora</dt>
+                  <dd>{new Date(signature.signed_at).toLocaleString("pt-BR")}</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-foreground">Identificador</dt>
+                  <dd className="font-mono break-all">{signature.id}</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-foreground">Hash SHA-256</dt>
+                  <dd className="font-mono break-all">{signature.document_sha256}</dd>
+                </div>
+              </dl>
             </div>
           ) : null}
         </aside>

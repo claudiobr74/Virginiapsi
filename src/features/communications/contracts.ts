@@ -98,6 +98,7 @@ export const OUTBOX_STATE_LABELS: Record<OutboxState, string> = {
 };
 
 export interface PatientWhatsAppSnapshot {
+  operational: boolean;
   preference: PreferenceRow | null;
   hasWhatsappConsent: boolean;
   whatsappConsentId: string | null;

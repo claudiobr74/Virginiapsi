@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginViaUi, signIn, STUB_SECRETARY } from "./support/fixtures";
+import { completeFinalizeWizard } from "./support/finalize-wizard";
 
 async function openFinance(page: Page) {
   await page.goto("/app/finance");
@@ -112,9 +113,7 @@ test.describe("Financeiro", () => {
     await page.getByRole("button", { name: "Iniciar sessão" }).click();
     await page.waitForURL(/\/session\/[0-9a-f-]{36}$/);
     await page.getByRole("button", { name: "Finalizar atendimento" }).click();
-    const confirm = page.getByRole("dialog").getByRole("button", { name: "Apenas finalizar" });
-    await confirm.evaluate((node) => node.scrollIntoView({ block: "center", inline: "nearest" }));
-    await confirm.click();
+    await completeFinalizeWizard(page, { registerCharge: true });
     await expect(page.getByRole("heading", { name: "Revisão da Sessão" })).toBeVisible();
 
     await openFinance(page);

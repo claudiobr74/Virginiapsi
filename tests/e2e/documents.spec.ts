@@ -32,6 +32,12 @@ test.describe("Documentos", () => {
     await expect(page.getByText("Emitido")).toBeVisible();
     await expect(page.getByRole("button", { name: "Baixar PDF" })).toBeVisible();
 
+    await page.getByLabel("Confirmo que revisei este documento e autorizo sua emissão.").check();
+    await page.getByRole("button", { name: "Confirmar emissão" }).click();
+    await expect(page.getByText("Assinado")).toBeVisible();
+    await expect(page.getByText("Confirmação registrada")).toBeVisible();
+    await expect(page.getByText("não é assinatura digital ICP-Brasil", { exact: false })).toBeVisible();
+
     await page.goto("/app/documents");
     await expect(page.getByRole("link", { name: title })).toBeVisible();
   });

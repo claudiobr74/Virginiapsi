@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clientIpFromHeaders,
   createSlidingWindowLimiter,
+  InMemoryRateLimiter,
   RATE_LIMITS,
 } from "@/lib/security/rate-limit";
 
@@ -36,6 +37,14 @@ describe("sliding window rate limiter", () => {
 
     now += 1_001;
     expect(limiter.consume("org-a").allowed).toBe(true);
+  });
+
+  it("InMemoryRateLimiter implementa a interface RateLimiter", async () => {
+    const limiter = new InMemoryRateLimiter(() => 1_000_000);
+    const first = await limiter.consume("k", { limit: 1, windowMs: 1000 });
+    const second = await limiter.consume("k", { limit: 1, windowMs: 1000 });
+    expect(first.allowed).toBe(true);
+    expect(second.allowed).toBe(false);
   });
 
   it("exporta os tetos canônicos de grant e IA", () => {

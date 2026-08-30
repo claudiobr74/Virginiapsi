@@ -9,9 +9,21 @@ import {
   getSessionWorkingNotes,
   listTranscriptSegments,
 } from "@/features/sessions/queries";
+import { listPlans } from "@/features/finance/queries";
+import { sessionChargeIsApplicable } from "@/features/sessions/charge-eligibility";
 import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
-import { elapsedSecondsBetween } from "@/lib/utils/elapsed";
+import { elapsedSecondsBetween, formatElapsedHms } from "@/lib/utils/elapsed";
+import { formatInTimeZone } from "@/lib/utils/timezone";
+
+function calendarDateInTimeZone(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
+}
 
 export async function generateMetadata({
   params,
@@ -51,7 +63,7 @@ export default async function ActiveSessionPage({
     notFound();
   }
 
-  const [dpep, workingNotes, transcriptSegments, appointment, clinicalProfile] = await Promise.all([
+  const [dpep, workingNotes, transcriptSegments, appointment, clinicalProfile, plans] = await Promise.all([
     getSessionDpep(session.id),
     getSessionWorkingNotes(session.id),
     listTranscriptSegments(session.id),
@@ -59,7 +71,23 @@ export default async function ActiveSessionPage({
       ? getAppointment(organizationId, session.appointment_id).catch(() => null)
       : Promise.resolve(null),
     getPatientClinicalProfile(patient.id),
+    listPlans(organizationId, patient.id),
   ]);
+
+  const pendingNotes: string[] = [];
+  if (!dpep?.demand?.trim()) pendingNotes.push("demanda em branco");
+  if (!dpep?.plan?.trim()) pendingNotes.push("plano em branco");
+  const durationSeconds = session.started_at
+    ? elapsedSecondsBetween(session.started_at, session.ended_at ?? new Date().toISOString())
+    : 0;
+  const defaultDate = calendarDateInTimeZone(new Date().toISOString(), timezone);
+  const isoDate = session.started_at
+    ? formatInTimeZone(session.started_at, timezone, {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
+    : "—";
 
   return (
     <ActiveSessionView
@@ -82,14 +110,33 @@ export default async function ActiveSessionPage({
             }
           : null
       }
-      initialElapsedSeconds={
-        session.started_at
-          ? elapsedSecondsBetween(
-              session.started_at,
-              session.ended_at ?? new Date().toISOString(),
-            )
-          : 0
-      }
+      initialElapsedSeconds={durationSeconds}
+      finalize={{
+        patientId: patient.id,
+        patientDisplayName: patient.preferred_name,
+        sessionDateLabel: isoDate,
+        durationLabel: formatElapsedHms(durationSeconds),
+        status: session.status,
+        dpepFilled: {
+          demand: Boolean(dpep?.demand?.trim()),
+          procedures: Boolean(dpep?.procedures?.trim()),
+          evolution: Boolean(dpep?.evolution?.trim()),
+          plan: Boolean(dpep?.plan?.trim()),
+        },
+        pendingNotes,
+        canCharge: sessionChargeIsApplicable({
+          defaultSessionValue: patient.default_session_value,
+          plans,
+        }),
+        patients: [
+          {
+            id: patient.id,
+            preferred_name: patient.preferred_name,
+            public_code: patient.public_code,
+          },
+        ],
+        defaultDate,
+      }}
     />
   );
 }

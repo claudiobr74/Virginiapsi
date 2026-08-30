@@ -3,6 +3,7 @@ import "server-only";
 import { communicationsAdmin } from "@/features/communications/admin-store";
 import { renderTemplate, type TemplateKey } from "@/features/communications/templates";
 import { getServerEnv } from "@/lib/env/server";
+import { isTwilioOperational } from "@/lib/integrations/twilio/enabled";
 import { TwilioApiError, TwilioMessagingClient } from "@/lib/integrations/twilio/client";
 import { normalizeE164, toWhatsAppAddress } from "@/lib/integrations/twilio/e164";
 import { formatInTimeZone } from "@/lib/utils/timezone";
@@ -37,6 +38,9 @@ export async function processDueWhatsappReminders(
   client: TwilioMessagingClient = new TwilioMessagingClient(),
 ): Promise<ReminderJobResult> {
   const env = getServerEnv();
+  if (!isTwilioOperational(env)) {
+    return { claimed: 0, sent: 0, failed: 0, skipped: 0 };
+  }
   const admin = communicationsAdmin();
   const { data: claimed, error } = await admin.rpc("claim_due_whatsapp_reminders", {
     p_limit: 20,

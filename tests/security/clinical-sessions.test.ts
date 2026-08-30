@@ -530,7 +530,8 @@ describe("ai_runs / ai_artifacts — draft até revisão explícita", () => {
         reviewed_by: string;
         reviewed_at: string;
       }>(
-        `update public.ai_artifacts set review_status = 'appended'
+        `select set_config('tesseli.append_artifact', '1', true);
+         update public.ai_artifacts set review_status = 'appended'
          where id = $1
          returning review_status, reviewed_by, reviewed_at`,
         [artifact.id],

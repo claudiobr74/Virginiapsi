@@ -26,9 +26,11 @@ GOOGLE_TOKEN_ENCRYPTION_KEY=
 # Segredo dedicado — nunca reutilizar GOOGLE_TOKEN_ENCRYPTION_KEY aqui.
 SESSION_CAPTURE_SECRET=
 
+TWILIO_ENABLED=false
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 # Um dos dois é exigido no envio; o boot aceita ambos vazios.
+# Twilio permanece desligado até decisão comercial (`TWILIO_ENABLED=true` + credenciais).
 TWILIO_WHATSAPP_FROM=
 TWILIO_MESSAGING_SERVICE_SID=
 
@@ -64,7 +66,7 @@ Preview e Production recebem o mesmo conjunto de chaves, com URLs distintas:
 - Login com Google (botão Entrar) usa o provider Auth do Supabase. No Google Cloud, a **Authorized redirect URI** desse cliente tem de ser `https://<ref-do-projeto>.supabase.co/auth/v1/callback`. A URL do Tesseli (`…/auth/callback`) entra só em Authentication → URL Configuration → Redirect URLs no Supabase, não no Google Cloud.
 - **Site URL** do Auth não pode ficar `http://localhost:3000` se o login for na Vercel: o Google autentica e o navegador abre localhost (`ERR_CONNECTION_REFUSED`, `/?code=…`). Site URL = origem HTTPS do Preview/Production; Redirect URLs incluem `{origem}/auth/callback` **e** `http://localhost:3000/auth/callback` (dev). Wildcard de Preview: `https://*-claudiobr74-9668s-projects.vercel.app/**`;
 - Vault `tesseli_app_url` aponta para a URL de **produção** (jobs não devem bater em Preview);
-- Twilio From/Messaging Service só quando o operador habilitar o remetente — o schema aceita os dois vazios no boot.
+- Twilio From/Messaging Service só quando o operador habilitar o remetente — o schema aceita os dois vazios no boot. `TWILIO_ENABLED` default `false`; ausência de Twilio **não** é requisito de produção do restante do VirgíniaPsi.
 
 Não criar Vercel Cron. Não marcar Preview como PASS sem um deployment real.
 

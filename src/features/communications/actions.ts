@@ -10,6 +10,10 @@ import { TEMPLATE_KEYS, type TemplateKey, renderTemplate } from "@/features/comm
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { getServerEnv } from "@/lib/env/server";
+import {
+  isTwilioOperational,
+  TWILIO_DISABLED_USER_MESSAGE,
+} from "@/lib/integrations/twilio/enabled";
 import { TwilioApiError, TwilioMessagingClient } from "@/lib/integrations/twilio/client";
 import { normalizeE164, toWhatsAppAddress } from "@/lib/integrations/twilio/e164";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -195,6 +199,10 @@ function formatStartsAt(iso: string, timezone: string): string {
 export async function sendWhatsappTemplateAction(
   input: unknown,
 ): Promise<CommunicationActionResult> {
+  const env = getServerEnv();
+  if (!isTwilioOperational(env)) {
+    return { error: TWILIO_DISABLED_USER_MESSAGE };
+  }
   const { organizationId, timezone } = await requireOrgContext();
   const parsed = sendMessageSchema.safeParse(input);
   if (!parsed.success) {

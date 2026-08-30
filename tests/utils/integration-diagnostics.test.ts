@@ -15,6 +15,7 @@ describe("diagnósticos de integração", () => {
         lastError: "Bearer ya29.secret-refresh-token falhou",
       },
       twilio: {
+        enabled: true,
         accountConfigured: true,
         senderConfigured: false,
         lastError: "TWILIO_AUTH_TOKEN rejected AC00000000000000000000000000000000",

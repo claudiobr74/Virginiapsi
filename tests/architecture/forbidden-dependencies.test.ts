@@ -218,6 +218,10 @@ describe("arquitetura proibida", () => {
     expect(nextConfig).toContain("Permissions-Policy");
     expect(nextConfig).toContain("camera=(self)");
     expect(nextConfig).toContain("poweredByHeader: false");
+    const proxy = readFileSync(path.join(ROOT, "src/proxy.ts"), "utf8");
+    expect(proxy).toContain("Content-Security-Policy");
+    expect(proxy).toContain("x-nonce");
+    expect(proxy).not.toContain("script-src *");
   });
 
   it("preserva o arquivo oficial da logo sem alteração de bytes", () => {

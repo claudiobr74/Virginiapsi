@@ -217,7 +217,7 @@ Na interface, apenas o **container de exibição** pode ser redimensionado. Pres
 
 Antes de aceitar uma tela, o agente de UI deve responder:
 
-1. O layout preserva a hierarquia Serenità / VirgíniaPsi?
+1. O layout preserva a hierarquia visual do VirgíniaPsi?
 2. Usa a paleta e tipografia acima?
 3. Parece acolhedor e leve, não “dashboard genérico”?
 4. Funciona em desktop e mobile sem mudar a identidade?

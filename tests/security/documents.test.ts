@@ -473,3 +473,150 @@ describe("Storage buckets — clinical-documents/patient-attachments/consents se
     }
   });
 });
+
+describe("assinatura profissional interna", () => {
+  async function seedIssuedDocument(
+    actorUserId: string,
+    organizationId: string,
+    patientId: string,
+    pdfHash: string,
+  ): Promise<{ documentId: string; versionId: string; fileId: string }> {
+    const session = await openSession({ userId: actorUserId });
+    try {
+      const [document] = await session.query<{ id: string }>(
+        `insert into public.documents
+           (organization_id, patient_id, title, document_kind, sensitivity, status, issued_at)
+         values ($1, $2, 'Declaração interna', 'declaracao', 'administrative', 'issued', now())
+         returning id`,
+        [organizationId, patientId],
+      );
+      const [version] = await session.query<{ id: string }>(
+        `insert into public.document_versions
+           (document_id, organization_id, version, body_snapshot, variables_snapshot)
+         values ($1, $2, 1, 'Corpo', '{}'::jsonb)
+         returning id`,
+        [document.id, organizationId],
+      );
+      const [file] = await session.query<{ id: string }>(
+        `insert into public.document_files
+           (document_id, document_version_id, organization_id, storage_path, byte_size, sha256)
+         values ($1, $2, $3, $4, 12, $5)
+         returning id`,
+        [
+          document.id,
+          version.id,
+          organizationId,
+          `${organizationId}/${document.id}/${version.id}.pdf`,
+          pdfHash,
+        ],
+      );
+      return { documentId: document.id, versionId: version.id, fileId: file.id };
+    } finally {
+      await session.close();
+    }
+  }
+
+  it("rejeita hash divergente do PDF armazenado", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Assinatura Hash");
+    const patientId = await createPatient(admin, organizationId);
+    const pdfHash = "a".repeat(64);
+    const seeded = await seedIssuedDocument(admin, organizationId, patientId, pdfHash);
+    const session = await openSession({ userId: admin });
+    try {
+      const error = await session.expectError(
+        `insert into public.document_professional_signatures
+           (organization_id, document_id, document_version_id, document_file_id,
+            professional_user_id, professional_name, professional_registration,
+            professional_registration_state, document_sha256, signature_method,
+            confirmation_acknowledged)
+         values ($1, $2, $3, $4, $5, 'Dra. Ana', 'CRP 06/00000', 'SP', $6,
+                 'virginiapsi_internal', true)`,
+        [
+          organizationId,
+          seeded.documentId,
+          seeded.versionId,
+          seeded.fileId,
+          admin,
+          "b".repeat(64),
+        ],
+      );
+      expect(error).toMatch(/hash must match|signature hash/i);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("secretária não insere assinatura profissional", async () => {
+    const admin = await createAuthUser();
+    const secretary = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Assinatura Secretaria");
+    await addMember(admin, organizationId, secretary, "secretary");
+    const patientId = await createPatient(admin, organizationId);
+    const pdfHash = "c".repeat(64);
+    const seeded = await seedIssuedDocument(admin, organizationId, patientId, pdfHash);
+    const session = await openSession({ userId: secretary });
+    try {
+      const error = await session.expectError(
+        `insert into public.document_professional_signatures
+           (organization_id, document_id, document_version_id, document_file_id,
+            professional_user_id, professional_name, professional_registration,
+            professional_registration_state, document_sha256, signature_method,
+            confirmation_acknowledged)
+         values ($1, $2, $3, $4, $5, 'Dra. Ana', 'CRP 06/00000', 'SP', $6,
+                 'virginiapsi_internal', true)`,
+        [
+          organizationId,
+          seeded.documentId,
+          seeded.versionId,
+          seeded.fileId,
+          admin,
+          pdfHash,
+        ],
+      );
+      expect(error).toMatch(/row-level security|violates/i);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("profissional confirma emissão com hash idêntico ao PDF", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Assinatura Ok");
+    const patientId = await createPatient(admin, organizationId);
+    const pdfHash = "d".repeat(64);
+    const seeded = await seedIssuedDocument(admin, organizationId, patientId, pdfHash);
+    const session = await openSession({ userId: admin });
+    try {
+      const rows = await session.query<{ signature_method: string; document_sha256: string }>(
+        `insert into public.document_professional_signatures
+           (organization_id, document_id, document_version_id, document_file_id,
+            professional_user_id, professional_name, professional_registration,
+            professional_registration_state, document_sha256, signature_method,
+            confirmation_acknowledged)
+         values ($1, $2, $3, $4, $5, 'Dra. Ana', 'CRP 06/00000', 'SP', $6,
+                 'virginiapsi_internal', true)
+         returning signature_method, document_sha256`,
+        [
+          organizationId,
+          seeded.documentId,
+          seeded.versionId,
+          seeded.fileId,
+          admin,
+          pdfHash,
+        ],
+      );
+      expect(rows[0].signature_method).toBe("virginiapsi_internal");
+      expect(rows[0].document_sha256).toBe(pdfHash);
+
+      const mutated = await session.expectError(
+        `update public.document_professional_signatures
+         set professional_name = 'Outro' where document_id = $1`,
+        [seeded.documentId],
+      );
+      expect(mutated).toMatch(/permission denied|does not exist|read-only/i);
+    } finally {
+      await session.close();
+    }
+  });
+});

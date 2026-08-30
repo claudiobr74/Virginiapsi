@@ -66,10 +66,19 @@ export function WhatsappPanel({
         <div className="flex flex-col gap-1">
           <span className="text-sm font-semibold text-foreground">Canal WhatsApp</span>
           <span className="text-xs text-muted-foreground">
-            {snapshot.phoneE164
-              ? `Número ${snapshot.phoneE164}`
-              : "Cadastre um telefone no paciente para enviar mensagens."}
+            Integração opcional. Atualmente desativada enquanto custos e provedor são avaliados.
           </span>
+          {!snapshot.operational ? (
+            <span className="text-xs text-muted-foreground">
+              Envios reais ficam indisponíveis até a avaliação comercial ser concluída.
+            </span>
+          ) : snapshot.phoneE164 ? (
+            <span className="text-xs text-muted-foreground">{`Número ${snapshot.phoneE164}`}</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Cadastre um telefone no paciente para enviar mensagens.
+            </span>
+          )}
         </div>
         <StatusBadge
           status={snapshot.allowed ? "active" : "cancelled"}
@@ -128,7 +137,7 @@ export function WhatsappPanel({
           size="sm"
           variant="secondary"
           isLoading={isPending}
-          disabled={!snapshot.allowed}
+          disabled={!snapshot.operational || !snapshot.allowed}
           onClick={() =>
             run(() =>
               sendWhatsappTemplateAction({ patientId, templateKey: "confirmation" }),
@@ -142,7 +151,7 @@ export function WhatsappPanel({
           size="sm"
           variant="secondary"
           isLoading={isPending}
-          disabled={!snapshot.allowed}
+          disabled={!snapshot.operational || !snapshot.allowed}
           onClick={() =>
             run(() => sendWhatsappTemplateAction({ patientId, templateKey: "welcome" }))
           }
@@ -154,7 +163,7 @@ export function WhatsappPanel({
           size="sm"
           variant="secondary"
           isLoading={isPending}
-          disabled={!snapshot.allowed}
+          disabled={!snapshot.operational || !snapshot.allowed}
           onClick={() =>
             run(() => sendWhatsappTemplateAction({ patientId, templateKey: "billing" }))
           }

@@ -118,9 +118,10 @@ Links de download são signed URLs de curta duração.
 - chave de provider de fallback (`GROQ_API_KEY`) é server-only e nunca vai ao browser;
 - grant de captura de vida curta por sessão autenticada, emitido somente após o consent gate;
 - servidor recusa persistir segmento de transcrição sem grant de captura válido;
-- rate limit dos endpoints de grant: 30 requisições/min por IP, janela deslizante **best-effort por instância** (`src/lib/security/rate-limit.ts`) — não é cota global de cluster na Vercel;
+- rate limit dos endpoints de grant: 30 requisições/min por IP, janela deslizante **best-effort por instância** (`RateLimiter` / `InMemoryRateLimiter` em `src/lib/security/rate-limit.ts`) — não é cota global de cluster na Vercel;
 - teto de body nos grants/segmentos (64 KiB), metadata de transcribe (16 KiB) e webhooks Twilio (32 KiB);
 - rate limit das server actions de IA (Supervisor, Session AI, Knowledge): 20/min por organização + usuário, mesma janela in-memory;
+- Content-Security-Policy por request com nonce (`src/lib/security/csp.ts`). Nunca `script-src *`. Headers existentes: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options` / `frame-ancestors 'none'`, `Permissions-Policy`;
 - fallback de áudio privado e temporário;
 - o bucket `session-audio-fallback` não pode ter INSERT genérico baseado apenas em membership: capacidade de upload deve ser emitida server-side somente após o mesmo consent gate de gravação/transcrição;
 - política de retenção configurável;

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  PATIENT_DATA_CLASS_POLICIES,
+  policiesByKind,
+} from "@/domain/patient-data-inventory";
+import {
   buildEliminationReport,
   eliminationPhraseMatches,
   expectedEliminationPhrase,
-  resolveEliminationOutcome,
+  mapVerifyRow,
 } from "@/features/settings/elimination";
 
 describe("confirmação destrutiva LGPD", () => {
@@ -16,39 +20,50 @@ describe("confirmação destrutiva LGPD", () => {
     expect(eliminationPhraseMatches("", "PAC-007")).toBe(false);
   });
 
+  it("classifica cada classe com política explícita", () => {
+    expect(PATIENT_DATA_CLASS_POLICIES.length).toBeGreaterThan(10);
+    expect(policiesByKind("DELETE").every((item) => item.policy === "DELETE")).toBe(true);
+    expect(
+      PATIENT_DATA_CLASS_POLICIES.every((item) =>
+        ["DELETE", "ANONYMIZE", "RETAIN_WITH_LEGAL_REASON"].includes(item.policy),
+      ),
+    ).toBe(true);
+  });
+
   it("retém prontuário/financeiro/consentimento e só elimina quando não há o que guardar", () => {
-    expect(
-      resolveEliminationOutcome({
-        clinicalSessions: 1,
-        clinicalProfiles: 0,
-        consents: 0,
-        financialCharges: 0,
-        transcriptSegments: 0,
-      }).status,
-    ).toBe("partially_eliminated");
-
-    expect(
-      resolveEliminationOutcome({
-        clinicalSessions: 0,
-        clinicalProfiles: 0,
-        consents: 0,
-        financialCharges: 0,
-        transcriptSegments: 0,
-      }).status,
-    ).toBe("eliminated");
-
-    const report = buildEliminationReport({
+    const onlyCadastro = buildEliminationReport({
       publicCode: "PAC-001",
       preferredName: "Beatriz",
-      counts: {
-        clinicalSessions: 2,
-        clinicalProfiles: 1,
-        consents: 1,
-        financialCharges: 3,
-        transcriptSegments: 4,
-      },
+      presentClasses: ["patient_identifiers", "audit_events"],
     });
-    expect(report.eliminate[0]).toContain("PAC-001");
-    expect(report.retain.join(" ")).toMatch(/prontuário|cobrança|consentimento|transcrição/i);
+    expect(onlyCadastro.outcome).toBe("eliminated");
+
+    const withClinic = buildEliminationReport({
+      publicCode: "PAC-001",
+      preferredName: "Beatriz",
+      presentClasses: [
+        "patient_identifiers",
+        "clinical_sessions",
+        "session_dpep",
+        "session_transcript_segments",
+        "financial_charges_payments",
+        "consents",
+        "audit_events",
+      ],
+    });
+    expect(withClinic.outcome).toBe("partially_eliminated");
+    expect(withClinic.eliminate[0]).toContain("PAC-001");
+    expect(withClinic.retain.join(" ")).toMatch(/clinical_sessions|financial|consents/i);
+  });
+
+  it("nunca declara eliminated quando a verificação ainda vê classes a apagar", () => {
+    const verify = mapVerifyRow({
+      status: "eliminated",
+      remaining_data_classes: ["patient_attachments"],
+      retained_data_classes: [],
+      errors: [],
+    });
+    expect(verify.status).toBe("partially_eliminated");
+    expect(verify.remainingDataClasses).toContain("patient_attachments");
   });
 });

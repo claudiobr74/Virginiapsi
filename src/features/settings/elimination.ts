@@ -1,7 +1,6 @@
-export const ELIMINATION_PHRASE_PREFIX = "ELIMINAR PERMANENTEMENTE";
+import { PATIENT_DATA_CLASS_POLICIES } from "@/domain/patient-data-inventory";
 
-export const ELIMINATION_RETAINED_REASON =
-  "Prontuário, DPEP, transcrição, financeiro, consentimentos e auditoria retidos por obrigação legal e profissional (guarda mínima de prontuário / fiscal / trilha de auditoria).";
+export const ELIMINATION_PHRASE_PREFIX = "ELIMINAR PERMANENTEMENTE";
 
 export function expectedEliminationPhrase(publicCode: string): string {
   return `${ELIMINATION_PHRASE_PREFIX} ${publicCode.trim().toUpperCase()}`;
@@ -14,69 +13,103 @@ export function eliminationPhraseMatches(
   return provided.trim().toUpperCase() === expectedEliminationPhrase(publicCode);
 }
 
-export interface EliminationCounts {
-  clinicalSessions: number;
-  clinicalProfiles: number;
-  consents: number;
-  financialCharges: number;
-  transcriptSegments: number;
+export interface EliminationPlanSummary {
+  deleted: string[];
+  anonymized: string[];
+  retained: string[];
+  errors: string[];
 }
 
-export function resolveEliminationOutcome(counts: EliminationCounts): {
-  status: "partially_eliminated" | "eliminated";
-  retainedReason: string | null;
-} {
-  const mustRetain =
-    counts.clinicalSessions > 0 ||
-    counts.clinicalProfiles > 0 ||
-    counts.consents > 0 ||
-    counts.financialCharges > 0 ||
-    counts.transcriptSegments > 0;
-
-  if (mustRetain) {
-    return {
-      status: "partially_eliminated",
-      retainedReason: ELIMINATION_RETAINED_REASON,
-    };
-  }
-
-  return { status: "eliminated", retainedReason: null };
+export interface EliminationVerifyResult {
+  status: "eliminated" | "partially_eliminated" | "retained_by_policy" | "failed";
+  remainingDataClasses: string[];
+  retainedDataClasses: string[];
+  errors: string[];
 }
 
 export function buildEliminationReport(input: {
   publicCode: string;
   preferredName: string;
-  counts: EliminationCounts;
+  presentClasses: string[];
 }): {
   eliminate: string[];
   retain: string[];
   outcome: "partially_eliminated" | "eliminated";
   retainedReason: string | null;
 } {
-  const outcome = resolveEliminationOutcome(input.counts);
+  const present = new Set(input.presentClasses);
+  const eliminate: string[] = [
+    `Identificadores administrativos de ${input.preferredName} (${input.publicCode}): nome, e-mail, telefone, CPF, nascimento, responsáveis e foto`,
+  ];
+  const retain: string[] = [];
+
+  for (const policy of PATIENT_DATA_CLASS_POLICIES) {
+    if (policy.dataClass === "patient_identifiers" || policy.dataClass === "patient_photo") {
+      continue;
+    }
+    if (!present.has(policy.dataClass) && policy.policy === "RETAIN_WITH_LEGAL_REASON") {
+      continue;
+    }
+    if (!present.has(policy.dataClass) && policy.policy !== "RETAIN_WITH_LEGAL_REASON") {
+      if (!present.has(policy.dataClass)) continue;
+    }
+    if (policy.policy === "RETAIN_WITH_LEGAL_REASON" && present.has(policy.dataClass)) {
+      retain.push(
+        `${policy.dataClass}: ${policy.notes} Fundamento: ${policy.legalBasisKey ?? "não informado"} (revisão jurídica pendente).`,
+      );
+    } else if (present.has(policy.dataClass)) {
+      eliminate.push(`${policy.dataClass}: ${policy.notes}`);
+    }
+  }
+
+  if (retain.length === 0) {
+    retain.push("Nenhum registro clínico, financeiro ou de consentimento a reter");
+  }
+
   return {
-    eliminate: [
-      `Identificadores administrativos de ${input.preferredName} (${input.publicCode}): nome, e-mail, telefone, CPF, nascimento, responsáveis e foto`,
-    ],
-    retain: outcome.retainedReason
-      ? [
-          input.counts.clinicalSessions > 0
-            ? `${input.counts.clinicalSessions} sessão(ões) / prontuário / DPEP`
-            : null,
-          input.counts.clinicalProfiles > 0 ? "Perfil clínico" : null,
-          input.counts.transcriptSegments > 0
-            ? `${input.counts.transcriptSegments} segmento(s) de transcrição`
-            : null,
-          input.counts.financialCharges > 0
-            ? `${input.counts.financialCharges} cobrança(s) financeira(s)`
-            : null,
-          input.counts.consents > 0
-            ? `${input.counts.consents} consentimento(s)`
-            : null,
-          "Trilha de auditoria (append-only)",
-        ].filter((item): item is string => Boolean(item))
-      : ["Nenhum registro clínico, financeiro ou de consentimento a reter"],
-    outcome: outcome.status,
-    retainedReason: outcome.retainedReason,
+    eliminate,
+    retain,
+    outcome: retain.some((item) => item.startsWith("Nenhum registro"))
+      ? "eliminated"
+      : "partially_eliminated",
+    retainedReason: retain.some((item) => item.startsWith("Nenhum registro"))
+      ? null
+      : "Retenção conforme patient_data_class_policies (fundamento configurável; revisão jurídica pendente).",
+  };
+}
+
+export function mapVerifyRow(row: {
+  status?: string;
+  remaining_data_classes?: string[] | null;
+  retained_data_classes?: string[] | null;
+  errors?: string[] | null;
+}): EliminationVerifyResult {
+  const remainingDataClasses = row.remaining_data_classes ?? [];
+  const retainedDataClasses = row.retained_data_classes ?? [];
+  const errors = row.errors ?? [];
+  let status = row.status;
+  if (errors.length > 0) {
+    status = "failed";
+  } else if (remainingDataClasses.length > 0) {
+    status = "partially_eliminated";
+  }
+  if (
+    status === "eliminated" ||
+    status === "partially_eliminated" ||
+    status === "retained_by_policy" ||
+    status === "failed"
+  ) {
+    return {
+      status,
+      remainingDataClasses,
+      retainedDataClasses,
+      errors,
+    };
+  }
+  return {
+    status: "failed",
+    remainingDataClasses,
+    retainedDataClasses,
+    errors: errors.length > 0 ? errors : ["invalid_verify_status"],
   };
 }

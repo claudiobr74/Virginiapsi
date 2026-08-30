@@ -50,6 +50,8 @@ Nunca fabricar `meet.google.com/<random>` nem reutilizar o mesmo `requestId` par
 
 ## 2. Twilio WhatsApp
 
+**Decisão de produto (ciclo de integridade):** a integração é **opcional e desligada** (`TWILIO_ENABLED=false`) enquanto custos e provedor são avaliados. A infraestrutura existente permanece no código, isolada, sem envio real, sem cron de claim e sem webhooks operacionais quando a flag está falsa. A UI comunica “Integração opcional. Atualmente desativada…”. Ausência de Twilio **não** bloqueia produção do restante do VirgíniaPsi.
+
 ### Saída
 
 - `to` E.164;

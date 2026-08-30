@@ -19,6 +19,14 @@ const optionalNonEmpty = z.preprocess(
   nonEmpty.optional(),
 );
 
+const booleanFromEnv = z.preprocess((value) => {
+  if (value === true || value === "true" || value === "1") return true;
+  if (value === false || value === "false" || value === "0" || value === "" || value == null) {
+    return false;
+  }
+  return value;
+}, z.boolean());
+
 export const serverEnvSchema = publicEnvSchema.extend({
   SUPABASE_SECRET_KEY: nonEmpty.startsWith("sb_secret_"),
   GOOGLE_CLIENT_ID: nonEmpty,
@@ -26,8 +34,10 @@ export const serverEnvSchema = publicEnvSchema.extend({
   GOOGLE_OAUTH_REDIRECT_URI: z.preprocess(normalizeGoogleOAuthRedirectUri, httpUrl),
   GOOGLE_TOKEN_ENCRYPTION_KEY: nonEmpty,
   SESSION_CAPTURE_SECRET: nonEmpty,
-  TWILIO_ACCOUNT_SID: nonEmpty,
-  TWILIO_AUTH_TOKEN: nonEmpty,
+  // WhatsApp is optional. Default off — credentials are required only when enabled.
+  TWILIO_ENABLED: booleanFromEnv.default(false),
+  TWILIO_ACCOUNT_SID: optionalNonEmpty,
+  TWILIO_AUTH_TOKEN: optionalNonEmpty,
   // Sender *or* Messaging Service — required only at send time.
   TWILIO_WHATSAPP_FROM: optionalNonEmpty,
   TWILIO_MESSAGING_SERVICE_SID: optionalNonEmpty,
@@ -68,6 +78,7 @@ export const SERVER_ONLY_ENV_KEYS = [
   "GOOGLE_OAUTH_REDIRECT_URI",
   "GOOGLE_TOKEN_ENCRYPTION_KEY",
   "SESSION_CAPTURE_SECRET",
+  "TWILIO_ENABLED",
   "TWILIO_ACCOUNT_SID",
   "TWILIO_AUTH_TOKEN",
   "TWILIO_WHATSAPP_FROM",
@@ -95,8 +106,9 @@ function readServerEnvFromProcess(): EnvSource {
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     GOOGLE_OAUTH_REDIRECT_URI: process.env.GOOGLE_OAUTH_REDIRECT_URI,
     GOOGLE_TOKEN_ENCRYPTION_KEY: process.env.GOOGLE_TOKEN_ENCRYPTION_KEY,
-    SESSION_CAPTURE_SECRET: process.env.SESSION_CAPTURE_SECRET,
-    TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
+  SESSION_CAPTURE_SECRET: process.env.SESSION_CAPTURE_SECRET,
+  TWILIO_ENABLED: process.env.TWILIO_ENABLED,
+  TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
     TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
     TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM,
     TWILIO_MESSAGING_SERVICE_SID: process.env.TWILIO_MESSAGING_SERVICE_SID,
@@ -124,6 +136,16 @@ export function parseServerEnv(
   });
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
+  }
+  if (parsed.data.TWILIO_ENABLED) {
+    const missing: string[] = [];
+    if (!parsed.data.TWILIO_ACCOUNT_SID) missing.push("TWILIO_ACCOUNT_SID");
+    if (!parsed.data.TWILIO_AUTH_TOKEN) missing.push("TWILIO_AUTH_TOKEN");
+    if (missing.length > 0) {
+      throw new Error(
+        `Invalid environment configuration: ${missing.join(", ")}. Values are not logged. See docs/09-env-contract.md.`,
+      );
+    }
   }
   return parsed.data;
 }
@@ -171,6 +193,10 @@ export function readIntegrationEnvFlags(
     googleOAuth:
       presentEnvValue(source.GOOGLE_CLIENT_ID) &&
       presentEnvValue(source.GOOGLE_CLIENT_SECRET),
+    twilioEnabled:
+      source.TWILIO_ENABLED === true ||
+      source.TWILIO_ENABLED === "true" ||
+      source.TWILIO_ENABLED === "1",
     twilioAccount:
       presentEnvValue(source.TWILIO_ACCOUNT_SID) &&
       presentEnvValue(source.TWILIO_AUTH_TOKEN),

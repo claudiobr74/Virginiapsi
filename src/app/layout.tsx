@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { fontMono, fontSans, fontSerif } from "@/lib/fonts";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
@@ -16,7 +17,9 @@ export const viewport = {
   ],
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="pt-BR"
@@ -30,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           enableSystem
           storageKey="tesseli-theme"
           disableTransitionOnChange
+          nonce={nonce}
         >
           {children}
         </ThemeProvider>

@@ -25,6 +25,7 @@ export interface AppointmentDialogProps {
   onOpenChange: (open: boolean) => void;
   patients: Pick<PatientRow, "id" | "preferred_name" | "public_code">[];
   defaultDate: string;
+  defaultPatientId?: string;
   appointment?: AppointmentRow;
   onSaved: () => void;
 }
@@ -32,10 +33,11 @@ export interface AppointmentDialogProps {
 function defaultValues(
   defaultDate: string,
   appointment?: AppointmentRow,
+  defaultPatientId?: string,
 ): AppointmentFormValues {
   if (!appointment) {
     return {
-      patientId: "",
+      patientId: defaultPatientId ?? "",
       date: defaultDate,
       startTime: "09:00",
       durationMinutes: "50",
@@ -63,6 +65,7 @@ export function AppointmentDialog({
   onOpenChange,
   patients,
   defaultDate,
+  defaultPatientId,
   appointment,
   onSaved,
 }: AppointmentDialogProps) {
@@ -77,7 +80,7 @@ export function AppointmentDialog({
     formState: { errors },
   } = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentFormSchema),
-    values: defaultValues(defaultDate, appointment),
+    values: defaultValues(defaultDate, appointment, defaultPatientId),
   });
 
   function submit(values: AppointmentFormValues, force: boolean) {

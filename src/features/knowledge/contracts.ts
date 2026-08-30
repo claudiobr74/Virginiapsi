@@ -134,4 +134,22 @@ export const applyToCaseSchema = z.object({
   patientId: z.string().uuid(),
   collectionIds: z.array(z.string().uuid()).default([]),
   question: z.string().trim().min(1, "Informe a pergunta clínica."),
+  additionalNotes: z.string().trim().max(2000).optional().or(z.literal("")),
+  selection: z
+    .object({
+      formulation: z.boolean(),
+      therapyGoals: z.boolean(),
+      lastSession: z.boolean(),
+      lastThreeSessions: z.boolean(),
+      dpep: z.boolean(),
+      additionalNotes: z.boolean(),
+    })
+    .default({
+      formulation: true,
+      therapyGoals: true,
+      lastSession: true,
+      lastThreeSessions: false,
+      dpep: false,
+      additionalNotes: false,
+    }),
 });

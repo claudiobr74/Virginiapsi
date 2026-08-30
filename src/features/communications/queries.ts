@@ -9,6 +9,8 @@ import {
   type PatientWhatsAppSnapshot,
 } from "@/features/communications/contracts";
 import { normalizeE164 } from "@/lib/integrations/twilio/e164";
+import { isTwilioOperational } from "@/lib/integrations/twilio/enabled";
+import { getServerEnv } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function getPatientWhatsAppSnapshot(
@@ -99,6 +101,7 @@ export async function getPatientWhatsAppSnapshot(
   const accepted = (consentsResult.data ?? [])[0] as { id: string } | undefined;
 
   return {
+    operational: isTwilioOperational(getServerEnv()),
     preference: preferenceResult.data
       ? preferenceRowSchema.parse(preferenceResult.data)
       : null,

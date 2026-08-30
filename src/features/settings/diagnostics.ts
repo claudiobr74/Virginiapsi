@@ -33,6 +33,7 @@ export interface DiagnosticsInput {
     lastError: string | null;
   };
   twilio: {
+    enabled: boolean;
     accountConfigured: boolean;
     senderConfigured: boolean;
     lastError: string | null;
@@ -77,11 +78,13 @@ export function buildIntegrationDiagnostics(
         ? "error"
         : "attention";
 
-  const twilioHealth: IntegrationHealth = !input.twilio.accountConfigured
-    ? "missing"
-    : input.twilio.senderConfigured
-      ? "ok"
-      : "attention";
+  const twilioHealth: IntegrationHealth = !input.twilio.enabled
+    ? "attention"
+    : !input.twilio.accountConfigured
+      ? "missing"
+      : input.twilio.senderConfigured
+        ? "ok"
+        : "attention";
 
   const transcriptionHealth: IntegrationHealth = input.transcription.fallbackConfigured
     ? "ok"
@@ -110,13 +113,15 @@ export function buildIntegrationDiagnostics(
       {
         key: "twilio",
         label: "Twilio WhatsApp",
-        configured: input.twilio.accountConfigured && input.twilio.senderConfigured,
+        configured: input.twilio.enabled && input.twilio.accountConfigured && input.twilio.senderConfigured,
         health: twilioHealth,
-        summary: !input.twilio.accountConfigured
-          ? "Conta Twilio não provisionada neste ambiente."
-          : input.twilio.senderConfigured
-            ? "Conta e remetente prontos para envio."
-            : "Conta presente; remetente WhatsApp ainda não provisionado.",
+        summary: !input.twilio.enabled
+          ? "Integração opcional. Atualmente desativada enquanto custos e provedor são avaliados."
+          : !input.twilio.accountConfigured
+            ? "Conta Twilio não provisionada neste ambiente."
+            : input.twilio.senderConfigured
+              ? "Conta e remetente prontos para envio."
+              : "Conta presente; remetente WhatsApp ainda não provisionado.",
         lastSuccessAt: null,
         lastError: sanitizeDiagnosticText(input.twilio.lastError),
       },

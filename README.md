@@ -24,7 +24,7 @@ Em caso de conflito entre uma decisão de implementação e este kit, **este kit
 - Vercel
 - Supabase: Postgres, Auth, Storage e RLS
 - Google Calendar API + Google Meet via Calendar `conferenceData`
-- Twilio WhatsApp
+- Twilio WhatsApp (opcional; `TWILIO_ENABLED=false` por padrão — custos/provedor em avaliação; ausência não bloqueia o restante do produto)
 - Transcrição local no dispositivo (ONNX/WebGPU), com fallback opcional no Groq — ver `docs/22-transcription-provider-decision.md`
 - Gemini para Supervisor Clínico IA e apoio ao módulo de Conhecimento
 - Supabase pgvector para base de conhecimento/RAG local
@@ -136,7 +136,7 @@ Aponte para outra instância com `TEST_DATABASE_URL`. Na CI, o job usa o serviç
 
 Sem um projeto Supabase real ligado, o login autenticado do Playwright usa um stub local do Auth REST (`tests/e2e/support/auth-stub-server.mjs`), iniciado automaticamente pelo `playwright.config.ts`. Ele prova a navegação/gate do shell, não segurança de RLS/JWT — os testes adversariais de auth real acontecem no gate da Fase 2, contra um Supabase real.
 
-Supabase CLI está instalado como devDependency. Ainda não há migrations de produto (Fase 2). Para preparar o ambiente local depois da Fase 2:
+Supabase CLI está instalado como devDependency. As migrations de produto estão em `supabase/migrations/` (tenancy, pacientes, agenda, sessão, documentos, financeiro, WhatsApp, settings, G2 identity, e o ciclo de integridade `20260830140000`–`20260830160000`). Para preparar o ambiente local:
 
 ```bash
 pnpm exec supabase --version
@@ -395,9 +395,24 @@ Entregue no código:
 - Error boundaries e 404 com primitivos canônicos (`src/app/error.tsx`, `global-error.tsx`, `not-found.tsx`).
 - Skip-link e `<main id="conteudo-principal">` no shell; sessão em modo foco também expõe o landmark.
 - Headers globais de segurança; COEP/COOP só na rota da sessão clínica.
-- Rate limit in-memory por instância: grants 30/min por IP; IA 20/min por org+usuário.
+- Rate limit in-memory por instância: grants 30/min por IP; IA 20/min por org+usuário (interface `RateLimiter` / `InMemoryRateLimiter` — não é cota global).
+- CSP por request com nonce; headers `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`.
 - Teto de payload em grants/segmentos/transcribe e webhooks Twilio.
 - Rollback documentado em `docs/24-rollback.md`. Sem Vercel Cron.
 - CI com timeout de 45 min para a suíte Playwright completa. E2E usa 1 worker: o auth stub in-memory é compartilhado e settings mutáveis (ex.: `secretary_finance_access`) não podem ser escritos em paralelo por desktop e mobile.
 
 Testes: `tests/utils/rate-limit.test.ts`, `tests/utils/request-limits.test.ts`, invariantes em `tests/architecture/forbidden-dependencies.test.ts`, E2E `tests/e2e/hardening.spec.ts`.
+
+## Ciclo de integridade, privacidade e fechamento (2026-08-30)
+
+Não é um rewrite. Correções sobre o sistema existente:
+
+- Isolamento de artefatos de IA (RPC transacional `append_verified_ai_artifact_to_session`); closing artifact preso à sessão; Supervisor preso ao paciente.
+- Plano de eliminação LGPD com inventário explícito, RPC de execução, verificação independente e Storage.
+- Wizard de finalização de sessão (próximo encontro, cobrança consciente; recibo após pagamento).
+- Assinatura profissional **interna** (`virginiapsi_internal`) — não é ICP-Brasil. TCLE permanece `legal_review_status=draft`.
+- Aplicar ao Caso com seleção, preview sanitizado e consent gate.
+- CSP com nonce; `RateLimiter` abstrai o limitador in-memory (por instância, não global).
+- Twilio permanece opcional (`TWILIO_ENABLED=false`).
+- Relatórios: `LEGACY_NAMING_AUDIT.md`, `docs/DISASTER_RECOVERY_TEST.md`, `POST_IMPLEMENTATION_AUDIT.md`.
+

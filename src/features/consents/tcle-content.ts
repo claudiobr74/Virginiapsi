@@ -12,8 +12,10 @@
  */
 export const TCLE_VERSION = "tcle-2026-08-v1";
 
+export const TCLE_LEGAL_REVIEW_STATUS = "draft" as const;
+
 export const TCLE_LEGAL_REVIEW_DISCLAIMER =
-  "Rascunho estrutural pendente de validação jurídica humana (docs/19-lgpd-privacy.md §7). Não usar com paciente real antes dessa revisão.";
+  "Rascunho estrutural pendente de validação jurídica humana (docs/19-lgpd-privacy.md §7). Status legal_review_status=draft. Não usar com paciente real antes dessa revisão. Não está liberado como documento oficial.";
 
 export const TCLE_BODY_TEMPLATE = `TERMO DE CONSENTIMENTO LIVRE E ESCLARECIDO
 

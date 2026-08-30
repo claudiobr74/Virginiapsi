@@ -57,6 +57,7 @@ function defaultPracticeSettings(organizationId, extras = {}) {
     professional_name: extras.professional_name ?? "Ana Serena",
     subtitle: extras.subtitle ?? "Psicóloga clínica",
     crp: extras.crp ?? null,
+    crp_state: extras.crp_state ?? null,
     tax_id: extras.tax_id ?? null,
     pix_key: extras.pix_key ?? null,
     clinic_name: extras.clinic_name ?? extras.name ?? "Consultório",
@@ -419,6 +420,8 @@ const documentsByOrg = new Map();
 const documentVersionsByOrg = new Map();
 /** organizationId -> Map<fileId, row> */
 const documentFilesByOrg = new Map();
+/** organizationId -> Map<signatureId, row> */
+const documentSignaturesByOrg = new Map();
 /** organizationId -> Map<attachmentId, row> */
 const patientAttachmentsByOrg = new Map();
 /** organizationId -> Map<fileId, row> */
@@ -2879,6 +2882,48 @@ const server = createServer(async (req, res) => {
       ...body,
     };
     getOrCreateOrgMap(documentFilesByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_professional_signatures" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const versionIdFilter = parseEqFilter(searchParams.get("document_version_id"));
+    let match = null;
+    for (const table of documentSignaturesByOrg.values()) {
+      for (const row of table.values()) {
+        if (row.document_version_id === versionIdFilter) match = row;
+      }
+    }
+    if (wantsSingleObject(req)) {
+      if (!match) {
+        return json(res, 406, {
+          code: "PGRST116",
+          message: "JSON object requested, multiple (or no) rows returned",
+          details: "Results contain 0 rows",
+        });
+      }
+      return json(res, 200, match);
+    }
+    return json(res, 200, match ? [match] : []);
+  }
+
+  if (pathname === "/rest/v1/document_professional_signatures" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const role = membershipRole(user.id, body.organization_id);
+    if (role !== "psychologist_admin" && role !== "psychologist") {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const row = {
+      id: randomUUID(),
+      signed_at: new Date().toISOString(),
+      signature_method: "virginiapsi_internal",
+      professional_user_id: user.id,
+      ...body,
+    };
+    getOrCreateOrgMap(documentSignaturesByOrg, body.organization_id).set(row.id, row);
     return json(res, 201, wantsSingleObject(req) ? row : [row]);
   }
 

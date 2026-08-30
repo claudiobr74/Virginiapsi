@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { DpepForm } from "@/features/sessions/components/dpep-form";
-import { FinalizeSessionWizard } from "@/features/sessions/components/finalize-session-wizard";
+import { FinalizeSessionWizard, type FinalizeSessionWizardProps } from "@/features/sessions/components/finalize-session-wizard";
 import { SessionAiPanel } from "@/features/sessions/components/session-ai-panel";
 import { SessionElapsedTimer } from "@/features/sessions/components/session-elapsed-timer";
 import { TranscriptPanel } from "@/features/sessions/components/transcript-panel";
@@ -37,6 +37,7 @@ export function ActiveSessionView({
   transcriptSegments,
   appointment,
   initialElapsedSeconds,
+  finalize,
 }: {
   session: ClinicalSessionRow;
   patientDisplayName: string;
@@ -48,6 +49,7 @@ export function ActiveSessionView({
   transcriptSegments: TranscriptSegmentRow[];
   appointment: SessionAppointmentContext | null;
   initialElapsedSeconds: number;
+  finalize: Omit<FinalizeSessionWizardProps, "sessionId"> | null;
 }) {
   const router = useRouter();
   const isFinalized = session.status === "finalized" || session.status === "canceled";
@@ -140,7 +142,9 @@ export function ActiveSessionView({
                 <ExternalLink className="size-3.5" aria-hidden />
               </a>
             ) : null}
-            {!isFinalized ? <FinalizeSessionWizard sessionId={session.id} /> : null}
+            {!isFinalized && finalize ? (
+              <FinalizeSessionWizard sessionId={session.id} {...finalize} />
+            ) : null}
           </div>
         </div>
       </header>
