@@ -20,6 +20,7 @@ import { KNOWLEDGE_CLINICAL_APPLICATION_PROMPT } from "./knowledge/clinical-appl
 import { KNOWLEDGE_STUDY_MODE_PROMPT } from "./knowledge/study-mode";
 import { KNOWLEDGE_INGESTION_PROMPT } from "./knowledge/ingestion";
 import { KNOWLEDGE_RETRIEVAL_PROMPT } from "./knowledge/retrieval";
+import { DOCUMENT_STUDIO_AI_PROMPT } from "./documents/studio";
 
 export const RUNTIME_PROMPT_VERSION = "1.2.0" as const;
 
@@ -62,7 +63,8 @@ export const RUNTIME_PROMPTS = {
   ].join("\n\n"),
   knowledgeStudyMode: [KNOWLEDGE_CORE, KNOWLEDGE_STUDY_MODE_PROMPT].join("\n\n"),
   knowledgeIngestion: [KNOWLEDGE_CORE_PROMPT, KNOWLEDGE_INGESTION_PROMPT].join("\n\n"),
-  knowledgeRetrieval: [KNOWLEDGE_CORE_PROMPT, KNOWLEDGE_RETRIEVAL_PROMPT].join("\n\n")
+  knowledgeRetrieval: [KNOWLEDGE_CORE_PROMPT, KNOWLEDGE_RETRIEVAL_PROMPT].join("\n\n"),
+  documentStudio: [CLINICAL_CORE, DOCUMENT_STUDIO_AI_PROMPT].join("\n\n"),
 } as const;
 
 export type RuntimePromptName = keyof typeof RUNTIME_PROMPTS;

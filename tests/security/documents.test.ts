@@ -473,3 +473,184 @@ describe("Storage buckets — clinical-documents/patient-attachments/consents se
     }
   });
 });
+
+describe("Document Studio — kinds novos, parecer sem paciente, branding e isolamento da secretaria", () => {
+  let admin: string;
+  let secretary: string;
+  let outsider: string;
+  let organizationId: string;
+  let patientId: string;
+
+  beforeAll(async () => {
+    admin = await createAuthUser();
+    secretary = await createAuthUser();
+    outsider = await createAuthUser();
+    organizationId = await bootstrapOrganization(admin, "Estúdio Documentos");
+    await bootstrapOrganization(outsider, "Outra Clínica");
+    await addMember(admin, organizationId, secretary, "secretary");
+    patientId = await createPatient(admin, organizationId);
+  });
+
+  it("parecer nasce clínico mesmo sem patient_id; secretária não lê", async () => {
+    const adminSession = await openSession({ userId: admin });
+    let parecerId: string;
+    try {
+      const [row] = await adminSession.query<{ id: string; sensitivity: string }>(
+        `insert into public.documents (organization_id, patient_id, title, document_kind, sensitivity)
+         values ($1, null, 'Parecer sem paciente', 'parecer', 'administrative')
+         returning id, sensitivity`,
+        [organizationId],
+      );
+      expect(row.sensitivity).toBe("clinical");
+      parecerId = row.id;
+    } finally {
+      await adminSession.close();
+    }
+
+    const secretarySession = await openSession({ userId: secretary });
+    try {
+      const rows = await secretarySession.query(
+        "select id from public.documents where id = $1",
+        [parecerId],
+      );
+      expect(rows).toEqual([]);
+    } finally {
+      await secretarySession.close();
+    }
+  });
+
+  it("autorizacao/requerimento/protocolo nascem administrativos", async () => {
+    const session = await openSession({ userId: admin });
+    try {
+      for (const kind of ["autorizacao", "requerimento", "protocolo"]) {
+        const rows = await session.query<{ sensitivity: string }>(
+          `insert into public.documents (organization_id, patient_id, title, document_kind, sensitivity)
+           values ($1, $2, $3, $4, 'clinical') returning sensitivity`,
+          [organizationId, patientId, `Doc ${kind}`, kind],
+        );
+        expect(rows[0].sensitivity).toBe("administrative");
+      }
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("secretária lê branding da organização, mas não grava logos nem identidade", async () => {
+    const adminSession = await openSession({ userId: admin });
+    try {
+      await adminSession.query(
+        `insert into public.document_branding (organization_id, clinic_name)
+         values ($1, 'Marca da clínica')
+         on conflict (organization_id) do update set clinic_name = excluded.clinic_name`,
+        [organizationId],
+      );
+    } finally {
+      await adminSession.close();
+    }
+
+    const secretarySession = await openSession({ userId: secretary });
+    try {
+      const visible = await secretarySession.query<{ clinic_name: string }>(
+        "select clinic_name from public.document_branding where organization_id = $1",
+        [organizationId],
+      );
+      expect(visible[0]?.clinic_name).toBe("Marca da clínica");
+
+      const insertLogo = await secretarySession.expectError(
+        `insert into public.document_logos
+           (organization_id, variant, label, storage_path, mime_type, byte_size, sha256)
+         values ($1, 'principal', 'x', $2, 'image/png', 12, 'abcd')`,
+        [organizationId, `${organizationId}/logos/x.png`],
+      );
+      expect(insertLogo).toMatch(/row-level security/i);
+
+      const updated = await secretarySession.query(
+        `update public.document_branding set clinic_name = 'Forjada' where organization_id = $1 returning clinic_name`,
+        [organizationId],
+      );
+      expect(updated).toEqual([]);
+    } finally {
+      await secretarySession.close();
+    }
+  });
+
+  it("tenant externo não lê branding nem documentos", async () => {
+    const outsiderSession = await openSession({ userId: outsider });
+    try {
+      const branding = await outsiderSession.query(
+        "select clinic_name from public.document_branding where organization_id = $1",
+        [organizationId],
+      );
+      expect(branding).toEqual([]);
+      const docs = await outsiderSession.query(
+        "select id from public.documents where organization_id = $1",
+        [organizationId],
+      );
+      expect(docs).toEqual([]);
+    } finally {
+      await outsiderSession.close();
+    }
+  });
+
+  it("secretária não registra entrega de documento clínico", async () => {
+    const adminSession = await openSession({ userId: admin });
+    let clinicalId: string;
+    try {
+      const [doc] = await adminSession.query<{ id: string }>(
+        `insert into public.documents (organization_id, patient_id, title, document_kind, sensitivity, status, issued_at)
+         values ($1, $2, 'Relatório emitido', 'relatorio', 'clinical', 'issued', now())
+         returning id`,
+        [organizationId, patientId],
+      );
+      clinicalId = doc.id;
+    } finally {
+      await adminSession.close();
+    }
+
+    const secretarySession = await openSession({ userId: secretary });
+    try {
+      const error = await secretarySession.expectError(
+        `insert into public.document_delivery
+           (organization_id, document_id, recipient_name, delivered_at, method)
+         values ($1, $2, 'Destinatário', now(), 'presencial')`,
+        [organizationId, clinicalId],
+      );
+      expect(error).toMatch(/row-level security|not authorized/i);
+    } finally {
+      await secretarySession.close();
+    }
+  });
+
+  it("bucket document-branding existe e storage.objects não tem policy aberta para o bucket", async () => {
+    const session = await openSession({ userId: admin });
+    try {
+      const buckets = await session.query<{ id: string }>(
+        "select id from storage.buckets where id = 'document-branding'",
+      );
+      expect(buckets).toHaveLength(1);
+      const error = await session.expectError(
+        `insert into storage.objects (bucket_id, name, owner)
+         values ('document-branding', $1, $2)`,
+        [`${organizationId}/logos/secret.png`, admin],
+      );
+      expect(error).toMatch(/row-level security/i);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("status reviewed e delivered são aceitos no enum", async () => {
+    const session = await openSession({ userId: admin });
+    try {
+      const [doc] = await session.query<{ status: string }>(
+        `insert into public.documents (organization_id, patient_id, title, document_kind, sensitivity, status)
+         values ($1, $2, 'Em revisão', 'declaracao', 'clinical', 'under_review')
+         returning status`,
+        [organizationId, patientId],
+      );
+      expect(doc.status).toBe("under_review");
+    } finally {
+      await session.close();
+    }
+  });
+});

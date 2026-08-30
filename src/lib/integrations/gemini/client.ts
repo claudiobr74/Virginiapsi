@@ -32,6 +32,12 @@ export interface GeminiClientOptions {
   fetchImpl?: typeof fetch;
 }
 
+export interface GeminiTextRequest {
+  model: string;
+  systemInstruction: string;
+  userContent: string;
+}
+
 export class GeminiClient {
   private readonly apiKey: string;
   private readonly fetchImpl: typeof fetch;
@@ -84,5 +90,36 @@ export class GeminiClient {
     } catch {
       throw new GeminiApiError("Gemini response was not valid JSON", response.status);
     }
+  }
+
+  /** Plain-text generateContent (document studio drafting — still parsed by the caller). */
+  async generateText(request: GeminiTextRequest): Promise<string> {
+    const response = await this.fetchImpl(
+      `${GEMINI_BASE_URL}/models/${request.model}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": this.apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: request.systemInstruction }] },
+          contents: [{ role: "user", parts: [{ text: request.userContent }] }],
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      throw new GeminiApiError(`Gemini request failed: ${response.status}`, response.status);
+    }
+
+    const body = (await response.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
+      throw new GeminiApiError("Gemini response had no text part", response.status);
+    }
+    return text;
   }
 }

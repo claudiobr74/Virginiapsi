@@ -1,7 +1,13 @@
 import { notFound } from "next/navigation";
 import { PageContainer } from "@/components/ui/page-container";
 import { DocumentEditor } from "@/features/documents/components/document-editor";
-import { getDocument, getFileForVersion, listVersions } from "@/features/documents/queries";
+import { StudioEditor } from "@/features/documents/components/studio-editor";
+import {
+  getDocument,
+  getFileForVersion,
+  listDocumentDeliveries,
+  listVersions,
+} from "@/features/documents/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
 export async function generateMetadata({
@@ -27,10 +33,26 @@ export default async function DocumentDetailPage({
   const versions = await listVersions(documentId);
   const latestVersion = versions[0] ?? null;
   const file = latestVersion ? await getFileForVersion(latestVersion.id) : null;
+  const deliveries = await listDocumentDeliveries(documentId).catch(() => []);
 
   return (
     <PageContainer>
-      <DocumentEditor document={document} latestVersion={latestVersion} file={file} versions={versions} />
+      {document.system_template_key ? (
+        <StudioEditor
+          document={document}
+          latestVersion={latestVersion}
+          file={file}
+          versions={versions}
+          deliveries={deliveries}
+        />
+      ) : (
+        <DocumentEditor
+          document={document}
+          latestVersion={latestVersion}
+          file={file}
+          versions={versions}
+        />
+      )}
     </PageContainer>
   );
 }

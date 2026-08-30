@@ -15,6 +15,7 @@ import { buildIntegrationDiagnostics } from "@/features/settings/diagnostics";
 import { buildEliminationReport, type EliminationCounts } from "@/features/settings/elimination";
 import { readIntegrationEnvFlags } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getDocumentBranding, listDocumentLogos } from "@/features/documents/branding-queries";
 
 function emptyNumber(value: unknown): number {
   return typeof value === "number" ? value : Number(value ?? 0);
@@ -237,7 +238,7 @@ export async function getSettingsSnapshot(input: {
 
   try {
     const supabase = await createSupabaseServerClient();
-    const [{ data: org }, practice, team, integration, exports, patients] =
+    const [{ data: org }, practice, team, integration, exports, patients, documentBranding, documentLogos] =
       await Promise.all([
         supabase
           .from("organizations")
@@ -253,6 +254,8 @@ export async function getSettingsSnapshot(input: {
           .select("id, preferred_name, public_code")
           .eq("organization_id", input.organizationId)
           .order("preferred_name", { ascending: true }),
+        getDocumentBranding(input.organizationId).catch(() => null),
+        listDocumentLogos(input.organizationId).catch(() => []),
       ]);
 
     const practiceRow = practice ?? defaultPracticeSettings(input.organizationId);
@@ -279,6 +282,8 @@ export async function getSettingsSnapshot(input: {
         public_code: patient.public_code as string,
       })),
       secretaryFinanceAccess: practiceRow.secretary_finance_access,
+      documentBranding,
+      documentLogos,
     };
   } catch {
     const practiceRow = defaultPracticeSettings(input.organizationId);
@@ -300,6 +305,8 @@ export async function getSettingsSnapshot(input: {
       exports: [],
       patients: [],
       secretaryFinanceAccess: practiceRow.secretary_finance_access,
+      documentBranding: null,
+      documentLogos: [],
     };
   }
 }
