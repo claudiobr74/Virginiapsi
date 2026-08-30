@@ -277,7 +277,6 @@ export async function sendWhatsappTemplateAction(
     return { error: "Modelo de mensagem não encontrado." };
   }
 
-  const env = getServerEnv();
   if (!env.TWILIO_WHATSAPP_FROM && !env.TWILIO_MESSAGING_SERVICE_SID) {
     return { error: "WhatsApp não está configurado (remetente ou Messaging Service)." };
   }

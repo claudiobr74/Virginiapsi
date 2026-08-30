@@ -194,7 +194,6 @@ export function readIntegrationEnvFlags(
       presentEnvValue(source.GOOGLE_CLIENT_ID) &&
       presentEnvValue(source.GOOGLE_CLIENT_SECRET),
     twilioEnabled:
-      source.TWILIO_ENABLED === true ||
       source.TWILIO_ENABLED === "true" ||
       source.TWILIO_ENABLED === "1",
     twilioAccount:

@@ -289,11 +289,12 @@ export async function signDocumentAction(input: unknown): Promise<DocumentAction
   if (document.status !== "issued") {
     return { error: "Só é possível confirmar a emissão de um documento já emitido." };
   }
+  const patientId = document.patient_id;
   if (
     document.sensitivity === "clinical" &&
-    document.patient_id &&
+    patientId &&
     !(await (async () => {
-      const patient = await getPatient(organizationId, document.patient_id);
+      const patient = await getPatient(organizationId, patientId);
       if (!patient) return false;
       return canAccessPatientClinical({
         role,

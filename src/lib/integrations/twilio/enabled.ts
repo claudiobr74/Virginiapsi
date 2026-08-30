@@ -19,7 +19,9 @@ export function isTwilioEnabled(env: TwilioRuntimeFlags): boolean {
   return env.TWILIO_ENABLED === true;
 }
 
-export function isTwilioOperational(env: TwilioRuntimeFlags): boolean {
+export function isTwilioOperational(
+  env: TwilioRuntimeFlags,
+): env is TwilioRuntimeFlags & { TWILIO_ACCOUNT_SID: string; TWILIO_AUTH_TOKEN: string } {
   if (!isTwilioEnabled(env)) {
     return false;
   }

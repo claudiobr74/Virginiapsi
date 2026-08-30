@@ -1,7 +1,7 @@
 export interface ChargePlanSnapshot {
   status: string;
   plan_type: string;
-  total_sessions: number | null;
+  total_sessions?: number | null;
   used_sessions: number;
 }
 
