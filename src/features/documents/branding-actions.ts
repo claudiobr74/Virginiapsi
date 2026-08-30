@@ -13,6 +13,7 @@ import {
   createSignedDownloadUrl,
   createSignedUploadUrl,
 } from "@/lib/documents/storage";
+import { isOrgScopedStoragePath } from "@/lib/documents/storage-meta";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -151,8 +152,11 @@ export async function registerLogoAction(input: unknown): Promise<BrandingAction
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  if (!parsed.data.storagePath.startsWith(`${organizationId}/`)) {
+  if (!isOrgScopedStoragePath(organizationId, parsed.data.storagePath)) {
     return { error: "Caminho de upload inválido." };
+  }
+  if (!isOrgScopedStoragePath(organizationId, parsed.data.printStoragePath)) {
+    return { error: "Caminho de impressão inválido." };
   }
   const supabase = await createSupabaseServerClient();
   if (parsed.data.isDefault) {

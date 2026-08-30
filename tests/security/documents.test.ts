@@ -491,7 +491,7 @@ describe("Document Studio — kinds novos, parecer sem paciente, branding e isol
     patientId = await createPatient(admin, organizationId);
   });
 
-  it("parecer nasce clínico mesmo sem patient_id; secretária não lê", async () => {
+  it("status reviewed e delivered são aceitos no enum", async () => {
     const adminSession = await openSession({ userId: admin });
     let parecerId: string;
     try {
@@ -621,19 +621,67 @@ describe("Document Studio — kinds novos, parecer sem paciente, branding e isol
     }
   });
 
-  it("bucket document-branding existe e storage.objects não tem policy aberta para o bucket", async () => {
+  it("bucket document-branding existe, é privado, e storage.objects não tem policy aberta", async () => {
     const session = await openSession({ userId: admin });
     try {
-      const buckets = await session.query<{ id: string }>(
-        "select id from storage.buckets where id = 'document-branding'",
+      const buckets = await session.query<{ id: string; public: boolean }>(
+        "select id, public from storage.buckets where id = 'document-branding'",
       );
       expect(buckets).toHaveLength(1);
-      const error = await session.expectError(
+      expect(buckets[0].public).toBe(false);
+      const insertError = await session.expectError(
         `insert into storage.objects (bucket_id, name, owner)
          values ('document-branding', $1, $2)`,
         [`${organizationId}/logos/secret.png`, admin],
       );
-      expect(error).toMatch(/row-level security/i);
+      expect(insertError).toMatch(/row-level security/i);
+      const selectRows = await session.query(
+        `select id from storage.objects where bucket_id = 'document-branding'`,
+      );
+      expect(selectRows).toEqual([]);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("modelo de parecer/laudo não pode nascer administrative para a secretária ler o corpo", async () => {
+    const session = await openSession({ userId: admin });
+    try {
+      const [parecer] = await session.query<{ default_sensitivity: string }>(
+        `insert into public.document_templates
+           (organization_id, name, document_kind, default_sensitivity, body_template)
+         values ($1, 'Parecer forjado', 'parecer', 'administrative', 'corpo clínico')
+         returning default_sensitivity`,
+        [organizationId],
+      );
+      expect(parecer.default_sensitivity).toBe("clinical");
+    } finally {
+      await session.close();
+    }
+
+    const secretarySession = await openSession({ userId: secretary });
+    try {
+      const rows = await secretarySession.query(
+        `select id from public.document_templates
+         where organization_id = $1 and document_kind = 'parecer'`,
+        [organizationId],
+      );
+      expect(rows).toEqual([]);
+    } finally {
+      await secretarySession.close();
+    }
+  });
+
+  it("logo print_storage_path de outro tenant é rejeitado", async () => {
+    const session = await openSession({ userId: admin });
+    try {
+      const error = await session.expectError(
+        `insert into public.document_logos
+           (organization_id, variant, label, storage_path, print_storage_path, mime_type, byte_size, sha256)
+         values ($1, 'principal', 'x', $2, $3, 'image/png', 12, 'abcd')`,
+        [organizationId, `${organizationId}/logos/ok.png`, "outra-org/logos/stolen.png"],
+      );
+      expect(error).toMatch(/org-prefixed|23514/i);
     } finally {
       await session.close();
     }

@@ -18,6 +18,15 @@ export function buildStoragePath(
   return `${organizationId}/${resourceId}/${randomUUID()}-${safeName}`;
 }
 
+/** Branding/PDF object keys must stay inside the caller's tenant prefix. */
+export function isOrgScopedStoragePath(
+  organizationId: string,
+  storagePath: string | null | undefined,
+): boolean {
+  if (!storagePath) return true;
+  return storagePath.startsWith(`${organizationId}/`) && !storagePath.includes("..");
+}
+
 export function sha256Hex(bytes: Uint8Array | Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
 }

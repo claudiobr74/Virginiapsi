@@ -13,8 +13,8 @@ import {
   reviewDocumentSchema,
   saveAsTemplateSchema,
   saveStudioDraftSchema,
-  DOCUMENT_AI_COMMANDS,
-  type DocumentAiCommand,
+  generateDocumentAiDraftSchema,
+  previewDocumentAiContextSchema,
   type DocumentKind,
   type DocumentSection,
   type DocumentSensitivity,
@@ -47,14 +47,23 @@ import {
   listDocumentDeliveries as listDeliveries,
 } from "@/features/documents/queries";
 import { getPatient } from "@/features/patients/queries";
-import { resolveConsentState } from "@/features/consents/queries";
 import { getServerEnv } from "@/lib/env/server";
 import { GeminiClient } from "@/lib/integrations/gemini/client";
 import { geminiDocumentsModel } from "@/lib/ai/documents-model";
 import { RUNTIME_PROMPTS } from "@/lib/ai/prompts";
+import { DOCUMENT_STUDIO_DRAFT_SCHEMA } from "@/lib/ai/contracts/documents";
+import { documentStudioDraftOutputSchema } from "@/lib/ai/validators/documents";
+import { toGeminiResponseJsonSchema } from "@/lib/ai/schema-adapter";
 import { AI_RATE_LIMIT_MESSAGE, consumeAiRateLimit } from "@/lib/security/rate-limit";
 import { loadDocumentChartContext } from "@/features/documents/chart-import";
-import type { DocumentChartImportSelection } from "@/features/documents/chart-import";
+import { authorizeDocumentStudioAi } from "@/features/documents/ai-gate";
+import {
+  buildDocumentStudioPackedContext,
+  documentStudioAiResultToClient,
+  hashDocumentStudioPreview,
+  hasSelectedChartSlice,
+  sanitizeChartImportSelection,
+} from "@/features/documents/ai-dto";
 
 function forcedSensitivity(documentKind: DocumentKind): DocumentSensitivity | null {
   if (FORCED_CLINICAL_KINDS.includes(documentKind)) return "clinical";
@@ -683,115 +692,148 @@ export async function importScheduledEncountersAction(documentId: string): Promi
   return { id: documentId, encounters: lines.join("\n") };
 }
 
-export async function generateDocumentAiDraftAction(input: {
-  documentId: string;
-  command?: DocumentAiCommand;
-  sectionId?: string;
+async function packedStudioDraftContext(input: {
+  organizationId: string;
+  document: NonNullable<Awaited<ReturnType<typeof getDocument>>>;
+  selectedContext?: unknown;
   answers?: Record<string, string>;
-  selectedContext?: Partial<DocumentChartImportSelection> & { sessions?: boolean };
-  contextPreviewAcknowledged: boolean;
-}): Promise<DocumentActionResult & { draft?: string; model?: string }> {
-  const { organizationId, role, user } = await requireOrgContext();
-  if (!isClinicalPractitioner(role)) {
-    return { error: "Somente a profissional responsável usa a redação assistida." };
+  command?: string;
+}): Promise<{ packed: string; previewHash: string } | { error: string }> {
+  const template = input.document.system_template_key
+    ? getSystemTemplate(input.document.system_template_key)
+    : null;
+  const version = await getLatestVersion(input.document.id);
+  const selection = sanitizeChartImportSelection(input.selectedContext);
+  let selectedChartContext = "";
+  if (input.document.patient_id && hasSelectedChartSlice(selection)) {
+    const built = await loadDocumentChartContext({
+      organizationId: input.organizationId,
+      patientId: input.document.patient_id,
+      selection,
+    });
+    if ("error" in built) return { error: built.error };
+    selectedChartContext = built.minimizedCaseContext;
   }
-  if (input.command && !DOCUMENT_AI_COMMANDS.includes(input.command)) {
-    return { error: "Comando de redação inválido." };
+
+  const packed = buildDocumentStudioPackedContext({
+    templateName: template?.name ?? input.document.title,
+    documentKind: input.document.document_kind,
+    purpose: input.document.purpose,
+    recipientName: input.document.recipient_name,
+    tone: input.document.tone,
+    lengthPreset: input.document.length_preset,
+    templateInstructions: template?.aiInstructions,
+    neverInvent: template?.guardrails.neverInvent,
+    clinicianAnswers: input.answers,
+    selectedChartContext: selectedChartContext || undefined,
+    documentBody: version?.body_snapshot,
+    command: input.command,
+  });
+  return { packed, previewHash: hashDocumentStudioPreview(packed) };
+}
+
+export async function previewDocumentAiContextAction(
+  input: unknown,
+): Promise<DocumentActionResult & { preview?: string; previewHash?: string }> {
+  const parsed = previewDocumentAiContextSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  if (!input.contextPreviewAcknowledged) {
-    return { error: "Confirme os dados que serão utilizados antes de gerar o rascunho." };
+
+  const documentLookup = await authorizeDocumentStudioAi(null, "preview");
+  if (!documentLookup.allowed) return { error: documentLookup.message };
+  const document = await getDocument(documentLookup.organizationId, parsed.data.documentId);
+  if (!document) return { error: "Documento não encontrado." };
+
+  const accessGate = await authorizeDocumentStudioAi(document.patient_id, "preview");
+  if (!accessGate.allowed) return { error: accessGate.message };
+
+  if (document.status !== "draft" && document.status !== "under_review") {
+    return { error: "A IA só redige rascunhos." };
   }
-  const document = await getDocument(organizationId, input.documentId);
+
+  const packed = await packedStudioDraftContext({
+    organizationId: accessGate.organizationId,
+    document,
+    selectedContext: parsed.data.selectedContext,
+    answers: parsed.data.answers,
+    command: parsed.data.command,
+  });
+  if ("error" in packed) return { error: packed.error };
+  return { id: document.id, preview: packed.packed, previewHash: packed.previewHash };
+}
+
+export async function generateDocumentAiDraftAction(
+  input: unknown,
+): Promise<DocumentActionResult & { draft?: string; model?: string; reviewNotes?: string[] }> {
+  const parsed = generateDocumentAiDraftSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+  const values = parsed.data;
+
+  const documentLookup = await authorizeDocumentStudioAi(null, "preview");
+  if (!documentLookup.allowed) return { error: documentLookup.message };
+  const document = await getDocument(documentLookup.organizationId, values.documentId);
   if (!document) return { error: "Documento não encontrado." };
   if (document.status !== "draft" && document.status !== "under_review") {
     return { error: "A IA só redige rascunhos." };
   }
 
-  if (input.selectedContext && document.patient_id) {
-    const consent = await resolveConsentState(organizationId, document.patient_id);
-    if (!consent.state.aiProcessingAllowed) {
-      return { error: "Consentimento de apoio de IA não está válido para este paciente." };
-    }
-  }
+  const gate = await authorizeDocumentStudioAi(document.patient_id, "provider");
+  if (!gate.allowed) return { error: gate.message };
 
-  const rate = consumeAiRateLimit(organizationId, user.id);
+  const rate = consumeAiRateLimit(gate.organizationId, gate.userId);
   if (!rate.allowed) return { error: AI_RATE_LIMIT_MESSAGE };
 
-  const template = document.system_template_key
-    ? getSystemTemplate(document.system_template_key)
-    : null;
-  const version = await getLatestVersion(document.id);
-  let chartContext = "";
-  const selected = input.selectedContext;
-  const importingChart = Boolean(
-    selected &&
-      (selected.formulation ||
-        selected.therapyGoals ||
-        selected.lastSession ||
-        selected.lastThreeSessions ||
-        selected.dpep ||
-        selected.additionalNotes),
-  );
-  if (document.patient_id && importingChart && selected) {
-    const built = await loadDocumentChartContext({
-      organizationId,
-      patientId: document.patient_id,
-      selection: {
-        formulation: Boolean(selected.formulation),
-        therapyGoals: Boolean(selected.therapyGoals),
-        lastSession: Boolean(selected.lastSession),
-        lastThreeSessions: Boolean(selected.lastThreeSessions),
-        dpep: Boolean(selected.dpep),
-        additionalNotes: Boolean(selected.additionalNotes),
-      },
-    });
-    if ("error" in built) return { error: built.error };
-    chartContext = built.minimizedCaseContext;
+  const packed = await packedStudioDraftContext({
+    organizationId: gate.organizationId,
+    document,
+    selectedContext: values.selectedContext,
+    answers: values.answers,
+    command: values.command,
+  });
+  if ("error" in packed) return { error: packed.error };
+  if (packed.previewHash !== values.previewHash) {
+    return { error: "A prévia do contexto mudou. Atualize e confirme novamente." };
   }
 
   const env = getServerEnv();
   const model = geminiDocumentsModel(env);
   const client = new GeminiClient({ apiKey: env.GEMINI_API_KEY });
-  const command = input.command ? `Comando: ${input.command}.` : "Gere ou desenvolva o rascunho das seções.";
-  const userContent = [
-    `Modelo: ${template?.name ?? document.title}`,
-    `Tipo: ${document.document_kind}`,
-    `Finalidade: ${document.purpose ?? "não informada"}`,
-    `Destinatário: ${document.recipient_name ?? "não informado"}`,
-    `Tom: ${document.tone}`,
-    `Extensão: ${document.length_preset}`,
-    template ? `Instruções do modelo:\n${template.aiInstructions}` : "",
-    template ? `Guardrails: nunca inventar ${template.guardrails.neverInvent.join(", ")}.` : "",
-    input.answers ? `Respostas da profissional:\n${JSON.stringify(input.answers)}` : "",
-    chartContext ? `Contexto clínico SELECIONADO (não envie além disto):\n${chartContext}` : "Sem importação de prontuário.",
-    version ? `Texto atual:\n${version.body_snapshot.slice(0, 12000)}` : "",
-    input.sectionId ? `Foque na seção ${input.sectionId}.` : "",
-    command,
-    "Responda em português brasileiro, em prosa desenvolvida, sem listas telegráficas. Se faltar dado, use [[REVISAR: ...]].",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
 
-  let draft: string;
+  let raw: unknown;
   try {
-    draft = await client.generateText({
+    raw = await client.generateStructured({
       model,
       systemInstruction: RUNTIME_PROMPTS.documentStudio,
-      userContent,
+      userContent: packed.packed,
+      responseJsonSchema: toGeminiResponseJsonSchema(DOCUMENT_STUDIO_DRAFT_SCHEMA),
     });
   } catch {
     return { error: "A redação assistida não pôde ser concluída agora." };
   }
 
+  const validated = documentStudioDraftOutputSchema.safeParse(raw);
+  if (!validated.success) {
+    return { error: "A redação assistida não pôde ser validada. Nada foi incorporado." };
+  }
+  const clientResult = documentStudioAiResultToClient(validated.data);
+
   await logAuditEvent({
-    organizationId,
+    organizationId: gate.organizationId,
     action: "document_ai_draft_generated",
     resourceType: "document",
     resourceId: document.id,
-    metadata: { model, command: input.command ?? "draft" },
+    metadata: { model, command: values.command ?? "draft" },
   });
 
-  return { id: document.id, draft, model };
+  return {
+    id: document.id,
+    draft: clientResult.draft,
+    reviewNotes: clientResult.reviewNotes,
+    model,
+  };
 }
 
 export async function listDocumentDeliveries(documentId: string) {
