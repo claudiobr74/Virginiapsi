@@ -86,8 +86,8 @@ A suíte `pnpm test:security` emula `auth.uid()` / JWT claims em PostgreSQL loca
 | POST | `/api/session-capture/upload-grant` | sessão + consent + rate limit | Signed upload do fallback |
 | POST | `/api/session-capture/segment` | sessão + grant + teto de body | Persistência de trecho; sem rate limit de grant |
 | POST | `/api/session-capture/transcribe` | sessão + grant fallback | Metadata pequena; áudio não passa pela Vercel |
-| POST | `/api/webhooks/twilio/inbound` | assinatura Twilio + teto 32 KiB | |
-| POST | `/api/webhooks/twilio/status` | assinatura Twilio + teto 32 KiB | |
+| POST | `/api/webhooks/twilio/inbound` | assinatura Twilio + teto 32 KiB | `503 { error: "not_configured" }` se `TWILIO_ENABLED` não for true com credenciais |
+| POST | `/api/webhooks/twilio/status` | assinatura Twilio + teto 32 KiB | idem — Twilio operacional é opcional e permanece desligado por padrão |
 | POST | `/api/jobs/whatsapp-reminders` | `CRON_SECRET` **antes** de side effect | Invocado por `pg_net`, não Vercel Cron |
 | POST | `/api/jobs/audio-retention` | `CRON_SECRET` **antes** de side effect | Diário 03:00 |
 
@@ -96,3 +96,22 @@ Server Actions (não são rotas HTTP estáveis para clientes externos) concentra
 ## 6. Declaração
 
 Release ready: **não**. PASS nos passos locais 1–9 e 12. Passo 10 = PASS no Preview `/login` (framework Next.js). FAIL no `main` de produção antigo. EXTERNAL_BLOCKED no passo 11 (produção Tesseli), RLS hospedado, restore DR real e validação jurídica.
+
+## 7. Ciclo de integridade/privacidade (branch `cursor/integrity-privacy-hardening-ec92`, 2026-08-30)
+
+Evidência **desta rodada** (não reutilizar os totais históricos da tabela §1):
+
+| Comando | Resultado | Evidência |
+|---|---|---|
+| `pnpm install --frozen-lockfile` | PASS | lockfile up to date |
+| `pnpm lint` | PASS | eslint sem erros |
+| `pnpm typecheck` | PASS | `next typegen && tsc --noEmit` |
+| `pnpm test` | PASS | 354 testes, 68 arquivos |
+| `pnpm test:security` | PASS | 179 testes, 18 arquivos, PostgreSQL 16 local + pgvector (emulação Auth/RLS, **não** projeto hospedado) |
+| `pnpm test:e2e` | PASS | 186 testes desktop+mobile (7.4 min) |
+| `pnpm build` | PASS | Next.js 16.3.1 |
+| `pnpm scan:client-bundle` | PASS | 56 chunks, nenhum nome de env server-only |
+
+Twilio **não** é requisito deste gate. Webhooks retornam 503 `not_configured` com `TWILIO_ENABLED=false`.
+
+Relatório: `POST_IMPLEMENTATION_AUDIT.md`. Restore DR: `docs/DISASTER_RECOVERY_TEST.md` (EXTERNAL_BLOCKED).
