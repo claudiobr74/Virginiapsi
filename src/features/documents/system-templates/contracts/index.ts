@@ -16,7 +16,10 @@ export function buildPsychotherapyContractSections(ctx: {
   const name = ctx.patientName || "{{patient.full_name}}";
   const preferred = ctx.preferredName || "{{patient.preferred_name}}";
   const notice = hours(ctx);
-  const includeOnline = ctx.extra?.modality !== "in_person";
+  const includeOnline =
+    ctx.extra?.modality === "online" ||
+    ctx.extra?.modality === "hybrid" ||
+    ctx.extra?.forceOnline === "true";
   const includeMinor = ctx.extra?.includesMinor === "true";
   const includeHealthPlan = ctx.extra?.careType === "plano";
   const includeAi = ctx.extra?.includeAiClause === "true";
@@ -382,9 +385,22 @@ export const psychotherapyContractOnline: SystemTemplateDefinition = {
     "Há peculiaridades de horário, fuso ou localização da pessoa atendida?",
     "Qual a política de cancelamento?",
   ],
-  buildSections: (ctx) =>
-    buildPsychotherapyContractSections({
+  buildSections: (ctx) => {
+    const base = buildPsychotherapyContractSections({
       ...ctx,
-      extra: { ...ctx.extra, modality: "online" },
-    }),
+      extra: { ...ctx.extra, modality: "online", forceOnline: "true" },
+    });
+    return [
+      section(
+        -1,
+        "Escopo da modalidade online",
+        `Este instrumento organiza o acompanhamento psicológico realizado predominantemente por meio de tecnologias digitais de informação e comunicação, de forma online ou híbrida, conforme combinado entre as partes.
+
+O texto a seguir desenvolve as condições de ambiente, privacidade, conexão, interrupção técnica, limites do serviço e demais acordos aplicáveis a essa modalidade, sem reduzir o contrato a um checklist e sem copiar normas na íntegra.
+
+A pessoa atendida permanece responsável por buscar um espaço reservado, sempre que possível com equipamento individual e conexão estável. A profissional permanece responsável pela condução ética e técnica do processo, inclusive pela avaliação de reagendamento quando as condições não permitirem o encontro adequado.`,
+      ),
+      ...base.map((item, index) => ({ ...item, order: index + 1 })),
+    ];
+  },
 };
