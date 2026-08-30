@@ -139,6 +139,21 @@ export const EXTERNAL_SIGNATURE_METHOD_VALUES = [
 ] as const;
 export type ExternalSignatureMethod = (typeof EXTERNAL_SIGNATURE_METHOD_VALUES)[number];
 
+export const DOCUMENT_AI_COMMANDS = [
+  "desenvolver",
+  "expandir",
+  "resumir",
+  "tornar mais técnico",
+  "tornar mais formal",
+  "melhorar clareza",
+  "melhorar coesão",
+  "reduzir redundância",
+  "adaptar ao destinatário",
+  "adaptar à finalidade",
+  "reformular",
+] as const;
+export type DocumentAiCommand = (typeof DOCUMENT_AI_COMMANDS)[number];
+
 export const DOCUMENT_SECTION_TYPE_VALUES = [
   "text",
   "analysis",

@@ -13,6 +13,8 @@ import {
   reviewDocumentSchema,
   saveAsTemplateSchema,
   saveStudioDraftSchema,
+  DOCUMENT_AI_COMMANDS,
+  type DocumentAiCommand,
   type DocumentKind,
   type DocumentSection,
   type DocumentSensitivity,
@@ -681,23 +683,9 @@ export async function importScheduledEncountersAction(documentId: string): Promi
   return { id: documentId, encounters: lines.join("\n") };
 }
 
-const AI_COMMANDS = [
-  "desenvolver",
-  "expandir",
-  "resumir",
-  "tornar mais técnico",
-  "tornar mais formal",
-  "melhorar clareza",
-  "melhorar coesão",
-  "reduzir redundância",
-  "adaptar ao destinatário",
-  "adaptar à finalidade",
-  "reformular",
-] as const;
-
 export async function generateDocumentAiDraftAction(input: {
   documentId: string;
-  command?: (typeof AI_COMMANDS)[number];
+  command?: DocumentAiCommand;
   sectionId?: string;
   answers?: Record<string, string>;
   selectedContext?: Partial<DocumentChartImportSelection> & { sessions?: boolean };
@@ -706,6 +694,9 @@ export async function generateDocumentAiDraftAction(input: {
   const { organizationId, role, user } = await requireOrgContext();
   if (!isClinicalPractitioner(role)) {
     return { error: "Somente a profissional responsável usa a redação assistida." };
+  }
+  if (input.command && !DOCUMENT_AI_COMMANDS.includes(input.command)) {
+    return { error: "Comando de redação inválido." };
   }
   if (!input.contextPreviewAcknowledged) {
     return { error: "Confirme os dados que serão utilizados antes de gerar o rascunho." };
