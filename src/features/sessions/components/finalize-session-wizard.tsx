@@ -22,6 +22,8 @@ export interface FinalizeSessionWizardProps {
   canCharge: boolean;
   patients: Pick<PatientRow, "id" | "preferred_name" | "public_code">[];
   defaultDate: string;
+  hideTrigger?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 type WizardStep = "clinical" | "next" | "charge" | "summary";
@@ -38,11 +40,14 @@ export function FinalizeSessionWizard({
   canCharge,
   patients,
   defaultDate,
+  hideTrigger = false,
+  onOpenChange,
 }: FinalizeSessionWizardProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<WizardStep>("clinical");
-  const [isPending, startTransition] = useTransition();
+  const [isFinalizing, startFinalize] = useTransition();
+  const [isCharging, startCharge] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [sessionFinalized, setSessionFinalized] = useState(false);
@@ -73,36 +78,41 @@ export function FinalizeSessionWizard({
     setStep("summary");
   }
 
+  function closeWizard() {
+    setOpen(false);
+    resetFlow();
+    onOpenChange?.(false);
+    router.refresh();
+  }
+
   function finalize() {
     setError(null);
-    startTransition(async () => {
+    startFinalize(async () => {
       const result = await finalizeSessionAction(sessionId);
       if (result.error) {
         setError(result.error);
         return;
       }
       afterFinalize();
-      router.refresh();
+      onOpenChange?.(true);
     });
   }
 
   function cancel() {
     setError(null);
-    startTransition(async () => {
+    startFinalize(async () => {
       const result = await cancelSessionAction(sessionId);
       if (result.error) {
         setError(result.error);
         return;
       }
-      setOpen(false);
-      resetFlow();
-      router.refresh();
+      closeWizard();
     });
   }
 
   function registerCharge() {
     setError(null);
-    startTransition(async () => {
+    startCharge(async () => {
       const result = await createSessionChargeAction(sessionId);
       if (result.error) {
         setError(result.error);
@@ -111,7 +121,6 @@ export function FinalizeSessionWizard({
       setChargeRegistered(Boolean(result.id));
       setChargeSkipped(!result.id);
       setStep("summary");
-      router.refresh();
     });
   }
 
@@ -128,10 +137,10 @@ export function FinalizeSessionWizard({
         <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
           Voltar
         </Button>
-        <Button type="button" variant="secondary" size="sm" isLoading={isPending} onClick={cancel}>
+        <Button type="button" variant="secondary" size="sm" isLoading={isFinalizing} onClick={cancel}>
           Cancelar sessão
         </Button>
-        <Button type="button" size="sm" isLoading={isPending} onClick={finalize}>
+        <Button type="button" size="sm" isLoading={isFinalizing} onClick={finalize}>
           Finalizar
         </Button>
       </>
@@ -164,20 +173,12 @@ export function FinalizeSessionWizard({
         >
           Não registrar agora
         </Button>
-        <Button type="button" size="sm" isLoading={isPending} onClick={registerCharge}>
+        <Button type="button" size="sm" isLoading={isCharging} onClick={registerCharge}>
           Registrar cobrança
         </Button>
       </>
     ) : (
-      <Button
-        type="button"
-        size="sm"
-        onClick={() => {
-          setOpen(false);
-          resetFlow();
-          router.refresh();
-        }}
-      >
+      <Button type="button" size="sm" onClick={closeWizard}>
         Concluir
       </Button>
     );
@@ -197,19 +198,22 @@ export function FinalizeSessionWizard({
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
+          onOpenChange?.(next);
           if (!next) resetFlow();
         }}
       >
-        <ModalTrigger asChild>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="border-failed/40 bg-failed-bg text-failed hover:bg-failed-bg hover:text-failed"
-          >
-            Finalizar atendimento
-          </Button>
-        </ModalTrigger>
+        {hideTrigger ? null : (
+          <ModalTrigger asChild>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="border-failed/40 bg-failed-bg text-failed hover:bg-failed-bg hover:text-failed"
+            >
+              Finalizar atendimento
+            </Button>
+          </ModalTrigger>
+        )}
         <ModalContent title={title} description={undefined} footer={footer}>
           {error ? (
             <p role="alert" className="rounded-xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed">

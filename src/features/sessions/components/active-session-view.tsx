@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ChevronDown, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -52,6 +53,7 @@ export function ActiveSessionView({
   finalize: Omit<FinalizeSessionWizardProps, "sessionId"> | null;
 }) {
   const router = useRouter();
+  const [keepClosingWizard, setKeepClosingWizard] = useState(false);
   const isFinalized = session.status === "finalized" || session.status === "canceled";
   const isInProgress = session.status === "in_progress";
   const startedClock = session.started_at
@@ -142,8 +144,13 @@ export function ActiveSessionView({
                 <ExternalLink className="size-3.5" aria-hidden />
               </a>
             ) : null}
-            {!isFinalized && finalize ? (
-              <FinalizeSessionWizard sessionId={session.id} {...finalize} />
+            {(!isFinalized || keepClosingWizard) && finalize ? (
+              <FinalizeSessionWizard
+                sessionId={session.id}
+                {...finalize}
+                hideTrigger={isFinalized}
+                onOpenChange={setKeepClosingWizard}
+              />
             ) : null}
           </div>
         </div>

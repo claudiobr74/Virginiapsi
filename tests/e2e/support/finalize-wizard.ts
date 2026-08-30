@@ -12,6 +12,7 @@ export async function completeFinalizeWizard(
 
   const register = dialog.getByRole("button", { name: "Registrar cobrança" });
   if ((await register.count()) > 0) {
+    await expect(register).toBeEnabled();
     if (options.registerCharge) {
       await register.click();
     } else {
@@ -20,5 +21,8 @@ export async function completeFinalizeWizard(
   }
 
   await expect(dialog.getByText("sessão finalizada")).toBeVisible();
-  await dialog.getByRole("button", { name: "Concluir" }).click();
+  const conclude = dialog.getByRole("button", { name: "Concluir" });
+  await expect(conclude).toBeEnabled();
+  await conclude.click();
+  await expect(dialog).toHaveCount(0);
 }
