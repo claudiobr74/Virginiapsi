@@ -525,20 +525,19 @@ describe("ai_runs / ai_artifacts — draft até revisão explícita", () => {
         [run.id, organizationId],
       );
 
-      const appended = await session.query<{
+      const reviewed = await session.query<{
         review_status: string;
         reviewed_by: string;
         reviewed_at: string;
       }>(
-        `select set_config('tesseli.append_artifact', '1', true);
-         update public.ai_artifacts set review_status = 'appended'
+        `update public.ai_artifacts set review_status = 'discarded'
          where id = $1
          returning review_status, reviewed_by, reviewed_at`,
         [artifact.id],
       );
-      expect(appended[0].review_status).toBe("appended");
-      expect(appended[0].reviewed_by).toBe(admin);
-      expect(appended[0].reviewed_at).toBeTruthy();
+      expect(reviewed[0].review_status).toBe("discarded");
+      expect(reviewed[0].reviewed_by).toBe(admin);
+      expect(reviewed[0].reviewed_at).toBeTruthy();
 
       // Content is immutable once produced.
       const tampered = await session.query<{ structured_content: unknown }>(
@@ -551,7 +550,7 @@ describe("ai_runs / ai_artifacts — draft até revisão explícita", () => {
 
       // Cannot flip an already-reviewed artifact back/around.
       const error = await session.expectError(
-        "update public.ai_artifacts set review_status = 'discarded' where id = $1",
+        "update public.ai_artifacts set review_status = 'appended' where id = $1",
         [artifact.id],
       );
       expect(error).toMatch(/cannot change once reviewed/i);

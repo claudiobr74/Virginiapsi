@@ -106,7 +106,7 @@ declare
   has_retain boolean := false;
   final_status public.patient_elimination_status;
   new_run uuid;
-  public_code text;
+  v_public_code text;
   retain_until date;
   review_at date;
 begin
@@ -125,7 +125,7 @@ begin
       using errcode = '42501';
   end if;
 
-  public_code := patient_row.public_code;
+  v_public_code := patient_row.public_code;
 
   -- Collect storage paths before mutating rows.
   if patient_row.photo_path is not null then
@@ -193,8 +193,8 @@ begin
   -- ANONYMIZE identifiers
   update public.patients
   set
-    preferred_name = 'Eliminado ' || public_code,
-    full_name = 'Paciente eliminado (' || public_code || ')',
+    preferred_name = 'Eliminado ' || v_public_code,
+    full_name = 'Paciente eliminado (' || v_public_code || ')',
     email = null,
     phone = null,
     cpf = null,
@@ -209,10 +209,10 @@ begin
   deleted := array_append(deleted, 'patient_photo');
 
   update public.appointments
-  set summary_snapshot = public_code
+  set summary_snapshot = v_public_code
   where patient_id = p_patient_id
     and summary_snapshot is not null
-    and summary_snapshot is distinct from public_code;
+    and summary_snapshot is distinct from v_public_code;
   anonymized := array_append(anonymized, 'appointments');
 
   update public.whatsapp_messages
@@ -383,7 +383,7 @@ begin
     patient_row.organization_id,
     'settings.lgpd.eliminate',
     'patient',
-    public_code,
+    v_public_code,
     jsonb_build_object('outcome', final_status::text, 'run_id', new_run::text)
   );
 
