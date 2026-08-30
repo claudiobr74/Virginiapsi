@@ -210,6 +210,44 @@ describe("PDF do estúdio", () => {
     });
     expect(Buffer.from(withSvg.slice(0, 5)).toString("utf8")).toBe("%PDF-");
   });
+
+  it("preview e emissão usam o mesmo bloco de assinatura manuscrita", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const preview = readFileSync(
+      join(process.cwd(), "src/app/app/documents/[documentId]/preview/route.ts"),
+      "utf8",
+    );
+    expect(preview).toContain("includeManualSignature: true");
+    expect(preview).not.toContain('document.status !== "draft"');
+    const branding = resolveBranding(defaultBranding(), {
+      organizationName: "Clínica",
+      professionalName: "Profissional",
+    });
+    const bytes = await generateStudioPdf({
+      title: "Declaração",
+      sections: [
+        {
+          id: "a",
+          type: "text",
+          title: "Declaração",
+          content: "Texto fluído de declaração profissional.",
+          order: 0,
+          enabled: true,
+          pageBreakBefore: false,
+        },
+      ],
+      branding,
+      documentId: "33333333-3333-3333-3333-333333333333",
+      version: 1,
+      layout: "tradicional",
+      manualSignatureBlock: {
+        professionalLines: ["Profissional", "CRP 00/00000"],
+        clientLines: ["Pessoa atendida / responsável"],
+      },
+    });
+    expect(Buffer.from(bytes.slice(0, 5)).toString("utf8")).toBe("%PDF-");
+  });
 });
 
 describe("placeholders de emissão", () => {

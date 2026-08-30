@@ -186,7 +186,7 @@ E2E do estúdio (os quatro fluxos pedidos):
 
 O fluxo clássico (`tests/e2e/documents.spec.ts`: textarea, modelo, secretária bloqueada, anexos, TCLE) também **PASS**.
 
-Screenshots de impressão fotográfica da clínica real **não** foram anexados neste ambiente (sem identidade/logo da proprietária no stub E2E). A equivalência preview/PDF foi verificada por código (mesmo `generateStudioPdf`) e por iframe visível nos E2E.
+**P1, corrigido:** preview de rascunho e PDF emitido usam o mesmo bloco de assinatura manuscrita (`includeManualSignature: true`).
 
 ---
 
