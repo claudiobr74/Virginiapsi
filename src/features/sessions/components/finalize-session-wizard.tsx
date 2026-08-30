@@ -199,7 +199,10 @@ export function FinalizeSessionWizard({
         onOpenChange={(next) => {
           setOpen(next);
           onOpenChange?.(next);
-          if (!next) resetFlow();
+          if (!next) {
+            resetFlow();
+            router.refresh();
+          }
         }}
       >
         {hideTrigger ? null : (
