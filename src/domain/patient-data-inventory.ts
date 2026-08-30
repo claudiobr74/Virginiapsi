@@ -23,6 +23,12 @@ export interface PatientDataClassPolicy {
   retentionYears: number | null;
   reviewYears: number | null;
   notes: string;
+  /**
+   * When false, leftover rows of this class (typically the audit trail of the
+   * elimination itself) must not prevent verify/preview status `eliminated`.
+   * Defaults to true for RETAIN_WITH_LEGAL_REASON classes.
+   */
+  blocksEliminatedStatus?: boolean;
 }
 
 export const PATIENT_DATA_CLASS_POLICIES: PatientDataClassPolicy[] = [
@@ -201,6 +207,7 @@ export const PATIENT_DATA_CLASS_POLICIES: PatientDataClassPolicy[] = [
     retentionYears: null,
     reviewYears: 5,
     notes: "Trilha append-only. Sem expiração automática.",
+    blocksEliminatedStatus: false,
   },
   {
     dataClass: "document_professional_signatures",
@@ -217,9 +224,17 @@ export const PATIENT_DATA_CLASS_POLICIES: PatientDataClassPolicy[] = [
     retentionYears: null,
     reviewYears: 5,
     notes: "Metadado da execução do próprio plano. Não bloqueia o status eliminated.",
+    blocksEliminatedStatus: false,
   },
 ];
 
 export function policiesByKind(policy: EliminationPolicy): PatientDataClassPolicy[] {
   return PATIENT_DATA_CLASS_POLICIES.filter((item) => item.policy === policy);
+}
+
+export function classBlocksEliminatedStatus(policy: PatientDataClassPolicy): boolean {
+  if (policy.policy !== "RETAIN_WITH_LEGAL_REASON") {
+    return false;
+  }
+  return policy.blocksEliminatedStatus !== false;
 }

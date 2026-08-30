@@ -37,6 +37,7 @@ describe("confirmação destrutiva LGPD", () => {
       presentClasses: ["patient_identifiers", "audit_events"],
     });
     expect(onlyCadastro.outcome).toBe("eliminated");
+    expect(onlyCadastro.retainedReason).toBeNull();
 
     const withClinic = buildEliminationReport({
       publicCode: "PAC-001",

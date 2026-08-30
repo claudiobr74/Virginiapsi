@@ -1,4 +1,7 @@
-import { PATIENT_DATA_CLASS_POLICIES } from "@/domain/patient-data-inventory";
+import {
+  classBlocksEliminatedStatus,
+  PATIENT_DATA_CLASS_POLICIES,
+} from "@/domain/patient-data-inventory";
 
 export const ELIMINATION_PHRASE_PREFIX = "ELIMINAR PERMANENTEMENTE";
 
@@ -62,17 +65,22 @@ export function buildEliminationReport(input: {
     }
   }
 
+  const blockingRetain = PATIENT_DATA_CLASS_POLICIES.filter(
+    (policy) =>
+      classBlocksEliminatedStatus(policy) && present.has(policy.dataClass),
+  );
+
   if (retain.length === 0) {
     retain.push("Nenhum registro clínico, financeiro ou de consentimento a reter");
   }
 
+  const fullyEliminated = blockingRetain.length === 0;
+
   return {
     eliminate,
     retain,
-    outcome: retain.some((item) => item.startsWith("Nenhum registro"))
-      ? "eliminated"
-      : "partially_eliminated",
-    retainedReason: retain.some((item) => item.startsWith("Nenhum registro"))
+    outcome: fullyEliminated ? "eliminated" : "partially_eliminated",
+    retainedReason: fullyEliminated
       ? null
       : "Retenção conforme patient_data_class_policies (fundamento configurável; revisão jurídica pendente).",
   };
