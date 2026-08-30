@@ -6,6 +6,7 @@ import {
   type AppointmentModality,
   type AppointmentStatus,
 } from "@/features/calendar/contracts";
+import type { DocumentStatus } from "@/features/documents/contracts";
 
 export const PHASE_AVAILABILITY = {
   clinicalSessions: true,
@@ -85,7 +86,7 @@ export interface RecentDocumentItem {
   id: string;
   title: string;
   documentKind: string;
-  status: "draft" | "issued" | "signed" | "canceled";
+  status: DocumentStatus;
   createdAt: string;
 }
 

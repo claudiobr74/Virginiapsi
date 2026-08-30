@@ -35,6 +35,7 @@ import {
   updateSecurityAction,
 } from "@/features/settings/actions";
 import type { SettingsSnapshot } from "@/features/settings/contracts";
+import { BrandingSettingsPanel } from "@/features/documents/components/branding-settings-panel";
 import type { IntegrationHealth } from "@/features/settings/diagnostics";
 import { expectedEliminationPhrase } from "@/features/settings/elimination";
 import { cn } from "@/lib/utils/cn";
@@ -42,6 +43,7 @@ import { cn } from "@/lib/utils/cn";
 const TABS = [
   { id: "profile", label: "Meu Perfil" },
   { id: "clinic", label: "Consultório" },
+  { id: "documents", label: "Documentos" },
   { id: "appearance", label: "Aparência" },
   { id: "security", label: "Segurança" },
   { id: "team", label: "Equipe e Acessos" },
@@ -143,6 +145,12 @@ export function SettingsConsole({ snapshot }: { snapshot: SettingsSnapshot }) {
       <div className="min-w-0">
         {tab === "profile" ? <ProfileSection snapshot={snapshot} /> : null}
         {tab === "clinic" ? <ClinicSection snapshot={snapshot} /> : null}
+        {tab === "documents" ? (
+          <BrandingSettingsPanel
+            branding={snapshot.documentBranding ?? null}
+            logos={snapshot.documentLogos ?? []}
+          />
+        ) : null}
         {tab === "appearance" ? <AppearanceSection snapshot={snapshot} /> : null}
         {tab === "security" ? <SecuritySection snapshot={snapshot} /> : null}
         {tab === "team" ? <TeamSection snapshot={snapshot} /> : null}

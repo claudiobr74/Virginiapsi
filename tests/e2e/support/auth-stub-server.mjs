@@ -419,6 +419,10 @@ const documentsByOrg = new Map();
 const documentVersionsByOrg = new Map();
 /** organizationId -> Map<fileId, row> */
 const documentFilesByOrg = new Map();
+const documentBrandingByOrg = new Map();
+const documentLogosByOrg = new Map();
+const documentFavoritesByOrg = new Map();
+const documentDeliveryByOrg = new Map();
 /** organizationId -> Map<attachmentId, row> */
 const patientAttachmentsByOrg = new Map();
 /** organizationId -> Map<fileId, row> */
@@ -438,8 +442,8 @@ const financialClosingsByOrg = new Map();
 /** organizationId -> Map<exportId, row> */
 const logicalExportsByOrg = new Map();
 
-const FORCED_CLINICAL_KINDS = new Set(["laudo", "relatorio", "atestado", "encaminhamento"]);
-const FORCED_ADMINISTRATIVE_KINDS = new Set(["recibo"]);
+const FORCED_CLINICAL_KINDS = new Set(["laudo", "relatorio", "atestado", "encaminhamento", "parecer"]);
+const FORCED_ADMINISTRATIVE_KINDS = new Set(["recibo", "autorizacao", "requerimento", "protocolo"]);
 
 function isSensitivityVisible(role, sensitivity) {
   return isClinicalRole(role) || sensitivity === "administrative";
@@ -2769,6 +2773,22 @@ const server = createServer(async (req, res) => {
       canceled_at: null,
       created_at: now,
       updated_at: now,
+      system_template_key: body.system_template_key ?? null,
+      visual_profile: body.visual_profile ?? "clinica",
+      logo_mode: body.logo_mode ?? "clinic_default",
+      logo_align: body.logo_align ?? "left",
+      logo_size: body.logo_size ?? "medium",
+      recipient_name: body.recipient_name ?? null,
+      purpose: body.purpose ?? null,
+      structured_data: body.structured_data ?? {},
+      drafting_mode: body.drafting_mode ?? "manual",
+      length_preset: body.length_preset ?? "completo",
+      tone: body.tone ?? "tecnico_clinico",
+      cover_enabled: body.cover_enabled ?? false,
+      layout_format: body.layout_format ?? "tradicional",
+      reviewed_by: null,
+      reviewed_at: null,
+      review_sha256: null,
     };
     getOrCreateOrgMap(documentsByOrg, body.organization_id).set(row.id, row);
     return json(res, 201, wantsSingleObject(req) ? row : [row]);
@@ -2838,6 +2858,8 @@ const server = createServer(async (req, res) => {
       version: body.version,
       body_snapshot: body.body_snapshot,
       variables_snapshot: body.variables_snapshot ?? {},
+      sections_snapshot: body.sections_snapshot ?? [],
+      content_sha256: body.content_sha256 ?? null,
       created_by: user.id,
       created_at: new Date().toISOString(),
     };
@@ -2879,6 +2901,136 @@ const server = createServer(async (req, res) => {
       ...body,
     };
     getOrCreateOrgMap(documentFilesByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_branding" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const row = organizationId ? documentBrandingByOrg.get(organizationId) : null;
+    if (wantsSingleObject(req)) {
+      if (!row) {
+        return json(res, 406, {
+          code: "PGRST116",
+          message: "JSON object requested, multiple (or no) rows returned",
+          details: "Results contain 0 rows",
+        });
+      }
+      return json(res, 200, row);
+    }
+    return json(res, 200, row ? [row] : []);
+  }
+
+  if (pathname === "/rest/v1/document_branding" && (req.method === "POST" || req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = body.organization_id || parseEqFilter(searchParams.get("organization_id"));
+    if (membershipRole(user.id, organizationId) !== "psychologist_admin") {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const current = documentBrandingByOrg.get(organizationId) ?? { organization_id: organizationId };
+    const row = { ...current, ...body, organization_id: organizationId };
+    documentBrandingByOrg.set(organizationId, row);
+    return json(res, 200, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_logos" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const role = organizationId ? membershipRole(user.id, organizationId) : null;
+    if (!organizationId || !role) return json(res, 200, []);
+    return json(res, 200, [...(documentLogosByOrg.get(organizationId)?.values() ?? [])]);
+  }
+
+  if (pathname === "/rest/v1/document_logos" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const row = {
+      id: randomUUID(),
+      is_default: false,
+      created_at: new Date().toISOString(),
+      ...body,
+    };
+    getOrCreateOrgMap(documentLogosByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_template_favorites" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const rows = [...(documentFavoritesByOrg.get(organizationId)?.values() ?? [])].filter(
+      (row) => row.user_id === user.id,
+    );
+    return json(res, 200, rows);
+  }
+
+  if (pathname === "/rest/v1/document_template_favorites" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const row = { ...body, user_id: user.id, created_at: new Date().toISOString() };
+    const key = `${row.user_id}:${row.template_key}`;
+    getOrCreateOrgMap(documentFavoritesByOrg, body.organization_id).set(key, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_template_favorites" && req.method === "DELETE") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const templateKey = parseEqFilter(searchParams.get("template_key"));
+    const table = documentFavoritesByOrg.get(organizationId);
+    if (table) table.delete(`${user.id}:${templateKey}`);
+    return json(res, 204, null);
+  }
+
+  if (pathname === "/rest/v1/document_delivery" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const documentId = parseEqFilter(searchParams.get("document_id"));
+    const rows = [];
+    for (const table of documentDeliveryByOrg.values()) {
+      for (const row of table.values()) {
+        if (row.document_id === documentId) rows.push(row);
+      }
+    }
+    return json(res, 200, rows);
+  }
+
+  if (pathname === "/rest/v1/document_delivery" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const row = { id: randomUUID(), created_at: new Date().toISOString(), created_by: user.id, ...body };
+    getOrCreateOrgMap(documentDeliveryByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_external_signature_metadata" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    return json(res, 200, []);
+  }
+
+  if (pathname === "/rest/v1/document_external_signature_metadata" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const row = {
+      id: randomUUID(),
+      created_at: new Date().toISOString(),
+      registered_at: new Date().toISOString(),
+      created_by: user.id,
+      ...body,
+    };
     return json(res, 201, wantsSingleObject(req) ? row : [row]);
   }
 

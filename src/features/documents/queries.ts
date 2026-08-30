@@ -1,11 +1,13 @@
 import "server-only";
 
 import {
+  documentDeliveryRowSchema,
   documentFileRowSchema,
   documentRowSchema,
   documentTemplateRowSchema,
   documentVersionRowSchema,
   patientAttachmentRowSchema,
+  type DocumentDeliveryRow,
   type DocumentFileRow,
   type DocumentRow,
   type DocumentTemplateRow,
@@ -82,11 +84,27 @@ export async function listVersions(documentId: string): Promise<DocumentVersionR
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("document_versions")
-    .select("id, document_id, version, body_snapshot, variables_snapshot, created_at")
+    .select(
+      "id, document_id, version, body_snapshot, variables_snapshot, created_at, sections_snapshot, content_sha256",
+    )
     .eq("document_id", documentId)
     .order("version", { ascending: false });
   if (error) throw new Error(`failed to list document versions: ${error.message}`);
-  return documentVersionRowSchema.array().parse(data ?? []);
+  return documentVersionRowSchema.array().parse(
+    (data ?? []).map((row) => ({
+      ...row,
+      sections_snapshot: Array.isArray(row.sections_snapshot) ? row.sections_snapshot : [],
+      variables_snapshot:
+        row.variables_snapshot && typeof row.variables_snapshot === "object"
+          ? Object.fromEntries(
+              Object.entries(row.variables_snapshot as Record<string, unknown>).map(([key, value]) => [
+                key,
+                String(value ?? ""),
+              ]),
+            )
+          : {},
+    })),
+  );
 }
 
 export async function getLatestVersion(documentId: string): Promise<DocumentVersionRow | null> {
@@ -122,4 +140,15 @@ export async function listPatientAttachments(
     .order("created_at", { ascending: false });
   if (error) throw new Error(`failed to list patient attachments: ${error.message}`);
   return patientAttachmentRowSchema.array().parse(data ?? []);
+}
+
+export async function listDocumentDeliveries(documentId: string): Promise<DocumentDeliveryRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("document_delivery")
+    .select("*")
+    .eq("document_id", documentId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`failed to list document deliveries: ${error.message}`);
+  return documentDeliveryRowSchema.array().parse(data ?? []);
 }

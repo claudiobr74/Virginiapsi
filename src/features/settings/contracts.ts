@@ -217,6 +217,8 @@ export interface SettingsSnapshot {
   exports: LogicalExportRow[];
   patients: { id: string; preferred_name: string; public_code: string }[];
   secretaryFinanceAccess: SecretaryFinanceAccess;
+  documentBranding?: import("@/features/documents/branding-contracts").DocumentBrandingRow | null;
+  documentLogos?: import("@/features/documents/branding-contracts").DocumentLogoRow[];
 }
 
 export interface SettingsActionResult {

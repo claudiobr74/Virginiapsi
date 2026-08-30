@@ -21,12 +21,7 @@ import {
   type DocumentTemplateRow,
 } from "@/features/documents/contracts";
 
-const STATUS_BADGE = {
-  draft: "pending",
-  issued: "completed",
-  signed: "completed",
-  canceled: "cancelled",
-} as const;
+import { documentStatusTone } from "@/features/documents/status-presentation";
 
 export function PatientDocumentsPanel({
   patientId,
@@ -113,7 +108,7 @@ export function PatientDocumentsPanel({
                 </span>
               </div>
               <StatusBadge
-                status={STATUS_BADGE[document.status]}
+                status={documentStatusTone(document.status)}
                 label={DOCUMENT_STATUS_LABELS[document.status]}
               />
             </button>

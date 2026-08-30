@@ -19,13 +19,7 @@ import {
   type DocumentRow,
   type DocumentVersionRow,
 } from "@/features/documents/contracts";
-
-const STATUS_BADGE = {
-  draft: "pending",
-  issued: "completed",
-  signed: "completed",
-  canceled: "cancelled",
-} as const;
+import { documentStatusTone } from "@/features/documents/status-presentation";
 
 const VARIABLE_CHIPS = [
   { key: "patient.full_name", label: "Nome do paciente" },
@@ -128,7 +122,7 @@ export function DocumentEditor({
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge
-            status={STATUS_BADGE[document.status]}
+            status={documentStatusTone(document.status)}
             label={DOCUMENT_STATUS_LABELS[document.status]}
           />
           {document.status !== "canceled" ? (
