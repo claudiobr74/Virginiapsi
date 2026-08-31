@@ -36,13 +36,13 @@ export function ConnectionStatusBanner({
           </p>
           <p className="text-xs text-attention/80">
             Sem conexão, a Agenda funciona só com eventos criados no VirgíniaPsi —
-            sem eventos externos e sem Meet automático.
+            sem eventos externos e sem Meet automático. Conecte em Configurações → Integrações.
           </p>
         </div>
       </div>
       {canManage ? (
         <Button asChild size="sm" variant="secondary">
-          <Link href="/app/agenda/connect">Gerenciar conexão</Link>
+          <Link href="/app/settings?tab=integrations">Gerenciar conexão</Link>
         </Button>
       ) : null}
     </div>

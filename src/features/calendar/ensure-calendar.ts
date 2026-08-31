@@ -6,23 +6,28 @@ import { syncGoogleCalendarPull } from "@/features/calendar/sync-actions";
 import { selectPrimaryGoogleCalendar } from "@/lib/integrations/google/connection";
 
 /**
- * After OAuth, tokens exist but no calendar_id yet. Pick the primary
- * calendar and pull the next 30 days so the Agenda is not empty.
+ * After OAuth, tokens exist but calendar_id / first pull may be missing.
+ * Pick the primary calendar and pull the next 30 days so the Agenda is not empty.
  * Failures stay silent: the operator can still choose a calendar in the UI.
  */
 export async function ensureGoogleCalendarReady(
   organizationId: string,
   connection: ConnectionRow | null,
 ): Promise<ConnectionRow | null> {
-  if (connection?.status !== "connected" || connection.calendar_id) {
+  if (connection?.status !== "connected") {
     return connection;
   }
 
   try {
-    const selected = await selectPrimaryGoogleCalendar(organizationId);
-    if (!selected) {
+    if (!connection.calendar_id) {
+      const selected = await selectPrimaryGoogleCalendar(organizationId);
+      if (!selected) {
+        return connection;
+      }
+    } else if (connection.last_synced_at) {
       return connection;
     }
+
     await syncGoogleCalendarPull(organizationId);
     return (await getConnection(organizationId)) ?? connection;
   } catch {

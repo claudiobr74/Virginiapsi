@@ -16,6 +16,7 @@ import {
 } from "@/features/calendar/connection-actions";
 import { syncGoogleCalendarAction } from "@/features/calendar/sync-actions";
 import type { ConnectionRow } from "@/features/calendar/contracts";
+import type { GoogleOAuthReturnTo } from "@/features/calendar/oauth-callback";
 
 const STATUS_LABELS = {
   connected: "Conectado",
@@ -27,10 +28,14 @@ export function ConnectionPanel({
   connection,
   canManage,
   calendarRedirectUri,
+  oauthReturnTo = "agenda",
+  framed = true,
 }: {
   connection: ConnectionRow | null;
   canManage: boolean;
   calendarRedirectUri?: string;
+  oauthReturnTo?: GoogleOAuthReturnTo;
+  framed?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -69,7 +74,13 @@ export function ConnectionPanel({
   }
 
   return (
-    <div className="flex flex-col gap-5 rounded-3xl border border-border bg-card p-6">
+    <div
+      className={
+        framed
+          ? "flex flex-col gap-5 rounded-3xl border border-border bg-card p-6"
+          : "flex flex-col gap-5"
+      }
+    >
       {error ? (
         <p
           role="alert"
@@ -93,32 +104,35 @@ export function ConnectionPanel({
         </div>
 
         {canManage ? (
-          status === "connected" ? (
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={() => setConfirmDisconnect(true)}
-            >
-              Desconectar
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              isLoading={isPending}
-              onClick={() =>
-                startTransition(async () => {
-                  const result = await startGoogleConnectionAction();
-                  if (result?.error) {
-                    setError(result.error);
-                  }
-                })
-              }
-            >
-              Conectar com o Google
-            </Button>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            {status !== "connected" ? (
+              <Button
+                type="button"
+                size="sm"
+                isLoading={isPending}
+                onClick={() =>
+                  startTransition(async () => {
+                    const result = await startGoogleConnectionAction(oauthReturnTo);
+                    if (result?.error) {
+                      setError(result.error);
+                    }
+                  })
+                }
+              >
+                {status === "error" ? "Reconectar" : "Conectar com o Google"}
+              </Button>
+            ) : null}
+            {status === "connected" || status === "error" ? (
+              <Button
+                type="button"
+                variant={status === "connected" ? "destructive" : "secondary"}
+                size="sm"
+                onClick={() => setConfirmDisconnect(true)}
+              >
+                Desconectar
+              </Button>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

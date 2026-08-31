@@ -12,6 +12,7 @@ import {
 import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { peekGoogleCalendarRedirectUri } from "@/lib/env/server";
+import { GoogleOAuthResultBanner } from "@/features/calendar/components/google-oauth-result-banner";
 
 export const metadata: Metadata = { title: "Agenda — VirgíniaPsi" };
 
@@ -39,36 +40,16 @@ export default async function AgendaPage({
   );
 
   const googleStatus = typeof params.google === "string" ? params.google : undefined;
+  const googleDetail = typeof params.google_detail === "string" ? params.google_detail : undefined;
   const calendarRedirectUri = peekGoogleCalendarRedirectUri();
 
   return (
     <PageContainer>
-      {googleStatus === "connected" ? (
-        <p
-          role="status"
-          className="rounded-2xl border border-success/30 bg-success-bg px-4 py-3 text-sm text-success"
-        >
-          Google Calendar conectado com sucesso.
-        </p>
-      ) : googleStatus === "error" ? (
-        <p
-          role="alert"
-          className="rounded-2xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed"
-        >
-          Não foi possível conectar o Google Calendar. O endereço de retorno da
-          Agenda é diferente do login. Cadastre no Google Cloud
-          {calendarRedirectUri ? (
-            <>
-              :{" "}
-              <code className="break-all rounded-md bg-white/70 px-1.5 py-0.5 text-xs">
-                {calendarRedirectUri}
-              </code>
-            </>
-          ) : (
-            " o endereço deste site com /api/integrations/google/callback."
-          )}
-        </p>
-      ) : null}
+      <GoogleOAuthResultBanner
+        status={googleStatus}
+        detail={googleDetail}
+        redirectUri={calendarRedirectUri}
+      />
 
       <Suspense>
         <AgendaBoard

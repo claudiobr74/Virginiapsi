@@ -21,6 +21,8 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SECRETARY_FINANCE_ACCESS_LABELS } from "@/features/finance/contracts";
 import { ROLE_LABELS } from "@/features/organizations/labels";
+import { ConnectionPanel } from "@/features/calendar/components/connection-panel";
+import type { ConnectionRow } from "@/features/calendar/contracts";
 import {
   createExportDownloadUrlAction,
   confirmEliminationAction,
@@ -105,8 +107,18 @@ function healthBadge(health: IntegrationHealth): {
   return { status: "attention", label: "Atenção" };
 }
 
-export function SettingsConsole({ snapshot }: { snapshot: SettingsSnapshot }) {
-  const [tab, setTab] = useState<TabId>("profile");
+export function SettingsConsole({
+  snapshot,
+  googleConnection = null,
+  calendarRedirectUri,
+  initialTab,
+}: {
+  snapshot: SettingsSnapshot;
+  googleConnection?: ConnectionRow | null;
+  calendarRedirectUri?: string;
+  initialTab?: TabId;
+}) {
+  const [tab, setTab] = useState<TabId>(initialTab ?? "profile");
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(14rem,16.25rem)_minmax(0,1fr)] lg:items-start">
@@ -146,7 +158,13 @@ export function SettingsConsole({ snapshot }: { snapshot: SettingsSnapshot }) {
         {tab === "appearance" ? <AppearanceSection snapshot={snapshot} /> : null}
         {tab === "security" ? <SecuritySection snapshot={snapshot} /> : null}
         {tab === "team" ? <TeamSection snapshot={snapshot} /> : null}
-        {tab === "integrations" ? <IntegrationsSection snapshot={snapshot} /> : null}
+        {tab === "integrations" ? (
+          <IntegrationsSection
+            snapshot={snapshot}
+            googleConnection={googleConnection}
+            calendarRedirectUri={calendarRedirectUri}
+          />
+        ) : null}
         {tab === "backup" ? <BackupSection snapshot={snapshot} /> : null}
         {tab === "risk" ? <RiskSection snapshot={snapshot} /> : null}
       </div>
@@ -493,9 +511,20 @@ function TeamSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   );
 }
 
-function IntegrationsSection({ snapshot }: { snapshot: SettingsSnapshot }) {
+function IntegrationsSection({
+  snapshot,
+  googleConnection,
+  calendarRedirectUri,
+}: {
+  snapshot: SettingsSnapshot;
+  googleConnection: ConnectionRow | null;
+  calendarRedirectUri?: string;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const otherIntegrations = snapshot.diagnostics.integrations.filter(
+    (item) => item.key !== "google",
+  );
 
   return (
     <section className="rounded-3xl border border-border bg-card p-5">
@@ -514,8 +543,30 @@ function IntegrationsSection({ snapshot }: { snapshot: SettingsSnapshot }) {
           </Button>
         }
       />
-      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-        {snapshot.diagnostics.integrations.map((item) => {
+
+      <div className="mt-4 rounded-2xl border border-border px-4 py-4">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-sage-light/40 text-primary">
+            <CalendarDays className="size-4" aria-hidden />
+          </span>
+          <div>
+            <h3 className="font-semibold">Google Calendar</h3>
+            <p className="text-xs text-muted-foreground">
+              Conta independente do login. Conecte, escolha o calendário e sincronize a Agenda.
+            </p>
+          </div>
+        </div>
+        <ConnectionPanel
+          connection={googleConnection}
+          canManage
+          calendarRedirectUri={calendarRedirectUri}
+          oauthReturnTo="settings"
+          framed={false}
+        />
+      </div>
+
+      <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+        {otherIntegrations.map((item) => {
           const badge = healthBadge(item.health);
           const Icon = INTEGRATION_ICONS[item.key];
           return (

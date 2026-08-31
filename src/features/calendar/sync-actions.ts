@@ -257,6 +257,7 @@ export async function syncGoogleCalendarPull(
     });
 
     revalidatePath("/app/agenda");
+    revalidatePath("/app/settings");
     return { syncedCount };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
