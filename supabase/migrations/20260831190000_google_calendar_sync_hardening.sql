@@ -1,6 +1,7 @@
 -- Calendar connection hardening: incremental sync token, appointment sync
--- diagnostics, admin-only connection updates, unique google_event_id per org.
+-- diagnostics, admin-only connection updates.
 -- Does not copy tokens between organizations and does not merge tenants.
+-- Unique (organization_id, google_event_id) is intentionally NOT added.
 
 alter table public.google_calendar_connections
   add column if not exists next_sync_token text;
@@ -41,6 +42,13 @@ end $$;
 -- of GOOGLE_EXTERNAL rows remain prevented by appointments_google_event_unique
 -- (organization_id, google_calendar_id, google_event_id).
 
+-- Encrypted tokens stay unreachable via the Data API even if a host grants
+-- default table privileges to authenticated. Do not FORCE RLS: SECURITY
+-- DEFINER RPCs rely on owner bypass to read/write this table.
+revoke all on table public.google_calendar_credentials from public;
+revoke all on table public.google_calendar_credentials from anon;
+revoke all on table public.google_calendar_credentials from authenticated;
+
 create or replace function public.upsert_google_credentials(
   org_id uuid,
   p_access_token_encrypted text,
@@ -69,7 +77,12 @@ begin
   on conflict (organization_id) do update set
     access_token_encrypted = excluded.access_token_encrypted,
     access_token_expires_at = excluded.access_token_expires_at,
-    refresh_token_encrypted = coalesce(excluded.refresh_token_encrypted, public.google_calendar_credentials.refresh_token_encrypted),
+    -- Empty string must not wipe a stored refresh token (Google omits it on
+    -- silent refresh). Never copy a row from another organization here.
+    refresh_token_encrypted = coalesce(
+      nullif(excluded.refresh_token_encrypted, ''),
+      public.google_calendar_credentials.refresh_token_encrypted
+    ),
     updated_at = now();
 
   insert into public.google_calendar_connections (
@@ -91,6 +104,8 @@ begin
 end;
 $$;
 
+-- Membership-gated diagnostic only. Must not SELECT google_calendar_credentials
+-- or return token material. last_sync_error is visible to every org member.
 create or replace function public.mark_google_connection_error(
   org_id uuid,
   p_error text
@@ -110,7 +125,15 @@ begin
   update public.google_calendar_connections
   set
     status = 'error',
-    last_sync_error = left(coalesce(p_error, 'google_connection_error'), 200)
+    last_sync_error = left(
+      regexp_replace(
+        coalesce(nullif(btrim(p_error), ''), 'google_connection_error'),
+        '(ya29\.|1//|refresh_token|access_token|bearer[[:space:]]+)\S*',
+        '[redacted]',
+        'gi'
+      ),
+      200
+    )
   where organization_id = org_id;
 end;
 $$;
@@ -131,6 +154,8 @@ begin
       using errcode = '42501';
   end if;
 
+  -- Credentials only. Patients and appointments are clinical/operational
+  -- records and must survive a calendar disconnect.
   delete from public.google_calendar_credentials where organization_id = org_id;
 
   update public.google_calendar_connections
@@ -144,7 +169,64 @@ begin
 end;
 $$;
 
-drop policy if exists google_calendar_connections_update_members on public.google_calendar_connections;
+-- Tenant key is immutable: a dual member must not re-point a connection row
+-- (email, calendar_id, next_sync_token) at another organization they also admin.
+create or replace function public.assert_google_calendar_connection_tenant()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  new.organization_id := old.organization_id;
+  return new;
+end;
+$$;
+
+drop trigger if exists google_calendar_connections_assert_tenant
+  on public.google_calendar_connections;
+
+create trigger google_calendar_connections_assert_tenant
+  before update on public.google_calendar_connections
+  for each row execute function public.assert_google_calendar_connection_tenant();
+
+-- Same freeze on appointments: clearing patient_id would otherwise let a
+-- dual member (secretary/admin of A and of B) move a TESSELI row — including
+-- summary_snapshot — into the other tenant.
+create or replace function public.assert_appointment_patient_same_org()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  patient_org uuid;
+begin
+  if tg_op = 'UPDATE' then
+    new.organization_id := old.organization_id;
+  end if;
+
+  if new.patient_id is null then
+    return new;
+  end if;
+
+  select p.organization_id into patient_org
+  from public.patients p
+  where p.id = new.patient_id;
+
+  if patient_org is null or patient_org <> new.organization_id then
+    raise exception 'appointment patient must belong to the same organization'
+      using errcode = '23514';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop policy if exists google_calendar_connections_update_members
+  on public.google_calendar_connections;
+drop policy if exists google_calendar_connections_update_admin
+  on public.google_calendar_connections;
 
 create policy google_calendar_connections_update_admin
   on public.google_calendar_connections

@@ -176,6 +176,81 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
         [organizationId],
       );
       expect(error).toMatch(/only psychologist_admin/i);
+
+      const creds = await session.query(
+        "select * from public.get_google_credentials($1)",
+        [organizationId],
+      );
+      expect(creds).toEqual([]);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("google_calendar_credentials não tem policy nem GRANT para authenticated/anon", async () => {
+    const session = await openSession({ userId: await createAuthUser() });
+    try {
+      const policies = await session.query<{ count: string }>(
+        `select count(*)::text as count
+         from pg_policies
+         where schemaname = 'public'
+           and tablename = 'google_calendar_credentials'`,
+      );
+      expect(policies[0].count).toBe("0");
+
+      const grants = await session.query<{ has_select: boolean; has_insert: boolean }>(
+        `select
+           has_table_privilege('authenticated', 'public.google_calendar_credentials', 'SELECT') as has_select,
+           has_table_privilege('authenticated', 'public.google_calendar_credentials', 'INSERT') as has_insert`,
+      );
+      expect(grants[0].has_select).toBe(false);
+      expect(grants[0].has_insert).toBe(false);
+
+      const anonGrants = await session.query<{ has_select: boolean }>(
+        `select has_table_privilege('anon', 'public.google_calendar_credentials', 'SELECT') as has_select`,
+      );
+      expect(anonGrants[0].has_select).toBe(false);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("multi-membership não lê nem copia tokens da outra clínica via RPC", async () => {
+    const adminA = await createAuthUser();
+    const adminB = await createAuthUser();
+    const shared = await createAuthUser();
+    const orgA = await bootstrapOrganization(adminA, "Multi Google A");
+    const orgB = await bootstrapOrganization(adminB, "Multi Google B");
+    await addMember(adminA, orgA, shared, "psychologist_admin");
+    await addMember(adminB, orgB, shared, "secretary");
+    await connectGoogle(adminA, orgA, { refreshToken: "enc-token-org-a" });
+    await connectGoogle(adminB, orgB, { refreshToken: "enc-token-org-b" });
+
+    const session = await openSession({ userId: shared });
+    try {
+      const fromA = await session.query<{ refresh_token_encrypted: string }>(
+        "select refresh_token_encrypted from public.get_google_credentials($1)",
+        [orgA],
+      );
+      expect(fromA[0].refresh_token_encrypted).toBe("enc-token-org-a");
+
+      const fromB = await session.query<{ refresh_token_encrypted: string }>(
+        "select refresh_token_encrypted from public.get_google_credentials($1)",
+        [orgB],
+      );
+      expect(fromB[0].refresh_token_encrypted).toBe("enc-token-org-b");
+
+      const copyError = await session.expectError(
+        `select public.upsert_google_credentials($1, 'stolen-access', now(), $2)`,
+        [orgB, fromA[0].refresh_token_encrypted],
+      );
+      expect(copyError).toMatch(/only psychologist_admin/i);
+
+      const stillB = await session.query<{ refresh_token_encrypted: string }>(
+        "select refresh_token_encrypted from public.get_google_credentials($1)",
+        [orgB],
+      );
+      expect(stillB[0].refresh_token_encrypted).toBe("enc-token-org-b");
     } finally {
       await session.close();
     }
@@ -227,6 +302,49 @@ describe("google_calendar_connections — leitura ampla, escrita restrita", () =
         [organizationId],
       );
       expect(updated).toEqual([]);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("admin da própria organização seleciona o calendar_id", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Admin Calendário");
+    await connectGoogle(admin, organizationId);
+
+    const session = await openSession({ userId: admin });
+    try {
+      const updated = await session.query<{ calendar_id: string }>(
+        "update public.google_calendar_connections set calendar_id = $2 where organization_id = $1 returning calendar_id",
+        [organizationId, "primary"],
+      );
+      expect(updated[0].calendar_id).toBe("primary");
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("dual-admin não move a conexão de A para B", async () => {
+    const adminA = await createAuthUser();
+    const adminB = await createAuthUser();
+    const orgA = await bootstrapOrganization(adminA, "Conexão Tenant A");
+    const orgB = await bootstrapOrganization(adminB, "Conexão Tenant B");
+    await addMember(adminA, orgA, adminB, "psychologist_admin");
+    await connectGoogle(adminA, orgA);
+
+    const session = await openSession({ userId: adminB });
+    try {
+      const moved = await session.query<{ organization_id: string }>(
+        "update public.google_calendar_connections set organization_id = $2 where organization_id = $1 returning organization_id",
+        [orgA, orgB],
+      );
+      expect(moved.map((row) => row.organization_id)).toEqual([orgA]);
+
+      const inB = await session.query(
+        "select organization_id from public.google_calendar_connections where organization_id = $1",
+        [orgB],
+      );
+      expect(inB).toEqual([]);
     } finally {
       await session.close();
     }
@@ -439,8 +557,202 @@ describe("appointments — eventos externos são somente leitura", () => {
         [appointmentId],
       );
       expect(write).toEqual([]);
+
+      const upsertError = await session.expectError(
+        `select public.upsert_external_appointment($1, 'primary', 'stolen-evt', 'etag', now(), now() + interval '30 min', 'Invasão')`,
+        [organizationId],
+      );
+      expect(upsertError).toMatch(/active membership/i);
     } finally {
       await session.close();
+    }
+  });
+
+  it("não existe unique (organization_id, google_event_id) isolado", async () => {
+    const session = await openSession({ userId: admin });
+    try {
+      const constraints = await session.query<{
+        conname: string;
+        columns: string[];
+      }>(
+        `select c.conname, array_agg(a.attname order by x.ordinality) as columns
+         from pg_constraint c
+         join lateral unnest(c.conkey) with ordinality as x(attnum, ordinality) on true
+         join pg_attribute a on a.attrelid = c.conrelid and a.attnum = x.attnum
+         where c.conrelid = 'public.appointments'::regclass
+           and c.contype = 'u'
+         group by c.conname`,
+      );
+      expect(
+        constraints.some(
+          (row) =>
+            row.columns.length === 2 &&
+            row.columns.includes("organization_id") &&
+            row.columns.includes("google_event_id"),
+        ),
+      ).toBe(false);
+      expect(
+        constraints.some(
+          (row) =>
+            row.conname === "appointments_google_event_unique" &&
+            row.columns.includes("google_calendar_id"),
+        ),
+      ).toBe(true);
+    } finally {
+      await session.close();
+    }
+  });
+});
+
+describe("isolamento de tenant no Google Calendar", () => {
+  it("dual-admin não move um agendamento TESSELI de A para B", async () => {
+    const adminA = await createAuthUser();
+    const adminB = await createAuthUser();
+    const orgA = await bootstrapOrganization(adminA, "Agenda Tenant A");
+    const orgB = await bootstrapOrganization(adminB, "Agenda Tenant B");
+    await addMember(adminA, orgA, adminB, "psychologist_admin");
+    const appointmentId = await insertManagedAppointment(adminA, orgA);
+
+    const session = await openSession({ userId: adminB });
+    try {
+      const moved = await session.query<{ organization_id: string }>(
+        `update public.appointments
+         set organization_id = $2, patient_id = null
+         where id = $1
+         returning organization_id`,
+        [appointmentId, orgB],
+      );
+      expect(moved[0].organization_id).toBe(orgA);
+
+      const inB = await session.query(
+        "select id from public.appointments where id = $1 and organization_id = $2",
+        [appointmentId, orgB],
+      );
+      expect(inB).toEqual([]);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("disconnect remove tokens e não apaga pacientes nem consultas", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Disconnect Preserva");
+    await connectGoogle(admin, organizationId);
+
+    const session = await openSession({ userId: admin });
+    try {
+      const patient = await session.query<{ id: string }>(
+        `insert into public.patients (organization_id, preferred_name, full_name)
+         values ($1, 'Paciente Keep', 'Paciente Keep') returning id`,
+        [organizationId],
+      );
+      const appointment = await session.query<{ id: string }>(
+        `insert into public.appointments (organization_id, patient_id, starts_at, ends_at, create_idempotency_key)
+         values ($1, $2, now() + interval '8 day', now() + interval '8 day 50 minutes', $3)
+         returning id`,
+        [organizationId, patient[0].id, randomUUID()],
+      );
+
+      await session.query("select public.disconnect_google_calendar($1)", [
+        organizationId,
+      ]);
+
+      const credentials = await session.query(
+        "select * from public.get_google_credentials($1)",
+        [organizationId],
+      );
+      expect(credentials).toEqual([]);
+
+      const keptPatient = await session.query(
+        "select id from public.patients where id = $1",
+        [patient[0].id],
+      );
+      expect(keptPatient).toHaveLength(1);
+
+      const keptAppointment = await session.query(
+        "select id from public.appointments where id = $1",
+        [appointment[0].id],
+      );
+      expect(keptAppointment).toHaveLength(1);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("mark_google_connection_error exige membership e não vaza token", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Mark Error");
+    await connectGoogle(admin, organizationId, { refreshToken: "enc-secret-refresh" });
+
+    const outsider = await createAuthUser();
+    const outsiderSession = await openSession({ userId: outsider });
+    try {
+      const error = await outsiderSession.expectError(
+        "select public.mark_google_connection_error($1, 'ya29.stolen-access-token')",
+        [organizationId],
+      );
+      expect(error).toMatch(/active membership/i);
+    } finally {
+      await outsiderSession.close();
+    }
+
+    const session = await openSession({ userId: admin });
+    try {
+      await session.query(
+        "select public.mark_google_connection_error($1, $2)",
+        [
+          organizationId,
+          "token refresh failed bearer ya29.abcdefghijklmnopqrstuvwxyz refresh_token=1//0secretblob",
+        ],
+      );
+
+      const rows = await session.query<{
+        status: string;
+        last_sync_error: string;
+      }>(
+        "select status, last_sync_error from public.google_calendar_connections where organization_id = $1",
+        [organizationId],
+      );
+      expect(rows[0].status).toBe("error");
+      expect(rows[0].last_sync_error).not.toMatch(/ya29\./i);
+      expect(rows[0].last_sync_error).not.toMatch(/1\/\//);
+      expect(rows[0].last_sync_error).not.toMatch(/enc-secret-refresh/);
+      expect(rows[0].last_sync_error).toMatch(/\[redacted\]/i);
+
+      const credentials = await session.query<{ refresh_token_encrypted: string }>(
+        "select refresh_token_encrypted from public.get_google_credentials($1)",
+        [organizationId],
+      );
+      expect(credentials[0].refresh_token_encrypted).toBe("enc-secret-refresh");
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("sessão anônima não executa RPCs nem lê a conexão", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Anon Google");
+    await connectGoogle(admin, organizationId);
+
+    const anon = await openSession();
+    try {
+      const selectError = await anon.expectError(
+        "select organization_id from public.google_calendar_connections where organization_id = $1",
+        [organizationId],
+      );
+      expect(selectError).toMatch(/permission denied/i);
+
+      for (const sql of [
+        "select public.get_google_credentials($1)",
+        "select public.upsert_google_credentials($1, 'x', now(), 'y')",
+        "select public.disconnect_google_calendar($1)",
+        "select public.mark_google_connection_error($1, 'x')",
+      ]) {
+        const error = await anon.expectError(sql, [organizationId]);
+        expect(error).toMatch(/permission denied/i);
+      }
+    } finally {
+      await anon.close();
     }
   });
 });
