@@ -62,6 +62,13 @@ describe("signOAuthState / verifyOAuthState", () => {
     expect(verifyOAuthState("", SECRET).valid).toBe(false);
   });
 
+  it("preserva returnTo na whitelist ao round-trip do state", () => {
+    const state = signOAuthState({ ...payload, returnTo: "settings" }, SECRET);
+    const result = verifyOAuthState(state, SECRET, payload.issuedAt + 1000);
+    expect(result.valid).toBe(true);
+    expect(result.payload?.returnTo).toBe("settings");
+  });
+
   it("cada chamada gera uma assinatura ligada ao payload exato", () => {
     const stateA = signOAuthState(payload, SECRET);
     const stateB = signOAuthState({ ...payload, nonce: "outro-nonce" }, SECRET);

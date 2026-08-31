@@ -41,6 +41,7 @@ describe("diagnósticos de integração", () => {
     const google = diagnostics.integrations.find((item) => item.key === "google");
     expect(google?.lastError).toBe("erro registrado (detalhe omitido)");
     expect(google?.summary).toContain("agenda@consultorio.test");
+    expect(google?.summary).toMatch(/Integrações/);
 
     expect(
       diagnosticsLeakSecrets(diagnostics, [

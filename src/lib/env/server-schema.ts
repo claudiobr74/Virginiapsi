@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
   coalesceAppUrl,
   formatEnvIssues,
+  isLoopbackHttpUrl,
   normalizeGoogleOAuthRedirectUri,
   publicEnvSchema,
   resolveGoogleCalendarRedirectUri,
@@ -167,10 +168,17 @@ function presentEnvValue(value: string | undefined): boolean {
 export function readIntegrationEnvFlags(
   source: EnvSource = readServerEnvFromProcess(),
 ) {
+  const redirectUri = peekGoogleCalendarRedirectUri(source);
+  const googleRedirectReady =
+    typeof redirectUri === "string" &&
+    redirectUri.length > 0 &&
+    !isLoopbackHttpUrl(redirectUri);
   return {
     googleOAuth:
       presentEnvValue(source.GOOGLE_CLIENT_ID) &&
-      presentEnvValue(source.GOOGLE_CLIENT_SECRET),
+      presentEnvValue(source.GOOGLE_CLIENT_SECRET) &&
+      presentEnvValue(source.GOOGLE_TOKEN_ENCRYPTION_KEY) &&
+      googleRedirectReady,
     twilioAccount:
       presentEnvValue(source.TWILIO_ACCOUNT_SID) &&
       presentEnvValue(source.TWILIO_AUTH_TOKEN),

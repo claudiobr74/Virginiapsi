@@ -19,6 +19,8 @@ export interface OAuthStatePayload {
   userId: string;
   nonce: string;
   issuedAt: number;
+  /** Whitelisted return surface after Google redirects back. */
+  returnTo?: "agenda" | "settings";
 }
 
 /**

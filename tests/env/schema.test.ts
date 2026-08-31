@@ -275,10 +275,30 @@ describe("contrato de ambiente", () => {
     ).toEqual(["TWILIO_ACCOUNT_SID", "GEMINI_API_KEY"]);
   });
 
-  it("diagnósticos de Configurações não exigem o contrato servidor completo", () => {
+  it("diagnósticos de Google Calendar exigem as mesmas chaves do start da Agenda", () => {
+    expect(
+      readIntegrationEnvFlags({
+        GOOGLE_CLIENT_ID: "id",
+        GOOGLE_CLIENT_SECRET: "secret",
+      }).googleOAuth,
+    ).toBe(false);
+
+    expect(
+      readIntegrationEnvFlags({
+        NEXT_PUBLIC_APP_URL: "https://app.example.com",
+        GOOGLE_CLIENT_ID: "id",
+        GOOGLE_CLIENT_SECRET: "secret",
+        GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key",
+      }).googleOAuth,
+    ).toBe(true);
+  });
+
+  it("diagnósticos de Configurações não exigem Twilio, Gemini nem CRON_SECRET", () => {
     const flags = readIntegrationEnvFlags({
+      NEXT_PUBLIC_APP_URL: "https://app.example.com",
       GOOGLE_CLIENT_ID: "id",
       GOOGLE_CLIENT_SECRET: "secret",
+      GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key",
       TWILIO_ACCOUNT_SID: "",
       TWILIO_AUTH_TOKEN: "",
       GEMINI_API_KEY: "",
