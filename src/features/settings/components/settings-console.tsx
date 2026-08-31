@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ConnectionPanel } from "@/features/calendar/components/connection-panel";
 import { SECRETARY_FINANCE_ACCESS_LABELS } from "@/features/finance/contracts";
 import { ROLE_LABELS } from "@/features/organizations/labels";
 import {
@@ -105,8 +106,16 @@ function healthBadge(health: IntegrationHealth): {
   return { status: "attention", label: "Atenção" };
 }
 
-export function SettingsConsole({ snapshot }: { snapshot: SettingsSnapshot }) {
-  const [tab, setTab] = useState<TabId>("profile");
+export function SettingsConsole({
+  snapshot,
+  initialTab,
+}: {
+  snapshot: SettingsSnapshot;
+  initialTab?: string;
+}) {
+  const [tab, setTab] = useState<TabId>(
+    TABS.some((item) => item.id === initialTab) ? (initialTab as TabId) : "profile",
+  );
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(14rem,16.25rem)_minmax(0,1fr)] lg:items-start">
@@ -496,6 +505,7 @@ function TeamSection({ snapshot }: { snapshot: SettingsSnapshot }) {
 function IntegrationsSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [showTechnical, setShowTechnical] = useState(false);
 
   return (
     <section className="rounded-3xl border border-border bg-card p-5">
@@ -508,40 +518,48 @@ function IntegrationsSection({ snapshot }: { snapshot: SettingsSnapshot }) {
             variant="secondary"
             size="sm"
             isLoading={isPending}
-            onClick={() => startTransition(() => router.refresh())}
+            onClick={() => {
+              setShowTechnical(true);
+              startTransition(() => router.refresh());
+            }}
           >
             Diagnosticar
           </Button>
         }
       />
-      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-        {snapshot.diagnostics.integrations.map((item) => {
-          const badge = healthBadge(item.health);
-          const Icon = INTEGRATION_ICONS[item.key];
-          return (
-            <li key={item.key} className="rounded-2xl border border-border px-4 py-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-9 items-center justify-center rounded-xl bg-sage-light/40 text-primary">
-                    <Icon className="size-4" aria-hidden />
-                  </span>
-                  <h3 className="font-semibold">{item.label}</h3>
-                </div>
-                <StatusBadge status={badge.status} label={badge.label} />
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">{item.summary}</p>
-              {item.lastSuccessAt ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Último sucesso: {new Date(item.lastSuccessAt).toLocaleString("pt-BR")}
-                </p>
-              ) : null}
-              {item.lastError ? (
-                <p className="mt-1 text-xs text-failed">{item.lastError}</p>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+      <div className="mt-4 flex flex-col gap-3">
+        <ConnectionPanel connection={snapshot.googleConnection} canManage />
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {snapshot.diagnostics.integrations
+            .filter((item) => showTechnical || item.key !== "google")
+            .map((item) => {
+              const badge = healthBadge(item.health);
+              const Icon = INTEGRATION_ICONS[item.key];
+              return (
+                <li key={item.key} className="rounded-2xl border border-border px-4 py-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <span className="flex size-9 items-center justify-center rounded-xl bg-sage-light/40 text-primary">
+                        <Icon className="size-4" aria-hidden />
+                      </span>
+                      <h3 className="font-semibold">{item.label}</h3>
+                    </div>
+                    <StatusBadge status={badge.status} label={badge.label} />
+                  </div>
+                  <p className="mt-3 text-sm text-muted-foreground">{item.summary}</p>
+                  {item.lastSuccessAt ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Último sucesso: {new Date(item.lastSuccessAt).toLocaleString("pt-BR")}
+                    </p>
+                  ) : null}
+                  {item.lastError ? (
+                    <p className="mt-1 text-xs text-failed">{item.lastError}</p>
+                  ) : null}
+                </li>
+              );
+            })}
+        </ul>
+      </div>
     </section>
   );
 }

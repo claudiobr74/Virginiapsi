@@ -7,6 +7,7 @@ import {
   hourInTimeZone,
   monthCellStats,
   summarizeDayAppointments,
+  visibleAgendaAppointments,
 } from "@/features/calendar/display";
 import type { AppointmentRow } from "@/features/calendar/contracts";
 
@@ -129,5 +130,37 @@ describe("monthCellStats", () => {
       hasInPerson: true,
       hasExternal: true,
     });
+  });
+});
+
+describe("visibleAgendaAppointments", () => {
+  it("esconde GOOGLE_EXTERNAL quando a Agenda está desconectada", () => {
+    const appointments = [
+      stubAppointment({
+        starts_at: "2026-08-18T12:00:00.000Z",
+        status: "scheduled",
+        origin: "TESSELI",
+      }),
+      stubAppointment({
+        id: "33333333-3333-4333-8333-333333333333",
+        starts_at: "2026-08-18T15:00:00.000Z",
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+      }),
+    ];
+
+    expect(
+      visibleAgendaAppointments(appointments, { status: "disconnected" }).map(
+        (row) => row.origin,
+      ),
+    ).toEqual(["TESSELI"]);
+    expect(visibleAgendaAppointments(appointments, null).map((row) => row.origin)).toEqual([
+      "TESSELI",
+    ]);
+    expect(
+      visibleAgendaAppointments(appointments, { status: "connected" }).map(
+        (row) => row.origin,
+      ),
+    ).toEqual(["TESSELI", "GOOGLE_EXTERNAL"]);
   });
 });

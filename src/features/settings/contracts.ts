@@ -4,6 +4,7 @@ import {
   SECRETARY_FINANCE_ACCESS_VALUES,
   type SecretaryFinanceAccess,
 } from "@/features/organizations/contracts";
+import type { ConnectionRow } from "@/features/calendar/contracts";
 import type { IntegrationDiagnostics } from "@/features/settings/diagnostics";
 
 export const LOGICAL_EXPORT_SCOPES = ["organization", "patient"] as const;
@@ -214,6 +215,7 @@ export interface SettingsSnapshot {
   practice: PracticeSettingsRow;
   team: TeamMemberRow[];
   diagnostics: IntegrationDiagnostics;
+  googleConnection: ConnectionRow | null;
   exports: LogicalExportRow[];
   patients: { id: string; preferred_name: string; public_code: string }[];
   secretaryFinanceAccess: SecretaryFinanceAccess;

@@ -37,7 +37,11 @@ test.describe("Configurações", () => {
     }
 
     await page.getByRole("tab", { name: "Integrações" }).click();
-    await expect(page.getByText("Google Calendar")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Google Agenda" })).toBeVisible();
+    await expect(page.getByText("Não conectado")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Conectar Google Agenda" }),
+    ).toBeVisible();
     await expect(page.getByText("Twilio WhatsApp")).toBeVisible();
     await expect(page.getByText("Transcrição")).toBeVisible();
     await expect(page.getByText("Gemini")).toBeVisible();

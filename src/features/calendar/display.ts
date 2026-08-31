@@ -76,6 +76,22 @@ export function summarizeDayAppointments(appointments: AppointmentRow[]) {
   };
 }
 
+export function googleConnectionIsLive(
+  connection: { status: string } | null | undefined,
+): boolean {
+  return connection?.status === "connected" || connection?.status === "error";
+}
+
+/** When Google Agenda is disconnected, never render mirrored GOOGLE_EXTERNAL rows. */
+export function visibleAgendaAppointments<
+  T extends { origin: AppointmentRow["origin"] },
+>(appointments: T[], connection: { status: string } | null | undefined): T[] {
+  if (googleConnectionIsLive(connection)) {
+    return appointments;
+  }
+  return appointments.filter((appointment) => appointment.origin !== "GOOGLE_EXTERNAL");
+}
+
 export function monthCellStats(appointments: AppointmentRow[]) {
   const visible = appointments.filter((appointment) => appointment.status !== "cancelled");
   return {

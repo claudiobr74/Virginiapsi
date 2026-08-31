@@ -1,11 +1,12 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { syncGoogleCalendarPull } from "@/features/calendar/sync-actions";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
-import { envIssueKeyNames, isLoopbackHttpUrl } from "@/lib/env/schema";
+import { envIssueKeyNames } from "@/lib/env/schema";
 import { getGoogleCalendarEnv } from "@/lib/env/server";
 import {
   disconnectGoogleCalendar,
@@ -14,6 +15,10 @@ import {
 } from "@/lib/integrations/google/connection";
 import { googleCalendarListErrorMessage } from "@/lib/integrations/google/errors";
 import { signOAuthState } from "@/lib/integrations/google/oauth";
+import {
+  requestOriginFromHeaders,
+  resolveGoogleCalendarOAuthStart,
+} from "@/lib/integrations/google/oauth-start";
 
 export interface CalendarActionResult {
   error?: string;
@@ -26,10 +31,10 @@ export interface CalendarActionResult {
  * instead of a 403 from the route handler.
  */
 const GOOGLE_CALENDAR_ENV_ERROR =
-  "Não foi possível iniciar a conexão com o Google Calendar. No Preview da Vercel, confira GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_TOKEN_ENCRYPTION_KEY. O endereço de retorno da Agenda é gerado automaticamente se ainda estiver apontando para localhost.";
+  "Não foi possível iniciar a conexão com o Google Calendar. Confira GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_TOKEN_ENCRYPTION_KEY e NEXT_PUBLIC_APP_URL (domínio oficial).";
 
 const GOOGLE_CALENDAR_LOCALHOST_ERROR =
-  "O retorno do Google Calendar ainda aponta para o computador (localhost). Na Vercel, NEXT_PUBLIC_APP_URL e GOOGLE_OAUTH_REDIRECT_URI precisam ser o endereço HTTPS deste site, não localhost.";
+  "O retorno do Google Calendar ainda aponta para o computador (localhost). Na Vercel, NEXT_PUBLIC_APP_URL precisa ser o endereço HTTPS oficial do VirgíniaPsi, não localhost.";
 
 const GOOGLE_CALENDAR_KEYS_ERROR =
   "Faltam as chaves do Google Calendar na Vercel (Client ID e Client Secret). Importe do .env em Preview e Production.";
@@ -45,10 +50,7 @@ function toGoogleCalendarStartError(error: unknown): string {
   if (keys.includes("GOOGLE_TOKEN_ENCRYPTION_KEY")) {
     return "Falta a chave de criptografia do Google Calendar na Vercel (GOOGLE_TOKEN_ENCRYPTION_KEY).";
   }
-  if (
-    keys.includes("GOOGLE_OAUTH_REDIRECT_URI") ||
-    keys.includes("NEXT_PUBLIC_APP_URL")
-  ) {
+  if (keys.includes("NEXT_PUBLIC_APP_URL")) {
     return GOOGLE_CALENDAR_ENV_ERROR;
   }
   if (keys.length > 0) {
@@ -71,7 +73,25 @@ export async function startGoogleConnectionAction(): Promise<CalendarActionResul
     return { error: toGoogleCalendarStartError(error) };
   }
 
-  if (isLoopbackHttpUrl(env.GOOGLE_OAUTH_REDIRECT_URI)) {
+  const headerList = await headers();
+  const requestOrigin =
+    requestOriginFromHeaders(headerList) ?? env.NEXT_PUBLIC_APP_URL;
+
+  let decision;
+  try {
+    decision = resolveGoogleCalendarOAuthStart({
+      canonicalAppUrl: env.NEXT_PUBLIC_APP_URL,
+      requestOrigin,
+    });
+  } catch (error) {
+    return { error: toGoogleCalendarStartError(error) };
+  }
+
+  if (decision.type === "redirect_to_canonical") {
+    redirect(decision.url);
+  }
+
+  if (decision.type === "reject_loopback") {
     return { error: GOOGLE_CALENDAR_LOCALHOST_ERROR };
   }
 

@@ -129,35 +129,121 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
     }
   });
 
-  it("disconnect remove as credenciais e volta o status para disconnected", async () => {
+  it("disconnect limpa metadados da conexão, credenciais e espelho GOOGLE_EXTERNAL", async () => {
     const admin = await createAuthUser();
     const organizationId = await bootstrapOrganization(admin, "Consultório Disconnect");
-    await connectGoogle(admin, organizationId);
+    await connectGoogle(admin, organizationId, { email: "conta@gmail.com" });
 
     const session = await openSession({ userId: admin });
     try {
-      const before = await session.query<{ status: string }>(
-        "select status from public.google_calendar_connections where organization_id = $1",
+      await session.query(
+        `update public.google_calendar_connections
+         set calendar_id = 'primary',
+             calendar_summary = 'Agenda principal',
+             last_synced_at = now()
+         where organization_id = $1`,
+        [organizationId],
+      );
+
+      await session.query(
+        `insert into public.appointments (organization_id, starts_at, ends_at, create_idempotency_key)
+         values
+           ($1, now() + interval '1 day', now() + interval '1 day 50 minutes', $2),
+           ($1, now() + interval '2 day', now() + interval '2 day 50 minutes', $3)`,
+        [organizationId, randomUUID(), randomUUID()],
+      );
+
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-disc-1', 'etag-1',
+           now() + interval '3 day', now() + interval '3 day 1 hour', 'Externo 1'
+         )`,
+        [organizationId],
+      );
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-disc-2', 'etag-2',
+           now() + interval '4 day', now() + interval '4 day 1 hour', 'Externo 2'
+         )`,
+        [organizationId],
+      );
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-disc-3', 'etag-3',
+           now() + interval '5 day', now() + interval '5 day 1 hour', 'Externo 3'
+         )`,
+        [organizationId],
+      );
+
+      const before = await session.query<{
+        status: string;
+        google_account_email: string | null;
+        calendar_id: string | null;
+        last_synced_at: string | null;
+      }>(
+        `select status, google_account_email, calendar_id, last_synced_at
+         from public.google_calendar_connections where organization_id = $1`,
         [organizationId],
       );
       expect(before[0].status).toBe("connected");
+      expect(before[0].google_account_email).toBe("conta@gmail.com");
+      expect(before[0].calendar_id).toBe("primary");
+      expect(before[0].last_synced_at).not.toBeNull();
+
+      const beforeOrigins = await session.query<{ origin: string; n: string }>(
+        `select origin, count(*)::text as n from public.appointments
+         where organization_id = $1 group by origin order by origin`,
+        [organizationId],
+      );
+      expect(beforeOrigins).toEqual(
+        expect.arrayContaining([
+          { origin: "GOOGLE_EXTERNAL", n: "3" },
+          { origin: "TESSELI", n: "2" },
+        ]),
+      );
 
       await session.query("select public.disconnect_google_calendar($1)", [
         organizationId,
       ]);
 
-      const after = await session.query<{ status: string; calendar_id: string | null }>(
-        "select status, calendar_id from public.google_calendar_connections where organization_id = $1",
+      const after = await session.query<{
+        status: string;
+        google_account_email: string | null;
+        calendar_id: string | null;
+        calendar_summary: string | null;
+        last_synced_at: string | null;
+        last_sync_error: string | null;
+        connected_by_user_id: string | null;
+        scopes: string[];
+      }>(
+        `select status, google_account_email, calendar_id, calendar_summary,
+                last_synced_at, last_sync_error, connected_by_user_id, scopes
+         from public.google_calendar_connections where organization_id = $1`,
         [organizationId],
       );
-      expect(after[0].status).toBe("disconnected");
-      expect(after[0].calendar_id).toBeNull();
+      expect(after[0]).toEqual({
+        status: "disconnected",
+        google_account_email: null,
+        calendar_id: null,
+        calendar_summary: null,
+        last_synced_at: null,
+        last_sync_error: null,
+        connected_by_user_id: null,
+        scopes: [],
+      });
 
       const credentials = await session.query(
         "select * from public.get_google_credentials($1)",
         [organizationId],
       );
       expect(credentials).toEqual([]);
+
+      const afterOrigins = await session.query<{ origin: string; n: string }>(
+        `select origin, count(*)::text as n from public.appointments
+         where organization_id = $1 group by origin order by origin`,
+        [organizationId],
+      );
+      expect(afterOrigins).toEqual([{ origin: "TESSELI", n: "2" }]);
     } finally {
       await session.close();
     }

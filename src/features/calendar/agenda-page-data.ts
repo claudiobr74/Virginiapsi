@@ -7,6 +7,7 @@ import {
 } from "@/features/calendar/appointment-queries";
 import type { AppointmentRow, ConnectionRow } from "@/features/calendar/contracts";
 import { getConnection } from "@/features/calendar/connection-queries";
+import { visibleAgendaAppointments } from "@/features/calendar/display";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const agendaPatientOptionSchema = z.object({
@@ -58,5 +59,9 @@ export async function loadAgendaPageData(
     ),
   ]);
 
-  return { appointments, connection, patients };
+  return {
+    appointments: visibleAgendaAppointments(appointments, connection),
+    connection,
+    patients,
+  };
 }

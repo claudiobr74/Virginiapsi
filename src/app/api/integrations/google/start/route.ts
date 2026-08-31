@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireUser } from "@/lib/auth/require-user";
-import { isLoopbackHttpUrl } from "@/lib/env/schema";
 import { getGoogleCalendarEnv } from "@/lib/env/server";
 import { buildAuthorizationUrl } from "@/lib/integrations/google/oauth";
+import { resolveGoogleCalendarOAuthStart } from "@/lib/integrations/google/oauth-start";
 
 function redirectAgendaError(request: NextRequest) {
   return NextResponse.redirect(new URL("/app/agenda?google=error", request.url));
@@ -29,16 +29,27 @@ export async function GET(request: NextRequest) {
     return redirectAgendaError(request);
   }
 
-  if (
-    isLoopbackHttpUrl(env.GOOGLE_OAUTH_REDIRECT_URI) &&
-    !isLoopbackHttpUrl(request.nextUrl.origin)
-  ) {
+  let decision;
+  try {
+    decision = resolveGoogleCalendarOAuthStart({
+      canonicalAppUrl: env.NEXT_PUBLIC_APP_URL,
+      requestOrigin: request.nextUrl.origin,
+    });
+  } catch {
+    return redirectAgendaError(request);
+  }
+
+  if (decision.type === "redirect_to_canonical") {
+    return NextResponse.redirect(decision.url);
+  }
+
+  if (decision.type !== "authorize") {
     return redirectAgendaError(request);
   }
 
   const authorizationUrl = buildAuthorizationUrl({
     clientId: env.GOOGLE_CLIENT_ID,
-    redirectUri: env.GOOGLE_OAUTH_REDIRECT_URI,
+    redirectUri: decision.redirectUri,
     state,
   });
 

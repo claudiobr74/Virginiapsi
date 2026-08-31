@@ -16,7 +16,11 @@ import {
   todayInTimeZone,
   type AgendaView,
 } from "@/features/calendar/date-window";
-import { formatAgendaLongDate, formatAgendaMonthLabel } from "@/features/calendar/display";
+import {
+  formatAgendaLongDate,
+  formatAgendaMonthLabel,
+  visibleAgendaAppointments,
+} from "@/features/calendar/display";
 import { syncGoogleCalendarAction } from "@/features/calendar/sync-actions";
 import type { PatientRow } from "@/features/patients/contracts";
 import { pageHeading } from "@/lib/brand";
@@ -78,16 +82,21 @@ export function AgendaBoard({
   const today = todayInTimeZone(timeZone);
   const openFromQuery = searchParams.get("new") === "1";
 
+  const visibleAppointments = useMemo(
+    () => visibleAgendaAppointments(appointments, connection),
+    [appointments, connection],
+  );
+
   const appointmentsByDay = useMemo(() => {
     const map = new Map<string, AppointmentRow[]>();
-    for (const appointment of appointments) {
+    for (const appointment of visibleAppointments) {
       const day = appointment.starts_at.slice(0, 10);
       const list = map.get(day) ?? [];
       list.push(appointment);
       map.set(day, list);
     }
     return map;
-  }, [appointments]);
+  }, [visibleAppointments]);
 
   function pushParams(nextView: AgendaView, nextDate: string) {
     const params = new URLSearchParams(searchParams.toString());

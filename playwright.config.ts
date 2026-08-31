@@ -16,9 +16,6 @@ const sharedEnv = {
   SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY ?? "sb_secret_e2e_stub_placeholder",
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "e2e-google-client-id",
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? "e2e-google-client-secret",
-  GOOGLE_OAUTH_REDIRECT_URI:
-    process.env.GOOGLE_OAUTH_REDIRECT_URI ??
-    `http://127.0.0.1:${port}/api/integrations/google/callback`,
   GOOGLE_TOKEN_ENCRYPTION_KEY:
     process.env.GOOGLE_TOKEN_ENCRYPTION_KEY ?? "e2e-google-token-encryption-key",
   SESSION_CAPTURE_SECRET:
