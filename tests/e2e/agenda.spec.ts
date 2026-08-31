@@ -70,6 +70,38 @@ test.describe("Agenda — visão do dia", () => {
     await page.getByRole("button", { name: "Dia" }).click();
     await expect(page).toHaveURL(/view=day/);
   });
+
+  test("cores seguem o status clínico: ativo verde, Google externo neutro", async ({
+    page,
+  }) => {
+    await loginViaUi(page);
+    await page.goto("/app/agenda");
+
+    const managed = page
+      .locator("[data-appointment-visual]")
+      .filter({ hasText: "Beatriz Lima • PAC-001" });
+    await expect(managed.first()).toHaveAttribute("data-appointment-visual", "active");
+    await expect(managed.first()).toHaveClass(/bg-green-100/);
+
+    const external = page
+      .locator("[data-appointment-visual]")
+      .filter({ hasText: "Reunião do conselho regional" });
+    await expect(external.first()).toHaveAttribute("data-appointment-visual", "neutral");
+    await expect(external.first()).toHaveClass(/bg-stone-100/);
+    await expect(external.first()).not.toHaveClass(/bg-green-100/);
+
+    await page.getByRole("button", { name: "Semana" }).click();
+    await expect(managed.first()).toHaveAttribute("data-appointment-visual", "active");
+    await expect(external.first()).toHaveAttribute("data-appointment-visual", "neutral");
+
+    await page.getByRole("button", { name: "Mês" }).click();
+    await expect(
+      page.locator("[data-appointment-visual='active']").filter({ hasText: "Beatriz" }),
+    ).toHaveClass(/bg-green-100/);
+    await expect(
+      page.locator("[data-appointment-visual='neutral']").filter({ hasText: "Reunião" }),
+    ).toHaveClass(/bg-stone-100/);
+  });
 });
 
 test.describe("Agenda — nova consulta", () => {

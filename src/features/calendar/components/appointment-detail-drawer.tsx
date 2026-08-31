@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DrawerContent, Drawer } from "@/components/ui/drawer";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import { cancelAppointmentAction, updateAppointmentStatusAction } from "@/features/calendar/appointment-actions";
 import {
   pushAppointmentToGoogleAction,
@@ -19,6 +20,7 @@ import {
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { StartSessionButton } from "@/features/sessions/components/start-session-button";
 import { formatInTimeZone } from "@/lib/utils/timezone";
+import { cn } from "@/lib/utils/cn";
 
 export interface AppointmentDetailDrawerProps {
   appointment: AppointmentRow | null;
@@ -64,6 +66,7 @@ export function AppointmentDetailDrawer({
   }
 
   const isExternal = appointment.origin === "GOOGLE_EXTERNAL";
+  const visual = getAppointmentVisualStatus(appointment);
 
   const runInPlace = (
     action: () => Promise<{ error?: string }>,
@@ -112,7 +115,14 @@ export function AppointmentDetailDrawer({
             </p>
           ) : null}
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div
+            data-appointment-visual={visual.tone}
+            className={cn(
+              "flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-2.5",
+              visual.className,
+              visual.tone === "neutral" && "border-dashed",
+            )}
+          >
             {isExternal ? (
               <StatusBadge status="info" label="Somente leitura" />
             ) : (
@@ -121,6 +131,9 @@ export function AppointmentDetailDrawer({
                 label={APPOINTMENT_STATUS_LABELS[appointment.status]}
               />
             )}
+            <p className={cn("text-sm font-semibold", visual.titleClassName)}>
+              {appointment.summary_snapshot ?? "Sem paciente vinculado"}
+            </p>
           </div>
 
           <dl className="grid grid-cols-2 gap-3 text-sm">

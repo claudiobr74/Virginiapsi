@@ -1,5 +1,6 @@
 import { ExternalLink, Globe2, MapPin, Video } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import {
   APPOINTMENT_STATUS_BADGE,
   APPOINTMENT_STATUS_LABELS,
@@ -38,6 +39,7 @@ export function AppointmentCard({
   onClick?: () => void;
 }) {
   const isExternal = appointment.origin === "GOOGLE_EXTERNAL";
+  const visual = getAppointmentVisualStatus(appointment);
   const ModalityIcon = MODALITY_ICON[appointment.modality];
   const timeRange = `${formatInTimeZone(appointment.starts_at, timeZone)} – ${formatInTimeZone(appointment.ends_at, timeZone)}`;
   const canStart =
@@ -50,12 +52,13 @@ export function AppointmentCard({
 
   return (
     <article
+      data-appointment-visual={visual.tone}
       className={cn(
         "flex w-full flex-col rounded-2xl border",
         compact ? "gap-1.5 px-2.5 py-2" : "gap-3 px-4 py-4",
-        isExternal
-          ? "border-dashed border-border bg-surface/40"
-          : "border-border bg-card shadow-sm",
+        visual.className,
+        visual.tone === "neutral" && "border-dashed",
+        visual.tone !== "neutral" && "shadow-sm",
       )}
     >
       <button
@@ -67,13 +70,14 @@ export function AppointmentCard({
           <div className="min-w-0">
             <p
               className={cn(
-                "truncate font-serif italic font-semibold text-foreground",
+                "truncate font-serif italic font-semibold",
                 compact ? "text-sm" : "text-base",
+                visual.titleClassName,
               )}
             >
               {appointment.summary_snapshot ?? "Sem paciente vinculado"}
             </p>
-            <p className="mt-0.5 font-mono text-xs text-muted-foreground sm:text-sm">{timeRange}</p>
+            <p className="mt-0.5 font-mono text-xs opacity-80 sm:text-sm">{timeRange}</p>
           </div>
           {isExternal ? (
             <StatusBadge status="info" label="Evento externo do Google" />
@@ -85,8 +89,8 @@ export function AppointmentCard({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-sm text-foreground">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/50 px-2.5 py-0.5 text-[11px] font-medium opacity-80">
             <ModalityIcon className="size-3.5 shrink-0" aria-hidden />
             {isExternal ? "Google Calendar" : modalityLine(appointment)}
           </span>
