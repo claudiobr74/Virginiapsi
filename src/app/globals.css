@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+/* Agenda appointment surfaces — full names so the production build keeps them. */
+@source inline("bg-green-100");
+@source inline("border-green-500");
+@source inline("text-green-900");
+@source inline("bg-blue-100");
+@source inline("border-blue-500");
+@source inline("text-blue-900");
+@source inline("bg-red-100");
+@source inline("border-red-400");
+@source inline("text-red-800");
+@source inline("bg-zinc-100");
+@source inline("border-zinc-400");
+@source inline("text-zinc-900");
+@source inline("bg-green-500");
+@source inline("bg-blue-500");
+@source inline("bg-red-400");
+@source inline("bg-zinc-400");
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {

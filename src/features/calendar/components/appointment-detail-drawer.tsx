@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DrawerContent, Drawer } from "@/components/ui/drawer";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cancelAppointmentAction, updateAppointmentStatusAction } from "@/features/calendar/appointment-actions";
+import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import {
   pushAppointmentToGoogleAction,
   requestMeetForAppointmentAction,
@@ -19,6 +20,7 @@ import {
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { StartSessionButton } from "@/features/sessions/components/start-session-button";
 import { formatInTimeZone } from "@/lib/utils/timezone";
+import { cn } from "@/lib/utils/cn";
 
 export interface AppointmentDetailDrawerProps {
   appointment: AppointmentRow | null;
@@ -64,6 +66,7 @@ export function AppointmentDetailDrawer({
   }
 
   const isExternal = appointment.origin === "GOOGLE_EXTERNAL";
+  const visual = getAppointmentVisualStatus(appointment);
 
   const runInPlace = (
     action: () => Promise<{ error?: string }>,
@@ -112,8 +115,15 @@ export function AppointmentDetailDrawer({
             </p>
           ) : null}
 
-          <div className="flex flex-wrap items-center gap-2">
-            {isExternal ? (
+          <div
+            data-appointment-visual={visual.tone}
+            className={cn(
+              "flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2",
+              visual.className,
+              visual.tone === "neutral" && "border-dashed",
+            )}
+          >
+            {visual.tone === "neutral" ? (
               <StatusBadge status="info" label="Somente leitura" />
             ) : (
               <StatusBadge

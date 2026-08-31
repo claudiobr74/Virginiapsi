@@ -617,6 +617,26 @@ function todaySaoPauloDateStr() {
     summary_snapshot: `${beatriz.full_name} • ${beatriz.public_code}`,
   });
 
+  const completedStart = new Date(`${today}T13:00:00-03:00`);
+  const completedEnd = new Date(completedStart.getTime() + 50 * 60 * 1000);
+  seedAppointment(ADMIN_ORG_ID, {
+    patient_id: beatriz.id,
+    status: "completed",
+    starts_at: completedStart.toISOString(),
+    ends_at: completedEnd.toISOString(),
+    summary_snapshot: "Consulta B — realizada",
+  });
+
+  const cancelledStart = new Date(`${today}T15:00:00-03:00`);
+  const cancelledEnd = new Date(cancelledStart.getTime() + 50 * 60 * 1000);
+  seedAppointment(ADMIN_ORG_ID, {
+    patient_id: beatriz.id,
+    status: "cancelled",
+    starts_at: cancelledStart.toISOString(),
+    ends_at: cancelledEnd.toISOString(),
+    summary_snapshot: "Consulta C — cancelada",
+  });
+
   const externalStart = new Date(`${today}T11:00:00-03:00`);
   const externalEnd = new Date(externalStart.getTime() + 60 * 60 * 1000);
   seedAppointment(ADMIN_ORG_ID, {

@@ -60,6 +60,44 @@ test.describe("Agenda — visão do dia", () => {
     await page.getByRole("button", { name: "Dia" }).click();
     await expect(page).toHaveURL(/view=day/);
   });
+
+  test("cores seguem o status clínico em dia, semana e mês", async ({ page }) => {
+    await loginViaUi(page);
+    await page.goto("/app/agenda");
+
+    const active = page
+      .locator("[data-appointment-visual]")
+      .filter({ hasText: "Beatriz Lima • PAC-001" });
+    const completed = page
+      .locator("[data-appointment-visual]")
+      .filter({ hasText: "Consulta B — realizada" });
+    const cancelled = page
+      .locator("[data-appointment-visual]")
+      .filter({ hasText: "Consulta C — cancelada" });
+
+    await expect(active.first()).toHaveAttribute("data-appointment-visual", "active");
+    await expect(active.first()).toHaveClass(/bg-green-100/);
+    await expect(completed.first()).toHaveAttribute("data-appointment-visual", "completed");
+    await expect(completed.first()).toHaveClass(/bg-blue-100/);
+    await expect(cancelled.first()).toHaveAttribute("data-appointment-visual", "cancelled");
+    await expect(cancelled.first()).toHaveClass(/bg-red-100/);
+
+    await page.getByRole("button", { name: "Semana" }).click();
+    await expect(active.first()).toHaveAttribute("data-appointment-visual", "active");
+    await expect(completed.first()).toHaveAttribute("data-appointment-visual", "completed");
+    await expect(cancelled.first()).toHaveAttribute("data-appointment-visual", "cancelled");
+
+    await page.getByRole("button", { name: "Mês" }).click();
+    await expect(
+      page.locator("[data-appointment-visual='active']").filter({ hasText: "Beatriz" }),
+    ).toHaveClass(/bg-green-100/);
+    await expect(
+      page.locator("[data-appointment-visual='completed']").filter({ hasText: "Consulta B" }),
+    ).toHaveClass(/bg-blue-100/);
+    await expect(
+      page.locator("[data-appointment-visual='cancelled']").filter({ hasText: "Consulta C" }),
+    ).toHaveClass(/bg-red-100/);
+  });
 });
 
 test.describe("Agenda — nova consulta", () => {

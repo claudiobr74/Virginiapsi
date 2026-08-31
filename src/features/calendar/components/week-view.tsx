@@ -1,3 +1,4 @@
+import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import { AppointmentCard } from "@/features/calendar/components/appointment-card";
 import type { AppointmentRow } from "@/features/calendar/contracts";
 import { formatHourLabel, hourInTimeZone } from "@/features/calendar/display";
@@ -194,28 +195,25 @@ function WeekAppointmentChip({
   timeZone: string;
   onSelect: (appointment: AppointmentRow) => void;
 }) {
-  const isExternal = appointment.origin === "GOOGLE_EXTERNAL";
-  const isOnline = appointment.modality === "online";
+  const visual = getAppointmentVisualStatus(appointment);
   const starts = formatInTimeZone(appointment.starts_at, timeZone);
   const ends = formatInTimeZone(appointment.ends_at, timeZone);
 
   return (
     <button
       type="button"
+      data-appointment-visual={visual.tone}
       onClick={() => onSelect(appointment)}
       className={cn(
         "w-full rounded-lg border px-2 py-1.5 text-left",
-        isExternal
-          ? "border-dashed border-border bg-surface"
-          : isOnline
-            ? "border-sage/40 bg-sage-light/80"
-            : "border-accent/30 bg-soft-amber",
+        visual.className,
+        visual.tone === "neutral" && "border-dashed",
       )}
     >
-      <p className="font-mono text-[10px] text-muted-foreground">
+      <p className="font-mono text-[10px] opacity-80">
         {starts} – {ends}
       </p>
-      <p className="truncate text-xs font-semibold text-foreground">
+      <p className={cn("truncate text-xs font-semibold", visual.titleClassName)}>
         {appointment.summary_snapshot ?? "Sem paciente"}
       </p>
     </button>

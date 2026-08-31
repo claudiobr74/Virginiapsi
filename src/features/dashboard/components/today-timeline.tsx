@@ -1,5 +1,6 @@
 import { Globe, Home } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import {
   APPOINTMENT_STATUS_BADGE,
   APPOINTMENT_STATUS_LABELS,
@@ -40,12 +41,21 @@ export function TodayTimeline({
         {appointments.map((appointment) => {
           const isNext = appointment.id === highlightedId;
           const ModalityIcon = appointment.modality === "online" ? Globe : Home;
+          const visual = getAppointmentVisualStatus({
+            status: appointment.status,
+            origin: appointment.origin,
+            patient_id: appointment.patientId,
+          });
           return (
             <li
               key={appointment.id}
+              data-appointment-visual={visual.tone}
               className={cn(
-                "flex flex-col gap-2 border-b border-border py-3 last:border-b-0 last:pb-0",
-                isNext && "rounded-xl border-b-0 bg-sage-light/50 px-3",
+                "flex flex-col gap-2 border-b py-3 last:border-b-0 last:pb-0",
+                "rounded-xl border px-3 my-1",
+                visual.className,
+                visual.tone === "neutral" && "border-dashed",
+                isNext && "ring-2 ring-sage-700",
               )}
             >
               <div className="flex min-w-0 items-center gap-3">

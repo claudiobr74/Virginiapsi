@@ -1,5 +1,5 @@
+import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import type { AppointmentRow } from "@/features/calendar/contracts";
-import { monthCellStats } from "@/features/calendar/display";
 import { cn } from "@/lib/utils/cn";
 
 const WEEKDAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -63,9 +63,10 @@ export function MonthView({
           />
         ))}
         {days.map((day) => {
-          const stats = monthCellStats(appointmentsByDay.get(day) ?? []);
+          const dayAppointments = appointmentsByDay.get(day) ?? [];
           const isToday = day === today;
           const dayNumber = Number(day.split("-")[2]);
+          const visiblePills = dayAppointments.slice(0, 4);
 
           return (
             <button
@@ -73,7 +74,7 @@ export function MonthView({
               type="button"
               onClick={() => onSelectDay(day)}
               className={cn(
-                "flex min-h-[108px] flex-col items-start gap-2 border-b border-r border-border p-3 text-left transition-colors hover:bg-surface/60",
+                "flex min-h-[108px] flex-col items-start gap-1.5 border-b border-r border-border p-3 text-left transition-colors hover:bg-surface/60",
                 isToday && "bg-sage-light/70",
               )}
             >
@@ -92,21 +93,29 @@ export function MonthView({
                   </span>
                 ) : null}
               </div>
-              {stats.count > 0 ? (
+              {dayAppointments.length > 0 ? (
                 <>
                   <p className="text-[13px] text-muted-foreground">
-                    {sessionCountLabel(stats.count)}
+                    {sessionCountLabel(dayAppointments.length)}
                   </p>
-                  <span className="flex gap-1" aria-hidden>
-                    {stats.hasOnline ? (
-                      <span className="size-1.5 rounded-full bg-sage-700" />
-                    ) : null}
-                    {stats.hasInPerson ? (
-                      <span className="size-1.5 rounded-full bg-accent" />
-                    ) : null}
-                    {stats.hasExternal ? (
-                      <span className="size-1.5 rounded-full bg-sage-mid" />
-                    ) : null}
+                  <span className="flex w-full flex-col gap-1">
+                    {visiblePills.map((appointment) => {
+                      const visual = getAppointmentVisualStatus(appointment);
+                      return (
+                        <span
+                          key={appointment.id}
+                          data-appointment-visual={visual.tone}
+                          className={cn(
+                            "w-full truncate rounded-md border px-1.5 py-0.5 text-[10px] font-semibold",
+                            visual.className,
+                            visual.titleClassName,
+                            visual.tone === "neutral" && "border-dashed",
+                          )}
+                        >
+                          {appointment.summary_snapshot ?? "Consulta"}
+                        </span>
+                      );
+                    })}
                   </span>
                 </>
               ) : null}
