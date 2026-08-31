@@ -4,6 +4,7 @@ import {
   formatAgendaLongDate,
   formatAgendaMonthLabel,
   formatHourLabel,
+  googleConnectionIsLive,
   hourInTimeZone,
   monthCellStats,
   summarizeDayAppointments,
@@ -162,5 +163,12 @@ describe("visibleAgendaAppointments", () => {
         (row) => row.origin,
       ),
     ).toEqual(["TESSELI", "GOOGLE_EXTERNAL"]);
+  });
+
+  it("googleConnectionIsLive é false quando desconectado — query da Agenda deve ser managedOnly", () => {
+    expect(googleConnectionIsLive({ status: "disconnected" })).toBe(false);
+    expect(googleConnectionIsLive(null)).toBe(false);
+    expect(googleConnectionIsLive({ status: "connected" })).toBe(true);
+    expect(googleConnectionIsLive({ status: "error" })).toBe(true);
   });
 });

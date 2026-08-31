@@ -1127,10 +1127,20 @@ begin
 
   update public.google_calendar_connections
   set status = 'disconnected',
+      google_account_email = null,
       calendar_id = null,
       calendar_summary = null,
-      last_sync_error = null
+      scopes = '{}'::text[],
+      last_synced_at = null,
+      last_sync_error = null,
+      connected_by_user_id = null
   where organization_id = org_id;
+
+  delete from public.appointments
+  where organization_id = org_id
+    and origin = 'GOOGLE_EXTERNAL'
+    and managed_by_tesseli = false
+    and patient_id is null;
 end;
 $$;
 

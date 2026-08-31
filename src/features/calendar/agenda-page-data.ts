@@ -7,7 +7,10 @@ import {
 } from "@/features/calendar/appointment-queries";
 import type { AppointmentRow, ConnectionRow } from "@/features/calendar/contracts";
 import { getConnection } from "@/features/calendar/connection-queries";
-import { visibleAgendaAppointments } from "@/features/calendar/display";
+import {
+  googleConnectionIsLive,
+  visibleAgendaAppointments,
+} from "@/features/calendar/display";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const agendaPatientOptionSchema = z.object({
@@ -51,9 +54,15 @@ export async function loadAgendaPageData(
   organizationId: string,
   window: AppointmentWindow,
 ): Promise<AgendaPageData> {
-  const [appointments, connection, patients] = await Promise.all([
-    listAppointments(organizationId, window).catch((): AppointmentRow[] => []),
-    getConnection(organizationId).catch((): ConnectionRow | null => null),
+  const connection = await getConnection(organizationId).catch(
+    (): ConnectionRow | null => null,
+  );
+  const managedOnly = !googleConnectionIsLive(connection);
+
+  const [appointments, patients] = await Promise.all([
+    listAppointments(organizationId, window, { managedOnly }).catch(
+      (): AppointmentRow[] => [],
+    ),
     listAgendaPatientOptions(organizationId).catch(
       (): AgendaPatientOption[] => [],
     ),

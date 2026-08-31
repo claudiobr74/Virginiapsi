@@ -38,10 +38,18 @@ test.describe("Configurações", () => {
 
     await page.getByRole("tab", { name: "Integrações" }).click();
     await expect(page.getByRole("heading", { name: "Google Agenda" })).toBeVisible();
+    await expect(page.getByText("Status")).toBeVisible();
     await expect(page.getByText("Não conectado")).toBeVisible();
+    await expect(
+      page.getByText("Conecte uma conta Google para sincronizar seus compromissos."),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Conectar Google Agenda" }),
     ).toBeVisible();
+    await expect(page.getByText("Conta Google:")).toHaveCount(0);
+    await expect(page.getByText(/última sincronização/i)).toHaveCount(0);
+    await expect(page.getByText(/cadastre este endereço/i)).toHaveCount(0);
+    await expect(page.getByText(/api\/integrations\/google\/callback/)).toHaveCount(0);
     await expect(page.getByText("Twilio WhatsApp")).toBeVisible();
     await expect(page.getByText("Transcrição")).toBeVisible();
     await expect(page.getByText("Gemini")).toBeVisible();
