@@ -1,8 +1,9 @@
+import { CalendarEventBlock } from "@/features/calendar/components/calendar-event-block";
 import type { AppointmentRow } from "@/features/calendar/contracts";
-import { monthCellStats } from "@/features/calendar/display";
 import { cn } from "@/lib/utils/cn";
 
 const WEEKDAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+const MONTH_VISIBLE_EVENTS = 3;
 
 function leadingBlankDays(firstDay: string): number {
   const [year, month, day] = firstDay.split("-").map(Number);
@@ -25,23 +26,28 @@ function trailingOverflowDays(firstDay: string, count: number): string[] {
   return Array.from({ length: need }, (_, index) => addDays(lastDay, index + 1));
 }
 
-function sessionCountLabel(count: number): string {
-  if (count === 1) {
-    return "1 sessão";
-  }
-  return `${count} sessões`;
+function sortByStart(appointments: AppointmentRow[]): AppointmentRow[] {
+  return [...appointments].sort((left, right) =>
+    left.starts_at.localeCompare(right.starts_at),
+  );
 }
 
 export function MonthView({
   days,
   appointmentsByDay,
   today,
+  timeZone,
+  selectedId,
   onSelectDay,
+  onSelect,
 }: {
   days: string[];
   appointmentsByDay: Map<string, AppointmentRow[]>;
   today: string;
+  timeZone: string;
+  selectedId?: string | null;
   onSelectDay: (day: string) => void;
+  onSelect: (appointment: AppointmentRow) => void;
 }) {
   const blanks = leadingBlankDays(days[0]);
   const overflow = trailingOverflowDays(days[0], days.length);
@@ -63,54 +69,59 @@ export function MonthView({
           />
         ))}
         {days.map((day) => {
-          const stats = monthCellStats(appointmentsByDay.get(day) ?? []);
+          const appointments = sortByStart(appointmentsByDay.get(day) ?? []);
           const isToday = day === today;
           const dayNumber = Number(day.split("-")[2]);
+          const visible = appointments.slice(0, MONTH_VISIBLE_EVENTS);
+          const hiddenCount = appointments.length - visible.length;
 
           return (
-            <button
+            <div
               key={day}
-              type="button"
-              onClick={() => onSelectDay(day)}
               className={cn(
-                "flex min-h-[108px] flex-col items-start gap-2 border-b border-r border-border p-3 text-left transition-colors hover:bg-surface/60",
-                isToday && "bg-sage-light/70",
+                "flex min-h-[108px] flex-col items-stretch gap-0.5 border-b border-r border-border p-1.5 text-left",
+                isToday && "bg-sage-light/40",
               )}
             >
-              <div className="flex w-full items-start justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => onSelectDay(day)}
+                className="mb-0.5 flex w-full items-center justify-between gap-1 rounded px-0.5 text-left hover:bg-surface/60"
+                aria-label={`Abrir o dia ${dayNumber}`}
+              >
                 <span
                   className={cn(
-                    "font-sans text-sm font-semibold",
-                    isToday ? "text-sage-700" : "text-foreground",
+                    "inline-flex size-6 items-center justify-center font-sans text-sm font-semibold",
+                    isToday
+                      ? "rounded-full bg-sage-700 text-primary-foreground"
+                      : "text-foreground",
                   )}
                 >
                   {dayNumber}
                 </span>
-                {isToday ? (
-                  <span className="rounded-md bg-sage-700 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground">
-                    Hoje
-                  </span>
+              </button>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                {visible.map((appointment) => (
+                  <CalendarEventBlock
+                    key={appointment.id}
+                    appointment={appointment}
+                    timeZone={timeZone}
+                    density="month"
+                    selected={appointment.id === selectedId}
+                    onSelect={onSelect}
+                  />
+                ))}
+                {hiddenCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectDay(day)}
+                    className="px-1 text-left text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    +{hiddenCount} mais
+                  </button>
                 ) : null}
               </div>
-              {stats.count > 0 ? (
-                <>
-                  <p className="text-[13px] text-muted-foreground">
-                    {sessionCountLabel(stats.count)}
-                  </p>
-                  <span className="flex gap-1" aria-hidden>
-                    {stats.hasOnline ? (
-                      <span className="size-1.5 rounded-full bg-sage-700" />
-                    ) : null}
-                    {stats.hasInPerson ? (
-                      <span className="size-1.5 rounded-full bg-accent" />
-                    ) : null}
-                    {stats.hasExternal ? (
-                      <span className="size-1.5 rounded-full bg-sage-mid" />
-                    ) : null}
-                  </span>
-                </>
-              ) : null}
-            </button>
+            </div>
           );
         })}
         {overflow.map((day) => (
@@ -118,9 +129,11 @@ export function MonthView({
             key={`overflow-${day}`}
             type="button"
             onClick={() => onSelectDay(day)}
-            className="flex min-h-[108px] flex-col items-start border-b border-r border-border bg-background/40 p-3 text-left text-muted-foreground/70 hover:bg-surface/40"
+            className="flex min-h-[108px] flex-col items-start border-b border-r border-border bg-background/40 p-1.5 text-left text-muted-foreground/70 hover:bg-surface/40"
           >
-            <span className="font-sans text-sm font-semibold">{Number(day.split("-")[2])}</span>
+            <span className="inline-flex size-6 items-center justify-center font-sans text-sm font-semibold">
+              {Number(day.split("-")[2])}
+            </span>
           </button>
         ))}
       </div>

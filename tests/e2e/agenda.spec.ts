@@ -26,11 +26,18 @@ test.describe("Agenda — visão do dia", () => {
     await page.goto("/app/agenda");
 
     await expect(page.getByRole("heading", { name: "Agenda" })).toBeVisible();
-    await expect(page.getByText("Beatriz Lima • PAC-001")).toBeVisible();
-    await expect(page.getByText("Reunião do conselho regional")).toBeVisible();
-    await expect(
-      page.getByText("Evento externo do Google").first(),
-    ).toBeVisible();
+    await expect(page.getByLabel("Legenda da agenda")).toBeVisible();
+    await expect(page.getByText("Ativo", { exact: true })).toBeVisible();
+    await expect(page.getByText("Realizado", { exact: true })).toBeVisible();
+    await expect(page.getByText("Cancelado", { exact: true })).toBeVisible();
+
+    const managed = page.getByRole("button", { name: /Beatriz Lima • PAC-001/ });
+    const external = page.getByRole("button", { name: /Reunião do conselho regional/ });
+    await expect(managed).toBeVisible();
+    await expect(external).toBeVisible();
+    await expect(managed).toHaveAttribute("data-calendar-tone", "active");
+    await expect(external).toHaveAttribute("data-calendar-tone", "external");
+    await expect(external).toHaveAccessibleName(/Evento externo do Google/);
 
     // Sem conexão Google, a Agenda deve avisar mas continuar funcional.
     await expect(page.getByText("Google Calendar não conectado")).toBeVisible();
@@ -42,7 +49,7 @@ test.describe("Agenda — visão do dia", () => {
     await loginViaUi(page);
     await page.goto("/app/agenda");
 
-    await page.getByText("Reunião do conselho regional").click();
+    await page.getByRole("button", { name: /Reunião do conselho regional/ }).click();
 
     await expect(
       page.getByRole("heading", { name: "Evento externo do Google" }),
@@ -63,9 +70,11 @@ test.describe("Agenda — visão do dia", () => {
 
     await page.getByRole("button", { name: "Semana" }).click();
     await expect(page).toHaveURL(/view=week/);
+    await expect(page.getByRole("button", { name: /Beatriz Lima • PAC-001/ }).first()).toBeVisible();
 
     await page.getByRole("button", { name: "Mês" }).click();
     await expect(page).toHaveURL(/view=month/);
+    await expect(page.getByRole("button", { name: /Beatriz Lima • PAC-001/ }).first()).toBeVisible();
 
     await page.getByRole("button", { name: "Dia" }).click();
     await expect(page).toHaveURL(/view=day/);
@@ -145,13 +154,13 @@ test.describe("Agenda — gestão de consulta existente", () => {
       page.getByRole("heading", { name: "Nova consulta" }),
     ).toHaveCount(0);
 
-    await page.getByText("Sem paciente vinculado").click();
+    await page.getByRole("button", { name: /Sem paciente vinculado/ }).click();
     await expect(
       page.getByRole("heading", { name: "Detalhes da consulta" }),
     ).toBeVisible();
 
     await page.getByRole("button", { name: "Confirmar" }).click();
-    await expect(page.getByText("Confirmada").first()).toBeVisible();
+    await expect(page.getByText("Confirmado").first()).toBeVisible();
 
     await page.getByRole("button", { name: "Cancelar consulta" }).click();
     await expect(
@@ -162,7 +171,11 @@ test.describe("Agenda — gestão de consulta existente", () => {
       .getByRole("button", { name: "Cancelar consulta" })
       .click();
 
-    await expect(page.getByText("Sem paciente vinculado")).toHaveCount(0);
+    await expect(page.getByText("Cancelado").first()).toBeVisible();
+    await page.getByRole("button", { name: "Fechar" }).click();
+    const cancelled = page.getByRole("button", { name: /Sem paciente vinculado/ });
+    await expect(cancelled).toBeVisible();
+    await expect(cancelled).toHaveAttribute("data-calendar-tone", "cancelled");
   });
 });
 

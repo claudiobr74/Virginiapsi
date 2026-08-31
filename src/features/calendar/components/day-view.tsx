@@ -1,32 +1,21 @@
-import { AppointmentCard } from "@/features/calendar/components/appointment-card";
+import { TimedEventColumn, TimedHourGutter } from "@/features/calendar/components/timed-event-column";
 import type { AppointmentRow } from "@/features/calendar/contracts";
-import {
-  buildDayTimelineHours,
-  formatHourLabel,
-  hourInTimeZone,
-  summarizeDayAppointments,
-} from "@/features/calendar/display";
+import { summarizeDayAppointments } from "@/features/calendar/display";
+import { agendaHourRange } from "@/features/calendar/event-layout";
 
 export function DayView({
   appointments,
   timeZone,
-  isAdmin = false,
+  selectedId,
   onSelect,
 }: {
   appointments: AppointmentRow[];
   timeZone: string;
-  isAdmin?: boolean;
+  selectedId?: string | null;
   onSelect: (appointment: AppointmentRow) => void;
 }) {
   const summary = summarizeDayAppointments(appointments);
-  const hours = buildDayTimelineHours(appointments, timeZone);
-  const byHour = new Map<number, AppointmentRow[]>();
-  for (const appointment of appointments) {
-    const hour = hourInTimeZone(appointment.starts_at, timeZone);
-    const list = byHour.get(hour) ?? [];
-    list.push(appointment);
-    byHour.set(hour, list);
-  }
+  const { startHour, endHour } = agendaHourRange(appointments, timeZone);
 
   return (
     <div className="flex flex-col gap-4">
@@ -53,35 +42,26 @@ export function DayView({
         />
       </div>
 
-      <div className="flex flex-col overflow-hidden rounded-3xl border border-border bg-card">
-        {hours.map((hour) => {
-          const slot = byHour.get(hour) ?? [];
-          return (
-            <div
-              key={hour}
-              className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 border-b border-border last:border-b-0 px-3 py-3 sm:px-4"
-            >
-              <p className="pt-1 text-right font-mono text-xs font-semibold text-muted-foreground">
-                {formatHourLabel(hour)}
-              </p>
-              <div className="flex min-w-0 flex-col gap-2">
-                {slot.length === 0 ? (
-                  <p className="py-2 text-sm text-muted-foreground">Sem compromissos agendados</p>
-                ) : (
-                  slot.map((appointment) => (
-                    <AppointmentCard
-                      key={appointment.id}
-                      appointment={appointment}
-                      timeZone={timeZone}
-                      isAdmin={isAdmin}
-                      onClick={() => onSelect(appointment)}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
+      {appointments.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Sem compromissos neste dia.</p>
+      ) : null}
+
+      <div className="overflow-hidden rounded-[16px] border border-border bg-card">
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: "3.5rem minmax(0, 1fr)" }}
+        >
+          <TimedHourGutter startHour={startHour} endHour={endHour} />
+          <TimedEventColumn
+            appointments={appointments}
+            timeZone={timeZone}
+            startHour={startHour}
+            endHour={endHour}
+            selectedId={selectedId}
+            density="day"
+            onSelect={onSelect}
+          />
+        </div>
       </div>
     </div>
   );
@@ -97,7 +77,7 @@ function SummaryCard({
   hint: string;
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-sm">
+    <div className="flex flex-col gap-1 rounded-[16px] border border-border bg-card px-4 py-3.5">
       <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
         {label}
       </span>

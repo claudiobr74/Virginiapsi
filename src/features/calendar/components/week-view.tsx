@@ -1,23 +1,13 @@
 import { AppointmentCard } from "@/features/calendar/components/appointment-card";
+import { TimedEventColumn, TimedHourGutter } from "@/features/calendar/components/timed-event-column";
 import type { AppointmentRow } from "@/features/calendar/contracts";
-import { formatHourLabel, hourInTimeZone } from "@/features/calendar/display";
-import { formatInTimeZone } from "@/lib/utils/timezone";
+import { agendaHourRange } from "@/features/calendar/event-layout";
 import { cn } from "@/lib/utils/cn";
 
 const WEEKDAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-const WEEK_START_HOUR = 7;
-const WEEK_END_HOUR = 20;
 
 function dayNumber(dateStr: string) {
   return dateStr.split("-")[2];
-}
-
-function weekHours(): number[] {
-  const hours: number[] = [];
-  for (let hour = WEEK_START_HOUR; hour <= WEEK_END_HOUR; hour += 1) {
-    hours.push(hour);
-  }
-  return hours;
 }
 
 export function WeekView({
@@ -25,17 +15,18 @@ export function WeekView({
   appointmentsByDay,
   timeZone,
   today,
-  isAdmin = false,
+  selectedId,
   onSelect,
 }: {
   days: string[];
   appointmentsByDay: Map<string, AppointmentRow[]>;
   timeZone: string;
   today: string;
-  isAdmin?: boolean;
+  selectedId?: string | null;
   onSelect: (appointment: AppointmentRow) => void;
 }) {
-  const hours = weekHours();
+  const allAppointments = days.flatMap((day) => appointmentsByDay.get(day) ?? []);
+  const { startHour, endHour } = agendaHourRange(allAppointments, timeZone);
 
   return (
     <>
@@ -44,7 +35,7 @@ export function WeekView({
           className="min-w-[960px]"
           style={{
             display: "grid",
-            gridTemplateColumns: `4.5rem repeat(${days.length}, minmax(0, 1fr))`,
+            gridTemplateColumns: `3.5rem repeat(${days.length}, minmax(0, 1fr))`,
           }}
         >
           <div className="border-b border-border bg-card" />
@@ -54,7 +45,7 @@ export function WeekView({
               <div
                 key={`head-${day}`}
                 className={cn(
-                  "border-b border-l border-border px-3 py-3",
+                  "border-b border-l border-border px-2 py-2",
                   isToday && "bg-sage-light/40",
                 )}
               >
@@ -63,7 +54,7 @@ export function WeekView({
                 </p>
                 <p
                   className={cn(
-                    "font-serif text-2xl font-bold",
+                    "font-serif text-xl font-bold leading-none",
                     isToday ? "text-sage-700" : "text-foreground",
                   )}
                 >
@@ -73,14 +64,17 @@ export function WeekView({
             );
           })}
 
-          {hours.map((hour) => (
-            <HourRow
-              key={hour}
-              hour={hour}
-              days={days}
-              today={today}
-              appointmentsByDay={appointmentsByDay}
+          <TimedHourGutter startHour={startHour} endHour={endHour} />
+          {days.map((day) => (
+            <TimedEventColumn
+              key={day}
+              appointments={appointmentsByDay.get(day) ?? []}
               timeZone={timeZone}
+              startHour={startHour}
+              endHour={endHour}
+              selectedId={selectedId}
+              density="week"
+              isToday={day === today}
               onSelect={onSelect}
             />
           ))}
@@ -95,7 +89,7 @@ export function WeekView({
             <div
               key={day}
               className={cn(
-                "flex flex-col gap-2 rounded-2xl border border-border bg-card p-3",
+                "flex flex-col gap-1.5 rounded-[16px] border border-border bg-card p-3",
                 isToday && "border-primary/60 bg-cream/50",
               )}
             >
@@ -115,15 +109,15 @@ export function WeekView({
               {appointments.length === 0 ? (
                 <p className="text-xs text-muted-foreground">Sem consultas</p>
               ) : (
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1">
                   {appointments.map((appointment) => (
                     <AppointmentCard
                       key={appointment.id}
                       appointment={appointment}
                       timeZone={timeZone}
-                      isAdmin={isAdmin}
-                      compact
-                      onClick={() => onSelect(appointment)}
+                      density="stack"
+                      selected={appointment.id === selectedId}
+                      onSelect={onSelect}
                     />
                   ))}
                 </div>
@@ -133,91 +127,5 @@ export function WeekView({
         })}
       </div>
     </>
-  );
-}
-
-function HourRow({
-  hour,
-  days,
-  today,
-  appointmentsByDay,
-  timeZone,
-  onSelect,
-}: {
-  hour: number;
-  days: string[];
-  today: string;
-  appointmentsByDay: Map<string, AppointmentRow[]>;
-  timeZone: string;
-  onSelect: (appointment: AppointmentRow) => void;
-}) {
-  return (
-    <>
-      <div className="border-t border-border px-2 py-2 text-right font-mono text-[11px] text-muted-foreground">
-        {formatHourLabel(hour)}
-      </div>
-      {days.map((day) => {
-        const slot = (appointmentsByDay.get(day) ?? []).filter(
-          (appointment) => hourInTimeZone(appointment.starts_at, timeZone) === hour,
-        );
-        return (
-          <div
-            key={`${day}-${hour}`}
-            className={cn(
-              "min-h-[72px] border-l border-t border-border bg-background/40 p-1",
-              day === today && "bg-sage-light/20",
-            )}
-          >
-            <div className="flex flex-col gap-1">
-              {slot.map((appointment) => (
-                <WeekAppointmentChip
-                  key={appointment.id}
-                  appointment={appointment}
-                  timeZone={timeZone}
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
-function WeekAppointmentChip({
-  appointment,
-  timeZone,
-  onSelect,
-}: {
-  appointment: AppointmentRow;
-  timeZone: string;
-  onSelect: (appointment: AppointmentRow) => void;
-}) {
-  const isExternal = appointment.origin === "GOOGLE_EXTERNAL";
-  const isOnline = appointment.modality === "online";
-  const starts = formatInTimeZone(appointment.starts_at, timeZone);
-  const ends = formatInTimeZone(appointment.ends_at, timeZone);
-
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(appointment)}
-      className={cn(
-        "w-full rounded-lg border px-2 py-1.5 text-left",
-        isExternal
-          ? "border-dashed border-border bg-surface"
-          : isOnline
-            ? "border-sage/40 bg-sage-light/80"
-            : "border-accent/30 bg-soft-amber",
-      )}
-    >
-      <p className="font-mono text-[10px] text-muted-foreground">
-        {starts} – {ends}
-      </p>
-      <p className="truncate text-xs font-semibold text-foreground">
-        {appointment.summary_snapshot ?? "Sem paciente"}
-      </p>
-    </button>
   );
 }

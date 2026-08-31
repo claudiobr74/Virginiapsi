@@ -13,12 +13,18 @@ import {
 } from "@/features/calendar/sync-actions";
 import {
   APPOINTMENT_STATUS_BADGE,
-  APPOINTMENT_STATUS_LABELS,
   type AppointmentRow,
 } from "@/features/calendar/contracts";
+import {
+  civilDateInTimeZone,
+  formatAgendaLongDate,
+} from "@/features/calendar/display";
+import {
+  calendarStatusLabel,
+  formatAgendaTimeRange,
+} from "@/features/calendar/event-appearance";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { StartSessionButton } from "@/features/sessions/components/start-session-button";
-import { formatInTimeZone } from "@/lib/utils/timezone";
 
 export interface AppointmentDetailDrawerProps {
   appointment: AppointmentRow | null;
@@ -30,7 +36,7 @@ export interface AppointmentDetailDrawerProps {
   onEdit: () => void;
   /** Called after an in-place update (confirm/sync/Meet) — drawer stays open. */
   onRefresh: () => void;
-  /** Called after the appointment leaves the active agenda (cancel). */
+  /** Called after cancel — appointment stays selected on the Agenda. */
   onCancelled: () => void;
 }
 
@@ -91,6 +97,7 @@ export function AppointmentDetailDrawer({
         setError(result.error);
         return;
       }
+      setAppointment((prev) => (prev ? { ...prev, status: "cancelled" } : prev));
       setConfirmCancel(false);
       onCancelled();
     });
@@ -112,45 +119,34 @@ export function AppointmentDetailDrawer({
             </p>
           ) : null}
 
+          <div className="flex flex-col gap-1">
+            <p className="text-base font-semibold text-foreground">
+              {appointment.summary_snapshot ?? "Sem paciente vinculado"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {formatAgendaLongDate(
+                civilDateInTimeZone(appointment.starts_at, timeZone),
+                timeZone,
+              )}
+            </p>
+            <p className="font-mono text-sm tabular-nums text-foreground">
+              {formatAgendaTimeRange(appointment.starts_at, appointment.ends_at, timeZone)}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {isExternal ? "Evento externo do Google" : MODALITY_LABELS[appointment.modality]}
+            </p>
+          </div>
+
           <div className="flex flex-wrap items-center gap-2">
             {isExternal ? (
               <StatusBadge status="info" label="Somente leitura" />
             ) : (
               <StatusBadge
                 status={APPOINTMENT_STATUS_BADGE[appointment.status]}
-                label={APPOINTMENT_STATUS_LABELS[appointment.status]}
+                label={calendarStatusLabel(appointment)}
               />
             )}
           </div>
-
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt className="text-xs font-bold uppercase text-muted-foreground">Início</dt>
-              <dd className="font-mono text-foreground">
-                {formatInTimeZone(appointment.starts_at, timeZone, {
-                  day: "2-digit",
-                  month: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-bold uppercase text-muted-foreground">Fim</dt>
-              <dd className="font-mono text-foreground">
-                {formatInTimeZone(appointment.ends_at, timeZone, {
-                  day: "2-digit",
-                  month: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-bold uppercase text-muted-foreground">Modalidade</dt>
-              <dd className="text-foreground">{MODALITY_LABELS[appointment.modality]}</dd>
-            </div>
-          </dl>
 
           {isExternal ? (
             <p className="text-sm text-muted-foreground">
@@ -257,7 +253,7 @@ export function AppointmentDetailDrawer({
         open={confirmCancel}
         onOpenChange={setConfirmCancel}
         title="Cancelar consulta?"
-        description="O paciente e o horário ficam registrados, mas a consulta some da agenda ativa."
+        description="O compromisso permanece na Agenda no horário original, com status cancelado."
         confirmLabel="Cancelar consulta"
         isLoading={isPending}
         onConfirm={runCancel}

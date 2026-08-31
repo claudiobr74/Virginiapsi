@@ -37,13 +37,31 @@ export function formatAgendaMonthLabel(
 }
 
 export function hourInTimeZone(iso: string, timeZone: string): number {
+  return Math.floor(minutesInTimeZone(iso, timeZone) / 60);
+}
+
+export function minutesInTimeZone(iso: string, timeZone: string): number {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone,
     hour: "2-digit",
+    minute: "2-digit",
     hourCycle: "h23",
   }).formatToParts(new Date(iso));
   const hour = Number(parts.find((part) => part.type === "hour")?.value);
-  return Number.isFinite(hour) ? hour : 0;
+  const minute = Number(parts.find((part) => part.type === "minute")?.value);
+  const safeHour = Number.isFinite(hour) ? hour : 0;
+  const safeMinute = Number.isFinite(minute) ? minute : 0;
+  return safeHour * 60 + safeMinute;
+}
+
+/** Civil YYYY-MM-DD in the organization timezone (not the UTC prefix of the ISO string). */
+export function civilDateInTimeZone(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
 }
 
 export function formatHourLabel(hour: number): string {
@@ -67,6 +85,7 @@ export function buildDayTimelineHours(
 }
 
 export function summarizeDayAppointments(appointments: AppointmentRow[]) {
+  // KPIs of the day ignore cancelled rows; the Agenda grid still renders them.
   const visible = appointments.filter((appointment) => appointment.status !== "cancelled");
   return {
     total: visible.length,

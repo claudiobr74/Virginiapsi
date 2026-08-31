@@ -18,7 +18,7 @@ export async function listAppointments(
     .from("appointments")
     .select("*")
     .eq("organization_id", organizationId)
-    .neq("status", "cancelled")
+    // Cancelled appointments stay on the Agenda grid (soft-red block).
     .lt("starts_at", window.toIso)
     .gt("ends_at", window.fromIso)
     .order("starts_at", { ascending: true });

@@ -95,19 +95,41 @@ Usar tabs apenas quando reduzem rolagem; não esconder informações essenciais 
 
 ## 8. Agenda
 
-Header com alternador Dia/Semana/Mês, “Hoje” e CTA nova consulta. Calendário usa superfícies claras, linhas muito suaves e cores semânticas controladas. Eventos Tesseli e eventos Google externos devem ser visualmente distinguíveis sem excesso de legenda.
+Header com alternador Dia/Semana/Mês, “Hoje”, CTA nova consulta e **legenda discreta** (Ativo / Realizado / Cancelado). Calendário usa superfícies claras, linhas muito suaves e densidade de ferramenta de produtividade.
 
-Drawer/modal de evento:
+### Blocos de compromisso (padrão de UX de calendário)
+
+Os eventos da Agenda são **blocos compactos preenchidos**, não cards de dashboard:
+
+- preenchimento cromático do bloco inteiro (não faixa colorida em card branco);
+- radius 4–6 px (`--cal-event-radius`);
+- sem sombra perceptível; hover = tom ligeiramente mais escuro (100–150 ms);
+- tipografia compacta: horário (JetBrains Mono), paciente (Inter), modalidade/status só quando houver espaço;
+- a altura na visão Dia/Semana reflete a duração; sobreposições lado a lado;
+- visão Mês: linha `14:00 Nome` (ou indicador + texto se o espaço apertar).
+
+Semântica obrigatória do VirgíniaPsi (independente da cor no Google Calendar):
+
+| Tom | Significado | Status de appointment |
+|---|---|---|
+| Verde (bloco preenchido, texto branco) | Ativo — ainda vai acontecer | `scheduled`, `confirmed` |
+| Azul (bloco preenchido, texto branco) | Realizado | `completed` |
+| Vermelho suave (fundo claro, texto vermelho-escuro) | Cancelado — permanece no horário | `cancelled` |
+| Neutro (bone/sage, sem verde/azul/vermelho) | Evento Google sem atendimento clínico | `origin = GOOGLE_EXTERNAL` |
+
+Cancelar **não** apaga o compromisso da grade. `no_show` usa um bloco distinto (taupe), fora da legenda de três itens.
+
+Drawer/modal de evento (compacto):
 - paciente;
-- início/fim;
+- data e intervalo de horário;
 - modalidade;
-- confirmação;
+- status (Agendado / Confirmado / Realizado / Cancelado);
 - Meet;
 - estado de sincronização;
-- WhatsApp;
 - editar/remarcar/cancelar.
 
 Evento externo read-only deve mostrar claramente “Evento externo do Google” e não oferecer ações destrutivas por padrão.
+
 
 ## 9. Sessão clínica ativa
 

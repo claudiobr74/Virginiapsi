@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDayTimelineHours,
+  civilDateInTimeZone,
   formatAgendaLongDate,
   formatAgendaMonthLabel,
   formatHourLabel,
   hourInTimeZone,
+  minutesInTimeZone,
   monthCellStats,
   summarizeDayAppointments,
 } from "@/features/calendar/display";
@@ -45,6 +47,20 @@ describe("formatAgendaMonthLabel", () => {
 describe("hourInTimeZone", () => {
   it("lê a hora civil em America/Sao_Paulo", () => {
     expect(hourInTimeZone("2026-08-18T12:00:00.000Z", "America/Sao_Paulo")).toBe(9);
+  });
+});
+
+describe("minutesInTimeZone", () => {
+  it("inclui os minutos civis", () => {
+    expect(minutesInTimeZone("2026-08-18T12:20:00.000Z", "America/Sao_Paulo")).toBe(9 * 60 + 20);
+  });
+});
+
+describe("civilDateInTimeZone", () => {
+  it("usa a data civil do fuso, não o prefixo UTC do ISO", () => {
+    expect(civilDateInTimeZone("2026-08-19T02:00:00.000Z", "America/Sao_Paulo")).toBe(
+      "2026-08-18",
+    );
   });
 });
 

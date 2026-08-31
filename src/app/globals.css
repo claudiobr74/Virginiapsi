@@ -42,6 +42,24 @@
   --info-bg: #e1eef1;
   --attention: #a9762c;
   --attention-bg: #fdebd0;
+
+  /* Agenda event blocks (Google Calendar–like fill; VirgíniaPsi clinical semantics). */
+  --cal-event-radius: 5px;
+  --cal-active: #1b7340;
+  --cal-active-hover: #166536;
+  --cal-active-fg: #ffffff;
+  --cal-completed: #1e63c4;
+  --cal-completed-hover: #1854a8;
+  --cal-completed-fg: #ffffff;
+  --cal-cancelled: #fce8e6;
+  --cal-cancelled-hover: #f8d7d4;
+  --cal-cancelled-fg: #8a3030;
+  --cal-external: #d9d4cb;
+  --cal-external-hover: #cdc7bc;
+  --cal-external-fg: #1f2421;
+  --cal-noshow: #7a6244;
+  --cal-noshow-hover: #685438;
+  --cal-noshow-fg: #ffffff;
 }
 
 .dark {
@@ -84,6 +102,23 @@
   --info-bg: #17282c;
   --attention: #d9ac6a;
   --attention-bg: #2b2416;
+
+  --cal-event-radius: 5px;
+  --cal-active: #2a9a4e;
+  --cal-active-hover: #238a43;
+  --cal-active-fg: #ffffff;
+  --cal-completed: #3b82e6;
+  --cal-completed-hover: #2f74d4;
+  --cal-completed-fg: #ffffff;
+  --cal-cancelled: #5a2e2c;
+  --cal-cancelled-hover: #6b3835;
+  --cal-cancelled-fg: #f7d4d0;
+  --cal-external: #3a3c36;
+  --cal-external-hover: #454740;
+  --cal-external-fg: #e8ebe6;
+  --cal-noshow: #a67c3d;
+  --cal-noshow-hover: #916c34;
+  --cal-noshow-fg: #171816;
 }
 
 @theme inline {
@@ -126,6 +161,22 @@
   --color-info-bg: var(--info-bg);
   --color-attention: var(--attention);
   --color-attention-bg: var(--attention-bg);
+
+  --color-cal-active: var(--cal-active);
+  --color-cal-active-hover: var(--cal-active-hover);
+  --color-cal-active-fg: var(--cal-active-fg);
+  --color-cal-completed: var(--cal-completed);
+  --color-cal-completed-hover: var(--cal-completed-hover);
+  --color-cal-completed-fg: var(--cal-completed-fg);
+  --color-cal-cancelled: var(--cal-cancelled);
+  --color-cal-cancelled-hover: var(--cal-cancelled-hover);
+  --color-cal-cancelled-fg: var(--cal-cancelled-fg);
+  --color-cal-external: var(--cal-external);
+  --color-cal-external-hover: var(--cal-external-hover);
+  --color-cal-external-fg: var(--cal-external-fg);
+  --color-cal-noshow: var(--cal-noshow);
+  --color-cal-noshow-hover: var(--cal-noshow-hover);
+  --color-cal-noshow-fg: var(--cal-noshow-fg);
 
   --color-sidebar: #ffffff;
   --color-sidebar-foreground: #1f2421;

@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AgendaLegend } from "@/features/calendar/components/agenda-legend";
 import type { AgendaView } from "@/features/calendar/date-window";
 import { cn } from "@/lib/utils/cn";
 
@@ -51,7 +52,8 @@ export function AgendaToolbar({
         <span className="font-serif text-lg italic font-medium text-foreground">{rangeLabel}</span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <AgendaLegend />
         <div className="flex rounded-xl border border-border bg-surface/60 p-1">
           {(Object.keys(VIEW_LABELS) as AgendaView[]).map((value) => (
             <button

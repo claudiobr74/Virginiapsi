@@ -16,7 +16,11 @@ import {
   todayInTimeZone,
   type AgendaView,
 } from "@/features/calendar/date-window";
-import { formatAgendaLongDate, formatAgendaMonthLabel } from "@/features/calendar/display";
+import {
+  civilDateInTimeZone,
+  formatAgendaLongDate,
+  formatAgendaMonthLabel,
+} from "@/features/calendar/display";
 import { syncGoogleCalendarAction } from "@/features/calendar/sync-actions";
 import type { PatientRow } from "@/features/patients/contracts";
 import { pageHeading } from "@/lib/brand";
@@ -81,7 +85,7 @@ export function AgendaBoard({
   const appointmentsByDay = useMemo(() => {
     const map = new Map<string, AppointmentRow[]>();
     for (const appointment of appointments) {
-      const day = appointment.starts_at.slice(0, 10);
+      const day = civilDateInTimeZone(appointment.starts_at, timeZone);
       const list = map.get(day) ?? [];
       list.push(appointment);
       map.set(day, list);
@@ -149,7 +153,7 @@ export function AgendaBoard({
         <DayView
           appointments={appointmentsByDay.get(referenceDate) ?? []}
           timeZone={timeZone}
-          isAdmin={canStartSession}
+          selectedId={selectedAppointment?.id}
           onSelect={setSelectedAppointment}
         />
       ) : view === "week" ? (
@@ -158,7 +162,7 @@ export function AgendaBoard({
           appointmentsByDay={appointmentsByDay}
           timeZone={timeZone}
           today={today}
-          isAdmin={canStartSession}
+          selectedId={selectedAppointment?.id}
           onSelect={setSelectedAppointment}
         />
       ) : (
@@ -166,7 +170,10 @@ export function AgendaBoard({
           days={window.days}
           appointmentsByDay={appointmentsByDay}
           today={today}
+          timeZone={timeZone}
+          selectedId={selectedAppointment?.id}
           onSelectDay={(day) => pushParams("day", day)}
+          onSelect={setSelectedAppointment}
         />
       )}
 
@@ -203,13 +210,15 @@ export function AgendaBoard({
           setDialogState({
             open: true,
             appointment: selectedAppointment,
-            date: selectedAppointment.starts_at.slice(0, 10),
+            date: civilDateInTimeZone(selectedAppointment.starts_at, timeZone),
           });
           setSelectedAppointment(null);
         }}
         onRefresh={() => router.refresh()}
         onCancelled={() => {
-          setSelectedAppointment(null);
+          setSelectedAppointment((current) =>
+            current ? { ...current, status: "cancelled" } : current,
+          );
           router.refresh();
         }}
       />
