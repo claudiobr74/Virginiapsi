@@ -91,7 +91,7 @@ export function AgendaBoard({
       map.set(day, list);
     }
     return map;
-  }, [appointments]);
+  }, [appointments, timeZone]);
 
   function pushParams(nextView: AgendaView, nextDate: string) {
     const params = new URLSearchParams(searchParams.toString());
