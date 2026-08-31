@@ -232,6 +232,23 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
         scopes: [],
       });
 
+      const tokenColumn = await session.query<{ exists: boolean }>(
+        `select exists (
+           select 1 from information_schema.columns
+           where table_schema = 'public'
+             and table_name = 'google_calendar_connections'
+             and column_name = 'next_sync_token'
+         ) as exists`,
+      );
+      if (tokenColumn[0]?.exists) {
+        const tokenRow = await session.query<{ next_sync_token: string | null }>(
+          `select next_sync_token from public.google_calendar_connections
+           where organization_id = $1`,
+          [organizationId],
+        );
+        expect(tokenRow[0].next_sync_token).toBeNull();
+      }
+
       const credentials = await session.query(
         "select * from public.get_google_credentials($1)",
         [organizationId],
