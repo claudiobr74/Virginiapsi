@@ -22,8 +22,8 @@ async function connectGoogle(
       `select public.upsert_google_credentials($1, $2, now() + interval '1 hour', $3, $4, array['https://www.googleapis.com/auth/calendar'])`,
       [
         organizationId,
-        overrides.accessToken ?? "enc-access-token",
-        overrides.refreshToken ?? "enc-refresh-token",
+        overrides.accessToken ?? `enc-access-token:${organizationId}`,
+        overrides.refreshToken ?? `enc-refresh-token:${organizationId}`,
         overrides.email ?? "consultorio@example.com",
       ],
     );
@@ -223,8 +223,14 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
     const orgB = await bootstrapOrganization(adminB, "Multi Google B");
     await addMember(adminA, orgA, shared, "psychologist_admin");
     await addMember(adminB, orgB, shared, "secretary");
-    await connectGoogle(adminA, orgA, { refreshToken: "enc-token-org-a" });
-    await connectGoogle(adminB, orgB, { refreshToken: "enc-token-org-b" });
+    await connectGoogle(adminA, orgA, {
+      accessToken: "enc-access-org-a",
+      refreshToken: "enc-token-org-a",
+    });
+    await connectGoogle(adminB, orgB, {
+      accessToken: "enc-access-org-b",
+      refreshToken: "enc-token-org-b",
+    });
 
     const session = await openSession({ userId: shared });
     try {
@@ -240,28 +246,48 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
       );
       expect(fromB[0].refresh_token_encrypted).toBe("enc-token-org-b");
 
-      await session.query(
+      const secretaryCopy = await session.expectError(
         `select public.upsert_google_credentials($1, 'stolen-access', now(), $2, 'stolen@example.com')`,
         [orgB, fromA[0].refresh_token_encrypted],
       );
+      expect(secretaryCopy).toMatch(/psychologist_admin|cannot copy google credentials/i);
 
-      const stillB = await session.query<{
-        refresh_token_encrypted: string;
-        access_token_encrypted: string | null;
-      }>(
-        "select refresh_token_encrypted, access_token_encrypted from public.get_google_credentials($1)",
+      const stillB = await session.query<{ refresh_token_encrypted: string }>(
+        "select refresh_token_encrypted from public.get_google_credentials($1)",
         [orgB],
       );
       expect(stillB[0].refresh_token_encrypted).toBe("enc-token-org-b");
-      expect(stillB[0].access_token_encrypted).toBe("stolen-access");
-
-      const emailB = await session.query<{ google_account_email: string | null }>(
-        "select google_account_email from public.google_calendar_connections where organization_id = $1",
-        [orgB],
-      );
-      expect(emailB[0].google_account_email).not.toBe("stolen@example.com");
     } finally {
       await session.close();
+    }
+
+    const dualAdmin = await createAuthUser();
+    await addMember(adminA, orgA, dualAdmin, "psychologist_admin");
+    await addMember(adminB, orgB, dualAdmin, "psychologist_admin");
+    const dualSession = await openSession({ userId: dualAdmin });
+    try {
+      const stolen = await dualSession.query<{
+        access_token_encrypted: string;
+        refresh_token_encrypted: string;
+      }>("select * from public.get_google_credentials($1)", [orgA]);
+
+      const copyError = await dualSession.expectError(
+        `select public.upsert_google_credentials($1, $2, now(), $3)`,
+        [
+          orgB,
+          stolen[0].access_token_encrypted,
+          stolen[0].refresh_token_encrypted,
+        ],
+      );
+      expect(copyError).toMatch(/cannot copy google credentials/i);
+
+      const unchanged = await dualSession.query<{ refresh_token_encrypted: string }>(
+        "select refresh_token_encrypted from public.get_google_credentials($1)",
+        [orgB],
+      );
+      expect(unchanged[0].refresh_token_encrypted).toBe("enc-token-org-b");
+    } finally {
+      await dualSession.close();
     }
   });
 });
