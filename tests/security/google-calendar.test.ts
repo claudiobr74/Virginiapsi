@@ -240,17 +240,26 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
       );
       expect(fromB[0].refresh_token_encrypted).toBe("enc-token-org-b");
 
-      const copyError = await session.expectError(
-        `select public.upsert_google_credentials($1, 'stolen-access', now(), $2)`,
+      await session.query(
+        `select public.upsert_google_credentials($1, 'stolen-access', now(), $2, 'stolen@example.com')`,
         [orgB, fromA[0].refresh_token_encrypted],
       );
-      expect(copyError).toMatch(/only psychologist_admin/i);
 
-      const stillB = await session.query<{ refresh_token_encrypted: string }>(
-        "select refresh_token_encrypted from public.get_google_credentials($1)",
+      const stillB = await session.query<{
+        refresh_token_encrypted: string;
+        access_token_encrypted: string | null;
+      }>(
+        "select refresh_token_encrypted, access_token_encrypted from public.get_google_credentials($1)",
         [orgB],
       );
       expect(stillB[0].refresh_token_encrypted).toBe("enc-token-org-b");
+      expect(stillB[0].access_token_encrypted).toBe("stolen-access");
+
+      const emailB = await session.query<{ google_account_email: string | null }>(
+        "select google_account_email from public.google_calendar_connections where organization_id = $1",
+        [orgB],
+      );
+      expect(emailB[0].google_account_email).not.toBe("stolen@example.com");
     } finally {
       await session.close();
     }
@@ -486,6 +495,47 @@ describe("appointments — eventos externos são somente leitura", () => {
         google_etag: "etag-b",
         summary_snapshot: "Segunda versão",
       });
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("cancelamento no Google não move o horário local do evento externo", async () => {
+    const session = await openSession({ userId: admin });
+    try {
+      const inserted = await session.query<{
+        upsert_external_appointment: string;
+      }>(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-evt-keep-time', 'etag-1',
+           '2026-09-01T12:00:00Z', '2026-09-01T13:00:00Z',
+           'Evento com horário'
+         ) as upsert_external_appointment`,
+        [organizationId],
+      );
+
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-evt-keep-time', 'etag-2',
+           '1970-01-01T00:00:00Z', '1970-01-01T00:01:00Z',
+           'Evento com horário', 'cancelled'
+         )`,
+        [organizationId],
+      );
+
+      const stored = await session.query<{
+        status: string;
+        starts_at: string;
+        ends_at: string;
+      }>(
+        `select status, starts_at::text, ends_at::text
+         from public.appointments
+         where id = $1`,
+        [inserted[0].upsert_external_appointment],
+      );
+      expect(stored[0].status).toBe("cancelled");
+      expect(stored[0].starts_at).toContain("2026-09-01");
+      expect(stored[0].ends_at).toContain("2026-09-01");
     } finally {
       await session.close();
     }
