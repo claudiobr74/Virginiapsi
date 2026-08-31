@@ -105,11 +105,11 @@ export function MonthView({
                         <span
                           key={appointment.id}
                           data-appointment-visual={visual.tone}
+                          style={visual.style}
                           className={cn(
-                            "w-full truncate rounded-md border px-1.5 py-0.5 text-[10px] font-semibold",
+                            "w-full truncate rounded-md border-2 px-1.5 py-0.5 text-[10px] font-semibold",
                             visual.className,
                             visual.titleClassName,
-                            visual.tone === "neutral" && "border-dashed",
                           )}
                         >
                           {appointment.summary_snapshot ?? "Consulta"}

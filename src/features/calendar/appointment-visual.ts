@@ -23,6 +23,43 @@ export const APPOINTMENT_VISUAL_DOT: Record<AppointmentVisualTone, string> = {
   neutral: "bg-zinc-400",
 };
 
+/**
+ * Tailwind default palette hex (green/blue/red/zinc). Applied as inline style so
+ * `* { border-color }` in globals.css and production CSS layers cannot hide the
+ * appointment color.
+ */
+export const APPOINTMENT_VISUAL_INLINE: Record<
+  AppointmentVisualTone,
+  {
+    backgroundColor: string;
+    borderColor: string;
+    color: string;
+    opacity?: number;
+  }
+> = {
+  active: {
+    backgroundColor: "#dcfce7",
+    borderColor: "#22c55e",
+    color: "#14532d",
+  },
+  completed: {
+    backgroundColor: "#dbeafe",
+    borderColor: "#3b82f6",
+    color: "#1e3a8a",
+  },
+  cancelled: {
+    backgroundColor: "#fee2e2",
+    borderColor: "#f87171",
+    color: "#991b1b",
+    opacity: 0.75,
+  },
+  neutral: {
+    backgroundColor: "#f4f4f5",
+    borderColor: "#a1a1aa",
+    color: "#18181b",
+  },
+};
+
 export interface AppointmentVisualInput {
   status: AppointmentStatus;
   origin: AppointmentOrigin;
@@ -34,6 +71,14 @@ export interface AppointmentVisualStatus {
   className: string;
   dotClassName: string;
   titleClassName: string;
+  style: {
+    backgroundColor: string;
+    borderColor: string;
+    color: string;
+    opacity?: number;
+    borderWidth: number;
+    borderStyle: "solid" | "dashed";
+  };
 }
 
 function isUnassociatedGoogleExternal(appointment: AppointmentVisualInput): boolean {
@@ -66,11 +111,20 @@ export function getAppointmentVisualStatus(
   const tone = isUnassociatedGoogleExternal(appointment)
     ? "neutral"
     : toneForClinicalStatus(appointment.status);
+  const palette = APPOINTMENT_VISUAL_INLINE[tone];
 
   return {
     tone,
     className: APPOINTMENT_VISUAL_SURFACE[tone],
     dotClassName: APPOINTMENT_VISUAL_DOT[tone],
     titleClassName: tone === "cancelled" ? "line-through decoration-current" : "",
+    style: {
+      backgroundColor: palette.backgroundColor,
+      borderColor: palette.borderColor,
+      color: palette.color,
+      ...(palette.opacity !== undefined ? { opacity: palette.opacity } : {}),
+      borderWidth: 2,
+      borderStyle: tone === "neutral" ? "dashed" : "solid",
+    },
   };
 }

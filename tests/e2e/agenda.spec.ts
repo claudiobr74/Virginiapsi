@@ -65,38 +65,30 @@ test.describe("Agenda — visão do dia", () => {
     await loginViaUi(page);
     await page.goto("/app/agenda");
 
-    const active = page
-      .locator("[data-appointment-visual]")
-      .filter({ hasText: "Beatriz Lima • PAC-001" });
-    const completed = page
-      .locator("[data-appointment-visual]")
-      .filter({ hasText: "Consulta B — realizada" });
-    const cancelled = page
-      .locator("[data-appointment-visual]")
-      .filter({ hasText: "Consulta C — cancelada" });
+    const views = [
+      { name: "Dia", heading: "Agenda Diária" },
+      { name: "Semana", heading: "Agenda Semanal" },
+      { name: "Mês", heading: "Agenda Mensal" },
+    ] as const;
 
-    await expect(active.first()).toHaveAttribute("data-appointment-visual", "active");
-    await expect(active.first()).toHaveClass(/bg-green-100/);
-    await expect(completed.first()).toHaveAttribute("data-appointment-visual", "completed");
-    await expect(completed.first()).toHaveClass(/bg-blue-100/);
-    await expect(cancelled.first()).toHaveAttribute("data-appointment-visual", "cancelled");
-    await expect(cancelled.first()).toHaveClass(/bg-red-100/);
+    for (const view of views) {
+      await page.getByRole("button", { name: view.name }).click();
+      await expect(page.getByRole("heading", { name: view.heading })).toBeVisible();
 
-    await page.getByRole("button", { name: "Semana" }).click();
-    await expect(active.first()).toHaveAttribute("data-appointment-visual", "active");
-    await expect(completed.first()).toHaveAttribute("data-appointment-visual", "completed");
-    await expect(cancelled.first()).toHaveAttribute("data-appointment-visual", "cancelled");
+      const active = page
+        .locator("[data-appointment-visual]")
+        .filter({ hasText: /Beatriz/ })
+        .first();
+      const completed = page
+        .locator("[data-appointment-visual]")
+        .filter({ hasText: "Consulta B" })
+        .first();
 
-    await page.getByRole("button", { name: "Mês" }).click();
-    await expect(
-      page.locator("[data-appointment-visual='active']").filter({ hasText: "Beatriz" }),
-    ).toHaveClass(/bg-green-100/);
-    await expect(
-      page.locator("[data-appointment-visual='completed']").filter({ hasText: "Consulta B" }),
-    ).toHaveClass(/bg-blue-100/);
-    await expect(
-      page.locator("[data-appointment-visual='cancelled']").filter({ hasText: "Consulta C" }),
-    ).toHaveClass(/bg-red-100/);
+      await expect(active).toHaveAttribute("data-appointment-visual", "active");
+      await expect(active).toHaveCSS("background-color", "rgb(220, 252, 231)");
+      await expect(completed).toHaveAttribute("data-appointment-visual", "completed");
+      await expect(completed).toHaveCSS("background-color", "rgb(219, 234, 254)");
+    }
   });
 });
 

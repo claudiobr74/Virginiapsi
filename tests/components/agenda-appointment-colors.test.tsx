@@ -1,13 +1,30 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppointmentCard } from "@/features/calendar/components/appointment-card";
+import { AppointmentDetailDrawer } from "@/features/calendar/components/appointment-detail-drawer";
 import { DayView } from "@/features/calendar/components/day-view";
 import { MonthView } from "@/features/calendar/components/month-view";
 import { WeekView } from "@/features/calendar/components/week-view";
 import type { AppointmentRow } from "@/features/calendar/contracts";
+import { TodayTimeline } from "@/features/dashboard/components/today-timeline";
+import type { MyDayAppointment } from "@/features/dashboard/contracts";
 
 vi.mock("@/features/sessions/components/start-session-button", () => ({
   StartSessionButton: () => null,
+}));
+
+vi.mock("@/features/calendar/appointment-actions", () => ({
+  cancelAppointmentAction: vi.fn(),
+  updateAppointmentStatusAction: vi.fn(),
+}));
+
+vi.mock("@/features/calendar/sync-actions", () => ({
+  pushAppointmentToGoogleAction: vi.fn(),
+  requestMeetForAppointmentAction: vi.fn(),
+}));
+
+vi.mock("@/features/dashboard/components/session-actions", () => ({
+  SessionActions: () => null,
 }));
 
 const TIME_ZONE = "America/Sao_Paulo";
@@ -77,6 +94,13 @@ function byDay(rows: AppointmentRow[]) {
   return map;
 }
 
+const PAINT: Record<string, string> = {
+  active: "#dcfce7",
+  completed: "#dbeafe",
+  cancelled: "#fee2e2",
+  neutral: "#f4f4f5",
+};
+
 function expectTone(name: string, tone: string, classes: string[]) {
   const matches = screen.getAllByText(name);
   expect(matches.length).toBeGreaterThan(0);
@@ -86,6 +110,7 @@ function expectTone(name: string, tone: string, classes: string[]) {
     for (const className of classes) {
       expect(node).toHaveClass(className);
     }
+    expect(node).toHaveStyle({ backgroundColor: PAINT[tone] });
   }
 }
 
@@ -152,7 +177,68 @@ describe("Agenda — cores por status em dia/semana/mês", () => {
     const card = screen.getByText("Consulta A").closest("[data-appointment-visual]");
     expect(card).toHaveAttribute("data-appointment-visual", "active");
     expect(card).toHaveClass("bg-green-100");
+    expect(card).toHaveStyle({ backgroundColor: "#dcfce7" });
     expect(card).not.toHaveClass("bg-sage-light/80");
     expect(card).not.toHaveClass("bg-card");
+  });
+
+  it("AppointmentDetailDrawer usa a mesma paleta por status", () => {
+    const noop = () => undefined;
+    for (const [row, tone, background] of [
+      [consultaA, "active", "#dcfce7"],
+      [consultaB, "completed", "#dbeafe"],
+      [consultaC, "cancelled", "#fee2e2"],
+      [eventoD, "neutral", "#f4f4f5"],
+    ] as const) {
+      const { unmount } = render(
+        <AppointmentDetailDrawer
+          appointment={row}
+          timeZone={TIME_ZONE}
+          googleConnected={false}
+          isAdmin
+          onClose={noop}
+          onEdit={noop}
+          onRefresh={noop}
+          onCancelled={noop}
+        />,
+      );
+      const strip = document.querySelector("[data-appointment-visual]");
+      expect(strip).toHaveAttribute("data-appointment-visual", tone);
+      expect(strip).toHaveStyle({ backgroundColor: background });
+      unmount();
+    }
+  });
+
+  it("TodayTimeline (Agenda de Hoje) pinta A/B/C/D pela mesma função", () => {
+    function asDay(row: AppointmentRow): MyDayAppointment {
+      return {
+        id: row.id,
+        startsAt: row.starts_at,
+        endsAt: row.ends_at,
+        status: row.status,
+        modality: row.modality,
+        origin: row.origin,
+        summarySnapshot: row.summary_snapshot,
+        meetUrl: row.meet_url,
+        meetStatus: row.meet_status,
+        patientId: row.patient_id,
+        patientPreferredName: row.summary_snapshot,
+        patientPublicCode: null,
+        patientPhone: null,
+      };
+    }
+
+    render(
+      <TodayTimeline
+        appointments={appointments.map(asDay)}
+        timeZone={TIME_ZONE}
+        canStartSession={false}
+      />,
+    );
+
+    expectTone("Consulta A", "active", ["bg-green-100"]);
+    expectTone("Consulta B", "completed", ["bg-blue-100"]);
+    expectTone("Consulta C", "cancelled", ["bg-red-100"]);
+    expectTone("Evento D", "neutral", ["bg-zinc-100"]);
   });
 });

@@ -117,10 +117,10 @@ export function AppointmentDetailDrawer({
 
           <div
             data-appointment-visual={visual.tone}
+            style={visual.style}
             className={cn(
-              "flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2",
+              "flex flex-wrap items-center gap-2 rounded-xl border-2 px-3 py-2",
               visual.className,
-              visual.tone === "neutral" && "border-dashed",
             )}
           >
             {visual.tone === "neutral" ? (

@@ -53,11 +53,11 @@ export function AppointmentCard({
   return (
     <article
       data-appointment-visual={visual.tone}
+      style={visual.style}
       className={cn(
-        "flex w-full flex-col rounded-2xl border",
+        "flex w-full flex-col rounded-2xl border-2",
         compact ? "gap-1.5 px-2.5 py-2" : "gap-3 px-4 py-4",
         visual.className,
-        visual.tone === "neutral" && "border-dashed",
         visual.tone !== "neutral" && "shadow-sm",
       )}
     >

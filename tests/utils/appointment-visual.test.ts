@@ -12,6 +12,9 @@ describe("getAppointmentVisualStatus", () => {
       });
       expect(visual.tone).toBe("active");
       expect(visual.className).toBe("bg-green-100 border-green-500 text-green-900");
+      expect(visual.style.backgroundColor).toBe("#dcfce7");
+      expect(visual.style.borderColor).toBe("#22c55e");
+      expect(visual.style.color).toBe("#14532d");
     }
   });
 
@@ -23,6 +26,9 @@ describe("getAppointmentVisualStatus", () => {
     });
     expect(visual.tone).toBe("completed");
     expect(visual.className).toBe("bg-blue-100 border-blue-500 text-blue-900");
+    expect(visual.style.backgroundColor).toBe("#dbeafe");
+    expect(visual.style.borderColor).toBe("#3b82f6");
+    expect(visual.style.color).toBe("#1e3a8a");
   });
 
   it("cancelled e no_show são vermelho suave", () => {
@@ -36,6 +42,10 @@ describe("getAppointmentVisualStatus", () => {
       expect(visual.className).toContain("bg-red-100");
       expect(visual.className).toContain("border-red-400");
       expect(visual.className).toContain("text-red-800");
+      expect(visual.style.backgroundColor).toBe("#fee2e2");
+      expect(visual.style.borderColor).toBe("#f87171");
+      expect(visual.style.color).toBe("#991b1b");
+      expect(visual.style.opacity).toBe(0.75);
       expect(visual.titleClassName).toContain("line-through");
     }
   });
@@ -48,6 +58,8 @@ describe("getAppointmentVisualStatus", () => {
     });
     expect(visual.tone).toBe("neutral");
     expect(visual.className).toBe("bg-zinc-100 border-zinc-400 text-zinc-900");
+    expect(visual.style.backgroundColor).toBe("#f4f4f5");
+    expect(visual.style.borderStyle).toBe("dashed");
     expect(visual.className).not.toContain("bg-green-100");
   });
 
@@ -59,6 +71,7 @@ describe("getAppointmentVisualStatus", () => {
     });
     expect(visual.tone).toBe("completed");
     expect(visual.className).toContain("bg-blue-100");
+    expect(visual.style.backgroundColor).toBe("#dbeafe");
   });
 
   it("não interpola classes Tailwind", () => {
@@ -68,5 +81,6 @@ describe("getAppointmentVisualStatus", () => {
       patient_id: "33333333-3333-4333-8333-333333333333",
     });
     expect(visual.className).not.toMatch(/bg-\$\{/);
+    expect(visual.style.backgroundColor).toMatch(/^#/);
   });
 });

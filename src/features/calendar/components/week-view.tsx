@@ -203,11 +203,11 @@ function WeekAppointmentChip({
     <button
       type="button"
       data-appointment-visual={visual.tone}
+      style={visual.style}
       onClick={() => onSelect(appointment)}
       className={cn(
-        "w-full rounded-lg border px-2 py-1.5 text-left",
+        "w-full rounded-lg border-2 px-2 py-1.5 text-left",
         visual.className,
-        visual.tone === "neutral" && "border-dashed",
       )}
     >
       <p className="font-mono text-[10px] opacity-80">

@@ -50,33 +50,33 @@ export function TodayTimeline({
             <li
               key={appointment.id}
               data-appointment-visual={visual.tone}
+              style={visual.style}
               className={cn(
-                "flex flex-col gap-2 border-b py-3 last:border-b-0 last:pb-0",
-                "rounded-xl border px-3 my-1",
+                "my-1 flex flex-col gap-2 rounded-xl border-2 px-3 py-3",
                 visual.className,
-                visual.tone === "neutral" && "border-dashed",
+                visual.titleClassName,
                 isNext && "ring-2 ring-sage-700",
               )}
             >
               <div className="flex min-w-0 items-center gap-3">
                 <div className="w-14 shrink-0">
-                  <p className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                  <p className="font-mono text-sm font-semibold tabular-nums">
                     {formatInTimeZone(appointment.startsAt, timeZone)}
                   </p>
-                  <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                  <p className="font-mono text-[11px] tabular-nums opacity-80">
                     {formatInTimeZone(appointment.endsAt, timeZone)}
                   </p>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">
+                  <p className="truncate text-sm font-semibold">
                     {patientDisplayLabel(appointment)}
                   </p>
-                  <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] opacity-80">
                     {appointment.patientPublicCode ? (
                       <span className="font-mono">{appointment.patientPublicCode}</span>
                     ) : null}
                     {appointment.patientPublicCode ? (
-                      <span className="size-1 shrink-0 rounded-full bg-sage" aria-hidden />
+                      <span className="size-1 shrink-0 rounded-full bg-current" aria-hidden />
                     ) : null}
                     <ModalityIcon className="size-3 shrink-0" aria-hidden />
                     <span className="truncate">{MODALITY_LABELS[appointment.modality]}</span>

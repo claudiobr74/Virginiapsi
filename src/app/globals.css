@@ -17,6 +17,9 @@
 @source inline("bg-blue-500");
 @source inline("bg-red-400");
 @source inline("bg-zinc-400");
+@source inline("border-2");
+@source inline("opacity-75");
+@source inline("line-through");
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -168,8 +171,37 @@ body {
   }
 }
 
-* {
-  border-color: var(--color-border);
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+}
+
+/*
+ * Agenda appointment paint — unlayered so it wins over @layer utilities AND
+ * over the previous unlayered `* { border-color }` if a build reorders layers.
+ * Hex = Tailwind green/blue/red/zinc 100/500/400/900.
+ */
+[data-appointment-visual="active"] {
+  background-color: #dcfce7;
+  border-color: #22c55e;
+  color: #14532d;
+}
+[data-appointment-visual="completed"] {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+  color: #1e3a8a;
+}
+[data-appointment-visual="cancelled"] {
+  background-color: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b;
+  opacity: 0.75;
+}
+[data-appointment-visual="neutral"] {
+  background-color: #f4f4f5;
+  border-color: #a1a1aa;
+  color: #18181b;
 }
 
 ::selection {
