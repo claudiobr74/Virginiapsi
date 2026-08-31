@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   coalesceAppUrl,
   envIssueKeyNames,
+  GOOGLE_OAUTH_CONFIGURATION_ERROR,
   isLoopbackHttpUrl,
   normalizeGoogleOAuthRedirectUri,
   normalizePublicAppUrl,
@@ -275,10 +276,72 @@ describe("contrato de ambiente", () => {
     ).toEqual(["TWILIO_ACCOUNT_SID", "GEMINI_API_KEY"]);
   });
 
-  it("diagnósticos de Configurações não exigem o contrato servidor completo", () => {
-    const flags = readIntegrationEnvFlags({
+  it("em produção rejeita GOOGLE_OAUTH_REDIRECT_URI de domínio legado", () => {
+    expect(() =>
+      parseGoogleCalendarEnv({
+        NEXT_PUBLIC_APP_URL: "https://virginiapsi.example",
+        GOOGLE_CLIENT_ID: "id",
+        GOOGLE_CLIENT_SECRET: "secret",
+        GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key",
+        GOOGLE_OAUTH_REDIRECT_URI:
+          "https://tesseli-legado.example/api/integrations/google/callback",
+        VERCEL_ENV: "production",
+      }),
+    ).toThrow(GOOGLE_OAUTH_CONFIGURATION_ERROR);
+  });
+
+  it("em produção aceita o callback no domínio canônico", () => {
+    const parsed = parseGoogleCalendarEnv({
+      NEXT_PUBLIC_APP_URL: "https://virginiapsi.example",
       GOOGLE_CLIENT_ID: "id",
       GOOGLE_CLIENT_SECRET: "secret",
+      GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key",
+      GOOGLE_OAUTH_REDIRECT_URI:
+        "https://virginiapsi.example/api/integrations/google/callback",
+      VERCEL_ENV: "production",
+    });
+    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
+      "https://virginiapsi.example/api/integrations/google/callback",
+    );
+  });
+
+  it("em produção rejeita callback com path fora de /api/integrations/google/callback", () => {
+    expect(() =>
+      parseGoogleCalendarEnv({
+        NEXT_PUBLIC_APP_URL: "https://virginiapsi.example",
+        GOOGLE_CLIENT_ID: "id",
+        GOOGLE_CLIENT_SECRET: "secret",
+        GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key",
+        GOOGLE_OAUTH_REDIRECT_URI: "https://virginiapsi.example/oauth/legacy",
+        VERCEL_ENV: "production",
+      }),
+    ).toThrow(GOOGLE_OAUTH_CONFIGURATION_ERROR);
+  });
+
+  it("diagnósticos de Google Calendar exigem as mesmas chaves do start da Agenda", () => {
+    expect(
+      readIntegrationEnvFlags({
+        GOOGLE_CLIENT_ID: "id",
+        GOOGLE_CLIENT_SECRET: "secret",
+      }).googleOAuth,
+    ).toBe(false);
+
+    expect(
+      readIntegrationEnvFlags({
+        NEXT_PUBLIC_APP_URL: "https://app.example.com",
+        GOOGLE_CLIENT_ID: "id",
+        GOOGLE_CLIENT_SECRET: "secret",
+        GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key",
+      }).googleOAuth,
+    ).toBe(true);
+  });
+
+  it("diagnósticos de Configurações não exigem Twilio, Gemini nem CRON_SECRET", () => {
+    const flags = readIntegrationEnvFlags({
+      NEXT_PUBLIC_APP_URL: "https://app.example.com",
+      GOOGLE_CLIENT_ID: "id",
+      GOOGLE_CLIENT_SECRET: "secret",
+      GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key",
       TWILIO_ACCOUNT_SID: "",
       TWILIO_AUTH_TOKEN: "",
       GEMINI_API_KEY: "",

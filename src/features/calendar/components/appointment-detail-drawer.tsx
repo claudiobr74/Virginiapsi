@@ -10,6 +10,7 @@ import { cancelAppointmentAction, updateAppointmentStatusAction } from "@/featur
 import {
   pushAppointmentToGoogleAction,
   requestMeetForAppointmentAction,
+  resolveCalendarConflictAction,
 } from "@/features/calendar/sync-actions";
 import {
   APPOINTMENT_STATUS_BADGE,
@@ -99,7 +100,7 @@ export function AppointmentDetailDrawer({
   return (
     <Drawer open={Boolean(appointmentProp)} onOpenChange={(next) => !next && onClose()}>
       <DrawerContent
-        title={isExternal ? "Evento externo do Google" : "Detalhes da consulta"}
+        title={isExternal ? "Evento Google" : "Detalhes da consulta"}
         description={appointment.summary_snapshot ?? undefined}
       >
         <div className="flex flex-col gap-4">
@@ -114,7 +115,10 @@ export function AppointmentDetailDrawer({
 
           <div className="flex flex-wrap items-center gap-2">
             {isExternal ? (
-              <StatusBadge status="info" label="Somente leitura" />
+              <>
+                <StatusBadge status="info" label="Evento Google" />
+                <StatusBadge status="info" label="Somente leitura" />
+              </>
             ) : (
               <StatusBadge
                 status={APPOINTMENT_STATUS_BADGE[appointment.status]}
@@ -122,6 +126,47 @@ export function AppointmentDetailDrawer({
               />
             )}
           </div>
+
+          {appointment.sync_status === "conflict" ? (
+            <div className="rounded-xl border border-attention/30 bg-attention-bg px-4 py-3">
+              <p className="text-sm font-semibold text-attention">
+                Este compromisso foi alterado no Google Agenda e no VirgíniaPsi.
+              </p>
+              <p className="mt-1 text-sm text-attention/80">
+                {appointment.sync_error ?? "Escolha qual versão manter."}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  isLoading={isPending}
+                  onClick={() =>
+                    runInPlace(() => resolveCalendarConflictAction(appointment.id, "local"))
+                  }
+                >
+                  Usar versão do VirgíniaPsi
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  isLoading={isPending}
+                  onClick={() =>
+                    runInPlace(() => resolveCalendarConflictAction(appointment.id, "google"))
+                  }
+                >
+                  Usar versão do Google
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {appointment.sync_status === "error" && appointment.sync_error ? (
+            <div className="rounded-xl border border-failed/30 bg-failed-bg px-4 py-3">
+              <p className="text-sm font-semibold text-failed">Falha na última sincronização</p>
+              <p className="mt-1 text-sm text-failed">{appointment.sync_error}</p>
+            </div>
+          ) : null}
 
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div>
@@ -192,7 +237,7 @@ export function AppointmentDetailDrawer({
                   )}
                   {!appointment.google_event_id ? (
                     <p className="text-xs text-muted-foreground">
-                      Sincronize com o Google Calendar antes de criar o Meet.
+                      Sincronize com o Google Agenda antes de criar o Meet.
                     </p>
                   ) : null}
                 </div>
@@ -206,7 +251,9 @@ export function AppointmentDetailDrawer({
               ) : null}
 
               <div className="flex flex-wrap gap-2">
-                {!appointment.google_event_id ? (
+                {appointment.origin === "TESSELI" &&
+                appointment.sync_status === "error" &&
+                appointment.status !== "cancelled" ? (
                   <Button
                     type="button"
                     size="sm"
@@ -215,7 +262,7 @@ export function AppointmentDetailDrawer({
                     disabled={!googleConnected}
                     onClick={() => runInPlace(() => pushAppointmentToGoogleAction(appointment.id))}
                   >
-                    Sincronizar com Google
+                    Tentar sincronizar novamente
                   </Button>
                 ) : null}
                 {appointment.status !== "confirmed" && appointment.status !== "cancelled" ? (

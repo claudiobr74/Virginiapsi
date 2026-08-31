@@ -94,7 +94,7 @@ export function buildIntegrationDiagnostics(
     integrations: [
       {
         key: "google",
-        label: "Google Calendar",
+        label: "Google Agenda",
         configured: input.google.oauthConfigured,
         health: googleHealth,
         summary: !input.google.oauthConfigured
@@ -102,7 +102,7 @@ export function buildIntegrationDiagnostics(
           : input.google.connectionStatus === "connected"
             ? `Conectado${input.google.accountEmail ? ` (${input.google.accountEmail})` : ""}.`
             : input.google.connectionStatus === "error"
-              ? `Conexão com erro${input.google.accountEmail ? ` (${input.google.accountEmail})` : ""} — reconecte pela Agenda.`
+              ? `Conexão com erro${input.google.accountEmail ? ` (${input.google.accountEmail})` : ""} — reconecte em Integrações.`
               : "OAuth pronto; o consultório ainda não conectou um calendário.",
         lastSuccessAt: input.google.lastSyncedAt,
         lastError: sanitizeDiagnosticText(input.google.lastError),

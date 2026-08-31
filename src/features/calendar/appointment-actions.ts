@@ -13,6 +13,8 @@ import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { zonedTimeToUtcIso } from "@/lib/utils/timezone";
+import { pushAppointmentToGoogle } from "@/features/calendar/sync-actions";
+import { resolveTimeZone } from "@/features/calendar/date-window";
 
 export interface AppointmentActionResult {
   error?: string;
@@ -79,6 +81,7 @@ export async function createAppointmentAction(
       modality: parsed.data.modality,
       summary_snapshot: summarySnapshot,
       create_idempotency_key: randomUUID(),
+      sync_status: "not_synced",
     })
     .select("id")
     .single();
@@ -94,7 +97,14 @@ export async function createAppointmentAction(
     resourceId: data.id as string,
   });
 
+  await pushAppointmentToGoogle(
+    organizationId,
+    data.id as string,
+    resolveTimeZone(timezone),
+  );
+
   revalidatePath("/app/agenda");
+  revalidatePath("/app/settings");
   return { appointmentId: data.id as string };
 }
 
@@ -102,7 +112,7 @@ export async function updateAppointmentStatusAction(
   appointmentId: string,
   status: string,
 ): Promise<AppointmentActionResult> {
-  const { organizationId } = await requireOrgContext();
+  const { organizationId, timezone } = await requireOrgContext();
 
   const parsedStatus = z.enum(APPOINTMENT_STATUS_VALUES).safeParse(status);
   if (!parsedStatus.success) {
@@ -110,10 +120,20 @@ export async function updateAppointmentStatusAction(
   }
 
   const supabase = await createSupabaseServerClient();
+  const fields: Record<string, unknown> = { status: parsedStatus.data };
+  if (parsedStatus.data === "cancelled") {
+    // Queue a Google cancel PATCH even if the connection is down right now.
+    // Leaving sync_status=synced would skip reconnect / "Sincronizar agora".
+    fields.sync_status = "not_synced";
+    fields.sync_error = null;
+  }
+
   const { data, error } = await supabase
     .from("appointments")
-    .update({ status: parsedStatus.data })
+    .update(fields)
     .eq("id", appointmentId)
+    .eq("organization_id", organizationId)
+    .eq("origin", "TESSELI")
     .select("id")
     .single();
 
@@ -129,8 +149,17 @@ export async function updateAppointmentStatusAction(
     metadata: { status: parsedStatus.data },
   });
 
+  if (parsedStatus.data === "cancelled") {
+    await pushAppointmentToGoogle(
+      organizationId,
+      appointmentId,
+      resolveTimeZone(timezone),
+    );
+  }
+
   revalidatePath("/app/agenda");
   revalidatePath("/app");
+  revalidatePath("/app/settings");
   return { appointmentId };
 }
 
@@ -167,8 +196,12 @@ export async function rescheduleAppointmentAction(
       starts_at: startsAt,
       ends_at: endsAt,
       modality: parsed.data.modality,
+      sync_status: "not_synced",
+      sync_error: null,
     })
     .eq("id", appointmentId)
+    .eq("organization_id", organizationId)
+    .eq("origin", "TESSELI")
     .select("id")
     .single();
 
@@ -183,7 +216,14 @@ export async function rescheduleAppointmentAction(
     resourceId: appointmentId,
   });
 
+  await pushAppointmentToGoogle(
+    organizationId,
+    appointmentId,
+    resolveTimeZone(timezone),
+  );
+
   revalidatePath("/app/agenda");
+  revalidatePath("/app/settings");
   return { appointmentId };
 }
 

@@ -5,8 +5,10 @@
 // "server-only" guard so accidental client-component imports fail loudly.
 import { z } from "zod";
 import {
+  assertCanonicalGoogleOAuthRedirectUri,
   coalesceAppUrl,
   formatEnvIssues,
+  isLoopbackHttpUrl,
   normalizeGoogleOAuthRedirectUri,
   publicEnvSchema,
   resolveGoogleCalendarRedirectUri,
@@ -90,6 +92,7 @@ function readServerEnvFromProcess(): EnvSource {
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     VERCEL_URL: process.env.VERCEL_URL,
+    VERCEL_ENV: process.env.VERCEL_ENV,
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
@@ -125,6 +128,11 @@ export function parseServerEnv(
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
   }
+  assertCanonicalGoogleOAuthRedirectUri(
+    parsed.data.GOOGLE_OAUTH_REDIRECT_URI,
+    parsed.data.NEXT_PUBLIC_APP_URL,
+    source.VERCEL_ENV ?? process.env.VERCEL_ENV,
+  );
   return parsed.data;
 }
 
@@ -145,6 +153,11 @@ export function parseGoogleCalendarEnv(
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
   }
+  assertCanonicalGoogleOAuthRedirectUri(
+    parsed.data.GOOGLE_OAUTH_REDIRECT_URI,
+    parsed.data.NEXT_PUBLIC_APP_URL,
+    source.VERCEL_ENV ?? process.env.VERCEL_ENV,
+  );
   return parsed.data;
 }
 
@@ -167,10 +180,17 @@ function presentEnvValue(value: string | undefined): boolean {
 export function readIntegrationEnvFlags(
   source: EnvSource = readServerEnvFromProcess(),
 ) {
+  const redirectUri = peekGoogleCalendarRedirectUri(source);
+  const googleRedirectReady =
+    typeof redirectUri === "string" &&
+    redirectUri.length > 0 &&
+    !isLoopbackHttpUrl(redirectUri);
   return {
     googleOAuth:
       presentEnvValue(source.GOOGLE_CLIENT_ID) &&
-      presentEnvValue(source.GOOGLE_CLIENT_SECRET),
+      presentEnvValue(source.GOOGLE_CLIENT_SECRET) &&
+      presentEnvValue(source.GOOGLE_TOKEN_ENCRYPTION_KEY) &&
+      googleRedirectReady,
     twilioAccount:
       presentEnvValue(source.TWILIO_ACCOUNT_SID) &&
       presentEnvValue(source.TWILIO_AUTH_TOKEN),

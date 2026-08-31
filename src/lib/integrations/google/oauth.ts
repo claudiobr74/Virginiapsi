@@ -19,6 +19,10 @@ export interface OAuthStatePayload {
   userId: string;
   nonce: string;
   issuedAt: number;
+  /** Absolute expiry (ms). Capped by STATE_MAX_AGE_MS even if set further. */
+  expiresAt?: number;
+  /** Whitelisted return surface after Google redirects back. */
+  returnTo?: "agenda" | "settings";
 }
 
 /**
@@ -75,8 +79,12 @@ export function verifyOAuthState(
     return { valid: false, reason: "malformed" };
   }
 
-  if (now - payload.issuedAt > STATE_MAX_AGE_MS) {
-    return { valid: false, reason: "expired" };
+  const expiresAt = Math.min(
+    payload.expiresAt ?? payload.issuedAt + STATE_MAX_AGE_MS,
+    payload.issuedAt + STATE_MAX_AGE_MS,
+  );
+  if (now > expiresAt) {
+    return { valid: false, reason: "expired", payload };
   }
 
   return { valid: true, payload };
@@ -96,12 +104,13 @@ export function buildAuthorizationUrl(options: BuildAuthorizationUrlOptions): st
   url.searchParams.set("redirect_uri", options.redirectUri);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("access_type", "offline");
-  url.searchParams.set("include_granted_scopes", "true");
+  url.searchParams.set("include_granted_scopes", "false");
   url.searchParams.set("scope", GOOGLE_CALENDAR_SCOPES.join(" "));
   url.searchParams.set("state", options.state);
-  if (options.forceConsent ?? true) {
-    url.searchParams.set("prompt", "consent");
-  }
+  url.searchParams.set(
+    "prompt",
+    options.forceConsent === false ? "select_account" : "consent select_account",
+  );
   return url.toString();
 }
 
@@ -171,6 +180,25 @@ export async function refreshAccessToken(
   }
 
   return (await response.json()) as TokenResponse;
+}
+
+const GOOGLE_REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke";
+
+/** Best-effort token revocation. Never throws; never logs the token. */
+export async function revokeGoogleOAuthToken(
+  token: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  try {
+    await fetchImpl(GOOGLE_REVOKE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }),
+      signal: AbortSignal.timeout(8_000),
+    });
+  } catch {
+    // Local disconnect must proceed even if Google is unreachable.
+  }
 }
 
 export interface GoogleUserInfo {

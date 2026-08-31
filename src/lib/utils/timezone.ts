@@ -58,3 +58,55 @@ export function formatInTimeZone(
 ): string {
   return new Intl.DateTimeFormat("pt-BR", { timeZone, ...options }).format(new Date(iso));
 }
+
+function zonedPart(
+  iso: string,
+  timeZone: string,
+  type: Intl.DateTimeFormatPartTypes,
+  extra: Intl.DateTimeFormatOptions = {},
+): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    ...extra,
+  }).formatToParts(new Date(iso));
+  return parts.find((part) => part.type === type)?.value ?? "";
+}
+
+/** Civil date (YYYY-MM-DD) of a UTC instant in the organization timezone. */
+export function toOrganizationDate(iso: string, timeZone: string): string {
+  const year = zonedPart(iso, timeZone, "year");
+  const month = zonedPart(iso, timeZone, "month");
+  const day = zonedPart(iso, timeZone, "day");
+  return `${year}-${month}-${day}`;
+}
+
+/** Civil time (HH:mm) of a UTC instant in the organization timezone. */
+export function toOrganizationTime(iso: string, timeZone: string): string {
+  const hour = zonedPart(iso, timeZone, "hour").padStart(2, "0");
+  const minute = zonedPart(iso, timeZone, "minute").padStart(2, "0");
+  return `${hour}:${minute}`;
+}
+
+export function utcToOrganizationDateTime(
+  iso: string,
+  timeZone: string,
+): { date: string; time: string } {
+  return {
+    date: toOrganizationDate(iso, timeZone),
+    time: toOrganizationTime(iso, timeZone),
+  };
+}
+
+export function localDateTimeToUtc(
+  date: string,
+  time: string,
+  timeZone: string,
+): string {
+  return zonedTimeToUtcIso(date, time, timeZone);
+}

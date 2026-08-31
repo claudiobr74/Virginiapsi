@@ -7,10 +7,10 @@ import { ensureGoogleCalendarReady } from "@/features/calendar/ensure-calendar";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { peekGoogleCalendarRedirectUri } from "@/lib/env/server";
 
-export const metadata: Metadata = { title: "Conexão Google Calendar — VirgíniaPsi" };
+export const metadata: Metadata = { title: "Conexão Google Agenda — VirgíniaPsi" };
 
 export default async function GoogleConnectionPage() {
-  const { organizationId, role } = await requireOrgContext();
+  const { organizationId, role, timezone } = await requireOrgContext();
   let connection = null;
   try {
     connection = await getConnection(organizationId);
@@ -27,10 +27,10 @@ export default async function GoogleConnectionPage() {
         </span>
         <div className="flex flex-col gap-1">
           <h1 className="font-serif text-[28px] italic font-medium leading-tight text-foreground">
-            Conexão com o Google Calendar
+            Conexão com o Google Agenda
           </h1>
           <p className="text-sm text-muted-foreground">
-            Conta independente do login — conecte, escolha o calendário e acompanhe a sincronização
+            Conta independente do login — conecte em Integrações, escolha a agenda e sincronize
           </p>
         </div>
       </div>
@@ -38,6 +38,7 @@ export default async function GoogleConnectionPage() {
         connection={connection}
         canManage={role === "psychologist_admin"}
         calendarRedirectUri={peekGoogleCalendarRedirectUri()}
+        timeZone={timezone}
       />
     </PageContainer>
   );

@@ -16,6 +16,8 @@ export const connectionRowSchema = z.object({
   scopes: z.array(z.string()).catch([]),
   last_synced_at: z.string().nullable(),
   last_sync_error: z.string().nullable(),
+  next_sync_token: z.string().nullable().optional(),
+  connected_by_user_id: z.string().uuid().nullable().optional(),
 });
 export type ConnectionRow = z.infer<typeof connectionRowSchema>;
 
@@ -47,6 +49,15 @@ export const APPOINTMENT_STATUS_BADGE: Record<
   no_show: "attention",
 };
 
+export const CALENDAR_SYNC_STATUS_VALUES = [
+  "not_synced",
+  "syncing",
+  "synced",
+  "error",
+  "conflict",
+] as const;
+export type CalendarSyncStatus = (typeof CALENDAR_SYNC_STATUS_VALUES)[number];
+
 export const APPOINTMENT_ORIGIN_VALUES = ["TESSELI", "GOOGLE_EXTERNAL"] as const;
 export type AppointmentOrigin = (typeof APPOINTMENT_ORIGIN_VALUES)[number];
 
@@ -74,6 +85,9 @@ export const appointmentRowSchema = z.object({
   meet_status: z.enum(MEET_STATUS_VALUES),
   summary_snapshot: z.string().nullable(),
   sync_status: z.string(),
+  sync_error: z.string().nullable().optional(),
+  google_etag: z.string().nullable().optional(),
+  last_synced_at: z.string().nullable().optional(),
 });
 export type AppointmentRow = z.infer<typeof appointmentRowSchema>;
 

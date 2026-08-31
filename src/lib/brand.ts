@@ -29,7 +29,7 @@ export function pageHeading(
     return "Diretório de Pacientes";
   }
   if (pathname.startsWith("/app/agenda/connect")) {
-    return "Google Calendar";
+    return "Google Agenda";
   }
   if (pathname.startsWith("/app/agenda")) {
     if (search?.view === "week") {

@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { syncGoogleCalendarPull } from "@/features/calendar/sync-actions";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
@@ -14,6 +15,10 @@ import {
 } from "@/lib/integrations/google/connection";
 import { googleCalendarListErrorMessage } from "@/lib/integrations/google/errors";
 import { signOAuthState } from "@/lib/integrations/google/oauth";
+import {
+  parseGoogleOAuthReturnTo,
+  type GoogleOAuthReturnTo,
+} from "@/features/calendar/oauth-callback";
 
 export interface CalendarActionResult {
   error?: string;
@@ -35,6 +40,9 @@ const GOOGLE_CALENDAR_KEYS_ERROR =
   "Faltam as chaves do Google Calendar na Vercel (Client ID e Client Secret). Importe do .env em Preview e Production.";
 
 function toGoogleCalendarStartError(error: unknown): string {
+  if (error instanceof Error && error.message.includes("CONFIGURATION_ERROR")) {
+    return "O endereço de retorno do Google Agenda não pertence ao domínio do VirgíniaPsi. Cadastre {NEXT_PUBLIC_APP_URL}/api/integrations/google/callback no Google Cloud — não use um domínio antigo.";
+  }
   const keys = envIssueKeyNames(error);
   if (
     keys.includes("GOOGLE_CLIENT_ID") ||
@@ -57,8 +65,11 @@ function toGoogleCalendarStartError(error: unknown): string {
   return "Faltam configurações do servidor na Vercel para conectar o Google Calendar. Confira se as variáveis do .env existem em Preview e Production.";
 }
 
-export async function startGoogleConnectionAction(): Promise<CalendarActionResult> {
+export async function startGoogleConnectionAction(
+  returnTo: GoogleOAuthReturnTo = "agenda",
+): Promise<CalendarActionResult> {
   const { organizationId, role, user } = await requireOrgContext();
+  const safeReturnTo = parseGoogleOAuthReturnTo(returnTo);
 
   if (role !== "psychologist_admin") {
     return { error: "Apenas a psicóloga administradora conecta o Google Calendar." };
@@ -76,11 +87,18 @@ export async function startGoogleConnectionAction(): Promise<CalendarActionResul
   }
 
   const state = signOAuthState(
-    { organizationId, userId: user.id, nonce: randomUUID(), issuedAt: Date.now() },
+    {
+      organizationId,
+      userId: user.id,
+      nonce: randomUUID(),
+      issuedAt: Date.now(),
+      expiresAt: Date.now() + 10 * 60 * 1000,
+      returnTo: safeReturnTo,
+    },
     env.GOOGLE_TOKEN_ENCRYPTION_KEY,
   );
 
-  redirect(`/api/integrations/google/start?state=${encodeURIComponent(state)}`);
+  redirect(`/api/integrations/google/connect?state=${encodeURIComponent(state)}`);
 }
 
 export async function disconnectGoogleAction(): Promise<CalendarActionResult> {
@@ -102,6 +120,10 @@ export async function disconnectGoogleAction(): Promise<CalendarActionResult> {
     resourceType: "google_calendar_connection",
   });
 
+  revalidatePath("/app/agenda");
+  revalidatePath("/app/agenda/connect");
+  revalidatePath("/app/settings");
+
   return {};
 }
 
@@ -115,7 +137,10 @@ export async function listCalendarsAction(): Promise<{
   calendars?: CalendarOption[];
   error?: string;
 }> {
-  const { organizationId } = await requireOrgContext();
+  const { organizationId, role } = await requireOrgContext();
+  if (role !== "psychologist_admin") {
+    return { error: "Apenas a psicóloga administradora escolhe o calendário." };
+  }
 
   try {
     const calendars = await listAvailableCalendars(organizationId);
@@ -137,7 +162,10 @@ export async function selectCalendarAction(
   calendarId: string,
   calendarSummary: string,
 ): Promise<CalendarActionResult> {
-  const { organizationId } = await requireOrgContext();
+  const { organizationId, role } = await requireOrgContext();
+  if (role !== "psychologist_admin") {
+    return { error: "Apenas a psicóloga administradora escolhe o calendário." };
+  }
 
   try {
     await selectOrganizationCalendar(organizationId, calendarId, calendarSummary);
@@ -157,6 +185,10 @@ export async function selectCalendarAction(
   } catch {
     // Calendar is already selected; the operator can retry sync from the panel.
   }
+
+  revalidatePath("/app/agenda");
+  revalidatePath("/app/agenda/connect");
+  revalidatePath("/app/settings");
 
   return {};
 }

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { loginViaUi, signIn, STUB_SECRETARY } from "./support/fixtures";
+import { loginViaUi, productAlert, signIn, STUB_SECRETARY } from "./support/fixtures";
 
 test.describe("Configurações", () => {
   test("secretária vê acesso restrito em /app/settings", async ({ page }) => {
@@ -37,7 +37,10 @@ test.describe("Configurações", () => {
     }
 
     await page.getByRole("tab", { name: "Integrações" }).click();
-    await expect(page.getByText("Google Calendar")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Google Agenda" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Conectar Google Agenda" })).toBeVisible();
+    await page.getByRole("button", { name: "Conectar Google Agenda" }).click();
+    await expect(productAlert(page, /localhost|computador/i)).toBeVisible();
     await expect(page.getByText("Twilio WhatsApp")).toBeVisible();
     await expect(page.getByText("Transcrição")).toBeVisible();
     await expect(page.getByText("Gemini")).toBeVisible();

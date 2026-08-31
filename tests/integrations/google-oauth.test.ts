@@ -5,6 +5,7 @@ import {
   fetchGoogleUserInfo,
   GOOGLE_CALENDAR_SCOPES,
   refreshAccessToken,
+  revokeGoogleOAuthToken,
   signOAuthState,
   verifyOAuthState,
 } from "@/lib/integrations/google/oauth";
@@ -55,11 +56,31 @@ describe("signOAuthState / verifyOAuthState", () => {
     const result = verifyOAuthState(state, SECRET, farFuture);
     expect(result.valid).toBe(false);
     expect(result.reason).toBe("expired");
+    expect(result.payload).toEqual(payload);
+  });
+
+  it("honra expiresAt curto mesmo com issuedAt recente", () => {
+    const issuedAt = Date.now();
+    const state = signOAuthState(
+      { ...payload, issuedAt, expiresAt: issuedAt + 1_000 },
+      SECRET,
+    );
+    const result = verifyOAuthState(state, SECRET, issuedAt + 2_000);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("expired");
+    expect(result.payload?.returnTo).toBeUndefined();
   });
 
   it("rejeita um state malformado", () => {
     expect(verifyOAuthState("not-a-real-state", SECRET).valid).toBe(false);
     expect(verifyOAuthState("", SECRET).valid).toBe(false);
+  });
+
+  it("preserva returnTo na whitelist ao round-trip do state", () => {
+    const state = signOAuthState({ ...payload, returnTo: "settings" }, SECRET);
+    const result = verifyOAuthState(state, SECRET, payload.issuedAt + 1000);
+    expect(result.valid).toBe(true);
+    expect(result.payload?.returnTo).toBe("settings");
   });
 
   it("cada chamada gera uma assinatura ligada ao payload exato", () => {
@@ -84,7 +105,8 @@ describe("buildAuthorizationUrl", () => {
     );
     expect(url.searchParams.get("client_id")).toBe("client-id-123");
     expect(url.searchParams.get("access_type")).toBe("offline");
-    expect(url.searchParams.get("prompt")).toBe("consent");
+    expect(url.searchParams.get("prompt")).toBe("consent select_account");
+    expect(url.searchParams.get("include_granted_scopes")).toBe("false");
     expect(url.searchParams.get("state")).toBe("signed-state-value");
     expect(url.searchParams.get("scope")).toBe(GOOGLE_CALENDAR_SCOPES.join(" "));
     expect(url.searchParams.get("redirect_uri")).toBe(
@@ -184,5 +206,16 @@ describe("fetchGoogleUserInfo", () => {
     expect((init?.headers as Record<string, string>).Authorization).toBe(
       "Bearer access-token-xyz",
     );
+  });
+});
+
+describe("revokeGoogleOAuthToken", () => {
+  it("chama o endpoint de revoke sem lançar se o Google falhar", async () => {
+    const fetchImpl = mockFetch(async () => new Response(null, { status: 400 }));
+    await expect(revokeGoogleOAuthToken("refresh-to-revoke", fetchImpl)).resolves.toBeUndefined();
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("https://oauth2.googleapis.com/revoke");
+    const body = new URLSearchParams(init?.body as string);
+    expect(body.get("token")).toBe("refresh-to-revoke");
   });
 });
