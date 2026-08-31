@@ -103,7 +103,9 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
   it("get_google_credentials só retorna dados para membro da própria organização", async () => {
     const admin = await createAuthUser();
     const organizationId = await bootstrapOrganization(admin, "Consultório Refresh");
-    await connectGoogle(admin, organizationId, { refreshToken: "enc-secret-refresh" });
+    await connectGoogle(admin, organizationId, {
+      refreshToken: `enc-secret-refresh:${organizationId}`,
+    });
 
     const session = await openSession({ userId: admin });
     try {
@@ -111,7 +113,7 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
         "select * from public.get_google_credentials($1)",
         [organizationId],
       );
-      expect(rows[0].refresh_token_encrypted).toBe("enc-secret-refresh");
+      expect(rows[0].refresh_token_encrypted).toBe(`enc-secret-refresh:${organizationId}`);
     } finally {
       await session.close();
     }
@@ -758,7 +760,9 @@ describe("isolamento de tenant no Google Calendar", () => {
   it("mark_google_connection_error exige membership e não vaza token", async () => {
     const admin = await createAuthUser();
     const organizationId = await bootstrapOrganization(admin, "Consultório Mark Error");
-    await connectGoogle(admin, organizationId, { refreshToken: "enc-secret-refresh" });
+    await connectGoogle(admin, organizationId, {
+      refreshToken: `enc-secret-refresh:${organizationId}`,
+    });
 
     const outsider = await createAuthUser();
     const outsiderSession = await openSession({ userId: outsider });
@@ -799,7 +803,9 @@ describe("isolamento de tenant no Google Calendar", () => {
         "select refresh_token_encrypted from public.get_google_credentials($1)",
         [organizationId],
       );
-      expect(credentials[0].refresh_token_encrypted).toBe("enc-secret-refresh");
+      expect(credentials[0].refresh_token_encrypted).toBe(
+        `enc-secret-refresh:${organizationId}`,
+      );
     } finally {
       await session.close();
     }
