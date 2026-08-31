@@ -7,14 +7,12 @@ import { z } from "zod";
 import {
   coalesceAppUrl,
   formatEnvIssues,
+  googleCalendarRedirectUri,
   isLoopbackHttpUrl,
-  normalizeGoogleOAuthRedirectUri,
   publicEnvSchema,
-  resolveGoogleCalendarRedirectUri,
 } from "@/lib/env/schema";
 
 const nonEmpty = z.string().trim().min(1);
-const httpUrl = z.string().trim().url();
 const optionalNonEmpty = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
   nonEmpty.optional(),
@@ -24,7 +22,6 @@ export const serverEnvSchema = publicEnvSchema.extend({
   SUPABASE_SECRET_KEY: nonEmpty.startsWith("sb_secret_"),
   GOOGLE_CLIENT_ID: nonEmpty,
   GOOGLE_CLIENT_SECRET: nonEmpty,
-  GOOGLE_OAUTH_REDIRECT_URI: z.preprocess(normalizeGoogleOAuthRedirectUri, httpUrl),
   GOOGLE_TOKEN_ENCRYPTION_KEY: nonEmpty,
   SESSION_CAPTURE_SECRET: nonEmpty,
   TWILIO_ACCOUNT_SID: nonEmpty,
@@ -53,10 +50,6 @@ export const googleCalendarEnvSchema = publicEnvSchema
   .extend({
     GOOGLE_CLIENT_ID: nonEmpty,
     GOOGLE_CLIENT_SECRET: nonEmpty,
-    GOOGLE_OAUTH_REDIRECT_URI: z.preprocess(
-      normalizeGoogleOAuthRedirectUri,
-      httpUrl,
-    ),
     GOOGLE_TOKEN_ENCRYPTION_KEY: nonEmpty,
   });
 
@@ -66,7 +59,6 @@ export const SERVER_ONLY_ENV_KEYS = [
   "SUPABASE_SECRET_KEY",
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
-  "GOOGLE_OAUTH_REDIRECT_URI",
   "GOOGLE_TOKEN_ENCRYPTION_KEY",
   "SESSION_CAPTURE_SECRET",
   "TWILIO_ACCOUNT_SID",
@@ -94,7 +86,6 @@ function readServerEnvFromProcess(): EnvSource {
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-    GOOGLE_OAUTH_REDIRECT_URI: process.env.GOOGLE_OAUTH_REDIRECT_URI,
     GOOGLE_TOKEN_ENCRYPTION_KEY: process.env.GOOGLE_TOKEN_ENCRYPTION_KEY,
     SESSION_CAPTURE_SECRET: process.env.SESSION_CAPTURE_SECRET,
     TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
@@ -118,67 +109,65 @@ export function parseServerEnv(
   const parsed = serverEnvSchema.safeParse({
     ...source,
     NEXT_PUBLIC_APP_URL: appUrl,
-    GOOGLE_OAUTH_REDIRECT_URI: resolveGoogleCalendarRedirectUri(
-      source.GOOGLE_OAUTH_REDIRECT_URI,
-      appUrl,
-    ),
   });
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
   }
   return parsed.data;
+}
+
+function canonicalCalendarAppUrl(source: EnvSource): string | undefined {
+  const raw = source.NEXT_PUBLIC_APP_URL;
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return undefined;
+  }
+  return raw;
 }
 
 export function parseGoogleCalendarEnv(
   source: EnvSource = readServerEnvFromProcess(),
 ): GoogleCalendarEnv {
-  const appUrl = coalesceAppUrl(source.NEXT_PUBLIC_APP_URL, source.VERCEL_URL);
   const parsed = googleCalendarEnvSchema.safeParse({
-    NEXT_PUBLIC_APP_URL: appUrl,
+    NEXT_PUBLIC_APP_URL: canonicalCalendarAppUrl(source),
     GOOGLE_CLIENT_ID: source.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: source.GOOGLE_CLIENT_SECRET,
-    GOOGLE_OAUTH_REDIRECT_URI: resolveGoogleCalendarRedirectUri(
-      source.GOOGLE_OAUTH_REDIRECT_URI,
-      appUrl,
-    ),
     GOOGLE_TOKEN_ENCRYPTION_KEY: source.GOOGLE_TOKEN_ENCRYPTION_KEY,
   });
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
   }
+  // Validates the callback can be derived and never uses a tesseli hostname.
+  googleCalendarRedirectUri(parsed.data.NEXT_PUBLIC_APP_URL);
   return parsed.data;
-}
-
-/** Resolves the Calendar OAuth callback without requiring the full server env. */
-export function peekGoogleCalendarRedirectUri(
-  source: EnvSource = readServerEnvFromProcess(),
-): string | undefined {
-  const appUrl = coalesceAppUrl(source.NEXT_PUBLIC_APP_URL, source.VERCEL_URL);
-  return resolveGoogleCalendarRedirectUri(
-    source.GOOGLE_OAUTH_REDIRECT_URI,
-    appUrl,
-  );
 }
 
 function presentEnvValue(value: string | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function googleCalendarRedirectReady(source: EnvSource): boolean {
+  const appUrl = canonicalCalendarAppUrl(source);
+  if (!appUrl) {
+    return false;
+  }
+  try {
+    const redirectUri = googleCalendarRedirectUri(appUrl);
+    return redirectUri.length > 0 && !isLoopbackHttpUrl(redirectUri);
+  } catch {
+    return false;
+  }
+}
+
 /** Presence flags for Settings diagnostics — never throws, never logs values. */
 export function readIntegrationEnvFlags(
   source: EnvSource = readServerEnvFromProcess(),
 ) {
-  const redirectUri = peekGoogleCalendarRedirectUri(source);
-  const googleRedirectReady =
-    typeof redirectUri === "string" &&
-    redirectUri.length > 0 &&
-    !isLoopbackHttpUrl(redirectUri);
   return {
     googleOAuth:
       presentEnvValue(source.GOOGLE_CLIENT_ID) &&
       presentEnvValue(source.GOOGLE_CLIENT_SECRET) &&
       presentEnvValue(source.GOOGLE_TOKEN_ENCRYPTION_KEY) &&
-      googleRedirectReady,
+      googleCalendarRedirectReady(source),
     twilioAccount:
       presentEnvValue(source.TWILIO_ACCOUNT_SID) &&
       presentEnvValue(source.TWILIO_AUTH_TOKEN),

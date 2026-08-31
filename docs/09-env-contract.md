@@ -19,7 +19,6 @@ SUPABASE_SECRET_KEY=
 
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/api/integrations/google/callback
 GOOGLE_TOKEN_ENCRYPTION_KEY=
 
 # Assina o session_capture_grant e o audio_fallback_upload_grant (Fase 6).
@@ -59,8 +58,8 @@ Não gravar valores do Vault em migrations, fixtures, logs ou documentação. Ro
 
 Preview e Production recebem o mesmo conjunto de chaves, com URLs distintas:
 
-- `NEXT_PUBLIC_APP_URL` = origem HTTPS completa (`https://…`), sem aspas e sem caminho (`/login`). Vazio, inválido ou localhost (`.env` importado) no Preview/Production: o parser usa `VERCEL_URL`. A variável precisa existir no **Build** também, não só no Runtime;
-- `GOOGLE_OAUTH_REDIRECT_URI` = `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback` cadastrado no Google Cloud (Agenda/Calendar — **não** é o login). Se colar só a origem, `/auth/callback`, localhost no Preview, ou deixar vazio, o parser deriva o callback HTTPS da `VERCEL_URL`/`APP_URL`. Conectar a Agenda valida só as chaves Google + APP_URL; Twilio, Gemini e `CRON_SECRET` não bloqueiam esse botão. A tela Configurações também não exige o contrato servidor completo: diagnósticos marcam integrações ausentes em vez de derrubar o módulo;
+- `NEXT_PUBLIC_APP_URL` = origem HTTPS completa (`https://…`), sem aspas e sem caminho (`/login`). Vazio, inválido ou localhost (`.env` importado) no Preview/Production: o parser público usa `VERCEL_URL`. A variável precisa existir no **Build** também, não só no Runtime;
+- Agenda/Calendar: o callback OAuth é sempre `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback` (domínio canônico estável, cadastrado no Google Cloud). Não existe variável `GOOGLE_OAUTH_REDIRECT_URI`. Preview/host efêmero nunca vira callback; a conexão deve ser feita no domínio oficial. Conectar a Agenda valida só as chaves Google + `NEXT_PUBLIC_APP_URL`; Twilio, Gemini e `CRON_SECRET` não bloqueiam esse botão. A tela Configurações também não exige o contrato servidor completo: diagnósticos marcam integrações ausentes em vez de derrubar o módulo;
 - Login com Google (botão Entrar) usa o provider Auth do Supabase. No Google Cloud, a **Authorized redirect URI** desse cliente tem de ser `https://<ref-do-projeto>.supabase.co/auth/v1/callback`. A URL do Tesseli (`…/auth/callback`) entra só em Authentication → URL Configuration → Redirect URLs no Supabase, não no Google Cloud.
 - **Site URL** do Auth não pode ficar `http://localhost:3000` se o login for na Vercel: o Google autentica e o navegador abre localhost (`ERR_CONNECTION_REFUSED`, `/?code=…`). Site URL = origem HTTPS do Preview/Production; Redirect URLs incluem `{origem}/auth/callback` **e** `http://localhost:3000/auth/callback` (dev). Wildcard de Preview: `https://*-claudiobr74-9668s-projects.vercel.app/**`;
 - Vault `tesseli_app_url` aponta para a URL de **produção** (jobs não devem bater em Preview);

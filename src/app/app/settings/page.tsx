@@ -2,13 +2,11 @@ import { Settings } from "lucide-react";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
 import { GoogleOAuthResultBanner } from "@/features/calendar/components/google-oauth-result-banner";
-import { getConnection } from "@/features/calendar/connection-queries";
 import { ensureGoogleCalendarReady } from "@/features/calendar/ensure-calendar";
 import { SettingsConsole } from "@/features/settings/components/settings-console";
 import { getSettingsSnapshot } from "@/features/settings/queries";
 import { RestrictedAccess } from "@/features/shell/restricted-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
-import { peekGoogleCalendarRedirectUri } from "@/lib/env/server";
 
 export const metadata = { title: "Configurações — VirgíniaPsi" };
 
@@ -64,15 +62,15 @@ export default async function SettingsPage({
     fullName: metadataName || organizationName,
   });
 
-  let googleConnection = null;
+  let googleConnection = snapshot.googleConnection;
   try {
-    googleConnection = await getConnection(organizationId);
-    googleConnection = await ensureGoogleCalendarReady(organizationId, googleConnection);
+    googleConnection = await ensureGoogleCalendarReady(
+      organizationId,
+      googleConnection,
+    );
   } catch {
-    googleConnection = null;
+    googleConnection = snapshot.googleConnection;
   }
-
-  const calendarRedirectUri = peekGoogleCalendarRedirectUri();
 
   return (
     <PageContainer>
@@ -86,15 +84,10 @@ export default async function SettingsPage({
           </span>
         }
       />
-      <GoogleOAuthResultBanner
-        status={googleStatus}
-        detail={googleDetail}
-        redirectUri={calendarRedirectUri}
-      />
+      <GoogleOAuthResultBanner status={googleStatus} detail={googleDetail} />
       <SettingsConsole
         snapshot={snapshot}
         googleConnection={googleConnection}
-        calendarRedirectUri={calendarRedirectUri}
         initialTab={initialTab}
       />
     </PageContainer>

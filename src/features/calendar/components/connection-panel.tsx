@@ -20,20 +20,18 @@ import type { GoogleOAuthReturnTo } from "@/features/calendar/oauth-callback";
 
 const STATUS_LABELS = {
   connected: "Conectado",
-  disconnected: "Desconectado",
+  disconnected: "Não conectado",
   error: "Com erro",
 } as const;
 
 export function ConnectionPanel({
   connection,
   canManage,
-  calendarRedirectUri,
   oauthReturnTo = "agenda",
   framed = true,
 }: {
   connection: ConnectionRow | null;
   canManage: boolean;
-  calendarRedirectUri?: string;
   oauthReturnTo?: GoogleOAuthReturnTo;
   framed?: boolean;
 }) {
@@ -45,6 +43,7 @@ export function ConnectionPanel({
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
   const status = connection?.status ?? "disconnected";
+  const showConnectionDetails = status === "connected" || status === "error";
 
   function openCalendarModal() {
     setCalendarModalOpen(true);
@@ -90,63 +89,75 @@ export function ConnectionPanel({
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-1">
+        <h2 className="font-serif text-xl italic font-medium text-foreground">
+          Google Agenda
+        </h2>
         <div className="flex flex-col gap-1">
+          <span className="text-xs font-bold uppercase tracking-wide text-deep-neutral">
+            Status
+          </span>
           <StatusBadge
             status={status === "connected" ? "active" : status === "error" ? "failed" : "cancelled"}
             label={STATUS_LABELS[status]}
           />
-          {connection?.google_account_email ? (
-            <span className="text-sm text-muted-foreground">
-              {connection.google_account_email}
-            </span>
-          ) : null}
         </div>
-
-        {canManage ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {status !== "connected" ? (
-              <Button
-                type="button"
-                size="sm"
-                isLoading={isPending}
-                onClick={() =>
-                  startTransition(async () => {
-                    const result = await startGoogleConnectionAction(oauthReturnTo);
-                    if (result?.error) {
-                      setError(result.error);
-                    }
-                  })
-                }
-              >
-                {status === "error" ? "Reconectar" : "Conectar com o Google"}
-              </Button>
-            ) : null}
-            {status === "connected" || status === "error" ? (
-              <Button
-                type="button"
-                variant={status === "connected" ? "destructive" : "secondary"}
-                size="sm"
-                onClick={() => setConfirmDisconnect(true)}
-              >
-                Desconectar
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
       </div>
 
-      {calendarRedirectUri && status !== "connected" ? (
+      {showConnectionDetails ? (
+        <div className="flex flex-col gap-3">
+          {connection?.google_account_email ? (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">Conta Google: </span>
+              {connection.google_account_email}
+            </p>
+          ) : null}
+          {connection?.calendar_summary || connection?.calendar_id ? (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">Agenda selecionada: </span>
+              {connection.calendar_summary ?? connection.calendar_id}
+            </p>
+          ) : null}
+        </div>
+      ) : (
         <p className="text-sm text-muted-foreground">
-          Cadastre este endereço no Google Cloud, em URIs de redirecionamento
-          autorizados. É o retorno da Agenda — diferente do login:{" "}
-          <code className="break-all rounded-md bg-muted px-1.5 py-0.5 text-xs text-foreground">
-            {calendarRedirectUri}
-          </code>
+          Conecte uma conta Google para sincronizar seus compromissos.
         </p>
+      )}
+
+      {canManage ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {status !== "connected" ? (
+            <Button
+              type="button"
+              size="sm"
+              isLoading={isPending}
+              onClick={() =>
+                startTransition(async () => {
+                  const result = await startGoogleConnectionAction(oauthReturnTo);
+                  if (result?.error) {
+                    setError(result.error);
+                  }
+                })
+              }
+            >
+              {status === "error" ? "Reconectar" : "Conectar Google Agenda"}
+            </Button>
+          ) : null}
+          {status === "connected" || status === "error" ? (
+            <Button
+              type="button"
+              variant={status === "connected" ? "destructive" : "secondary"}
+              size="sm"
+              onClick={() => setConfirmDisconnect(true)}
+            >
+              Desconectar
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
-      {status === "connected" ? (
+      {showConnectionDetails ? (
         <div className="flex flex-col gap-3 border-t border-border pt-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm">
@@ -155,37 +166,41 @@ export function ConnectionPanel({
                 {connection?.calendar_summary ?? "Nenhum calendário selecionado"}
               </span>
             </div>
-            <Button type="button" variant="secondary" size="sm" onClick={openCalendarModal}>
-              Selecionar calendário
-            </Button>
+            {status === "connected" ? (
+              <Button type="button" variant="secondary" size="sm" onClick={openCalendarModal}>
+                Selecionar calendário
+              </Button>
+            ) : null}
           </div>
 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>
               {connection?.last_synced_at
-                ? `Último sync: ${new Date(connection.last_synced_at).toLocaleString("pt-BR")}`
+                ? `Última sincronização: ${new Date(connection.last_synced_at).toLocaleString("pt-BR")}`
                 : "Ainda não sincronizado"}
             </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              isLoading={isPending}
-              disabled={!connection?.calendar_id}
-              onClick={() =>
-                startTransition(async () => {
-                  const result = await syncGoogleCalendarAction();
-                  if (result.error) {
-                    setError(result.error);
-                  } else {
-                    router.refresh();
-                  }
-                })
-              }
-            >
-              <RefreshCw className="size-3.5" aria-hidden />
-              Sincronizar agora
-            </Button>
+            {status === "connected" ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                isLoading={isPending}
+                disabled={!connection?.calendar_id}
+                onClick={() =>
+                  startTransition(async () => {
+                    const result = await syncGoogleCalendarAction();
+                    if (result.error) {
+                      setError(result.error);
+                    } else {
+                      router.refresh();
+                    }
+                  })
+                }
+              >
+                <RefreshCw className="size-3.5" aria-hidden />
+                Sincronizar agora
+              </Button>
+            ) : null}
           </div>
           {connection?.last_sync_error ? (
             <p className="text-xs text-failed">{connection.last_sync_error}</p>

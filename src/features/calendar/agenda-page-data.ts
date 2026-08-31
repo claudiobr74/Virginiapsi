@@ -7,6 +7,10 @@ import {
 } from "@/features/calendar/appointment-queries";
 import type { AppointmentRow, ConnectionRow } from "@/features/calendar/contracts";
 import { getConnection } from "@/features/calendar/connection-queries";
+import {
+  googleConnectionIsLive,
+  visibleAgendaAppointments,
+} from "@/features/calendar/display";
 import { ensureGoogleCalendarReady } from "@/features/calendar/ensure-calendar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -59,12 +63,20 @@ export async function loadAgendaPageData(
     initialConnection,
   ).catch((): ConnectionRow | null => initialConnection);
 
+  const managedOnly = !googleConnectionIsLive(connection);
+
   const [appointments, patients] = await Promise.all([
-    listAppointments(organizationId, window).catch((): AppointmentRow[] => []),
+    listAppointments(organizationId, window, { managedOnly }).catch(
+      (): AppointmentRow[] => [],
+    ),
     listAgendaPatientOptions(organizationId).catch(
       (): AgendaPatientOption[] => [],
     ),
   ]);
 
-  return { appointments, connection, patients };
+  return {
+    appointments: visibleAgendaAppointments(appointments, connection),
+    connection,
+    patients,
+  };
 }

@@ -19,7 +19,7 @@ function uniqueDateForTest(testInfo: TestInfo, baseYear = 2027): string {
 }
 
 test.describe("Agenda — visão do dia", () => {
-  test("mostra a consulta gerenciada e o evento externo somente leitura", async ({
+  test("mostra a consulta gerenciada e esconde eventos Google com Agenda desconectada", async ({
     page,
   }) => {
     await loginViaUi(page);
@@ -27,34 +27,24 @@ test.describe("Agenda — visão do dia", () => {
 
     await expect(page.getByRole("heading", { name: "Agenda" })).toBeVisible();
     await expect(page.getByText("Beatriz Lima • PAC-001")).toBeVisible();
-    await expect(page.getByText("Reunião do conselho regional")).toBeVisible();
-    await expect(
-      page.getByText("Evento externo do Google").first(),
-    ).toBeVisible();
+    await expect(page.getByText("Reunião do conselho regional")).toHaveCount(0);
+    await expect(page.getByText("Evento externo do Google")).toHaveCount(0);
 
     // Sem conexão Google, a Agenda deve avisar mas continuar funcional.
     await expect(page.getByText("Google Calendar não conectado")).toBeVisible();
   });
 
-  test("evento externo é somente leitura no drawer de detalhes", async ({
+  test("evento externo do Google não aparece com a Agenda desconectada", async ({
     page,
   }) => {
     await loginViaUi(page);
     await page.goto("/app/agenda");
 
-    await page.getByText("Reunião do conselho regional").click();
-
+    await expect(page.getByText("Beatriz Lima • PAC-001")).toBeVisible();
+    await expect(page.getByText("Reunião do conselho regional")).toHaveCount(0);
     await expect(
       page.getByRole("heading", { name: "Evento externo do Google" }),
-    ).toBeVisible();
-    await expect(page.getByText("Somente leitura", { exact: true })).toBeVisible();
-    await expect(
-      page.getByText(
-        "Este evento vem do Google Calendar e é somente leitura no VirgíniaPsi.",
-      ),
-    ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Cancelar consulta" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Remarcar" })).toHaveCount(0);
+    ).toHaveCount(0);
   });
 
   test("alterna entre as visões de dia, semana e mês", async ({ page }) => {
@@ -176,10 +166,11 @@ test.describe("Agenda — conexão Google Calendar", () => {
     await expect(
       page.getByRole("heading", { name: "Conexão com o Google Calendar" }),
     ).toBeVisible();
-    await expect(page.getByText("Desconectado")).toBeVisible();
+    await expect(page.getByText("Não conectado")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Conectar com o Google" }),
+      page.getByRole("button", { name: "Conectar Google Agenda" }),
     ).toBeVisible();
+    await expect(page.getByText(/cadastre este endereço/i)).toHaveCount(0);
 
     // A troca de código/OAuth real com accounts.google.com não é testável
     // neste ambiente sem credenciais reais (EXTERNAL_BLOCKED) — cobrimos até

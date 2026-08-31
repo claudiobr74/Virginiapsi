@@ -4,9 +4,9 @@ import {
   parseGoogleOAuthReturnTo,
 } from "@/features/calendar/oauth-callback";
 import { requireUser } from "@/lib/auth/require-user";
-import { isLoopbackHttpUrl } from "@/lib/env/schema";
 import { getGoogleCalendarEnv } from "@/lib/env/server";
 import { buildAuthorizationUrl, verifyOAuthState } from "@/lib/integrations/google/oauth";
+import { resolveGoogleCalendarOAuthStart } from "@/lib/integrations/google/oauth-start";
 
 function redirectOAuthError(request: NextRequest, detail = "invalid_state") {
   const state = request.nextUrl.searchParams.get("state");
@@ -46,16 +46,27 @@ export async function GET(request: NextRequest) {
     return redirectOAuthError(request, "invalid_env");
   }
 
-  if (
-    isLoopbackHttpUrl(env.GOOGLE_OAUTH_REDIRECT_URI) &&
-    !isLoopbackHttpUrl(request.nextUrl.origin)
-  ) {
+  let decision;
+  try {
+    decision = resolveGoogleCalendarOAuthStart({
+      canonicalAppUrl: env.NEXT_PUBLIC_APP_URL,
+      requestOrigin: request.nextUrl.origin,
+    });
+  } catch {
+    return redirectOAuthError(request, "invalid_env");
+  }
+
+  if (decision.type === "redirect_to_canonical") {
+    return NextResponse.redirect(decision.url);
+  }
+
+  if (decision.type !== "authorize") {
     return redirectOAuthError(request, "invalid_env");
   }
 
   const authorizationUrl = buildAuthorizationUrl({
     clientId: env.GOOGLE_CLIENT_ID,
-    redirectUri: env.GOOGLE_OAUTH_REDIRECT_URI,
+    redirectUri: decision.redirectUri,
     state,
   });
 

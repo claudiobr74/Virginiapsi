@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { PageContainer } from "@/components/ui/page-container";
 import { loadAgendaPageData } from "@/features/calendar/agenda-page-data";
 import { AgendaBoard } from "@/features/calendar/components/agenda-board";
+import { GoogleOAuthResultBanner } from "@/features/calendar/components/google-oauth-result-banner";
 import {
   computeAgendaWindow,
   resolveTimeZone,
@@ -11,8 +12,6 @@ import {
 } from "@/features/calendar/date-window";
 import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
-import { peekGoogleCalendarRedirectUri } from "@/lib/env/server";
-import { GoogleOAuthResultBanner } from "@/features/calendar/components/google-oauth-result-banner";
 
 export const metadata: Metadata = { title: "Agenda — VirgíniaPsi" };
 
@@ -41,15 +40,10 @@ export default async function AgendaPage({
 
   const googleStatus = typeof params.google === "string" ? params.google : undefined;
   const googleDetail = typeof params.google_detail === "string" ? params.google_detail : undefined;
-  const calendarRedirectUri = peekGoogleCalendarRedirectUri();
 
   return (
     <PageContainer>
-      <GoogleOAuthResultBanner
-        status={googleStatus}
-        detail={googleDetail}
-        redirectUri={calendarRedirectUri}
-      />
+      <GoogleOAuthResultBanner status={googleStatus} detail={googleDetail} />
 
       <Suspense>
         <AgendaBoard

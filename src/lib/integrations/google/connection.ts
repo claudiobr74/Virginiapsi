@@ -7,6 +7,7 @@ import {
   fetchGoogleUserInfo,
   refreshAccessToken,
 } from "@/lib/integrations/google/oauth";
+import { googleCalendarRedirectUri } from "@/lib/env/schema";
 import { getGoogleCalendarEnv } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { firstRpcRow } from "@/lib/supabase/rpc-result";
@@ -126,7 +127,7 @@ export async function completeGoogleConnection(
     code: input.code,
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
-    redirectUri: env.GOOGLE_OAUTH_REDIRECT_URI,
+    redirectUri: googleCalendarRedirectUri(env.NEXT_PUBLIC_APP_URL),
   });
 
   if (!tokens.refresh_token) {

@@ -105,27 +105,33 @@ export async function getIntegrationDiagnosticsForOrg(organizationId: string) {
     lastTwilioError(organizationId).catch(() => null),
   ]);
 
-  return buildIntegrationDiagnostics({
-    google: {
-      oauthConfigured: flags.googleOAuth,
-      connectionStatus: connection?.status ?? null,
-      accountEmail: connection?.google_account_email ?? null,
-      lastSyncedAt: connection?.last_synced_at ?? null,
-      lastError: connection?.last_sync_error ?? null,
-    },
-    twilio: {
-      accountConfigured: flags.twilioAccount,
-      senderConfigured: flags.twilioSender,
-      lastError: twilioError,
-    },
-    transcription: {
-      localDefault: true,
-      fallbackConfigured: flags.groq,
-    },
-    gemini: {
-      configured: flags.gemini,
-    },
-  });
+  const googleLive =
+    connection?.status === "connected" || connection?.status === "error";
+
+  return {
+    connection,
+    diagnostics: buildIntegrationDiagnostics({
+      google: {
+        oauthConfigured: flags.googleOAuth,
+        connectionStatus: connection?.status ?? null,
+        accountEmail: googleLive ? connection?.google_account_email ?? null : null,
+        lastSyncedAt: googleLive ? connection?.last_synced_at ?? null : null,
+        lastError: googleLive ? connection?.last_sync_error ?? null : null,
+      },
+      twilio: {
+        accountConfigured: flags.twilioAccount,
+        senderConfigured: flags.twilioSender,
+        lastError: twilioError,
+      },
+      transcription: {
+        localDefault: true,
+        fallbackConfigured: flags.groq,
+      },
+      gemini: {
+        configured: flags.gemini,
+      },
+    }),
+  };
 }
 
 export async function countEliminationRecords(
@@ -231,7 +237,7 @@ export async function getSettingsSnapshot(input: {
 
   try {
     const supabase = await createSupabaseServerClient();
-    const [{ data: org }, practice, team, diagnostics, exports, patients] =
+    const [{ data: org }, practice, team, integration, exports, patients] =
       await Promise.all([
         supabase
           .from("organizations")
@@ -264,7 +270,8 @@ export async function getSettingsSnapshot(input: {
       },
       practice: practiceRow,
       team,
-      diagnostics,
+      diagnostics: integration.diagnostics,
+      googleConnection: integration.connection,
       exports,
       patients: (patients.data ?? []).map((patient) => ({
         id: patient.id as string,
@@ -289,6 +296,7 @@ export async function getSettingsSnapshot(input: {
       practice: practiceRow,
       team: [],
       diagnostics: emptyDiagnostics(),
+      googleConnection: null,
       exports: [],
       patients: [],
       secretaryFinanceAccess: practiceRow.secretary_finance_access,

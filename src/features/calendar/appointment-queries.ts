@@ -9,19 +9,30 @@ export interface AppointmentWindow {
   toIso: string;
 }
 
+export interface ListAppointmentsOptions {
+  /** When Google Agenda is disconnected, load only VirgíniaPsi-managed rows. */
+  managedOnly?: boolean;
+}
+
 export async function listAppointments(
   organizationId: string,
   window: AppointmentWindow,
+  options?: ListAppointmentsOptions,
 ): Promise<AppointmentRow[]> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("appointments")
     .select("*")
     .eq("organization_id", organizationId)
     .neq("status", "cancelled")
     .lt("starts_at", window.toIso)
-    .gt("ends_at", window.fromIso)
-    .order("starts_at", { ascending: true });
+    .gt("ends_at", window.fromIso);
+
+  if (options?.managedOnly) {
+    query = query.eq("origin", "TESSELI");
+  }
+
+  const { data, error } = await query.order("starts_at", { ascending: true });
 
   if (error) {
     if (isMissingPublicTable(error)) {

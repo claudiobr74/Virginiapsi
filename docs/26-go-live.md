@@ -245,7 +245,7 @@ Depois do alias apontar para esta pilha, no Supabase Virginiapsi (`kgfcgxagixiyn
 - Authentication → URL Configuration → **Site URL** = `https://serena-psi-beta.vercel.app`
 - Redirect URLs: `https://serena-psi-beta.vercel.app/auth/callback` e `http://localhost:3000/auth/callback`
 - Login Google (Auth): no Google Cloud, Authorized redirect URI = `https://kgfcgxagixiynlcewept.supabase.co/auth/v1/callback` (não é o OAuth da Agenda)
-- Agenda: `GOOGLE_OAUTH_REDIRECT_URI` = `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback`
+- Agenda: callback = `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback` (derivado do domínio canônico; não há `GOOGLE_OAUTH_REDIRECT_URI`)
 
 Sem o Site URL no Supabase, o Google devolve `/?code=` em localhost.
 

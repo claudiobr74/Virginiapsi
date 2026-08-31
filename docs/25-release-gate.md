@@ -40,7 +40,7 @@ G0 (2026-08-25): `GET /login` em `serena-psi-beta.vercel.app` respondeu **200** 
 Todas as chaves de `docs/09-env-contract.md` precisam existir no Vercel (Production e Preview, com URLs de callback distintas) **e** no Vault do Supabase para o scheduler:
 
 - Browser: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_APP_URL` (HTTPS canônico, com `https://`; host sem esquema quebra o build).
-- Server: `SUPABASE_SECRET_KEY`, Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` de produção, `GOOGLE_TOKEN_ENCRYPTION_KEY`), `SESSION_CAPTURE_SECRET`, Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, e **um** de `TWILIO_WHATSAPP_FROM` / `TWILIO_MESSAGING_SERVICE_SID` quando o envio for habilitado), `GEMINI_API_KEY` + modelos, `CRON_SECRET`.
+- Server: `SUPABASE_SECRET_KEY`, Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_TOKEN_ENCRYPTION_KEY`), `SESSION_CAPTURE_SECRET`, Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, e **um** de `TWILIO_WHATSAPP_FROM` / `TWILIO_MESSAGING_SERVICE_SID` quando o envio for habilitado), `GEMINI_API_KEY` + modelos, `CRON_SECRET`.
 - Opcional: `GROQ_API_KEY` só se o fallback de transcrição for habilitado.
 - Vault: `tesseli_app_url` = `NEXT_PUBLIC_APP_URL` de produção; `tesseli_cron_secret` = mesmo valor de `CRON_SECRET`. Sem valores em migration.
 
@@ -54,7 +54,7 @@ SSO desligado. `vercel.json` força `framework: nextjs` (o preset do dashboard e
 
 O que ainda falta:
 
-1. Login Google: no cliente OAuth do Google Cloud, cadastrar `https://<ref>.supabase.co/auth/v1/callback`. Agenda: `{origem-do-Preview}/api/integrations/google/callback` no mesmo cliente, API Google Calendar **Ativar**, e o Gmail da clínica na lista de testadores (modo Testing). Depois do OAuth, o Tesseli tenta selecionar o calendário principal e puxar 30 dias; se a API estiver desligada, a modal mostra o erro em vez de “Carregando…”.
+1. Login Google: no cliente OAuth do Google Cloud, cadastrar `https://<ref>.supabase.co/auth/v1/callback`. Agenda: `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback` no mesmo cliente (domínio canônico, nunca Preview), API Google Calendar **Ativar**, e o Gmail da clínica na lista de testadores (modo Testing). Depois do OAuth, o Tesseli tenta selecionar o calendário principal e puxar 30 dias; se a API estiver desligada, a modal mostra o erro em vez de “Carregando…”.
 2. `TWILIO_WHATSAPP_FROM` / Messaging Service podem permanecer vazios.
 3. **Não** criar Cron Jobs na Vercel.
 4. Só promover Production depois de merge da Fase 13 (não o `main` SerenaPsi).

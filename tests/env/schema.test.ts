@@ -4,16 +4,14 @@ import { describe, expect, it } from "vitest";
 import {
   coalesceAppUrl,
   envIssueKeyNames,
+  googleCalendarRedirectUri,
   isLoopbackHttpUrl,
-  normalizeGoogleOAuthRedirectUri,
   normalizePublicAppUrl,
   parsePublicEnv,
-  resolveGoogleCalendarRedirectUri,
 } from "../../src/lib/env/schema";
 import {
   parseGoogleCalendarEnv,
   parseServerEnv,
-  peekGoogleCalendarRedirectUri,
   readIntegrationEnvFlags,
   SERVER_ONLY_ENV_KEYS,
 } from "../../src/lib/env/server-schema";
@@ -31,8 +29,6 @@ const validServer = {
   SUPABASE_SECRET_KEY: "sb_secret_ci_placeholder",
   GOOGLE_CLIENT_ID: "google-client-id",
   GOOGLE_CLIENT_SECRET: "google-client-secret",
-  GOOGLE_OAUTH_REDIRECT_URI:
-    "http://localhost:3000/api/integrations/google/callback",
   GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key-placeholder",
   SESSION_CAPTURE_SECRET: "session-capture-secret-placeholder",
   TWILIO_ACCOUNT_SID: "AC00000000000000000000000000000000",
@@ -151,70 +147,16 @@ describe("contrato de ambiente", () => {
     }
   });
 
-  it("normaliza o redirect URI da Agenda (origem, login ou aspas)", () => {
-    expect(normalizeGoogleOAuthRedirectUri("preview.vercel.app")).toBe(
-      "https://preview.vercel.app/api/integrations/google/callback",
+  it("deriva o callback da Agenda só de NEXT_PUBLIC_APP_URL", () => {
+    expect(googleCalendarRedirectUri("https://dominio-oficial.vercel.app")).toBe(
+      "https://dominio-oficial.vercel.app/api/integrations/google/callback",
     );
-    expect(
-      normalizeGoogleOAuthRedirectUri("https://preview.vercel.app/auth/callback"),
-    ).toBe("https://preview.vercel.app/api/integrations/google/callback");
-    expect(
-      parseServerEnv({
-        ...validServer,
-        GOOGLE_OAUTH_REDIRECT_URI: "https://preview.vercel.app",
-      }).GOOGLE_OAUTH_REDIRECT_URI,
-    ).toBe("https://preview.vercel.app/api/integrations/google/callback");
-  });
-
-  it("deriva APP_URL e callback da Agenda a partir de VERCEL_URL", () => {
-    expect(
-      resolveGoogleCalendarRedirectUri(
-        "",
-        "https://tesseli-git-preview.vercel.app",
-      ),
-    ).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
-    );
-    expect(
-      resolveGoogleCalendarRedirectUri(
-        "http://localhost:3000/api/integrations/google/callback",
-        "https://tesseli-git-preview.vercel.app",
-      ),
-    ).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
-    );
-
-    const parsed = parseServerEnv({
-      ...validServer,
-      NEXT_PUBLIC_APP_URL: "",
-      VERCEL_URL: "tesseli-git-preview.vercel.app",
-      GOOGLE_OAUTH_REDIRECT_URI: "http://localhost:3000/api/integrations/google/callback",
-    });
-    expect(parsed.NEXT_PUBLIC_APP_URL).toBe(
-      "https://tesseli-git-preview.vercel.app",
-    );
-    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
+    expect(googleCalendarRedirectUri("http://localhost:3000")).toBe(
+      "http://localhost:3000/api/integrations/google/callback",
     );
   });
 
-  it("no Preview, localhost importado do .env vira o callback HTTPS da Vercel", () => {
-    const parsed = parseServerEnv({
-      ...validServer,
-      NEXT_PUBLIC_APP_URL: "http://localhost:3000",
-      VERCEL_URL: "tesseli-git-preview.vercel.app",
-      GOOGLE_OAUTH_REDIRECT_URI:
-        "http://localhost:3000/api/integrations/google/callback",
-    });
-    expect(parsed.NEXT_PUBLIC_APP_URL).toBe(
-      "https://tesseli-git-preview.vercel.app",
-    );
-    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
-    );
-  });
-
-  it("reconhece localhost no redirect URI", () => {
+  it("reconhece localhost em URL HTTP", () => {
     expect(isLoopbackHttpUrl("http://localhost:3000/api/integrations/google/callback")).toBe(
       true,
     );
@@ -229,39 +171,36 @@ describe("contrato de ambiente", () => {
     const parsed = parseServerEnv(validServer);
     expect(parsed.SUPABASE_SECRET_KEY).toBe("sb_secret_ci_placeholder");
     expect(parsed.NEXT_PUBLIC_APP_URL).toBe("http://localhost:3000");
-    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
-      "http://localhost:3000/api/integrations/google/callback",
-    );
+    expect("GOOGLE_OAUTH_REDIRECT_URI" in parsed).toBe(false);
   });
 
-  it("expõe o callback da Agenda sem exigir o contrato servidor completo", () => {
-    expect(
-      peekGoogleCalendarRedirectUri({
-        NEXT_PUBLIC_APP_URL: "",
-        VERCEL_URL: "tesseli-git-preview.vercel.app",
-        GOOGLE_OAUTH_REDIRECT_URI:
-          "http://localhost:3000/api/integrations/google/callback",
-      }),
-    ).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
+  it("Agenda ignora GOOGLE_OAUTH_REDIRECT_URI e VERCEL_URL", () => {
+    const parsed = parseGoogleCalendarEnv({
+      NEXT_PUBLIC_APP_URL: "https://dominio-oficial.vercel.app",
+      VERCEL_URL: "tesseli-git-preview.vercel.app",
+      GOOGLE_OAUTH_REDIRECT_URI:
+        "https://tesseli-git-cursor-fase-13-ha-153b81.vercel.app/api/integrations/google/callback",
+      GOOGLE_CLIENT_ID: "google-client-id",
+      GOOGLE_CLIENT_SECRET: "google-client-secret",
+      GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key-placeholder",
+    });
+    expect(parsed.NEXT_PUBLIC_APP_URL).toBe("https://dominio-oficial.vercel.app");
+    expect(googleCalendarRedirectUri(parsed.NEXT_PUBLIC_APP_URL)).toBe(
+      "https://dominio-oficial.vercel.app/api/integrations/google/callback",
     );
+    expect("GOOGLE_OAUTH_REDIRECT_URI" in parsed).toBe(false);
   });
 
   it("valida a Agenda sem Twilio, Gemini nem CRON_SECRET", () => {
     const parsed = parseGoogleCalendarEnv({
-      NEXT_PUBLIC_APP_URL: "",
-      VERCEL_URL: "tesseli-git-preview.vercel.app",
+      NEXT_PUBLIC_APP_URL: "https://serena-psi-beta.vercel.app",
       GOOGLE_CLIENT_ID: "google-client-id",
       GOOGLE_CLIENT_SECRET: "google-client-secret",
-      GOOGLE_OAUTH_REDIRECT_URI:
-        "http://localhost:3000/api/integrations/google/callback",
       GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key-placeholder",
     });
-    expect(parsed.NEXT_PUBLIC_APP_URL).toBe(
-      "https://tesseli-git-preview.vercel.app",
-    );
-    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
+    expect(parsed.NEXT_PUBLIC_APP_URL).toBe("https://serena-psi-beta.vercel.app");
+    expect(googleCalendarRedirectUri(parsed.NEXT_PUBLIC_APP_URL)).toBe(
+      "https://serena-psi-beta.vercel.app/api/integrations/google/callback",
     );
   });
 
@@ -363,5 +302,17 @@ describe("contrato de ambiente", () => {
     }
 
     expect(leaks).toEqual([]);
+  });
+
+  it("não declara GOOGLE_OAUTH_REDIRECT_URI no contrato servidor", () => {
+    expect(SERVER_ONLY_ENV_KEYS).not.toContain("GOOGLE_OAUTH_REDIRECT_URI");
+  });
+
+  it("código de aplicação não lê GOOGLE_OAUTH_REDIRECT_URI", () => {
+    const files = walkFiles(path.join(ROOT, "src"));
+    const hits = files.filter((file) =>
+      readFileSync(file, "utf8").includes("GOOGLE_OAUTH_REDIRECT_URI"),
+    );
+    expect(hits.map((file) => path.relative(ROOT, file))).toEqual([]);
   });
 });
