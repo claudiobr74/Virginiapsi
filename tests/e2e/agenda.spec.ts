@@ -28,12 +28,10 @@ test.describe("Agenda — visão do dia", () => {
     await expect(page.getByRole("heading", { name: "Agenda" })).toBeVisible();
     await expect(page.getByText("Beatriz Lima • PAC-001")).toBeVisible();
     await expect(page.getByText("Reunião do conselho regional")).toBeVisible();
-    await expect(
-      page.getByText("Evento externo do Google").first(),
-    ).toBeVisible();
+    await expect(page.getByText("Evento Google").first()).toBeVisible();
 
     // Sem conexão Google, a Agenda deve avisar mas continuar funcional.
-    await expect(page.getByText("Google Calendar não conectado")).toBeVisible();
+    await expect(page.getByText("Google Agenda não conectada")).toBeVisible();
   });
 
   test("evento externo é somente leitura no drawer de detalhes", async ({
@@ -45,7 +43,7 @@ test.describe("Agenda — visão do dia", () => {
     await page.getByText("Reunião do conselho regional").click();
 
     await expect(
-      page.getByRole("heading", { name: "Evento externo do Google" }),
+      page.getByRole("heading", { name: "Evento Google" }),
     ).toBeVisible();
     await expect(page.getByText("Somente leitura", { exact: true })).toBeVisible();
     await expect(
@@ -166,7 +164,7 @@ test.describe("Agenda — gestão de consulta existente", () => {
   });
 });
 
-test.describe("Agenda — conexão Google Calendar", () => {
+test.describe("Agenda — conexão Google Agenda", () => {
   test("página de conexão mostra status desconectado e ação de conectar", async ({
     page,
   }) => {
@@ -174,11 +172,11 @@ test.describe("Agenda — conexão Google Calendar", () => {
     await page.goto("/app/agenda/connect");
 
     await expect(
-      page.getByRole("heading", { name: "Conexão com o Google Calendar" }),
+      page.getByRole("heading", { name: "Conexão com o Google Agenda" }),
     ).toBeVisible();
-    await expect(page.getByText("Desconectado")).toBeVisible();
+    await expect(page.getByText("Não conectado")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Conectar com o Google" }),
+      page.getByRole("button", { name: "Conectar Google Agenda" }),
     ).toBeVisible();
 
     // A troca de código/OAuth real com accounts.google.com não é testável

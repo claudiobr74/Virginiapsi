@@ -5,8 +5,11 @@ import { decryptToken, encryptToken } from "@/lib/integrations/google/crypto";
 import {
   exchangeCodeForTokens,
   fetchGoogleUserInfo,
+  GOOGLE_CALENDAR_SCOPES,
   refreshAccessToken,
+  revokeGoogleOAuthToken,
 } from "@/lib/integrations/google/oauth";
+import { googleCalendarSyncErrorMessage, isRevokedGoogleGrant } from "@/lib/integrations/google/errors";
 import { getGoogleCalendarEnv } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { firstRpcRow } from "@/lib/supabase/rpc-result";
@@ -51,7 +54,7 @@ async function persistCredentials(
         // this is null — Google only reissues one on first consent.
         (null as unknown as string),
     p_google_account_email: tokens.email ?? null,
-    p_scopes: null,
+    p_scopes: [...GOOGLE_CALENDAR_SCOPES],
   });
 
   if (error) {
@@ -89,19 +92,26 @@ export async function getValidAccessToken(organizationId: string): Promise<strin
     env.GOOGLE_TOKEN_ENCRYPTION_KEY,
   );
 
-  const refreshed = await refreshAccessToken({
-    refreshToken,
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-  });
+  try {
+    const refreshed = await refreshAccessToken({
+      refreshToken,
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+    });
 
-  await persistCredentials(organizationId, {
-    accessToken: refreshed.access_token,
-    expiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
-    refreshToken: refreshed.refresh_token,
-  });
+    await persistCredentials(organizationId, {
+      accessToken: refreshed.access_token,
+      expiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
+      refreshToken: refreshed.refresh_token,
+    });
 
-  return refreshed.access_token;
+    return refreshed.access_token;
+  } catch (error) {
+    if (isRevokedGoogleGrant(error)) {
+      await markGoogleConnectionError(organizationId, googleCalendarSyncErrorMessage(error));
+    }
+    throw error;
+  }
 }
 
 export async function getCalendarClientForOrganization(
@@ -131,7 +141,7 @@ export async function completeGoogleConnection(
 
   if (!tokens.refresh_token) {
     // Should not happen with access_type=offline + prompt=consent, but never
-    // silently store a connection Tesseli cannot actually use in the
+    // silently store a connection VirgíniaPsi cannot actually use in the
     // background (no refresh token means no offline sync).
     throw new Error("google_no_refresh_token");
   }
@@ -148,7 +158,32 @@ export async function completeGoogleConnection(
   return { email: userInfo.email };
 }
 
+export async function markGoogleConnectionError(
+  organizationId: string,
+  message: string,
+): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  await supabase.rpc("mark_google_connection_error", {
+    org_id: organizationId,
+    p_error: message,
+  });
+}
+
 export async function disconnectGoogleCalendar(organizationId: string): Promise<void> {
+  try {
+    const env = getGoogleCalendarEnv();
+    const credentials = await loadCredentials(organizationId);
+    if (credentials) {
+      const refreshToken = decryptToken(
+        credentials.refresh_token_encrypted,
+        env.GOOGLE_TOKEN_ENCRYPTION_KEY,
+      );
+      await revokeGoogleOAuthToken(refreshToken);
+    }
+  } catch {
+    // Local disconnect still proceeds if revoke/decrypt fails.
+  }
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("disconnect_google_calendar", {
     org_id: organizationId,
@@ -187,7 +222,12 @@ export async function selectOrganizationCalendar(
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("google_calendar_connections")
-    .update({ calendar_id: calendarId, calendar_summary: calendarSummary })
+    .update({
+      calendar_id: calendarId,
+      calendar_summary: calendarSummary,
+      next_sync_token: null,
+      last_sync_error: null,
+    })
     .eq("organization_id", organizationId);
 
   if (error) {

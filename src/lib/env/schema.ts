@@ -122,6 +122,39 @@ export function coalesceAppUrl(
  * Empty or localhost Calendar redirect on a Vercel host is rewritten to
  * `{appUrl}/api/integrations/google/callback`. Local `pnpm dev` keeps localhost.
  */
+export const GOOGLE_OAUTH_CONFIGURATION_ERROR =
+  "CONFIGURATION_ERROR: Google OAuth redirect URI does not belong to canonical app domain.";
+
+/**
+ * Production must use the Calendar callback on the canonical app origin.
+ * A leftover Tesseli/legacy domain in GOOGLE_OAUTH_REDIRECT_URI must fail
+ * loudly — never start OAuth against the wrong host.
+ */
+export function assertCanonicalGoogleOAuthRedirectUri(
+  redirectUri: string,
+  appUrl: string,
+  vercelEnv: string | undefined,
+): void {
+  if (vercelEnv !== "production") {
+    return;
+  }
+  let redirectOrigin: string;
+  let appOrigin: string;
+  try {
+    redirectOrigin = new URL(redirectUri).origin;
+    appOrigin = new URL(appUrl).origin;
+  } catch {
+    throw new Error(GOOGLE_OAUTH_CONFIGURATION_ERROR);
+  }
+  if (redirectOrigin !== appOrigin) {
+    throw new Error(GOOGLE_OAUTH_CONFIGURATION_ERROR);
+  }
+  const path = new URL(redirectUri).pathname.replace(/\/$/, "") || "/";
+  if (path !== CALENDAR_OAUTH_CALLBACK_PATH) {
+    throw new Error(GOOGLE_OAUTH_CONFIGURATION_ERROR);
+  }
+}
+
 export function resolveGoogleCalendarRedirectUri(
   redirectUri: string | undefined,
   appUrl: string | undefined,

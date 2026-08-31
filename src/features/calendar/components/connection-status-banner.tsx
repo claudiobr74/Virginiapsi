@@ -32,7 +32,7 @@ export function ConnectionStatusBanner({
               ? "Selecione um calendário do Google para sincronizar"
               : isError
                 ? "A conexão com o Google Calendar precisa de atenção"
-                : "Google Calendar não conectado"}
+                : "Google Agenda não conectada"}
           </p>
           <p className="text-xs text-attention/80">
             Sem conexão, a Agenda funciona só com eventos criados no VirgíniaPsi —

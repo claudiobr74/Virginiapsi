@@ -17,6 +17,7 @@ import {
   type AppointmentFormValues,
   type AppointmentRow,
 } from "@/features/calendar/contracts";
+import { utcToOrganizationDateTime } from "@/lib/utils/timezone";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import type { PatientRow } from "@/features/patients/contracts";
 
@@ -26,11 +27,13 @@ export interface AppointmentDialogProps {
   patients: Pick<PatientRow, "id" | "preferred_name" | "public_code">[];
   defaultDate: string;
   appointment?: AppointmentRow;
+  timeZone: string;
   onSaved: () => void;
 }
 
 function defaultValues(
   defaultDate: string,
+  timeZone: string,
   appointment?: AppointmentRow,
 ): AppointmentFormValues {
   if (!appointment) {
@@ -47,11 +50,12 @@ function defaultValues(
   const starts = new Date(appointment.starts_at);
   const ends = new Date(appointment.ends_at);
   const durationMinutes = Math.round((ends.getTime() - starts.getTime()) / 60_000);
+  const local = utcToOrganizationDateTime(appointment.starts_at, timeZone);
 
   return {
     patientId: appointment.patient_id ?? "",
-    date: appointment.starts_at.slice(0, 10),
-    startTime: appointment.starts_at.slice(11, 16),
+    date: local.date,
+    startTime: local.time,
     durationMinutes: String(durationMinutes),
     modality: appointment.modality,
     createMeet: false,
@@ -64,6 +68,7 @@ export function AppointmentDialog({
   patients,
   defaultDate,
   appointment,
+  timeZone,
   onSaved,
 }: AppointmentDialogProps) {
   const [isPending, startTransition] = useTransition();
@@ -77,7 +82,7 @@ export function AppointmentDialog({
     formState: { errors },
   } = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentFormSchema),
-    values: defaultValues(defaultDate, appointment),
+    values: defaultValues(defaultDate, timeZone, appointment),
   });
 
   function submit(values: AppointmentFormValues, force: boolean) {

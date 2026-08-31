@@ -48,6 +48,12 @@ describe("googleOAuthCallbackMessage", () => {
   });
 
   it("confirma sucesso", () => {
-    expect(googleOAuthCallbackMessage("connected", undefined)).toMatch(/sucesso/);
+    expect(googleOAuthCallbackMessage("connected", undefined)).toMatch(/Google Agenda conectada/);
+  });
+
+  it("explica callback de domínio legado", () => {
+    expect(googleOAuthCallbackMessage("error", "configuration_error")).toMatch(
+      /domínio do VirgíniaPsi/,
+    );
   });
 });

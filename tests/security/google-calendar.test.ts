@@ -183,7 +183,7 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
 });
 
 describe("google_calendar_connections — leitura ampla, escrita restrita", () => {
-  it("secretária lê o status da conexão e pode trocar o calendário selecionado", async () => {
+  it("secretária lê o status da conexão e não altera o calendário selecionado", async () => {
     const admin = await createAuthUser();
     const secretary = await createAuthUser();
     const organizationId = await bootstrapOrganization(admin, "Consultório Seleção");
@@ -202,7 +202,7 @@ describe("google_calendar_connections — leitura ampla, escrita restrita", () =
         "update public.google_calendar_connections set calendar_id = $2 where organization_id = $1 returning calendar_id",
         [organizationId, "primary"],
       );
-      expect(updated[0].calendar_id).toBe("primary");
+      expect(updated).toEqual([]);
     } finally {
       await session.close();
     }

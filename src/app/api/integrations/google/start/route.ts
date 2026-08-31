@@ -32,7 +32,7 @@ function redirectOAuthError(request: NextRequest, detail = "invalid_state") {
  * that the redirect chain alone proves authorization.
  */
 export async function GET(request: NextRequest) {
-  await requireUser();
+  const user = await requireUser();
 
   const state = request.nextUrl.searchParams.get("state");
   if (!state) {
@@ -42,8 +42,12 @@ export async function GET(request: NextRequest) {
   let env;
   try {
     env = getGoogleCalendarEnv();
-  } catch {
-    return redirectOAuthError(request, "invalid_env");
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.includes("CONFIGURATION_ERROR")
+        ? "configuration_error"
+        : "invalid_env";
+    return redirectOAuthError(request, detail);
   }
 
   if (
@@ -51,6 +55,16 @@ export async function GET(request: NextRequest) {
     !isLoopbackHttpUrl(request.nextUrl.origin)
   ) {
     return redirectOAuthError(request, "invalid_env");
+  }
+
+  const verified = verifyOAuthState(state, env.GOOGLE_TOKEN_ENCRYPTION_KEY);
+  if (!verified.valid || !verified.payload || verified.payload.userId !== user.id) {
+    return redirectOAuthError(
+      request,
+      verified.payload && verified.payload.userId !== user.id
+        ? "state_user_mismatch"
+        : (verified.reason ?? "invalid_state"),
+    );
   }
 
   const authorizationUrl = buildAuthorizationUrl({

@@ -76,7 +76,7 @@ export function AppointmentCard({
             <p className="mt-0.5 font-mono text-xs text-muted-foreground sm:text-sm">{timeRange}</p>
           </div>
           {isExternal ? (
-            <StatusBadge status="info" label="Evento externo do Google" />
+            <StatusBadge status="info" label="Evento Google" />
           ) : (
             <StatusBadge
               status={APPOINTMENT_STATUS_BADGE[appointment.status]}

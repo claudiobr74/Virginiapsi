@@ -94,7 +94,7 @@ export function buildIntegrationDiagnostics(
     integrations: [
       {
         key: "google",
-        label: "Google Calendar",
+        label: "Google Agenda",
         configured: input.google.oauthConfigured,
         health: googleHealth,
         summary: !input.google.oauthConfigured

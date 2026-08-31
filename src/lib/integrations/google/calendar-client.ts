@@ -135,22 +135,31 @@ export class GoogleCalendarClient {
 
   async listEvents(
     calendarId: string,
-    options: { timeMin: string; timeMax: string; pageToken?: string } = {
-      timeMin: "",
-      timeMax: "",
-    },
+    options: {
+      timeMin?: string;
+      timeMax?: string;
+      pageToken?: string;
+      syncToken?: string;
+      showDeleted?: boolean;
+    } = {},
   ): Promise<GoogleCalendarEventList> {
+    const query: Record<string, string | number | boolean | undefined> = {
+      pageToken: options.pageToken,
+      showDeleted: options.showDeleted ?? true,
+    };
+
+    if (options.syncToken) {
+      query.syncToken = options.syncToken;
+    } else {
+      query.timeMin = options.timeMin;
+      query.timeMax = options.timeMax;
+      query.singleEvents = true;
+      query.orderBy = "startTime";
+    }
+
     return this.request<GoogleCalendarEventList>(
       `/calendars/${encodeURIComponent(calendarId)}/events`,
-      {
-        query: {
-          timeMin: options.timeMin,
-          timeMax: options.timeMax,
-          pageToken: options.pageToken,
-          singleEvents: true,
-          orderBy: "startTime",
-        },
-      },
+      { query },
     );
   }
 

@@ -31,7 +31,7 @@ export function googleOAuthCallbackMessage(
   redirectUri?: string,
 ): string {
   if (status === "connected") {
-    return "Google Calendar conectado com sucesso.";
+    return "Google Agenda conectada com sucesso.";
   }
 
   switch (detail) {
@@ -43,6 +43,8 @@ export function googleOAuthCallbackMessage(
       return "O Google não devolveu o código de autorização. Tente conectar de novo.";
     case "invalid_env":
       return "Faltam variáveis do Google Calendar neste ambiente (Client ID, Secret ou chave de criptografia).";
+    case "configuration_error":
+      return "O endereço de retorno do Google Agenda não pertence ao domínio do VirgíniaPsi. Cadastre o callback canônico no Google Cloud.";
     case "invalid_state":
     case "malformed":
     case "signature_mismatch":

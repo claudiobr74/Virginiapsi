@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatInTimeZone, zonedTimeToUtcIso } from "@/lib/utils/timezone";
+import { formatInTimeZone, utcToOrganizationDateTime, zonedTimeToUtcIso } from "@/lib/utils/timezone";
 
 describe("zonedTimeToUtcIso", () => {
   it("converte horário de São Paulo (UTC-3, sem DST) para UTC", () => {
@@ -12,10 +12,21 @@ describe("zonedTimeToUtcIso", () => {
     expect(iso).toBe("2026-03-11T02:00:00.000Z");
   });
 
-  it("UTC não sofre deslocamento", () => {
-    const iso = zonedTimeToUtcIso("2026-03-10", "14:00", "UTC");
-    expect(iso).toBe("2026-03-10T14:00:00.000Z");
+  it("converte 09:00 em São Paulo no dia pedido para 12:00Z", () => {
+    expect(zonedTimeToUtcIso("2026-08-31", "09:00", "America/Sao_Paulo")).toBe(
+      "2026-08-31T12:00:00.000Z",
+    );
   });
+
+  it.each(["00:30", "01:00", "08:00", "12:00", "23:30"] as const)(
+    "não desloca o dia civil de 2026-08-31 às %s em São Paulo",
+    (time) => {
+      const iso = zonedTimeToUtcIso("2026-08-31", time, "America/Sao_Paulo");
+      const local = utcToOrganizationDateTime(iso, "America/Sao_Paulo");
+      expect(local.date).toBe("2026-08-31");
+      expect(local.time).toBe(time);
+    },
+  );
 });
 
 describe("formatInTimeZone", () => {

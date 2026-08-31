@@ -44,6 +44,20 @@ describe("GoogleCalendarClient", () => {
     expect(parsed.searchParams.get("timeMax")).toBe("2026-01-31T00:00:00.000Z");
     expect(parsed.searchParams.get("singleEvents")).toBe("true");
     expect(parsed.searchParams.get("orderBy")).toBe("startTime");
+    expect(parsed.searchParams.get("showDeleted")).toBe("true");
+  });
+
+  it("lista incremental com syncToken e sem timeMin/timeMax", async () => {
+    const fetchImpl = mockFetch(async () => jsonResponse({ items: [], nextSyncToken: "tok-2" }));
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+
+    await client.listEvents("primary", { syncToken: "tok-1" });
+
+    const [url] = fetchImpl.mock.calls[0];
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("syncToken")).toBe("tok-1");
+    expect(parsed.searchParams.has("timeMin")).toBe(false);
+    expect(parsed.searchParams.has("orderBy")).toBe(false);
   });
 
   it("insertEvent envia conferenceDataVersion=1 quando solicitado", async () => {

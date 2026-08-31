@@ -40,6 +40,9 @@ const GOOGLE_CALENDAR_KEYS_ERROR =
   "Faltam as chaves do Google Calendar na Vercel (Client ID e Client Secret). Importe do .env em Preview e Production.";
 
 function toGoogleCalendarStartError(error: unknown): string {
+  if (error instanceof Error && error.message.includes("CONFIGURATION_ERROR")) {
+    return "O endereço de retorno do Google Agenda não pertence ao domínio do VirgíniaPsi. Cadastre {NEXT_PUBLIC_APP_URL}/api/integrations/google/callback no Google Cloud — não use um domínio antigo.";
+  }
   const keys = envIssueKeyNames(error);
   if (
     keys.includes("GOOGLE_CLIENT_ID") ||
@@ -89,12 +92,13 @@ export async function startGoogleConnectionAction(
       userId: user.id,
       nonce: randomUUID(),
       issuedAt: Date.now(),
+      expiresAt: Date.now() + 10 * 60 * 1000,
       returnTo: safeReturnTo,
     },
     env.GOOGLE_TOKEN_ENCRYPTION_KEY,
   );
 
-  redirect(`/api/integrations/google/start?state=${encodeURIComponent(state)}`);
+  redirect(`/api/integrations/google/connect?state=${encodeURIComponent(state)}`);
 }
 
 export async function disconnectGoogleAction(): Promise<CalendarActionResult> {
@@ -133,7 +137,10 @@ export async function listCalendarsAction(): Promise<{
   calendars?: CalendarOption[];
   error?: string;
 }> {
-  const { organizationId } = await requireOrgContext();
+  const { organizationId, role } = await requireOrgContext();
+  if (role !== "psychologist_admin") {
+    return { error: "Apenas a psicóloga administradora escolhe o calendário." };
+  }
 
   try {
     const calendars = await listAvailableCalendars(organizationId);
@@ -155,7 +162,10 @@ export async function selectCalendarAction(
   calendarId: string,
   calendarSummary: string,
 ): Promise<CalendarActionResult> {
-  const { organizationId } = await requireOrgContext();
+  const { organizationId, role } = await requireOrgContext();
+  if (role !== "psychologist_admin") {
+    return { error: "Apenas a psicóloga administradora escolhe o calendário." };
+  }
 
   try {
     await selectOrganizationCalendar(organizationId, calendarId, calendarSummary);

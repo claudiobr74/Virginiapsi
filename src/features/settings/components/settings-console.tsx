@@ -550,9 +550,9 @@ function IntegrationsSection({
             <CalendarDays className="size-4" aria-hidden />
           </span>
           <div>
-            <h3 className="font-semibold">Google Calendar</h3>
+            <h3 className="font-semibold">Google Agenda</h3>
             <p className="text-xs text-muted-foreground">
-              Conta independente do login. Conecte, escolha o calendário e sincronize a Agenda.
+              Conta independente do login. Conecte, escolha a agenda e sincronize.
             </p>
           </div>
         </div>
@@ -562,6 +562,7 @@ function IntegrationsSection({
           calendarRedirectUri={calendarRedirectUri}
           oauthReturnTo="settings"
           framed={false}
+          timeZone={snapshot.organization.timezone}
         />
       </div>
 

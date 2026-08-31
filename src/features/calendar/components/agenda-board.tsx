@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { AgendaToolbar } from "@/features/calendar/components/agenda-toolbar";
 import { AppointmentDetailDrawer } from "@/features/calendar/components/appointment-detail-drawer";
 import { AppointmentDialog } from "@/features/calendar/components/appointment-dialog";
@@ -20,6 +20,7 @@ import { formatAgendaLongDate, formatAgendaMonthLabel } from "@/features/calenda
 import { syncGoogleCalendarAction } from "@/features/calendar/sync-actions";
 import type { PatientRow } from "@/features/patients/contracts";
 import { pageHeading } from "@/lib/brand";
+import { toOrganizationDate } from "@/lib/utils/timezone";
 
 export interface AgendaBoardProps {
   view: AgendaView;
@@ -81,13 +82,23 @@ export function AgendaBoard({
   const appointmentsByDay = useMemo(() => {
     const map = new Map<string, AppointmentRow[]>();
     for (const appointment of appointments) {
-      const day = appointment.starts_at.slice(0, 10);
+      const day = toOrganizationDate(appointment.starts_at, timeZone);
       const list = map.get(day) ?? [];
       list.push(appointment);
       map.set(day, list);
     }
     return map;
-  }, [appointments]);
+  }, [appointments, timeZone]);
+
+  useEffect(() => {
+    function refreshWhenVisible() {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    }
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => document.removeEventListener("visibilitychange", refreshWhenVisible);
+  }, [router]);
 
   function pushParams(nextView: AgendaView, nextDate: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -106,6 +117,8 @@ export function AgendaBoard({
       setIsSyncing(false);
       if (result.error) {
         setSyncError(result.error);
+      } else {
+        router.refresh();
       }
     });
   }
@@ -189,6 +202,7 @@ export function AgendaBoard({
         patients={patients}
         defaultDate={dialogState.date}
         appointment={openFromQuery ? undefined : dialogState.appointment}
+        timeZone={timeZone}
         onSaved={() => router.refresh()}
       />
 
@@ -203,7 +217,7 @@ export function AgendaBoard({
           setDialogState({
             open: true,
             appointment: selectedAppointment,
-            date: selectedAppointment.starts_at.slice(0, 10),
+            date: toOrganizationDate(selectedAppointment.starts_at, timeZone),
           });
           setSelectedAppointment(null);
         }}
