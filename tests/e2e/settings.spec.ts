@@ -38,7 +38,7 @@ test.describe("Configurações", () => {
 
     await page.getByRole("tab", { name: "Integrações" }).click();
     await expect(page.getByRole("heading", { name: "Google Agenda" })).toBeVisible();
-    await expect(page.getByText("Status")).toBeVisible();
+    await expect(page.getByText("Status", { exact: true })).toBeVisible();
     await expect(page.getByText("Não conectado")).toBeVisible();
     await expect(
       page.getByText("Conecte uma conta Google para sincronizar seus compromissos."),
