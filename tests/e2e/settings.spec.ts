@@ -37,7 +37,7 @@ test.describe("Configurações", () => {
     }
 
     await page.getByRole("tab", { name: "Integrações" }).click();
-    await expect(page.getByText("Google Agenda")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Google Agenda" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Conectar Google Agenda" })).toBeVisible();
     await page.getByRole("button", { name: "Conectar Google Agenda" }).click();
     await expect(productAlert(page, /localhost|computador/i)).toBeVisible();
