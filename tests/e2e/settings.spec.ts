@@ -18,7 +18,7 @@ test.describe("Configurações", () => {
     await expect(page.getByRole("heading", { name: "Configurações", exact: true })).toHaveCount(0);
   });
 
-  test("admin vê as oito seções e diagnósticos sem secrets", async ({ page }) => {
+  test("admin vê Documentos, Integrações e diagnósticos sem secrets", async ({ page }) => {
     await loginViaUi(page);
     await page.goto("/app/settings");
 
@@ -26,6 +26,7 @@ test.describe("Configurações", () => {
     for (const label of [
       "Meu Perfil",
       "Consultório",
+      "Documentos",
       "Aparência",
       "Segurança",
       "Equipe e Acessos",
@@ -35,6 +36,11 @@ test.describe("Configurações", () => {
     ]) {
       await expect(page.getByRole("tab", { name: label })).toBeVisible();
     }
+
+    await page.getByRole("tab", { name: "Documentos" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Identidade visual dos documentos" }),
+    ).toBeVisible();
 
     await page.getByRole("tab", { name: "Integrações" }).click();
     await expect(page.getByRole("heading", { name: "Google Agenda" })).toBeVisible();
