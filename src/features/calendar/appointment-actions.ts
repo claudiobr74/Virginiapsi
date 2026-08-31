@@ -120,10 +120,20 @@ export async function updateAppointmentStatusAction(
   }
 
   const supabase = await createSupabaseServerClient();
+  const fields: Record<string, unknown> = { status: parsedStatus.data };
+  if (parsedStatus.data === "cancelled") {
+    // Queue a Google cancel PATCH even if the connection is down right now.
+    // Leaving sync_status=synced would skip reconnect / "Sincronizar agora".
+    fields.sync_status = "not_synced";
+    fields.sync_error = null;
+  }
+
   const { data, error } = await supabase
     .from("appointments")
-    .update({ status: parsedStatus.data })
+    .update(fields)
     .eq("id", appointmentId)
+    .eq("organization_id", organizationId)
+    .eq("origin", "TESSELI")
     .select("id")
     .single();
 
@@ -190,6 +200,8 @@ export async function rescheduleAppointmentAction(
       sync_error: null,
     })
     .eq("id", appointmentId)
+    .eq("organization_id", organizationId)
+    .eq("origin", "TESSELI")
     .select("id")
     .single();
 

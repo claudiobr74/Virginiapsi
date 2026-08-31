@@ -106,6 +106,7 @@ describe("buildAuthorizationUrl", () => {
     expect(url.searchParams.get("client_id")).toBe("client-id-123");
     expect(url.searchParams.get("access_type")).toBe("offline");
     expect(url.searchParams.get("prompt")).toBe("consent select_account");
+    expect(url.searchParams.get("include_granted_scopes")).toBe("false");
     expect(url.searchParams.get("state")).toBe("signed-state-value");
     expect(url.searchParams.get("scope")).toBe(GOOGLE_CALENDAR_SCOPES.join(" "));
     expect(url.searchParams.get("redirect_uri")).toBe(

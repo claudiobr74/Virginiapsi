@@ -24,6 +24,7 @@ import {
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveTimeZone } from "@/features/calendar/date-window";
+import { tesseliAppointmentNeedsGooglePush } from "@/features/calendar/sync-policy";
 
 export interface SyncActionResult {
   error?: string;
@@ -403,7 +404,9 @@ async function pullGoogleEvents(
           }
 
           const window = cancelled
-            ? {
+            ? googleEventWindowIso(event, timeZone) ?? {
+                // Placeholders: upsert_external_appointment keeps existing
+                // starts_at/ends_at when status is cancelled.
                 startIso: new Date().toISOString(),
                 endIso: new Date(Date.now() + 60_000).toISOString(),
               }
@@ -528,11 +531,13 @@ async function pushPendingManagedAppointments(
   let pushedCount = 0;
   let pushErrors = 0;
   for (const row of data ?? []) {
-    const needsPush =
-      row.sync_status === "not_synced" ||
-      row.sync_status === "error" ||
-      (row.status === "cancelled" && Boolean(row.google_event_id) && row.sync_status !== "synced");
-    if (!needsPush) {
+    if (
+      !tesseliAppointmentNeedsGooglePush({
+        sync_status: String(row.sync_status),
+        status: String(row.status),
+        google_event_id: typeof row.google_event_id === "string" ? row.google_event_id : null,
+      })
+    ) {
       continue;
     }
     const result = await pushAppointmentToGoogle(organizationId, row.id as string, timeZone);

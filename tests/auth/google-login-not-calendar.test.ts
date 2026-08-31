@@ -39,4 +39,12 @@ describe("login Google ≠ Google Agenda", () => {
     expect(source).not.toContain("completeGoogleConnection");
     expect(source).not.toContain("google_calendar");
   });
+
+  it("GET /api/integrations/google/connect é alias de /start", () => {
+    const source = readFileSync(
+      path.join(ROOT, "src/app/api/integrations/google/connect/route.ts"),
+      "utf8",
+    );
+    expect(source).toMatch(/export\s+\{\s*GET\s*\}\s+from\s+["']\.\.\/start\/route["']/);
+  });
 });

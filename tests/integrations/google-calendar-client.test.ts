@@ -56,6 +56,7 @@ describe("GoogleCalendarClient", () => {
     const [url] = fetchImpl.mock.calls[0];
     const parsed = new URL(url);
     expect(parsed.searchParams.get("syncToken")).toBe("tok-1");
+    expect(parsed.searchParams.get("showDeleted")).toBe("true");
     expect(parsed.searchParams.has("timeMin")).toBe(false);
     expect(parsed.searchParams.has("orderBy")).toBe(false);
   });
