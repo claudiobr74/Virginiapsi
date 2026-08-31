@@ -3,6 +3,7 @@ import type { AppointmentRow } from "@/features/calendar/contracts";
 import {
   calendarEventAriaLabel,
   calendarEventTone,
+  calendarEventTypeLine,
   calendarStatusLabel,
   toneForStatus,
 } from "@/features/calendar/event-appearance";
@@ -59,6 +60,20 @@ describe("calendarEventTone", () => {
     expect(toneForStatus("pending")).toBe("active");
     expect(toneForStatus("finished")).toBe("completed");
     expect(toneForStatus("canceled")).toBe("cancelled");
+  });
+});
+
+describe("calendarEventTypeLine", () => {
+  it("não repete o rótulo de status em evento Google externo", () => {
+    const external = stub({ status: "scheduled", origin: "GOOGLE_EXTERNAL" });
+    expect(calendarEventTypeLine(external)).toBe("Evento externo do Google");
+    expect(calendarStatusLabel(external)).toBe(calendarEventTypeLine(external));
+  });
+
+  it("separa modalidade de status em consulta clínica", () => {
+    const clinical = stub({ status: "confirmed", origin: "TESSELI", modality: "online" });
+    expect(calendarEventTypeLine(clinical)).toBe("Online");
+    expect(calendarStatusLabel(clinical)).toBe("Confirmado");
   });
 });
 

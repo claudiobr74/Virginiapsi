@@ -73,6 +73,16 @@ export function calendarEventTitle(
   return appointment.summary_snapshot?.trim() || "Sem paciente vinculado";
 }
 
+/** Secondary line inside a block: modality, or Google-external cue. */
+export function calendarEventTypeLine(
+  appointment: Pick<AppointmentRow, "origin" | "modality">,
+): string {
+  if (appointment.origin === "GOOGLE_EXTERNAL") {
+    return "Evento externo do Google";
+  }
+  return MODALITY_LABELS[appointment.modality];
+}
+
 /** Compact labels used inside Agenda blocks (color remains the primary cue). */
 export function calendarStatusLabel(
   appointment: Pick<AppointmentRow, "origin" | "status">,

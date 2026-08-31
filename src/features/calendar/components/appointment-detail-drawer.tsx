@@ -107,7 +107,7 @@ export function AppointmentDetailDrawer({
     <Drawer open={Boolean(appointmentProp)} onOpenChange={(next) => !next && onClose()}>
       <DrawerContent
         title={isExternal ? "Evento externo do Google" : "Detalhes da consulta"}
-        description={appointment.summary_snapshot ?? undefined}
+        description={appointment.summary_snapshot ?? "Sem paciente vinculado"}
       >
         <div className="flex flex-col gap-4">
           {error ? (
@@ -120,9 +120,6 @@ export function AppointmentDetailDrawer({
           ) : null}
 
           <div className="flex flex-col gap-1">
-            <p className="text-base font-semibold text-foreground">
-              {appointment.summary_snapshot ?? "Sem paciente vinculado"}
-            </p>
             <p className="text-sm text-muted-foreground">
               {formatAgendaLongDate(
                 civilDateInTimeZone(appointment.starts_at, timeZone),
@@ -132,9 +129,11 @@ export function AppointmentDetailDrawer({
             <p className="font-mono text-sm tabular-nums text-foreground">
               {formatAgendaTimeRange(appointment.starts_at, appointment.ends_at, timeZone)}
             </p>
-            <p className="text-sm text-muted-foreground">
-              {isExternal ? "Evento externo do Google" : MODALITY_LABELS[appointment.modality]}
-            </p>
+            {isExternal ? null : (
+              <p className="text-sm text-muted-foreground">
+                {MODALITY_LABELS[appointment.modality]}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

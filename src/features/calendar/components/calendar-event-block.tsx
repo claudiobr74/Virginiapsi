@@ -12,11 +12,11 @@ import {
   calendarEventSurfaceClass,
   calendarEventTitle,
   calendarEventTone,
+  calendarEventTypeLine,
   calendarStatusLabel,
   formatAgendaTimeRange,
   isCancelledAppointment,
 } from "@/features/calendar/event-appearance";
-import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { formatInTimeZone } from "@/lib/utils/timezone";
 import { cn } from "@/lib/utils/cn";
 
@@ -49,20 +49,18 @@ export function CalendarEventBlock({
   const startTime = formatInTimeZone(appointment.starts_at, timeZone);
   const ariaLabel = calendarEventAriaLabel(appointment, timeZone);
   const heightPx = typeof style?.height === "number" ? style.height : undefined;
-  const isExternal = appointment.origin === "GOOGLE_EXTERNAL";
-  const typeLine = isExternal ? "Evento externo do Google" : MODALITY_LABELS[appointment.modality];
-  const showType =
-    density === "day" ||
-    density === "stack" ||
-    (density === "week" && (heightPx === undefined || heightPx >= 40));
+  const typeLine = calendarEventTypeLine(appointment);
+  const statusIsDistinct = statusLabel !== typeLine;
+  const timed = density === "day" || density === "week";
+  // Horário before modalidade (blueprint §8). Default 50 min = 40 px: title + time.
   const showRange =
-    density === "day" ||
-    density === "stack" ||
-    (density === "week" && (heightPx === undefined || heightPx >= 52));
+    density === "stack" || (timed && (heightPx === undefined || heightPx >= 36));
+  const showType =
+    density === "stack" || (timed && (heightPx === undefined || heightPx >= 52));
   const showStatus =
-    density === "day" ||
-    (density === "week" && (heightPx === undefined || heightPx >= 68)) ||
-    (density === "stack" && cancelled);
+    statusIsDistinct &&
+    ((density === "stack" && cancelled) ||
+      (timed && (heightPx === undefined || heightPx >= 68)));
 
   function hideTip() {
     setTip(null);
@@ -100,7 +98,7 @@ export function CalendarEventBlock({
         style={{ borderRadius: "var(--cal-event-radius)", ...style }}
         className={cn(
           "block min-w-0 overflow-hidden text-left shadow-none transition-colors duration-150",
-          "cursor-pointer focus-visible:outline-none",
+          "cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-foreground",
           calendarEventSurfaceClass(tone),
           selected && "outline outline-2 outline-offset-1 outline-foreground",
           density === "month" && "w-full px-1 py-px",
@@ -124,10 +122,10 @@ export function CalendarEventBlock({
             )}
           >
             <span className={cn("truncate font-semibold", cancelled && "line-through")}>{title}</span>
-            {showType ? <span className="truncate opacity-90">{typeLine}</span> : null}
             {showRange ? (
               <span className="font-mono text-[11px] tabular-nums opacity-90">{range}</span>
             ) : null}
+            {showType ? <span className="truncate opacity-90">{typeLine}</span> : null}
             {showStatus ? <span className="truncate text-[11px] opacity-90">{statusLabel}</span> : null}
           </span>
         )}
@@ -151,7 +149,9 @@ export function CalendarEventBlock({
               </p>
               <p className="font-mono text-[12px] tabular-nums text-foreground">{range}</p>
               <p className="mt-1 text-[12px] text-muted-foreground">{typeLine}</p>
-              <p className="mt-1 text-[12px] text-muted-foreground">Status · {statusLabel}</p>
+              {statusIsDistinct ? (
+                <p className="mt-1 text-[12px] text-muted-foreground">Status · {statusLabel}</p>
+              ) : null}
             </div>,
             document.body,
           )

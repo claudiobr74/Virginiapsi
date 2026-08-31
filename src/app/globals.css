@@ -104,11 +104,11 @@
   --attention-bg: #2b2416;
 
   --cal-event-radius: 5px;
-  --cal-active: #2a9a4e;
-  --cal-active-hover: #238a43;
+  --cal-active: #1f7d44;
+  --cal-active-hover: #1a6b3c;
   --cal-active-fg: #ffffff;
-  --cal-completed: #3b82e6;
-  --cal-completed-hover: #2f74d4;
+  --cal-completed: #2463c7;
+  --cal-completed-hover: #1b5fb5;
   --cal-completed-fg: #ffffff;
   --cal-cancelled: #5a2e2c;
   --cal-cancelled-hover: #6b3835;
