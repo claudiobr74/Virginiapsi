@@ -1,5 +1,6 @@
 import { CalendarEventBlock } from "@/features/calendar/components/calendar-event-block";
 import type { AppointmentRow } from "@/features/calendar/contracts";
+import { formatAgendaLongDate } from "@/features/calendar/display";
 import { cn } from "@/lib/utils/cn";
 
 const WEEKDAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -87,7 +88,7 @@ export function MonthView({
                 type="button"
                 onClick={() => onSelectDay(day)}
                 className="mb-0.5 flex w-full items-center justify-between gap-1 rounded px-0.5 text-left hover:bg-surface/60"
-                aria-label={`Abrir o dia ${dayNumber}`}
+                aria-label={`Abrir ${formatAgendaLongDate(day, timeZone)}`}
               >
                 <span
                   className={cn(

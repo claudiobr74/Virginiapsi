@@ -68,15 +68,15 @@ test.describe("Agenda — visão do dia", () => {
     await loginViaUi(page);
     await page.goto("/app/agenda");
 
-    await page.getByRole("button", { name: "Semana" }).click();
+    await page.getByRole("button", { name: "Semana", exact: true }).click();
     await expect(page).toHaveURL(/view=week/);
     await expect(page.getByRole("button", { name: /Beatriz Lima • PAC-001/ }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Mês" }).click();
+    await page.getByRole("button", { name: "Mês", exact: true }).click();
     await expect(page).toHaveURL(/view=month/);
     await expect(page.getByRole("button", { name: /Beatriz Lima • PAC-001/ }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Dia" }).click();
+    await page.getByRole("button", { name: "Dia", exact: true }).click();
     await expect(page).toHaveURL(/view=day/);
   });
 });
@@ -137,16 +137,15 @@ test.describe("Agenda — nova consulta", () => {
 });
 
 test.describe("Agenda — gestão de consulta existente", () => {
-  test("confirma e depois cancela uma consulta gerenciada", async ({ page }) => {
-    // Cria uma consulta isolada (sem paciente vinculado) em vez de usar o
-    // seed global "Beatriz Lima • PAC-001": este teste roda em múltiplos
-    // projetos (desktop/mobile) contra o mesmo servidor stub, e cancelar o
-    // seed compartilhado quebraria outros testes que dependem dele.
+  test("confirma e depois cancela uma consulta gerenciada", async ({ page }, testInfo) => {
+    // Data única por projeto: cancelados permanecem na grade, então desktop e
+    // mobile não podem compartilhar o mesmo dia no stub.
+    const date = uniqueDateForTest(testInfo);
     await loginViaUi(page);
-    await page.goto("/app/agenda?view=day&date=2026-06-08");
+    await page.goto(`/app/agenda?view=day&date=${date}`);
 
     await page.getByRole("button", { name: "Nova consulta" }).click();
-    await page.getByLabel("Data").fill("2026-06-08");
+    await page.getByLabel("Data").fill(date);
     await page.getByLabel("Horário").fill("15:00");
     await page.getByLabel("Duração (minutos)").fill("50");
     await page.getByRole("button", { name: "Agendar" }).click();
