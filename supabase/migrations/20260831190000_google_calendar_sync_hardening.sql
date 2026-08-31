@@ -69,6 +69,21 @@ begin
       using errcode = '42501';
   end if;
 
+  -- Refresh-token ciphertext is org-scoped: a dual admin must not replay
+  -- another organization's stored grant into this tenant. Access tokens
+  -- are short-lived and may collide in tests as dummy blobs.
+  if nullif(p_refresh_token_encrypted, '') is not null
+     and exists (
+       select 1
+       from public.google_calendar_credentials c
+       where c.organization_id is distinct from org_id
+         and c.refresh_token_encrypted = p_refresh_token_encrypted
+     )
+  then
+    raise exception 'cannot copy google credentials between organizations'
+      using errcode = '42501';
+  end if;
+
   insert into public.google_calendar_credentials (
     organization_id, access_token_encrypted, access_token_expires_at,
     refresh_token_encrypted
