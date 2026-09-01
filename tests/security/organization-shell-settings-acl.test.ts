@@ -20,19 +20,23 @@ describe("organization_shell_settings — EXECUTE ACL", () => {
 
   it("a migration só revoga anon; não recria nem altera o body da função", () => {
     const sql = readFileSync(MIGRATION, "utf8");
-    expect(sql).toMatch(
+    const statements = sql
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("--"))
+      .join("\n");
+    expect(statements).toMatch(
       /revoke execute on function public\.organization_shell_settings\(uuid\) from anon;/i,
     );
-    expect(sql).toMatch(
+    expect(statements).toMatch(
       /grant execute on function public\.organization_shell_settings\(uuid\) to authenticated;/i,
     );
-    expect(sql).toMatch(
+    expect(statements).toMatch(
       /grant execute on function public\.organization_shell_settings\(uuid\) to service_role;/i,
     );
-    expect(sql).not.toMatch(/create or replace function/i);
-    expect(sql).not.toMatch(/alter function/i);
-    expect(sql).not.toMatch(/security\s+invoker/i);
-    expect(sql).not.toMatch(/search_path/i);
+    expect(statements).not.toMatch(/create or replace function/i);
+    expect(statements).not.toMatch(/alter function/i);
+    expect(statements).not.toMatch(/security\s+invoker/i);
+    expect(statements).not.toMatch(/search_path/i);
   });
 
   it("o catálogo nega EXECUTE a anon e concede a authenticated e service_role", async () => {
