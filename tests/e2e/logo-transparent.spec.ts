@@ -11,11 +11,11 @@ const PASTEL = {
 
 async function assertTransparentLogo(page: Page, root?: ReturnType<Page["locator"]>) {
   const scope = root ?? page.locator("body");
-  const surface = scope.locator(".brand-surface").first();
-  const mark = scope.locator(".brand-mark").first();
-  await expect(surface).toBeVisible();
+  const mark = scope.locator(".brand-mark").locator("visible=true").first();
   await expect(mark).toBeVisible();
   await expect(mark).toHaveCSS("mix-blend-mode", "normal");
+  const surface = mark.locator("xpath=ancestor::div[contains(@class,'brand-surface')][1]");
+  await expect(surface).toBeVisible();
   const background = await surface.evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(background === "rgba(0, 0, 0, 0)" || background === "transparent").toBe(true);
 }
