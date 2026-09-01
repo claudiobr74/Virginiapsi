@@ -57,9 +57,11 @@ test.describe("Configurações", () => {
     await expect(page.getByText(/cadastre este endereço/i)).toHaveCount(0);
     await expect(page.getByText(/api\/integrations\/google\/callback/)).toHaveCount(0);
     await expect(page.getByText("Twilio WhatsApp")).toBeVisible();
-    await expect(page.getByText("Transcrição")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Transcrição", exact: true })).toBeVisible();
     await expect(page.getByText("Gemini")).toBeVisible();
-    await expect(page.getByText("Padrão no dispositivo")).toBeVisible();
+    await expect(
+      page.getByText(/Transcrição em tempo real via Groq|Chave Groq ausente/),
+    ).toBeVisible();
 
     const body = await page.locator("body").innerText();
     expect(body).not.toMatch(/TWILIO_AUTH_TOKEN/);
