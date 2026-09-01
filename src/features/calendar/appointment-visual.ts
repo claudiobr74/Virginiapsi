@@ -12,12 +12,63 @@ export type AppointmentVisualTone = "active" | "completed" | "cancelled" | "unav
 
 export const APPOINTMENT_PRESENTATION_COLORS: Record<
   AppointmentVisualTone,
-  { backgroundColor: string; textColor: string }
+  { backgroundColor: string; borderColor: string; accentColor: string; textColor: string }
 > = {
-  active: { backgroundColor: "#34A853", textColor: "#ffffff" },
-  completed: { backgroundColor: "#1A73E8", textColor: "#ffffff" },
-  cancelled: { backgroundColor: "#D93025", textColor: "#ffffff" },
-  unavailable: { backgroundColor: "#D93025", textColor: "#ffffff" },
+  active: {
+    backgroundColor: "#EAF6ED",
+    borderColor: "#A8D5B2",
+    accentColor: "#69A879",
+    textColor: "#357047",
+  },
+  completed: {
+    backgroundColor: "#EDF4FC",
+    borderColor: "#B5CEE9",
+    accentColor: "#7FA8CF",
+    textColor: "#416F9E",
+  },
+  cancelled: {
+    backgroundColor: "#FCEEEE",
+    borderColor: "#E8B8B5",
+    accentColor: "#D28C87",
+    textColor: "#A54B46",
+  },
+  unavailable: {
+    backgroundColor: "#FCEEEE",
+    borderColor: "#E8B8B5",
+    accentColor: "#D28C87",
+    textColor: "#A54B46",
+  },
+};
+
+/** CSS variables — dark mode resolves via :root / .dark. */
+export const APPOINTMENT_SURFACE_CSS: Record<
+  AppointmentVisualTone,
+  { backgroundColor: string; borderColor: string; accentColor: string; textColor: string }
+> = {
+  active: {
+    backgroundColor: "var(--agenda-active-bg)",
+    borderColor: "var(--agenda-active-border)",
+    accentColor: "var(--agenda-active-accent)",
+    textColor: "var(--agenda-active-text)",
+  },
+  completed: {
+    backgroundColor: "var(--agenda-completed-bg)",
+    borderColor: "var(--agenda-completed-border)",
+    accentColor: "var(--agenda-completed-accent)",
+    textColor: "var(--agenda-completed-text)",
+  },
+  cancelled: {
+    backgroundColor: "var(--agenda-unavailable-bg)",
+    borderColor: "var(--agenda-unavailable-border)",
+    accentColor: "var(--agenda-unavailable-accent)",
+    textColor: "var(--agenda-unavailable-text)",
+  },
+  unavailable: {
+    backgroundColor: "var(--agenda-unavailable-bg)",
+    borderColor: "var(--agenda-unavailable-border)",
+    accentColor: "var(--agenda-unavailable-accent)",
+    textColor: "var(--agenda-unavailable-text)",
+  },
 };
 
 /** Static class names only — Tailwind must see these strings at build time. */
@@ -27,19 +78,19 @@ export const APPOINTMENT_STATUS_STYLES: Record<
 > = {
   active: {
     tone: "active",
-    className: "bg-[#34A853] text-white",
+    className: "agenda-status-surface",
   },
   completed: {
     tone: "completed",
-    className: "bg-[#1A73E8] text-white",
+    className: "agenda-status-surface",
   },
   cancelled: {
     tone: "cancelled",
-    className: "bg-[#D93025] text-white",
+    className: "agenda-status-surface",
   },
   unavailable: {
     tone: "unavailable",
-    className: "bg-[#D93025] text-white",
+    className: "agenda-status-surface",
   },
 };
 
@@ -127,8 +178,10 @@ export interface AppointmentVisualStatus {
   style: {
     backgroundColor: string;
     borderColor: string;
+    borderLeftColor: string;
     color: string;
     borderWidth: number;
+    borderLeftWidth: number;
     borderStyle: "solid";
   };
 }
@@ -200,6 +253,7 @@ export function getAppointmentVisualStatus(
 ): AppointmentVisualStatus {
   const presentation = getAppointmentPresentation({ appointment, now });
   const mapped = APPOINTMENT_STATUS_STYLES[presentation.visualState];
+  const surface = APPOINTMENT_SURFACE_CSS[presentation.visualState];
   return {
     tone: presentation.visualState,
     className: mapped.className,
@@ -209,10 +263,12 @@ export function getAppointmentVisualStatus(
     dotClassName: APPOINTMENT_VISUAL_DOT[presentation.visualState],
     statusLabel: presentation.statusLabel,
     style: {
-      backgroundColor: presentation.backgroundColor,
-      borderColor: presentation.backgroundColor,
-      color: presentation.textColor,
-      borderWidth: 0,
+      backgroundColor: surface.backgroundColor,
+      borderColor: surface.borderColor,
+      borderLeftColor: surface.accentColor,
+      color: surface.textColor,
+      borderWidth: 1,
+      borderLeftWidth: 4,
       borderStyle: "solid",
     },
   };

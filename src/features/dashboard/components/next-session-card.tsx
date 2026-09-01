@@ -80,23 +80,21 @@ export function NextSessionCard({
       data-appointment-visual={visual.tone}
       data-appointment-origin={appointment.origin}
       style={visual.style}
-      className={cn("flex flex-col gap-5 rounded-[20px] p-6 text-white", visual.className)}
+      className={cn("flex flex-col gap-5 rounded-[20px] p-6", visual.className)}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="rounded-md bg-black/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
-            Próxima sessão
-          </p>
-          {untilLabel ? <span className="text-[13px] text-white/85">{untilLabel}</span> : null}
+          <p className="agenda-status-kicker">Próxima sessão</p>
+          {untilLabel ? <span className="text-[13px] text-muted-foreground">{untilLabel}</span> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {visual.badge ? <GoogleOriginMark /> : null}
           {isOnline ? (
-            <span className="rounded-md bg-black/20 px-2 py-1 text-[11px] font-semibold uppercase text-white">
+            <span className="rounded-md bg-foreground/10 px-2 py-1 text-[11px] font-semibold uppercase text-foreground">
               Online
             </span>
           ) : (
-            <span className="rounded-md bg-black/20 px-2 py-1 text-[11px] font-semibold uppercase text-white/90">
+            <span className="rounded-md bg-foreground/10 px-2 py-1 text-[11px] font-semibold uppercase text-foreground">
               {modalityLabel}
             </span>
           )}
@@ -104,10 +102,10 @@ export function NextSessionCard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <h2 id="next-session-heading" className="font-serif text-[28px] font-bold leading-tight text-white">
+        <h2 id="next-session-heading" className="font-serif text-[28px] font-bold leading-tight text-foreground">
           {heroPatientName(appointment)}
         </h2>
-        <p className="text-sm text-white/85">
+        <p className="text-sm text-muted-foreground">
           {appointment.patientPublicCode
             ? `Código de Registro: ${appointment.patientPublicCode} • ${starts}`
             : starts}
@@ -115,7 +113,7 @@ export function NextSessionCard({
       </div>
 
       {appointment.meetUrl && appointment.meetStatus === "success" && meetHost ? (
-        <p className="flex items-center gap-2 rounded-lg bg-black/15 px-3 py-2.5 font-mono text-xs text-white">
+        <p className="flex items-center gap-2 rounded-lg border border-border bg-card/80 px-3 py-2.5 font-mono text-xs text-foreground">
           <Globe className="size-4 shrink-0" aria-hidden />
           <span className="min-w-0 truncate">Google Meet: {meetHost}</span>
         </p>

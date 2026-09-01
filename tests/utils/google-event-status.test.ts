@@ -247,7 +247,7 @@ describe("apresentação V2.3", () => {
     const result = getAppointmentPresentation({ appointment, now });
     expect(result.visualState).toBe("unavailable");
     expect(result.statusLabel).toBe("Indisponível");
-    expect(result.backgroundColor).toBe("#D93025");
+    expect(result.backgroundColor).toBe("#FCEEEE");
     expect(result.isCancelled).toBe(false);
     expect(result.isUnavailable).toBe(true);
     expect(countValidAgendaSessions([appointment])).toBe(0);
@@ -269,7 +269,7 @@ describe("apresentação V2.3", () => {
       });
       expect(result.visualState).toBe("unavailable");
       expect(result.statusLabel).toBe("Indisponível");
-      expect(result.backgroundColor).toBe("#D93025");
+      expect(result.backgroundColor).toBe("#FCEEEE");
     }
   });
 
@@ -289,7 +289,7 @@ describe("apresentação V2.3", () => {
       });
       expect(result.visualState).toBe("cancelled");
       expect(result.statusLabel).toBe("Cancelado");
-      expect(result.backgroundColor).toBe("#D93025");
+      expect(result.backgroundColor).toBe("#FCEEEE");
     }
   });
 });

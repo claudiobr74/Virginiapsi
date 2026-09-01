@@ -75,7 +75,7 @@ describe("Meu Dia — Google externo sem paciente", () => {
 
     const row = screen.getByText("Evento D").closest("[data-appointment-visual]");
     expect(row).toHaveAttribute("data-appointment-visual", "active");
-    expect(row).toHaveStyle({ backgroundColor: "#34A853" });
+    expect(row).toHaveStyle({ backgroundColor: "var(--agenda-active-bg)" });
     expect(screen.getByText("Google")).toBeInTheDocument();
     expect(screen.queryByText("Google externo")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Atender" })).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe("Meu Dia — Google externo sem paciente", () => {
 
     const card = screen.getByRole("heading", { name: "Evento D" }).closest("[data-appointment-visual]");
     expect(card).toHaveAttribute("data-appointment-origin", "GOOGLE_EXTERNAL");
-    expect(card).toHaveStyle({ backgroundColor: "#34A853" });
+    expect(card).toHaveStyle({ backgroundColor: "var(--agenda-active-bg)" });
     expect(screen.getByText("Google")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Atender" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();

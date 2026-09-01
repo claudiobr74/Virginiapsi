@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-/* Agenda appointment paint — unlayered so it wins over @layer utilities. */
+/* Agenda appointment paint — unlayered so it wins over @layer utilities.
+ * Strong fills remain available for dots/kickers; card surfaces use CSS variables. */
 @source inline("bg-[#34A853]");
 @source inline("bg-[#1A73E8]");
 @source inline("bg-[#D93025]");
@@ -85,6 +86,26 @@
   --tone-settings-border: #dcc8bd;
   --tone-settings-icon: #765a4d;
 
+  /* Agenda status surfaces (pastel). Strong fills stay on --status-* accents. */
+  --agenda-active-bg: #eaf6ed;
+  --agenda-active-border: #a8d5b2;
+  --agenda-active-accent: #69a879;
+  --agenda-active-text: #357047;
+
+  --agenda-completed-bg: #edf4fc;
+  --agenda-completed-border: #b5cee9;
+  --agenda-completed-accent: #7fa8cf;
+  --agenda-completed-text: #416f9e;
+
+  --agenda-unavailable-bg: #fceeee;
+  --agenda-unavailable-border: #e8b8b5;
+  --agenda-unavailable-accent: #d28c87;
+  --agenda-unavailable-text: #a54b46;
+
+  --status-active: #34a853;
+  --status-completed: #1a73e8;
+  --status-cancelled: #d93025;
+
   --elevation-card: 0 2px 8px rgba(31, 42, 44, 0.04);
   --elevation-card-hover: 0 6px 18px rgba(31, 42, 44, 0.07);
 }
@@ -164,6 +185,25 @@
   --tone-settings-soft: #241f1c;
   --tone-settings-border: #3d322c;
   --tone-settings-icon: #c4a898;
+
+  --agenda-active-bg: #1c2420;
+  --agenda-active-border: #3d5c45;
+  --agenda-active-accent: #69a879;
+  --agenda-active-text: #c5ddcb;
+
+  --agenda-completed-bg: #1a222c;
+  --agenda-completed-border: #3d5570;
+  --agenda-completed-accent: #7fa8cf;
+  --agenda-completed-text: #c5d7ea;
+
+  --agenda-unavailable-bg: #2a1c1c;
+  --agenda-unavailable-border: #6b4542;
+  --agenda-unavailable-accent: #d28c87;
+  --agenda-unavailable-text: #e8c4c1;
+
+  --status-active: #34a853;
+  --status-completed: #1a73e8;
+  --status-cancelled: #d93025;
 
   --elevation-card: 0 2px 8px rgba(0, 0, 0, 0.28);
   --elevation-card-hover: 0 6px 18px rgba(0, 0, 0, 0.4);
@@ -272,23 +312,72 @@ body {
 }
 
 /*
- * Agenda V2 paint — solid Google Calendar-like fills, white text.
- * Origin never changes the fill. Inline style on the card is the source of truth.
+ * Agenda status surfaces — Clinical Pastel.
+ * Semantic tone is decided in appointment-visual.ts; this block only paints.
+ * Strong --status-* colors stay on dots, kickers and the 4px accent bar.
  */
+[data-appointment-visual] {
+  --agenda-surface-border: var(--agenda-active-border);
+  background-color: var(--agenda-active-bg);
+  border: 1px solid var(--agenda-surface-border);
+  border-left: 4px solid var(--agenda-active-accent);
+  color: var(--agenda-active-text);
+}
 [data-appointment-visual="active"] {
-  background-color: #34a853;
-  border-color: #34a853;
-  color: #ffffff;
+  --agenda-surface-border: var(--agenda-active-border);
+  background-color: var(--agenda-active-bg);
+  border-left-color: var(--agenda-active-accent);
+  color: var(--agenda-active-text);
 }
 [data-appointment-visual="completed"] {
-  background-color: #1a73e8;
-  border-color: #1a73e8;
+  --agenda-surface-border: var(--agenda-completed-border);
+  background-color: var(--agenda-completed-bg);
+  border-left-color: var(--agenda-completed-accent);
+  color: var(--agenda-completed-text);
+}
+[data-appointment-visual="cancelled"],
+[data-appointment-visual="unavailable"] {
+  --agenda-surface-border: var(--agenda-unavailable-border);
+  background-color: var(--agenda-unavailable-bg);
+  border-left-color: var(--agenda-unavailable-accent);
+  color: var(--agenda-unavailable-text);
+}
+[data-appointment-visual="active"]:hover {
+  --agenda-surface-border: var(--agenda-active-accent);
+}
+[data-appointment-visual="completed"]:hover {
+  --agenda-surface-border: var(--agenda-completed-accent);
+}
+[data-appointment-visual="cancelled"]:hover,
+[data-appointment-visual="unavailable"]:hover {
+  --agenda-surface-border: var(--agenda-unavailable-accent);
+}
+[data-appointment-visual].agenda-event-selected {
+  box-shadow: 0 0 0 2px var(--agenda-active-accent);
+}
+[data-appointment-visual="completed"].agenda-event-selected {
+  box-shadow: 0 0 0 2px var(--agenda-completed-accent);
+}
+[data-appointment-visual="cancelled"].agenda-event-selected,
+[data-appointment-visual="unavailable"].agenda-event-selected {
+  box-shadow: 0 0 0 2px var(--agenda-unavailable-accent);
+}
+.agenda-status-kicker {
+  border-radius: 0.375rem;
+  background-color: var(--status-active);
+  padding: 0.25rem 0.5rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: #ffffff;
 }
-[data-appointment-visual="cancelled"] {
-  background-color: #d93025;
-  border-color: #d93025;
-  color: #ffffff;
+[data-appointment-visual="completed"] .agenda-status-kicker {
+  background-color: var(--status-completed);
+}
+[data-appointment-visual="cancelled"] .agenda-status-kicker,
+[data-appointment-visual="unavailable"] .agenda-status-kicker {
+  background-color: var(--status-cancelled);
 }
 
 ::selection {

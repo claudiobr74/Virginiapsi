@@ -36,8 +36,8 @@ describe("getAppointmentPresentation — fixtures reais", () => {
       endsAt: "2026-08-18T18:00:00.000Z",
     });
     expect(result.visualState).toBe("active");
-    expect(result.backgroundColor).toBe("#34A853");
-    expect(result.textColor).toBe("#ffffff");
+    expect(result.backgroundColor).toBe("#EAF6ED");
+    expect(result.textColor).toBe("#357047");
     expect(result.isCancelled).toBe(false);
   });
 
@@ -47,7 +47,7 @@ describe("getAppointmentPresentation — fixtures reais", () => {
       endsAt: "2026-08-18T19:00:00.000Z",
     });
     expect(result.visualState).toBe("active");
-    expect(result.backgroundColor).toBe("#34A853");
+    expect(result.backgroundColor).toBe("#EAF6ED");
   });
 
   it("Vinicius-2(desmarcou) futuro → VERMELHO", () => {
@@ -56,7 +56,7 @@ describe("getAppointmentPresentation — fixtures reais", () => {
       endsAt: "2026-08-18T18:00:00.000Z",
     });
     expect(result.visualState).toBe("cancelled");
-    expect(result.backgroundColor).toBe("#D93025");
+    expect(result.backgroundColor).toBe("#FCEEEE");
     expect(result.isCancelled).toBe(true);
   });
 
@@ -66,7 +66,7 @@ describe("getAppointmentPresentation — fixtures reais", () => {
       endsAt: "2026-08-18T18:00:00.000Z",
     });
     expect(result.visualState).toBe("cancelled");
-    expect(result.backgroundColor).toBe("#D93025");
+    expect(result.backgroundColor).toBe("#FCEEEE");
   });
 
   it("Helio (c) com ends_at < now → AZUL", () => {
@@ -75,7 +75,7 @@ describe("getAppointmentPresentation — fixtures reais", () => {
       endsAt: "2026-08-18T11:00:00.000Z",
     });
     expect(result.visualState).toBe("completed");
-    expect(result.backgroundColor).toBe("#1A73E8");
+    expect(result.backgroundColor).toBe("#EDF4FC");
     expect(result.isPast).toBe(true);
     expect(result.isCancelled).toBe(false);
   });
@@ -87,7 +87,7 @@ describe("getAppointmentPresentation — fixtures reais", () => {
       endsAt: "2026-08-18T08:00:00.000Z",
     });
     expect(result.visualState).toBe("cancelled");
-    expect(result.backgroundColor).toBe("#D93025");
+    expect(result.backgroundColor).toBe("#FCEEEE");
   });
 
   it("GOOGLE_EXTERNAL futuro scheduled é verde, sem cinza", () => {
@@ -98,7 +98,7 @@ describe("getAppointmentPresentation — fixtures reais", () => {
       patientId: null,
     });
     expect(result.visualState).toBe("active");
-    expect(result.backgroundColor).toBe("#34A853");
+    expect(result.backgroundColor).toBe("#EAF6ED");
     expect(result.badgeLabel).toBe("Google");
   });
 
@@ -110,7 +110,7 @@ describe("getAppointmentPresentation — fixtures reais", () => {
       patientId: null,
     });
     expect(result.visualState).toBe("cancelled");
-    expect(result.backgroundColor).toBe("#D93025");
+    expect(result.backgroundColor).toBe("#FCEEEE");
     expect(result.badgeLabel).toBe("Google");
   });
 
@@ -122,7 +122,7 @@ describe("getAppointmentPresentation — fixtures reais", () => {
       patientId: null,
     });
     expect(result.visualState).toBe("active");
-    expect(result.backgroundColor).toBe("#34A853");
+    expect(result.backgroundColor).toBe("#EAF6ED");
   });
 
   it("indisponível pela cor da organização permanece vermelho depois do horário", () => {
@@ -139,7 +139,7 @@ describe("getAppointmentPresentation — fixtures reais", () => {
       now: NOW,
     });
     expect(result.visualState).toBe("unavailable");
-    expect(result.backgroundColor).toBe("#D93025");
+    expect(result.backgroundColor).toBe("#FCEEEE");
     expect(result.statusLabel).toBe("Indisponível");
   });
 
@@ -156,7 +156,10 @@ describe("getAppointmentPresentation — fixtures reais", () => {
     expect(visual.borderStyle).toBe("solid");
     expect(visual.style.borderStyle).toBe("solid");
     expect(visual.badge).toBe("Google");
-    expect(visual.className).toBe("bg-[#34A853] text-white");
+    expect(visual.className).toBe("agenda-status-surface");
+    expect(visual.style.backgroundColor).toBe("var(--agenda-active-bg)");
+    expect(visual.style.borderLeftWidth).toBe(4);
+    expect(visual.dotClassName).toBe("bg-[#34A853]");
   });
 });
 

@@ -134,7 +134,7 @@ A função do bloco define a família de cor. Tokens centrais em `src/app/global
 
 Tons aceitáveis em `Card` / `DashboardWidget`: `neutral | agenda | clinical | finance | tasks | documents | knowledge | settings`.
 
-Não usar verde `#34A853`, azul `#1A73E8` ou vermelho `#D93025` como decoração fora da Agenda V2. Essas cores permanecem semântica operacional de status.
+Não usar verde `#34A853`, azul `#1A73E8` ou vermelho `#D93025` como superfície inteira dos cards da Agenda. Superfícies usam `--agenda-*-bg/border/accent/text` (pastel). As cores fortes ficam em `--status-active`, `--status-completed` e `--status-cancelled` para acentos pequenos (dot, kicker, faixa de 4px).
 
 Sombra padrão: `--elevation-card`. Hover clicável: `--elevation-card-hover` + `translateY(-1px)`, respeitando `prefers-reduced-motion`.
 

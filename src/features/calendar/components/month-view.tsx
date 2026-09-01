@@ -114,7 +114,7 @@ export function MonthView({
                           data-appointment-origin={appointment.origin}
                           style={visual.style}
                           className={cn(
-                            "w-full break-words rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-white",
+                            "w-full break-words rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-foreground",
                             visual.className,
                           )}
                         >

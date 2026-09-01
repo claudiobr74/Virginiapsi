@@ -121,7 +121,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
       await expect(googleRow).toBeVisible();
       await expect(googleRow.getByText("Google")).toBeVisible();
       await expect(googleRow).toHaveAttribute("data-appointment-visual", "active");
-      await expect(googleRow).toHaveCSS("background-color", "rgb(52, 168, 83)");
+      await expect(googleRow).toHaveCSS("background-color", "rgb(234, 246, 237)");
       await expect(googleRow.getByRole("button", { name: "Confirmar" })).toHaveCount(0);
       await expect(googleRow.getByRole("button", { name: "Atender" })).toBeVisible();
       await expect(googleRow.getByRole("button", { name: "Marcar Falta" })).toHaveCount(0);

@@ -142,16 +142,16 @@ export function AppointmentDetailDrawer({
             style={visual.style}
             className={cn("flex flex-col gap-1 rounded-lg px-3 py-2.5", visual.className)}
           >
-            <p className="text-sm font-semibold leading-snug break-words text-white">
+            <p className="text-sm font-semibold leading-snug break-words text-foreground">
               {appointment.summary_snapshot ?? "Sem paciente vinculado"}
             </p>
-            <p className="font-mono text-xs text-white/90">
+            <p className="font-mono text-xs font-semibold">
               {formatInTimeZone(appointment.starts_at, timeZone)} –{" "}
               {formatInTimeZone(appointment.ends_at, timeZone)}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               {visual.badge ? <GoogleOriginMark /> : null}
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-white/85">
+              <span className="text-[10px] font-semibold uppercase tracking-wide">
                 {visual.statusLabel}
               </span>
             </div>

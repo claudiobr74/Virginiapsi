@@ -70,23 +70,23 @@ export function TodayTimeline({
               className={cn(
                 "my-1 flex flex-col gap-2 rounded-lg px-3 py-3",
                 visual.className,
-                isNext && "ring-2 ring-white/80",
+                isNext && "agenda-event-selected",
               )}
             >
               <div className="flex min-w-0 items-center gap-3">
                 <div className="w-14 shrink-0">
-                  <p className="font-mono text-sm font-semibold tabular-nums text-white">
+                  <p className="font-mono text-sm font-semibold tabular-nums">
                     {formatInTimeZone(appointment.startsAt, timeZone)}
                   </p>
-                  <p className="font-mono text-[11px] tabular-nums text-white/80">
+                  <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
                     {formatInTimeZone(appointment.endsAt, timeZone)}
                   </p>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-semibold text-white">
+                  <p className="break-words text-sm font-semibold text-foreground">
                     {patientDisplayLabel(appointment)}
                   </p>
-                  <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-white/80">
+                  <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
                     {appointment.patientPublicCode ? (
                       <span className="font-mono">{appointment.patientPublicCode}</span>
                     ) : null}
@@ -99,7 +99,7 @@ export function TodayTimeline({
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   {visual.badge ? <GoogleOriginMark compact /> : null}
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-white/85">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide">
                     {visual.statusLabel}
                   </span>
                 </div>

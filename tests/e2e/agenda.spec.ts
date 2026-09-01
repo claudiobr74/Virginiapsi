@@ -93,13 +93,13 @@ test.describe("Agenda — visão do dia", () => {
         .first();
 
       await expect(active).toHaveAttribute("data-appointment-visual", "active");
-      await expect(active).toHaveCSS("background-color", "rgb(52, 168, 83)");
+      await expect(active).toHaveCSS("background-color", "rgb(234, 246, 237)");
       await expect(completed).toHaveAttribute("data-appointment-visual", "completed");
-      await expect(completed).toHaveCSS("background-color", "rgb(26, 115, 232)");
+      await expect(completed).toHaveCSS("background-color", "rgb(237, 244, 252)");
       await expect(cancelled).toHaveAttribute("data-appointment-visual", "cancelled");
-      await expect(cancelled).toHaveCSS("background-color", "rgb(217, 48, 37)");
+      await expect(cancelled).toHaveCSS("background-color", "rgb(252, 238, 238)");
       await expect(desmarcou).toHaveAttribute("data-appointment-visual", "cancelled");
-      await expect(desmarcou).toHaveCSS("background-color", "rgb(217, 48, 37)");
+      await expect(desmarcou).toHaveCSS("background-color", "rgb(252, 238, 238)");
     }
   });
 });

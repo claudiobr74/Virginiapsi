@@ -215,12 +215,15 @@ function WeekAppointmentChip({
       data-appointment-origin={appointment.origin}
       style={visual.style}
       onClick={() => onSelect(appointment)}
-      className={cn("w-full min-w-0 rounded-md px-2 py-1.5 text-left", visual.className)}
+      className={cn(
+        "card-interactive w-full min-w-0 rounded-md px-2 py-1.5 text-left",
+        visual.className,
+      )}
     >
-      <p className="font-mono text-[10px] text-white/85">
+      <p className="font-mono text-[10px] font-semibold">
         {starts} – {ends}
       </p>
-      <p className="break-words text-xs font-semibold leading-snug text-white">
+      <p className="break-words text-xs font-semibold leading-snug text-foreground">
         {appointment.summary_snapshot ?? "Sem paciente"}
       </p>
     </button>

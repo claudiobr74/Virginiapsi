@@ -127,9 +127,9 @@ function byDay(rows: AppointmentRow[]) {
 }
 
 const PAINT = {
-  active: "#34A853",
-  completed: "#1A73E8",
-  cancelled: "#D93025",
+  active: { backgroundColor: "var(--agenda-active-bg)", color: "var(--agenda-active-text)" },
+  completed: { backgroundColor: "var(--agenda-completed-bg)", color: "var(--agenda-completed-text)" },
+  cancelled: { backgroundColor: "var(--agenda-unavailable-bg)", color: "var(--agenda-unavailable-text)" },
 } as const;
 
 function expectTone(name: string, tone: keyof typeof PAINT) {
@@ -138,12 +138,12 @@ function expectTone(name: string, tone: keyof typeof PAINT) {
   for (const match of matches) {
     const node = match.closest("[data-appointment-visual]");
     expect(node).toHaveAttribute("data-appointment-visual", tone);
-    expect(node).toHaveStyle({ backgroundColor: PAINT[tone], color: "#ffffff" });
+    expect(node).toHaveStyle(PAINT[tone]);
     expect(node).not.toHaveStyle({ borderStyle: "dashed" });
   }
 }
 
-describe("Agenda V2 — cores sólidas em dia/semana/mês", () => {
+describe("Agenda — superfícies pastéis em dia/semana/mês", () => {
   it("DayView pinta futuro verde, encerrado azul, desmarcou vermelho", () => {
     render(
       <DayView
@@ -206,7 +206,7 @@ describe("Agenda V2 — cores sólidas em dia/semana/mês", () => {
     const card = screen.getByText("Livia-1(c) / Flávia-3").closest("[data-appointment-visual]");
     expect(card).toHaveAttribute("data-appointment-visual", "active");
     expect(card).toHaveAttribute("data-appointment-origin", "GOOGLE_EXTERNAL");
-    expect(card).toHaveStyle({ backgroundColor: "#34A853" });
+    expect(card).toHaveStyle({ backgroundColor: "var(--agenda-active-bg)" });
     expect(screen.getByText("Google")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Atender" })).toBeInTheDocument();
   });
@@ -225,7 +225,7 @@ describe("Agenda V2 — cores sólidas em dia/semana/mês", () => {
     render(<AppointmentCard appointment={isadora} timeZone={TIME_ZONE} isAdmin now={NOW} />);
     const card = screen.getByText("Isadora? não pode").closest("[data-appointment-visual]");
     expect(card).toHaveAttribute("data-appointment-visual", "unavailable");
-    expect(card).toHaveStyle({ backgroundColor: "#D93025" });
+    expect(card).toHaveStyle({ backgroundColor: "var(--agenda-unavailable-bg)" });
     expect(screen.getByText("Indisponível")).toBeInTheDocument();
     expect(screen.queryByText("Cancelado")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Atender" })).not.toBeInTheDocument();
@@ -248,7 +248,7 @@ describe("Agenda V2 — cores sólidas em dia/semana/mês", () => {
     );
     const strip = document.querySelector("[data-appointment-visual]");
     expect(strip).toHaveAttribute("data-appointment-visual", "active");
-    expect(strip).toHaveStyle({ backgroundColor: "#34A853" });
+    expect(strip).toHaveStyle({ backgroundColor: "var(--agenda-active-bg)" });
     expect(screen.queryByText(/somente leitura/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Editar" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Excluir" })).toBeInTheDocument();

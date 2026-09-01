@@ -42,7 +42,7 @@ export function AppointmentCard({
       data-appointment-origin={appointment.origin}
       style={visual.style}
       className={cn(
-        "flex w-full min-w-0 flex-col rounded-lg",
+        "card-interactive flex w-full min-w-0 flex-col rounded-lg",
         compact ? "gap-0.5 px-2 py-1.5" : "gap-2 px-3 py-2.5",
         visual.className,
       )}
@@ -50,12 +50,12 @@ export function AppointmentCard({
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full min-w-0 flex-col gap-1 text-left text-white"
+        className="flex w-full min-w-0 flex-col gap-1 text-left"
       >
         <div className="flex items-start justify-between gap-2">
           <p
             className={cn(
-              "min-w-0 flex-1 font-semibold leading-snug break-words",
+              "min-w-0 flex-1 font-semibold leading-snug break-words text-foreground",
               compact ? "text-xs" : "text-sm sm:text-base",
             )}
           >
@@ -64,23 +64,23 @@ export function AppointmentCard({
           <div className="flex shrink-0 flex-col items-end gap-1">
             {visual.badge ? <GoogleOriginMark compact={compact} /> : null}
             {compact ? null : (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-white/85">
+              <span className="text-[10px] font-semibold uppercase tracking-wide">
                 {visual.statusLabel}
               </span>
             )}
           </div>
         </div>
-        <p className={cn("font-mono tabular-nums text-white/90", compact ? "text-[10px]" : "text-xs sm:text-sm")}>
+        <p className={cn("font-mono font-semibold tabular-nums", compact ? "text-[10px]" : "text-xs sm:text-sm")}>
           {timeRange}
         </p>
         {compact ? null : (
-          <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-white/80">
+          <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
             <ModalityIcon className="size-3 shrink-0" aria-hidden />
             <span className="truncate">{MODALITY_LABELS[appointment.modality]}</span>
           </p>
         )}
         {appointment.sync_status === "error" ? (
-          <p className="text-[11px] font-semibold text-white">Não foi possível sincronizar com Google.</p>
+          <p className="text-[11px] font-semibold text-failed">Não foi possível sincronizar com Google.</p>
         ) : null}
       </button>
 
@@ -100,7 +100,7 @@ export function AppointmentCard({
               href={appointment.meet_url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/25 bg-white/15 px-3 text-xs font-semibold text-white hover:bg-white/25"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground hover:bg-surface"
             >
               Link Meet
               <ExternalLink className="size-3.5" aria-hidden />
