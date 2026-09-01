@@ -25,6 +25,7 @@ import { computeAgendaWindow, todayInTimeZone } from "@/features/calendar/date-w
 import { getConnection } from "@/features/calendar/connection-queries";
 import { googleConnectionIsLive, visibleAppointments } from "@/features/calendar/display";
 import { countValidAgendaSessions, applyOrgAgendaColorPolicies } from "@/features/calendar/google-event-status";
+import type { AppointmentStatus } from "@/features/calendar/contracts";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface AppointmentJoinRow {
@@ -211,36 +212,24 @@ async function countWeekSessions(
     return 0;
   }
 
-  const visible = visibleAppointments(
-    applyOrgAgendaColorPolicies(
-      (data as Array<{
-        status: string;
-        origin: "TESSELI" | "GOOGLE_EXTERNAL";
-        summary_snapshot: string | null;
-        google_color_id?: string | null;
-        google_event_type?: string | null;
-        google_deleted_at?: string | null;
-        starts_at?: string;
-        ends_at?: string;
-      }> | null) ?? [],
-      connection,
-    ),
+  const rows = applyOrgAgendaColorPolicies(
+    ((data as Array<{
+      status: string;
+      origin: "TESSELI" | "GOOGLE_EXTERNAL";
+      summary_snapshot: string | null;
+      google_color_id?: string | null;
+      google_event_type?: string | null;
+      google_deleted_at?: string | null;
+      starts_at?: string;
+      ends_at?: string;
+    }> | null) ?? []).map((row) => ({
+      ...row,
+      status: row.status as AppointmentStatus,
+    })),
     connection,
   );
-  return countValidAgendaSessions(
-    visible.map((row) => ({
-      status: row.status as "scheduled" | "confirmed" | "cancelled" | "completed" | "no_show",
-      origin: row.origin,
-      summary_snapshot: row.summary_snapshot,
-      google_color_id: row.google_color_id,
-      google_event_type: row.google_event_type,
-      google_deleted_at: row.google_deleted_at,
-      cancelled_google_color_ids: row.cancelled_google_color_ids,
-      unavailable_google_color_ids: row.unavailable_google_color_ids,
-      starts_at: row.starts_at,
-      ends_at: row.ends_at,
-    })),
-  );
+  const visible = visibleAppointments(rows, connection);
+  return countValidAgendaSessions(visible);
 }
 
 export async function getMyDaySnapshot(input: {

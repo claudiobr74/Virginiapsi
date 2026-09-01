@@ -13,6 +13,17 @@ function event(overrides: Partial<GoogleCalendarEvent> & Pick<GoogleCalendarEven
   };
 }
 
+describe("googleEventIdsMissingFromSnapshot", () => {
+  it("compara google_event_id exato, sem prefixo de série", () => {
+    expect(
+      googleEventIdsMissingFromSnapshot(
+        ["series", "series_20260901T100000Z", "series_20260908T100000Z"],
+        new Set(["series_20260908T100000Z"]),
+      ),
+    ).toEqual(["series", "series_20260901T100000Z"]);
+  });
+});
+
 describe("decideGooglePullEvent", () => {
   it("trata Google status=cancelled como source deletion antes de exigir start/end", () => {
     expect(
@@ -176,11 +187,13 @@ describe("runGoogleCalendarPull", () => {
     const markDeleted = vi.fn(async () => undefined);
     const upsertExternal = vi.fn(async () => undefined);
     const reconcileUnseen = vi.fn(async (seen: string[]) => {
+      // After the tombstone mark, only the sibling instance remains active.
       const missing = googleEventIdsMissingFromSnapshot(
-        ["series_20260901T100000Z", "series_20260908T100000Z"],
+        ["series_20260908T100000Z"],
         new Set(seen),
       );
       expect(missing).toEqual([]);
+      expect(seen).toEqual(["series_20260908T100000Z"]);
       return 0;
     });
 
@@ -208,8 +221,10 @@ describe("runGoogleCalendarPull", () => {
     expect(markDeleted).toHaveBeenCalledWith("series_20260901T100000Z");
     expect(markDeleted).not.toHaveBeenCalledWith("series_20260908T100000Z");
     expect(upsertExternal).toHaveBeenCalledTimes(1);
-    expect(upsertExternal.mock.calls[0]?.[0]).toMatchObject({
-      googleEventId: "series_20260908T100000Z",
-    });
+    expect(upsertExternal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        googleEventId: "series_20260908T100000Z",
+      }),
+    );
   });
 });

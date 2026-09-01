@@ -34,6 +34,8 @@ export interface AppointmentCancellationInput {
   unavailableGoogleColorIds?: readonly string[] | null;
   ends_at?: string;
   endsAt?: string;
+  starts_at?: string;
+  startsAt?: string;
 }
 
 /**
