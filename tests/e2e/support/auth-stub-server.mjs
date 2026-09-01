@@ -547,7 +547,7 @@ function refreshChargeStatus(charge) {
 }
 
 function seedAppointment(organizationId, overrides) {
-  const id = randomUUID();
+  const id = overrides.id ?? randomUUID();
   const now = new Date().toISOString();
   const appointment = {
     id,
@@ -624,57 +624,117 @@ function futureRangeOnCivilDay(today, leadMinutes, durationMinutes) {
   };
 }
 
-{
-  const today = todaySaoPauloDateStr();
-  const [beatriz] = patientsByOrg.get(ADMIN_ORG_ID).values();
-  const futureBeatriz = futureRangeOnCivilDay(today, 20, 40);
-
-  seedAppointment(ADMIN_ORG_ID, {
-    patient_id: beatriz.id,
-    starts_at: futureBeatriz.starts_at,
-    ends_at: futureBeatriz.ends_at,
-    summary_snapshot: `${beatriz.full_name} • ${beatriz.public_code}`,
-  });
-
-  const pastStart = new Date(`${today}T00:05:00-03:00`);
-  const pastEnd = new Date(pastStart.getTime() + 50 * 60 * 1000);
-  seedAppointment(ADMIN_ORG_ID, {
-    patient_id: beatriz.id,
-    status: "scheduled",
-    starts_at: pastStart.toISOString(),
-    ends_at: pastEnd.toISOString(),
-    summary_snapshot: "Consulta B — realizada",
-  });
-
-  const cancelledStart = new Date(`${today}T15:00:00-03:00`);
-  const cancelledEnd = new Date(cancelledStart.getTime() + 50 * 60 * 1000);
-  seedAppointment(ADMIN_ORG_ID, {
-    patient_id: beatriz.id,
-    status: "cancelled",
-    starts_at: cancelledStart.toISOString(),
-    ends_at: cancelledEnd.toISOString(),
-    summary_snapshot: "Consulta C — cancelada",
-  });
-
-  const desmarcouStart = new Date(`${today}T16:30:00-03:00`);
-  const desmarcouEnd = new Date(desmarcouStart.getTime() + 50 * 60 * 1000);
-  seedAppointment(ADMIN_ORG_ID, {
-    starts_at: desmarcouStart.toISOString(),
-    ends_at: desmarcouEnd.toISOString(),
-    summary_snapshot: "Vinicius-2(desmarcou)",
-  });
-
-  const futureGoogle = futureRangeOnCivilDay(today, 75, 45);
-  seedAppointment(ADMIN_ORG_ID, {
-    origin: "GOOGLE_EXTERNAL",
-    managed_by_tesseli: false,
-    google_calendar_id: "primary",
-    google_event_id: "external-evt-1",
-    summary_snapshot: "Reunião do conselho regional",
-    starts_at: futureGoogle.starts_at,
-    ends_at: futureGoogle.ends_at,
-  });
+function pastRangeOnCivilDay(today, durationMinutes) {
+  const nowMs = Date.now();
+  const dayStartMs = new Date(`${today}T00:00:00-03:00`).getTime();
+  const durationMs = durationMinutes * 60 * 1000;
+  let endMs = nowMs - 30_000;
+  let startMs = endMs - durationMs;
+  if (startMs < dayStartMs) {
+    startMs = dayStartMs;
+    endMs = Math.min(nowMs - 5_000, startMs + durationMs);
+  }
+  if (endMs <= startMs) {
+    endMs = startMs + 60_000;
+  }
+  return {
+    starts_at: new Date(startMs).toISOString(),
+    ends_at: new Date(endMs).toISOString(),
+  };
 }
+
+const E2E_AGENDA_FIXTURE_IDS = {
+  beatrizFuture: "aaaaaaaa-0001-4000-8000-000000000001",
+  consultaB: "aaaaaaaa-0001-4000-8000-000000000002",
+  consultaC: "aaaaaaaa-0001-4000-8000-000000000003",
+  desmarcou: "aaaaaaaa-0001-4000-8000-000000000004",
+  googleExternal: "aaaaaaaa-0001-4000-8000-000000000005",
+};
+
+function upsertFixtureTimes(organizationId, id, fields, createOverrides) {
+  const table = getOrCreateOrgMap(appointmentsByOrg, organizationId);
+  const existing = table.get(id);
+  if (existing) {
+    Object.assign(existing, fields, { updated_at: new Date().toISOString() });
+    return existing;
+  }
+  return seedAppointment(organizationId, { id, ...createOverrides, ...fields });
+}
+
+function ensureTodayAgendaFixtures(organizationId) {
+  const today = todaySaoPauloDateStr();
+  const patients = patientsByOrg.get(organizationId);
+  if (!patients) {
+    return;
+  }
+  const [beatriz] = patients.values();
+  const futureBeatriz = futureRangeOnCivilDay(today, 20, 40);
+  const past = pastRangeOnCivilDay(today, 50);
+  const futureGoogle = futureRangeOnCivilDay(today, 75, 45);
+  const cancelledStart = new Date(`${today}T15:00:00-03:00`);
+  const desmarcouStart = new Date(`${today}T16:30:00-03:00`);
+
+  upsertFixtureTimes(
+    organizationId,
+    E2E_AGENDA_FIXTURE_IDS.beatrizFuture,
+    {
+      starts_at: futureBeatriz.starts_at,
+      ends_at: futureBeatriz.ends_at,
+      patient_id: beatriz.id,
+      summary_snapshot: `${beatriz.full_name} • ${beatriz.public_code}`,
+    },
+    { status: "scheduled" },
+  );
+  upsertFixtureTimes(
+    organizationId,
+    E2E_AGENDA_FIXTURE_IDS.consultaB,
+    {
+      starts_at: past.starts_at,
+      ends_at: past.ends_at,
+      patient_id: beatriz.id,
+      summary_snapshot: "Consulta B — realizada",
+    },
+    { status: "scheduled" },
+  );
+  upsertFixtureTimes(
+    organizationId,
+    E2E_AGENDA_FIXTURE_IDS.consultaC,
+    {
+      starts_at: cancelledStart.toISOString(),
+      ends_at: new Date(cancelledStart.getTime() + 50 * 60 * 1000).toISOString(),
+      patient_id: beatriz.id,
+      summary_snapshot: "Consulta C — cancelada",
+    },
+    { status: "cancelled" },
+  );
+  upsertFixtureTimes(
+    organizationId,
+    E2E_AGENDA_FIXTURE_IDS.desmarcou,
+    {
+      starts_at: desmarcouStart.toISOString(),
+      ends_at: new Date(desmarcouStart.getTime() + 50 * 60 * 1000).toISOString(),
+      summary_snapshot: "Vinicius-2(desmarcou)",
+    },
+    {},
+  );
+  upsertFixtureTimes(
+    organizationId,
+    E2E_AGENDA_FIXTURE_IDS.googleExternal,
+    {
+      starts_at: futureGoogle.starts_at,
+      ends_at: futureGoogle.ends_at,
+      summary_snapshot: "Reunião do conselho regional",
+    },
+    {
+      origin: "GOOGLE_EXTERNAL",
+      managed_by_tesseli: false,
+      google_calendar_id: "primary",
+      google_event_id: "external-evt-1",
+    },
+  );
+}
+
+ensureTodayAgendaFixtures(ADMIN_ORG_ID);
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -1512,6 +1572,9 @@ const server = createServer(async (req, res) => {
     } else {
       const organizationId = parseEqFilter(searchParams.get("organization_id"));
       if (organizationId && orgIds.has(organizationId)) {
+        if (organizationId === ADMIN_ORG_ID) {
+          ensureTodayAgendaFixtures(organizationId);
+        }
         const table = appointmentsByOrg.get(organizationId) ?? new Map();
         rows = applyOrder(
           [...table.values()].filter((row) => matchesFilters(row, searchParams)),
