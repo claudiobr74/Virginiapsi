@@ -41,9 +41,15 @@ export function nextLocalMidnightMs(
   now: Date = new Date(),
 ): number {
   const zone = resolveTimeZone(timeZone);
-  const civil = civilDateInTimeZone(now.toISOString(), zone);
-  const tomorrow = addOneCivilDay(civil);
-  return Date.parse(zonedTimeToUtcIso(tomorrow, "00:00", zone));
+  let civil = civilDateInTimeZone(now.toISOString(), zone);
+  for (let step = 0; step < 3; step += 1) {
+    const next = Date.parse(zonedTimeToUtcIso(addOneCivilDay(civil), "00:00", zone));
+    if (Number.isFinite(next) && next > now.getTime()) {
+      return next;
+    }
+    civil = addOneCivilDay(civil);
+  }
+  return now.getTime() + 86_400_000;
 }
 
 /** True when the client already crossed local midnight relative to the SSR civil date. */

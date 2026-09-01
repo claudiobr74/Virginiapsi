@@ -108,6 +108,14 @@ describe("citação diária", () => {
     expect(midnight).toBeGreaterThan(now.getTime());
   });
 
+  it("nextLocalMidnightMs permanece no futuro no instante da meia-noite", () => {
+    const zone = "America/Sao_Paulo";
+    const atMidnight = new Date(zonedTimeToUtcIso("2026-03-16", "00:00", zone));
+    const next = nextLocalMidnightMs(zone, atMidnight);
+    expect(next).toBeGreaterThan(atMidnight.getTime());
+    expect(next).toBe(Date.parse(zonedTimeToUtcIso("2026-03-17", "00:00", zone)));
+  });
+
   it("detecta hidratação após a meia-noite local sem inventar data", () => {
     const zone = "America/Sao_Paulo";
     const beforeMidnight = new Date(Date.parse(zonedTimeToUtcIso("2026-03-16", "00:00", zone)) - 1000);

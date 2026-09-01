@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import {
   clientIsOnLaterCivilDate,
   nextLocalMidnightMs,
+  quoteCivilDate,
 } from "@/features/appearance/daily-quote";
 
 /**
@@ -23,13 +24,22 @@ export function DailyQuoteRefresh({
 
   useEffect(() => {
     if (clientIsOnLaterCivilDate(serverCivilDate, timeZone)) {
+      const clientCivil = quoteCivilDate(timeZone);
+      const key = `tesseli-daily-quote:${serverCivilDate}`;
+      if (sessionStorage.getItem(key) === clientCivil) {
+        return;
+      }
+      sessionStorage.setItem(key, clientCivil);
       router.refresh();
       return;
     }
-    const delay = Math.max(50, nextLocalMidnightMs(timeZone) - Date.now() + 50);
+    const remaining = nextLocalMidnightMs(timeZone) - Date.now();
+    if (remaining <= 0) {
+      return;
+    }
     const timer = window.setTimeout(() => {
       router.refresh();
-    }, delay);
+    }, remaining + 50);
     return () => window.clearTimeout(timer);
   }, [router, timeZone, serverCivilDate]);
 
