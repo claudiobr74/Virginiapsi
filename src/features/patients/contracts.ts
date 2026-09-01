@@ -159,6 +159,7 @@ export type PatientRow = z.infer<typeof patientRowSchema>;
 
 export interface PatientDirectoryRow {
   patient: PatientRow;
+  photoUrl: string | null;
   lastSessionAt: string | null;
   nextSessionAt: string | null;
   pendingClinical: number;

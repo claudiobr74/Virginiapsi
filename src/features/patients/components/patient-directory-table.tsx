@@ -40,14 +40,18 @@ export function PatientDirectoryTable({
         <span>Ações</span>
       </div>
       <ul>
-        {rows.map(({ patient, lastSessionAt, nextSessionAt, pendingClinical }) => (
+        {rows.map(({ patient, photoUrl, lastSessionAt, nextSessionAt, pendingClinical }) => (
           <li key={patient.id} className="border-b border-border last:border-b-0">
             <Link
               href={`/app/patients/${patient.id}`}
               className="grid grid-cols-1 gap-3 px-4 py-3 transition-colors hover:bg-sage-light/40 lg:grid-cols-[minmax(0,1.6fr)_7rem_8rem_8rem_8rem_8rem_6rem] lg:items-center"
             >
               <span className="flex min-w-0 items-center gap-3">
-                <PatientAvatar name={patient.preferred_name} size="md" />
+                <PatientAvatar
+                  name={patient.preferred_name}
+                  photoUrl={photoUrl}
+                  size="card"
+                />
                 <span className="flex min-w-0 flex-col">
                   <span className="font-semibold text-foreground">
                     {patient.preferred_name}

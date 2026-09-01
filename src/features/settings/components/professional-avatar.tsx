@@ -4,6 +4,7 @@ const SIZE_CLASS = {
   sm: "size-10 text-sm",
   md: "size-12 text-base",
   lg: "size-20 text-xl",
+  hero: "size-20 text-xl sm:size-24 lg:size-28",
 } as const;
 
 export function ProfessionalAvatar({

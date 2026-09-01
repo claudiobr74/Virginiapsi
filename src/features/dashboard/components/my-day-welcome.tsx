@@ -57,12 +57,12 @@ export function MyDayWelcome({ snapshot }: { snapshot: MyDaySnapshot }) {
         timeZone={snapshot.timezone}
         serverCivilDate={snapshot.quoteCivilDate}
       />
-      <div className="myday-hero flex flex-col gap-4 rounded-[20px] border border-tone-clinical-border p-5 shadow-card sm:flex-row sm:items-start sm:justify-between sm:p-6">
-        <div className="flex min-w-0 items-center gap-4">
+      <div className="myday-hero flex flex-col gap-4 rounded-[20px] border border-tone-clinical-border p-5 shadow-card sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="flex min-w-0 items-center gap-4 max-[360px]:flex-col max-[360px]:items-start">
           <ProfessionalAvatar
             name={snapshot.greeting.professionalName}
             photoUrl={snapshot.professionalPhotoUrl}
-            size="md"
+            size="hero"
           />
           <div className="flex min-w-0 flex-col gap-1">
             <h1 className="font-serif text-[28px] font-bold leading-tight text-foreground">

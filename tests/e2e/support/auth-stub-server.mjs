@@ -8,8 +8,56 @@
 // project remains pending.
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { crc32, deflateSync } from "node:zlib";
 
 const PORT = Number(process.env.AUTH_STUB_PORT ?? 54331);
+
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length);
+  const typeBuf = Buffer.from(type);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([typeBuf, data])) >>> 0);
+  return Buffer.concat([len, typeBuf, data, crc]);
+}
+
+/** Deterministic circular sage portrait so signed-URL <img> tags render in E2E. */
+function e2ePortraitPng(size = 128) {
+  const raw = Buffer.alloc(size * (1 + size * 3));
+  const radius = size / 2 - 2;
+  for (let y = 0; y < size; y++) {
+    const row = y * (1 + size * 3);
+    raw[row] = 0;
+    for (let x = 0; x < size; x++) {
+      const dx = x + 0.5 - size / 2;
+      const dy = y + 0.5 - size / 2;
+      const inside = dx * dx + dy * dy <= radius * radius;
+      const i = row + 1 + x * 3;
+      if (inside) {
+        raw[i] = 126;
+        raw[i + 1] = 154;
+        raw[i + 2] = 132;
+      } else {
+        raw[i] = 245;
+        raw[i + 1] = 247;
+        raw[i + 2] = 242;
+      }
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0);
+  ihdr.writeUInt32BE(size, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(raw)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+const E2E_PORTRAIT_PNG = e2ePortraitPng();
 
 function makeUser(email, fullName) {
   return {
@@ -316,6 +364,20 @@ for (const name of ["Supervisor Um", "Supervisor Dois", "Supervisor Tres"]) {
     full_name: `${name} Paciente`,
     birth_date: "1982-01-01",
   });
+}
+
+const PORTRAIT_PATIENT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+seedPatient(ADMIN_ORG_ID, {
+  id: PORTRAIT_PATIENT_ID,
+  preferred_name: "Retrato Com Foto",
+  full_name: "Retrato Com Foto Paciente",
+  birth_date: "1994-04-04",
+  photo_path: `${ADMIN_ORG_ID}/${PORTRAIT_PATIENT_ID}/portrait-e2e.png`,
+});
+
+const professionalSettings = practiceSettingsByOrg.get(ADMIN_ORG_ID);
+if (professionalSettings) {
+  professionalSettings.photo_path = `${ADMIN_ORG_ID}/portrait-e2e.png`;
 }
 clinicalProfiles.set(
   [...patientsByOrg.get(ADMIN_ORG_ID).values()][0].id,
@@ -747,6 +809,29 @@ function ensureTodayAgendaFixtures(organizationId) {
 
 ensureTodayAgendaFixtures(ADMIN_ORG_ID);
 
+seedAppointment(ADMIN_ORG_ID, {
+  patient_id: PORTRAIT_PATIENT_ID,
+  origin: "GOOGLE_EXTERNAL",
+  managed_by_tesseli: false,
+  google_calendar_id: "primary",
+  google_event_id: "linked-portrait-evt",
+  starts_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+  ends_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000 + 50 * 60 * 1000).toISOString(),
+  status: "scheduled",
+  summary_snapshot: "Sessão Google vinculada",
+});
+seedAppointment(ADMIN_ORG_ID, {
+  patient_id: PORTRAIT_PATIENT_ID,
+  origin: "GOOGLE_EXTERNAL",
+  managed_by_tesseli: false,
+  google_calendar_id: "primary",
+  google_event_id: "linked-portrait-evt-next",
+  starts_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+  ends_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000 + 50 * 60 * 1000).toISOString(),
+  status: "scheduled",
+  summary_snapshot: "Sessão Google futura",
+});
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
@@ -954,6 +1039,19 @@ const server = createServer(async (req, res) => {
     });
     json(res, 200, { Key: objectPath });
     return;
+  }
+
+  if (pathname.startsWith("/storage/v1/object/sign/") && req.method === "GET") {
+    const objectPath = pathname.replace("/storage/v1/object/sign/", "");
+    if (/\.(png|jpe?g|webp)$/i.test(objectPath)) {
+      res.writeHead(200, {
+        "Content-Type": "image/png",
+        "Cache-Control": "no-store",
+        ...CORS_HEADERS,
+      });
+      res.end(E2E_PORTRAIT_PNG);
+      return;
+    }
   }
 
   if (pathname.startsWith("/storage/v1/object/sign/") && req.method === "POST") {
