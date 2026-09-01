@@ -1,4 +1,4 @@
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import Link from "next/link";
 import { DashboardWidget } from "@/features/dashboard/components/dashboard-widget";
 import type { RecentDocumentItem } from "@/features/dashboard/contracts";
@@ -12,6 +12,8 @@ export function RecentDocumentsPanel({ documents }: { documents: RecentDocumentI
     <DashboardWidget
       id="recent-documents-heading"
       title="Documentos Gerados"
+      tone="documents"
+      icon={<FileText />}
       actions={
         <Link href="/app/documents" className="text-sm font-semibold text-primary hover:underline">
           Ver todos

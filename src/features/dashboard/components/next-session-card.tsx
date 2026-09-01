@@ -28,7 +28,7 @@ export function NextSessionCard({
 }) {
   if (emptyDay) {
     return (
-      <section className="flex flex-col gap-4 rounded-[20px] border border-border bg-card p-6">
+      <section className="flex flex-col gap-4 rounded-[20px] border border-border bg-card p-6 shadow-card">
         <p className="text-xs font-bold uppercase tracking-wide text-sage-700">Dia livre</p>
         <h2 className="font-serif text-2xl font-semibold text-foreground">
           Não há atendimentos agendados para hoje
@@ -48,7 +48,7 @@ export function NextSessionCard({
 
   if (!appointment) {
     return (
-      <section className="flex flex-col gap-2 rounded-[20px] border border-border bg-card p-6">
+      <section className="flex flex-col gap-2 rounded-[20px] border border-border bg-card p-6 shadow-card">
         <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
           <CalendarClock className="size-3.5" aria-hidden />
           Próxima sessão

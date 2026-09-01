@@ -124,6 +124,7 @@ export function AppointmentDetailDrawer({
       <DrawerContent
         title="Detalhes do agendamento"
         description={appointment.summary_snapshot ?? undefined}
+        tone="agenda"
       >
         <div className="flex flex-col gap-4">
           {error ? (

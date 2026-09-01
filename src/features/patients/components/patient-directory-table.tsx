@@ -29,7 +29,7 @@ export function PatientDirectoryTable({
   timeZone: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-[20px] border border-border bg-card">
+    <div className="overflow-hidden rounded-[20px] border border-border bg-card shadow-card">
       <div className="hidden grid-cols-[minmax(0,1.6fr)_7rem_8rem_8rem_8rem_8rem_6rem] border-b border-border px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground lg:grid">
         <span>Nome & registro</span>
         <span>Status</span>

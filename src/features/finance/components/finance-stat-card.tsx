@@ -12,7 +12,7 @@ export function FinanceStatCard({
   tone?: "default" | "success" | "attention" | "failed";
 }) {
   return (
-    <div className="rounded-[16px] border border-border bg-card p-4 shadow-sm">
+    <div className="rounded-[16px] border border-tone-finance-border bg-tone-finance p-4 shadow-card">
       <p className="text-[13px] text-muted-foreground">{label}</p>
       <p
         className={cn(

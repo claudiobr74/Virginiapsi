@@ -29,4 +29,10 @@ describe("Logo oficial", () => {
       "d23c0e4095b37c4cd7c6cc2695fbc376bd13ace939c7b5e75d651c6dc1575184",
     );
   });
+
+  it("neutraliza o fundo opaco só no wrapper da marca", () => {
+    const { container } = render(<Logo width={200} />);
+    expect(container.querySelector(".brand-surface")).toBeTruthy();
+    expect(container.querySelector(".brand-mark")).toBeTruthy();
+  });
 });

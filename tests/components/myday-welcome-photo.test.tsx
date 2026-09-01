@@ -43,6 +43,23 @@ describe("MyDayWelcome — foto profissional", () => {
     );
   });
 
+  it("mostra a citação em bloco próprio quando há texto", () => {
+    render(
+      <MyDayWelcome
+        snapshot={{
+          ...snapshot(null),
+          greeting: {
+            prefix: "Olá",
+            professionalName: "Ana Serena",
+            quote: "A escuta também é intervenção.",
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText("A escuta também é intervenção.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Olá, Ana Serena" })).toBeInTheDocument();
+  });
+
   it("não inventa uma imagem quando não há foto", () => {
     render(<MyDayWelcome snapshot={snapshot(null)} />);
     expect(screen.getByRole("heading", { name: "Olá, Ana Serena" })).toBeInTheDocument();

@@ -58,7 +58,7 @@ Cores semânticas podem usar vermelho, azul e âmbar para erro/confirmado/atenç
 - botões: 8 px (`rounded-lg`)
 - badges: 6–8 px / pill quando status
 - logo/avatar: circular no perfil; mark com ratio do PNG
-- sombras: discretas; card normal `shadow-sm`, modal `shadow-2xl`
+- sombras: discretas; card normal `shadow-card` (`0 2px 8px rgba(31, 42, 44, 0.04)`), hover clicável `shadow-card-hover`, modal `shadow-2xl`
 
 ## Shell desktop
 
@@ -118,13 +118,32 @@ Esta seção é normativa, não descritiva: define os primitivos de UI que exist
 | `ConfirmDialog` | confirmação destrutiva (excluir, cancelar, estornar) | `window.confirm` ou modal de confirmação próprio |
 | `StatusBadge` | badge de status, cores conforme seção Status acima | badge com classes de cor hardcoded por tela |
 | `Button` | primary / secondary / destructive / ghost, conforme seção acima | `<button>` com classes de estilo completo repetidas |
+| `Card` | superfície tonal Clinical Pastel (`tone`, `headed`, ícone) | `bg-[#…]` ou cards coloridos locais por tela |
+
+### Clinical Pastel (V2)
+
+A função do bloco define a família de cor. Tokens centrais em `src/app/globals.css`:
+
+- Agenda / sessões: `--tone-agenda-*` (sage pastel)
+- Clínico: `--tone-clinical-*` (lavender)
+- Financeiro: `--tone-finance-*` (peach)
+- Tarefas: `--tone-tasks-*` (amber)
+- Documentos: `--tone-documents-*` (mist)
+- Conhecimento / IA: `--tone-knowledge-*` (teal)
+- Configurações: `--tone-settings-*` (sand)
+
+Tons aceitáveis em `Card` / `DashboardWidget`: `neutral | agenda | clinical | finance | tasks | documents | knowledge | settings`.
+
+Não usar verde `#34A853`, azul `#1A73E8` ou vermelho `#D93025` como decoração fora da Agenda V2. Essas cores permanecem semântica operacional de status.
+
+Sombra padrão: `--elevation-card`. Hover clicável: `--elevation-card-hover` + `translateY(-1px)`, respeitando `prefers-reduced-motion`.
 
 ### Regra de enforcement
 
 - Toda tela nova consome estes componentes; não os recria com Tailwind solto, mesmo que o resultado visual pareça idêntico.
 - Se uma tela precisar de uma variação genuína (não coberta pela prop da API atual), a extensão é uma prop nova no componente canônico, nunca uma cópia local do componente.
 - PR que introduz modal, drawer, empty state, loading state, campo de busca ou confirmação sem usar o primitivo correspondente falha revisão, independente de estar visualmente correto.
-- Gate da Fase 1: os onze componentes acima existem, têm Storybook ou página de referência mínima, e cobrem os estados de todas as variantes desta especificação (Status, Botão, Modal, Drawer) antes de qualquer outra fase começar a consumi-los.
+- Gate da Fase 1: os primitivos acima existem, têm página de referência mínima em `/design-system`, e cobrem os estados de todas as variantes desta especificação (Status, Botão, Modal, Drawer) antes de qualquer outra fase começar a consumi-los.
 
 ### Botão primary
 
@@ -205,11 +224,15 @@ Esse PNG deve ser usado **exatamente como fornecido** em todas as menções da l
 É proibido:
 - redesenhar ou gerar uma nova logo a partir de descrição textual;
 - converter para SVG ou vetorizar;
-- recortar, recolorir ou adaptar o PNG para dark mode;
-- aplicar filtros, sombras, bordas ou efeitos à própria imagem;
+- recortar, recolorir, remover fundo ou adaptar o PNG para dark mode no arquivo;
+- aplicar filtros, sombras, bordas, clip-path ou efeitos destrutivos à própria imagem;
 - comprimir ou reprocessar de modo destrutivo.
 
+Exceção de renderização (não altera o arquivo): `.brand-surface` / `.brand-mark` com `mix-blend-mode: multiply` em light mode, e placa cream mínima em dark mode.
+
 Na interface, apenas o **container de exibição** pode ser redimensionado. Preserve a razão de aspecto, use `object-fit: contain` e mantenha a imagem íntegra.
+
+O PNG oficial é RGB sem canal alpha (fundo off-white opaco). É proibido editar, recortar ou reexportar o arquivo. Em light mode, o wrapper `.brand-surface` aplica `mix-blend-mode: multiply` somente na marca, para o fundo do arquivo não contaminar o cream da página. Em dark mode o multiply falha; usa-se uma placa cream mínima no wrapper (`TRANSPARENT_RENDER_LIMITATION`). Não aplicar blend em containers genéricos.
 
 ## Critério de fidelidade
 

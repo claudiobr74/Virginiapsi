@@ -52,7 +52,7 @@ export function AgendaToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-xl border border-border bg-surface/60 p-1">
+        <div className="flex rounded-xl border border-tone-agenda-border bg-tone-agenda p-1">
           {(Object.keys(VIEW_LABELS) as AgendaView[]).map((value) => (
             <button
               key={value}

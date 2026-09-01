@@ -165,7 +165,7 @@ export function FinanceConsole({
       ) : null}
 
       {canWrite ? (
-        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+        <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
           <h2 className="mb-3 font-serif text-lg font-bold italic">Planos e pacotes</h2>
           <PlanForm patients={patients} />
           {snapshot.plans.length === 0 ? (
@@ -184,7 +184,7 @@ export function FinanceConsole({
           )}
         </section>
       ) : snapshot.plans.length > 0 ? (
-        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+        <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
           <h2 className="mb-3 font-serif text-lg font-bold italic">Planos e pacotes</h2>
           <ul className="flex flex-col gap-2">
             {snapshot.plans.map((plan) => (
@@ -204,7 +204,7 @@ function SecretaryAccessCard({ current }: { current: SecretaryFinanceAccess }) {
   const [message, setMessage] = useState<string | null>(null);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
       <h2 className="font-serif text-lg font-bold italic">Acesso da secretaria</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Enforcement no banco (`none` / `view` / `manage`). A interface apenas reflete a policy.
@@ -422,7 +422,7 @@ function TodayTab({
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,1fr)]">
-        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+        <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
           <h2 className="font-serif text-lg font-bold italic">Recebimentos de hoje</h2>
           <p className="mb-4 text-sm text-muted-foreground">
             Cobranças com vencimento ou competência de hoje, com baixa rápida quando houver saldo.
@@ -443,7 +443,7 @@ function TodayTab({
         </section>
 
         <div className="flex flex-col gap-6">
-          <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+          <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
             <h2 className="font-serif text-lg font-bold italic">Pendências</h2>
             {overdue.length === 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">Nenhuma cobrança em atraso.</p>
@@ -475,7 +475,7 @@ function TodayTab({
             )}
           </section>
 
-          <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+          <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
             <h2 className="font-serif text-lg font-bold italic">Próximos vencimentos</h2>
             {upcoming.length === 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">Nenhum vencimento futuro listado.</p>
@@ -560,7 +560,7 @@ function ReceivablesTab({
         />
       </div>
       {canWrite ? <ChargeForm patients={patients} today={today} /> : null}
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+      <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
         <h2 className="mb-4 font-serif text-lg font-bold italic">Cobranças</h2>
         {charges.length === 0 ? (
           <EmptyState
@@ -597,7 +597,7 @@ function ChargeForm({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
       <h2 className="mb-3 font-serif text-lg font-bold italic">Nova cobrança</h2>
       <form
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
@@ -910,7 +910,7 @@ function ExpensesTab({ expenses, canWrite }: { expenses: ExpenseRow[]; canWrite:
         />
       </div>
       {canWrite ? <ExpenseForm /> : null}
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+      <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
         <h2 className="mb-4 font-serif text-lg font-bold italic">Despesas</h2>
         {expenses.length === 0 ? (
           <EmptyState
@@ -936,7 +936,7 @@ function ExpenseForm() {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
       <h2 className="mb-3 font-serif text-lg font-bold italic">Nova despesa</h2>
       <form
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
@@ -1213,7 +1213,7 @@ function ReportsTab({
         <FinanceStatCard label="Recebido no mês" value={formatBRL(received)} tone="success" />
         <FinanceStatCard label="Despesas no mês" value={formatBRL(expenses)} tone="failed" />
       </section>
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+      <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
         <h2 className="mb-1 font-serif text-lg font-bold italic">Resultado</h2>
         <p className="tabular-nums text-2xl font-semibold">{formatBRL(received - expenses)}</p>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -1233,7 +1233,7 @@ function CsvExportForm({ bounds }: { bounds: { start: string; end: string } }) {
   const [columns, setColumns] = useState<CsvColumn[]>([...CSV_COLUMN_VALUES]);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
       <h2 className="mb-3 font-serif text-lg font-bold italic">Exportação contábil (CSV)</h2>
       <form
         className="flex flex-col gap-3"
@@ -1322,7 +1322,7 @@ function ClosingForm({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
       <h2 className="mb-3 font-serif text-lg font-bold italic">Fechamento mensal</h2>
       <form
         className="flex flex-col gap-3 sm:flex-row sm:items-end"
@@ -1399,7 +1399,7 @@ function BatchReceiptButton() {
   const [message, setMessage] = useState<string | null>(null);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-[20px] border border-tone-finance-border bg-tone-finance p-5 shadow-card">
       <h2 className="mb-2 font-serif text-lg font-bold italic">Recibos em lote</h2>
       <p className="mb-3 text-sm text-muted-foreground">
         Emite um documento administrativo com os pagamentos do mês corrente.

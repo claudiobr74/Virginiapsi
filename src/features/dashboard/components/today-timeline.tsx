@@ -1,4 +1,4 @@
-import { Globe, Home } from "lucide-react";
+import { CalendarDays, Globe, Home } from "lucide-react";
 import {
   getAppointmentVisualStatus,
   myDayAppointmentToPresentationInput,
@@ -47,6 +47,8 @@ export function TodayTimeline({
     <DashboardWidget
       id="timeline-heading"
       title="Agenda de Hoje"
+      tone="neutral"
+      icon={<CalendarDays />}
       description={appointments.length === 0 ? undefined : attendanceCountLabel(validCount)}
       empty={appointments.length === 0}
       emptyLabel="O dia está resolvido — ou ainda livre. Abra a Agenda para marcar a próxima sessão."

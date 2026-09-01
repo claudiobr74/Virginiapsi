@@ -7,6 +7,7 @@ import {
   Download,
   MessageCircle,
   Mic,
+  Quote,
   Sparkles,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -14,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -141,7 +143,7 @@ export function SettingsConsole({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(14rem,16.25rem)_minmax(0,1fr)] lg:items-start">
       <div
-        className="flex gap-1 overflow-x-auto rounded-3xl border border-border bg-card p-2 shadow-sm [scrollbar-width:none] lg:flex-col lg:overflow-visible lg:p-4 [&::-webkit-scrollbar]:hidden"
+        className="flex gap-1 overflow-x-auto rounded-[20px] border border-border bg-card p-2 shadow-card [scrollbar-width:none] lg:flex-col lg:overflow-visible lg:p-4 [&::-webkit-scrollbar]:hidden"
         role="tablist"
         aria-label="Seções de configurações"
       >
@@ -232,7 +234,7 @@ function ProfileSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   }
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="agenda">
       <SectionHeader
         title="Meu Perfil"
         description="Nome de exibição e foto da profissional. A foto aparece no Meu Dia, junto ao nome. A senha é alterada pelo fluxo de recuperação."
@@ -278,7 +280,7 @@ function ProfileSection({ snapshot }: { snapshot: SettingsSnapshot }) {
           </Button>
         </div>
       </form>
-    </section>
+    </Card>
   );
 }
 
@@ -289,7 +291,7 @@ function ClinicSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const p = snapshot.practice;
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="clinical">
       <SectionHeader
         title="Consultório"
         description="Identidade profissional, duração padrão de sessão e dados fiscais administrativos."
@@ -383,7 +385,7 @@ function ClinicSection({ snapshot }: { snapshot: SettingsSnapshot }) {
           <Message value={message} />
         </div>
       </form>
-    </section>
+    </Card>
   );
 }
 
@@ -404,7 +406,7 @@ function AppearanceSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   });
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="finance">
       <DailyQuoteRefresh
         timeZone={snapshot.organization.timezone}
         serverCivilDate={quoteCivilDate(snapshot.organization.timezone)}
@@ -483,8 +485,9 @@ function AppearanceSection({ snapshot }: { snapshot: SettingsSnapshot }) {
             <p className="text-xs font-bold uppercase tracking-wide text-deep-neutral">
               Citação de hoje
             </p>
-            <p className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-foreground">
-              {todayQuote}
+            <p className="flex items-start gap-2 rounded-2xl border border-tone-tasks-border bg-card px-4 py-3 text-sm text-foreground">
+              <Quote className="mt-0.5 size-4 shrink-0 text-tone-tasks-icon" aria-hidden />
+              <span>{todayQuote}</span>
             </p>
             <p className="text-xs text-muted-foreground">Próxima atualização: amanhã, 00:00</p>
             <Button type="button" variant="secondary" size="sm" className="self-start" onClick={() => setBankOpen(true)}>
@@ -515,17 +518,23 @@ function AppearanceSection({ snapshot }: { snapshot: SettingsSnapshot }) {
         >
           <ol className="flex flex-col gap-3">
             {PSYCHOLOGY_QUOTES.map((quote, index) => (
-              <li key={quote} className="text-sm text-foreground">
-                <span className="font-mono text-xs text-muted-foreground">
-                  {String(index + 1).padStart(2, "0")}
-                </span>{" "}
-                {quote}
+              <li
+                key={quote}
+                className="flex items-start gap-2 rounded-xl border border-tone-tasks-border bg-card px-3 py-3 text-sm text-foreground"
+              >
+                <Quote className="mt-0.5 size-4 shrink-0 text-tone-tasks-icon" aria-hidden />
+                <span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>{" "}
+                  {quote}
+                </span>
               </li>
             ))}
           </ol>
         </DrawerContent>
       </Drawer>
-    </section>
+    </Card>
   );
 }
 
@@ -535,7 +544,7 @@ function SecuritySection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="documents">
       <SectionHeader
         title="Segurança"
         description="Bloqueio por inatividade e permissão financeira da secretaria (enforcement no banco)."
@@ -586,7 +595,7 @@ function SecuritySection({ snapshot }: { snapshot: SettingsSnapshot }) {
         </Button>
         <Message value={message} />
       </form>
-    </section>
+    </Card>
   );
 }
 
@@ -596,7 +605,7 @@ function TeamSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="settings">
       <SectionHeader
         title="Equipe e Acessos"
         description="Convite por e-mail exige conta já cadastrada. O último admin ativo não pode ser removido."
@@ -673,7 +682,7 @@ function TeamSection({ snapshot }: { snapshot: SettingsSnapshot }) {
       <div className="mt-3">
         <Message value={message} />
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -683,7 +692,7 @@ function IntegrationsSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const [showTechnical, setShowTechnical] = useState(false);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="knowledge">
       <SectionHeader
         title="Integrações"
         description="Status real, sem revelar chaves, tokens ou identificadores secretos."
@@ -735,7 +744,7 @@ function IntegrationsSection({ snapshot }: { snapshot: SettingsSnapshot }) {
             })}
         </ul>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -747,7 +756,7 @@ function BackupSection({ snapshot }: { snapshot: SettingsSnapshot }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-3xl border border-border bg-card p-5">
+      <Card tone="settings">
         <SectionHeader
           title="Backup da plataforma"
           description="A recuperação de desastre é o backup do projeto Supabase (PITR/backups gerenciados). O VirgíniaPsi não implementa DR próprio e não usa Google Drive."
@@ -755,9 +764,9 @@ function BackupSection({ snapshot }: { snapshot: SettingsSnapshot }) {
         <p className="mt-3 text-sm text-muted-foreground">
           Operadores configuram retenção e restauração no painel Supabase. A exportação abaixo é portabilidade lógica, não substituto de backup.
         </p>
-      </section>
+      </Card>
 
-      <section className="rounded-3xl border border-border bg-card p-5">
+      <Card tone="settings">
         <SectionHeader
           title="Exportação lógica VirgíniaPsi"
           description="Pacote ZIP versionado (manifest.json + JSON/CSV + hashes SHA-256), gerado neste servidor e baixado por URL assinada de curta duração."
@@ -862,7 +871,7 @@ function BackupSection({ snapshot }: { snapshot: SettingsSnapshot }) {
             ))}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
-import { SectionHeader } from "@/components/ui/section-header";
 import type { ConsentRow } from "@/features/consents/contracts";
 import {
   clearPortraitAction,
@@ -200,8 +200,7 @@ export function PatientForm({
           </p>
         ) : null}
 
-        <section className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6">
-          <SectionHeader title="Identificação" />
+        <Card headed tone="clinical" title="Identificação">
           <PatientPhotoField
             name={patient?.preferred_name || "Paciente"}
             currentPhotoUrl={photoUrl}
@@ -248,10 +247,9 @@ export function PatientForm({
               ) : null}
             </div>
           </div>
-        </section>
+        </Card>
 
-        <section className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6">
-          <SectionHeader title="Contato & Responsáveis" />
+        <Card headed tone="documents" title="Contato & Responsáveis">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="phone">Telefone</Label>
@@ -285,7 +283,7 @@ export function PatientForm({
             {fields.map((field, index) => (
               <div
                 key={field.id}
-                className="grid grid-cols-1 gap-3 rounded-2xl border border-border bg-surface/50 p-4 sm:grid-cols-[1fr_1fr_1fr_auto]"
+                className="grid grid-cols-1 gap-3 rounded-2xl border border-tone-tasks-border bg-tone-tasks p-4 sm:grid-cols-[1fr_1fr_1fr_auto]"
               >
                 <div className="flex flex-col gap-1">
                   <Label htmlFor={`responsibles.${index}.name`}>
@@ -336,10 +334,9 @@ export function PatientForm({
               </div>
             ))}
           </div>
-        </section>
+        </Card>
 
-        <section className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6">
-          <SectionHeader title="Atendimento & Situação" />
+        <Card headed tone="agenda" title="Atendimento & Situação">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="modality">Modalidade</Label>
@@ -379,17 +376,18 @@ export function PatientForm({
               </p>
             </div>
           ) : null}
-        </section>
+        </Card>
 
-        <section className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6">
-          <SectionHeader
-            title="Financeiro & Termos"
-            description={
-              patient
-                ? "Valor usado nas cobranças. A situação vigente dos termos aparece abaixo; o aceite fica no prontuário."
-                : "Valor usado nas cobranças. Termos de serviço e TCLE são registrados no prontuário depois do cadastro."
-            }
-          />
+        <Card
+          headed
+          tone="finance"
+          title="Financeiro & Termos"
+          description={
+            patient
+              ? "Valor usado nas cobranças. A situação vigente dos termos aparece abaixo; o aceite fica no prontuário."
+              : "Valor usado nas cobranças. Termos de serviço e TCLE são registrados no prontuário depois do cadastro."
+          }
+        >
           <div className="flex flex-col gap-1.5 sm:max-w-xs">
             <Label htmlFor="defaultSessionValue">
               Valor padrão da sessão (R$, opcional)
@@ -413,7 +411,7 @@ export function PatientForm({
               isAdmin={terms.isAdmin}
             />
           ) : null}
-        </section>
+        </Card>
 
         <div className="flex justify-end gap-3">
           <Button

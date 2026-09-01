@@ -50,8 +50,8 @@ export function MonthView({
   const overflow = trailingOverflowDays(days[0], days.length);
 
   return (
-    <div className="overflow-hidden rounded-[16px] border border-border bg-card">
-      <div className="grid grid-cols-7 border-b border-border text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="overflow-hidden rounded-[16px] border border-border bg-card shadow-card">
+      <div className="grid grid-cols-7 border-b border-border bg-surface/50 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {WEEKDAY_LABELS.map((label) => (
           <span key={label} className="px-2 py-3">
             {label}
@@ -79,7 +79,7 @@ export function MonthView({
               onClick={() => onSelectDay(day)}
               className={cn(
                 "flex min-h-[108px] flex-col items-start gap-1.5 border-b border-r border-border p-3 text-left transition-colors hover:bg-surface/60",
-                isToday && "bg-sage-light/70",
+                isToday && "bg-tone-agenda",
               )}
             >
               <div className="flex w-full items-start justify-between gap-2">

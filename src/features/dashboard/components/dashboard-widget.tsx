@@ -1,4 +1,7 @@
 import type { ReactNode } from "react";
+import { Card, type CardTone } from "@/components/ui/card";
+
+export type DashboardWidgetTone = CardTone;
 
 export function DashboardWidget({
   id,
@@ -8,6 +11,8 @@ export function DashboardWidget({
   children,
   empty,
   emptyLabel,
+  tone = "neutral",
+  icon,
 }: {
   id: string;
   title: string;
@@ -16,26 +21,25 @@ export function DashboardWidget({
   children?: ReactNode;
   empty?: boolean;
   emptyLabel?: string;
+  tone?: DashboardWidgetTone;
+  icon?: ReactNode;
 }) {
   return (
-    <section
-      aria-labelledby={id}
-        className="flex flex-col gap-4 rounded-[20px] border border-border bg-card p-5 sm:p-6"
+    <Card
+      tone={tone}
+      icon={icon}
+      title={title}
+      titleId={id}
+      description={description}
+      action={actions}
     >
-      <div className="flex items-start justify-between gap-3">
-        <h2 id={id} className="font-serif text-[22px] font-semibold text-foreground">
-          {title}
-        </h2>
-        {description ? (
-          <p className="shrink-0 pt-1 text-[13px] text-muted-foreground">{description}</p>
-        ) : null}
-        {actions ? <div className="shrink-0 pt-1">{actions}</div> : null}
-      </div>
-      {empty ? (
-        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
-      ) : (
-        children
-      )}
-    </section>
+      <section aria-labelledby={id} className="flex flex-col gap-4">
+        {empty ? (
+          <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+        ) : (
+          children
+        )}
+      </section>
+    </Card>
   );
 }

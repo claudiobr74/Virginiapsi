@@ -1,3 +1,4 @@
+import { ClipboardCheck } from "lucide-react";
 import Link from "next/link";
 import { DashboardWidget } from "@/features/dashboard/components/dashboard-widget";
 import {
@@ -17,6 +18,8 @@ export function SessionsToFinalizePanel({
     <DashboardWidget
       id="sessions-to-finalize-heading"
       title="Sessões a Finalizar"
+      tone="clinical"
+      icon={<ClipboardCheck />}
       empty={sessions.length === 0}
       emptyLabel="Nenhuma sessão aguardando fechamento."
     >

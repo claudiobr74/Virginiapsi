@@ -16,8 +16,8 @@ export interface LogoProps {
 
 /**
  * Official VirgíniaPsi lockup (symbol + wordmark), used exactly as provided.
- * Only the display container may be resized; the source file is never
- * cropped, recolored, vectorized or otherwise transformed at render time.
+ * The source PNG is never cropped, recolored, vectorized or rewritten.
+ * Opaque off-white in the file is neutralized at render time (multiply in light).
  */
 export function Logo({
   className,
@@ -26,14 +26,16 @@ export function Logo({
 }: LogoProps) {
   const height = Math.round((width * LOGO_INTRINSIC_HEIGHT) / LOGO_INTRINSIC_WIDTH);
   return (
-    <Image
-      src={LOGO_SRC}
-      alt={PRODUCT_NAME}
-      width={LOGO_INTRINSIC_WIDTH}
-      height={LOGO_INTRINSIC_HEIGHT}
-      priority={priority}
-      className={cn("h-auto max-w-full object-contain", className)}
-      style={{ width, height }}
-    />
+    <div className="brand-surface">
+      <Image
+        src={LOGO_SRC}
+        alt={PRODUCT_NAME}
+        width={LOGO_INTRINSIC_WIDTH}
+        height={LOGO_INTRINSIC_HEIGHT}
+        priority={priority}
+        className={cn("brand-mark h-auto max-w-full object-contain", className)}
+        style={{ width, height }}
+      />
+    </div>
   );
 }

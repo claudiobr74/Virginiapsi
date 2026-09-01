@@ -42,7 +42,7 @@ export function WeekView({
 
   return (
     <>
-      <div className="hidden overflow-x-auto rounded-[16px] border border-border bg-card lg:block">
+      <div className="hidden overflow-x-auto rounded-[16px] border border-border bg-card shadow-card lg:block">
         <div
           className="min-w-[960px]"
           style={{
@@ -57,8 +57,8 @@ export function WeekView({
               <div
                 key={`head-${day}`}
                 className={cn(
-                  "border-b border-l border-border px-3 py-3",
-                  isToday && "bg-sage-light/40",
+                  "border-b border-l border-border bg-surface/50 px-3 py-3",
+                  isToday && "bg-tone-agenda",
                 )}
               >
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

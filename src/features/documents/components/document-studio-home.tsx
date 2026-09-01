@@ -3,9 +3,11 @@
 import { FilePlus2, FileText, Search, Star } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
+import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchField } from "@/components/ui/search-field";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ToneIcon } from "@/components/ui/tone-icon";
 import { TemplatesPanel } from "@/features/documents/components/templates-panel";
 import {
   DOCUMENT_KIND_LABELS,
@@ -67,7 +69,7 @@ export function DocumentStudioHome({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6 shadow-sm sm:flex-row sm:items-end sm:justify-between">
+      <Card tone="documents" className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">
             Produza documentos profissionais com a identidade da clínica — para pacientes, escolas,
@@ -81,7 +83,7 @@ export function DocumentStudioHome({
           <FilePlus2 className="size-4" aria-hidden />
           Novo documento
         </Link>
-      </div>
+      </Card>
 
       <SearchField
         value={search}
@@ -137,8 +139,7 @@ export function DocumentStudioHome({
         </div>
       </section>
 
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-        <h2 className="mb-3 font-serif text-lg font-bold italic text-foreground">Meus modelos</h2>
+      <Card headed tone="documents" title="Meus modelos">
         {isAdmin ? (
           <TemplatesPanel templates={templates} />
         ) : (
@@ -146,10 +147,9 @@ export function DocumentStudioHome({
             Modelos da clínica são gerenciados pela psicóloga administradora.
           </p>
         )}
-      </section>
+      </Card>
 
-      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-        <h2 className="mb-4 font-serif text-lg font-bold italic text-foreground">Documentos recentes</h2>
+      <Card headed tone="documents" title="Documentos recentes">
         {recent.length === 0 ? (
           <EmptyState
             icon={FileText}
@@ -189,7 +189,7 @@ export function DocumentStudioHome({
             permanece nos recentes e no prontuário.
           </p>
         ) : null}
-      </section>
+      </Card>
     </div>
   );
 }
@@ -206,11 +206,16 @@ function TemplateCard({
   pending: boolean;
 }) {
   return (
-    <article className="flex flex-col gap-3 rounded-3xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="font-semibold text-foreground">{template.name}</h3>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">{template.description}</p>
+    <article className="overflow-hidden rounded-[20px] border border-tone-documents-border bg-card shadow-card">
+      <div className="flex items-start justify-between gap-2 border-b border-tone-documents-border bg-tone-documents px-4 py-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <ToneIcon tone="documents">
+            <FileText />
+          </ToneIcon>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-foreground">{template.name}</h3>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{template.description}</p>
+          </div>
         </div>
         <button
           type="button"
@@ -222,15 +227,17 @@ function TemplateCard({
           <Star className={cn("size-4", favorite && "fill-primary text-primary")} />
         </button>
       </div>
-      <p className="text-[11px] text-muted-foreground">
-        {template.intendedRecipients.slice(0, 3).join(" · ")}
-      </p>
-      <Link
-        href={`/app/documents/new?template=${template.key}`}
-        className="text-xs font-semibold text-primary hover:text-primary-hover"
-      >
-        Usar este modelo
-      </Link>
+      <div className="flex flex-col gap-3 bg-card px-4 py-3">
+        <p className="text-[11px] text-muted-foreground">
+          {template.intendedRecipients.slice(0, 3).join(" · ")}
+        </p>
+        <Link
+          href={`/app/documents/new?template=${template.key}`}
+          className="text-xs font-semibold text-primary hover:text-primary-hover"
+        >
+          Usar este modelo
+        </Link>
+      </div>
     </article>
   );
 }

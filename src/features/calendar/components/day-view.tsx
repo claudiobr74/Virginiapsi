@@ -100,7 +100,7 @@ function SummaryCard({
   hint: string;
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-sm">
+    <div className="flex flex-col gap-1 rounded-2xl border border-tone-agenda-border bg-tone-agenda px-4 py-3.5 shadow-card">
       <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
         {label}
       </span>

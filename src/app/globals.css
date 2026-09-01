@@ -48,6 +48,45 @@
   --info-bg: #e1eef1;
   --attention: #a9762c;
   --attention-bg: #fdebd0;
+
+  /* Clinical Pastel — category families. Do not override --sage-700 (primary). */
+  --tone-agenda-bg: #eef5ef;
+  --tone-agenda-soft: #e3efe5;
+  --tone-agenda-border: #b8d5be;
+  --tone-agenda-icon: #3e6b49;
+
+  --tone-clinical-bg: #f4f0fa;
+  --tone-clinical-soft: #ece5f7;
+  --tone-clinical-border: #d1c1eb;
+  --tone-clinical-icon: #6f58a3;
+
+  --tone-finance-bg: #fff2ea;
+  --tone-finance-soft: #ffe8d9;
+  --tone-finance-border: #f5c6a8;
+  --tone-finance-icon: #a75a2a;
+
+  --tone-tasks-bg: #fff8e6;
+  --tone-tasks-soft: #fff0c7;
+  --tone-tasks-border: #eed28a;
+  --tone-tasks-icon: #9a7215;
+
+  --tone-documents-bg: #eef5fb;
+  --tone-documents-soft: #e1edf7;
+  --tone-documents-border: #b9d2e6;
+  --tone-documents-icon: #4b7192;
+
+  --tone-knowledge-bg: #ecf7f5;
+  --tone-knowledge-soft: #ddf1ed;
+  --tone-knowledge-border: #aed8d0;
+  --tone-knowledge-icon: #39786e;
+
+  --tone-settings-bg: #f8f3f0;
+  --tone-settings-soft: #f1e8e3;
+  --tone-settings-border: #dcc8bd;
+  --tone-settings-icon: #765a4d;
+
+  --elevation-card: 0 2px 8px rgba(31, 42, 44, 0.04);
+  --elevation-card-hover: 0 6px 18px rgba(31, 42, 44, 0.07);
 }
 
 .dark {
@@ -90,6 +129,44 @@
   --info-bg: #17282c;
   --attention: #d9ac6a;
   --attention-bg: #2b2416;
+
+  --tone-agenda-bg: #171c18;
+  --tone-agenda-soft: #1c2420;
+  --tone-agenda-border: #2a3d30;
+  --tone-agenda-icon: #8fb896;
+
+  --tone-clinical-bg: #1a1820;
+  --tone-clinical-soft: #221e2b;
+  --tone-clinical-border: #3a3250;
+  --tone-clinical-icon: #b5a3d6;
+
+  --tone-finance-bg: #1f1a16;
+  --tone-finance-soft: #2a211b;
+  --tone-finance-border: #4a3224;
+  --tone-finance-icon: #e0b08a;
+
+  --tone-tasks-bg: #1e1b14;
+  --tone-tasks-soft: #272318;
+  --tone-tasks-border: #4a3d1c;
+  --tone-tasks-icon: #d4bc6a;
+
+  --tone-documents-bg: #161b20;
+  --tone-documents-soft: #1c242b;
+  --tone-documents-border: #2c3e4c;
+  --tone-documents-icon: #8fb0c8;
+
+  --tone-knowledge-bg: #151c1b;
+  --tone-knowledge-soft: #1b2624;
+  --tone-knowledge-border: #2a4540;
+  --tone-knowledge-icon: #7fb8ae;
+
+  --tone-settings-bg: #1c1917;
+  --tone-settings-soft: #241f1c;
+  --tone-settings-border: #3d322c;
+  --tone-settings-icon: #c4a898;
+
+  --elevation-card: 0 2px 8px rgba(0, 0, 0, 0.28);
+  --elevation-card-hover: 0 6px 18px rgba(0, 0, 0, 0.4);
 }
 
 @theme inline {
@@ -133,7 +210,39 @@
   --color-attention: var(--attention);
   --color-attention-bg: var(--attention-bg);
 
-  --color-sidebar: #ffffff;
+  --color-tone-agenda: var(--tone-agenda-bg);
+  --color-tone-agenda-soft: var(--tone-agenda-soft);
+  --color-tone-agenda-border: var(--tone-agenda-border);
+  --color-tone-agenda-icon: var(--tone-agenda-icon);
+  --color-tone-clinical: var(--tone-clinical-bg);
+  --color-tone-clinical-soft: var(--tone-clinical-soft);
+  --color-tone-clinical-border: var(--tone-clinical-border);
+  --color-tone-clinical-icon: var(--tone-clinical-icon);
+  --color-tone-finance: var(--tone-finance-bg);
+  --color-tone-finance-soft: var(--tone-finance-soft);
+  --color-tone-finance-border: var(--tone-finance-border);
+  --color-tone-finance-icon: var(--tone-finance-icon);
+  --color-tone-tasks: var(--tone-tasks-bg);
+  --color-tone-tasks-soft: var(--tone-tasks-soft);
+  --color-tone-tasks-border: var(--tone-tasks-border);
+  --color-tone-tasks-icon: var(--tone-tasks-icon);
+  --color-tone-documents: var(--tone-documents-bg);
+  --color-tone-documents-soft: var(--tone-documents-soft);
+  --color-tone-documents-border: var(--tone-documents-border);
+  --color-tone-documents-icon: var(--tone-documents-icon);
+  --color-tone-knowledge: var(--tone-knowledge-bg);
+  --color-tone-knowledge-soft: var(--tone-knowledge-soft);
+  --color-tone-knowledge-border: var(--tone-knowledge-border);
+  --color-tone-knowledge-icon: var(--tone-knowledge-icon);
+  --color-tone-settings: var(--tone-settings-bg);
+  --color-tone-settings-soft: var(--tone-settings-soft);
+  --color-tone-settings-border: var(--tone-settings-border);
+  --color-tone-settings-icon: var(--tone-settings-icon);
+
+  --shadow-card: var(--elevation-card);
+  --shadow-card-hover: var(--elevation-card-hover);
+
+  --color-sidebar: var(--background);
   --color-sidebar-foreground: #1f2421;
   --color-sidebar-muted: #5d625e;
   --color-sidebar-active: #eaefea;
@@ -303,10 +412,54 @@ body {
   outline: none;
 }
 
+.card-interactive {
+  transition: box-shadow 180ms ease-out, transform 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card-interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--elevation-card-hover);
+  }
+}
+
+.myday-hero {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tone-clinical-bg) 55%, var(--background)),
+    color-mix(in srgb, var(--tone-knowledge-bg) 35%, var(--background))
+  );
+}
+
+.brand-surface {
+  isolation: isolate;
+  display: inline-flex;
+  max-width: 100%;
+  background: transparent;
+}
+
+.brand-mark {
+  mix-blend-mode: multiply;
+}
+
+.dark .brand-mark {
+  mix-blend-mode: normal;
+}
+
+.dark .brand-surface {
+  background: #fbf9f6;
+  border-radius: 0.5rem;
+  padding: 0.2rem 0.45rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sp-modal-overlay,
   .sp-modal-content,
   .sp-drawer-content {
     animation-duration: 0.01ms !important;
+  }
+
+  .card-interactive {
+    transition: none;
   }
 }
