@@ -44,15 +44,20 @@ export function PatientLinkDrawer({
   const timeRange = `${formatInTimeZone(appointment.startsAt, timeZone)}–${formatInTimeZone(appointment.endsAt, timeZone)}`;
   const createHref = `/app/patients/new?returnTo=${encodeURIComponent(returnTo)}`;
 
-  useEffect(() => {
-    if (!open) {
+  function handleOpenChange(next: boolean) {
+    if (!next) {
       setQuery("");
       setPatients([]);
       setSelectedId(null);
       setError(null);
+    }
+    onOpenChange(next);
+  }
+
+  useEffect(() => {
+    if (!open) {
       return;
     }
-
     const trimmed = query.trim();
     const handle = window.setTimeout(() => {
       startSearch(async () => {
@@ -82,20 +87,20 @@ export function PatientLinkDrawer({
         setError(result.error ?? "Não foi possível iniciar a sessão.");
         return;
       }
-      onOpenChange(false);
+      handleOpenChange(false);
       router.push(`/session/${result.sessionId}`);
     });
   }
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange}>
+    <Modal open={open} onOpenChange={handleOpenChange}>
       <ModalContent
         title="Vincular paciente"
         description="Vincular paciente para iniciar atendimento"
         size="md"
         footer={
           <>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="secondary" onClick={() => handleOpenChange(false)}>
               Cancelar
             </Button>
             <Button

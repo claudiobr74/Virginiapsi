@@ -12,7 +12,7 @@ export function extractAppointmentTitleHints(
   const parts = summary.split(/[/|,?]+/);
   const hints: string[] = [];
   for (const part of parts) {
-    let cleaned = part
+    const cleaned = part
       .replace(/\(\s*c\s*\)/gi, " ")
       .replace(/\(\s*desmarcou\s*\)/gi, " ")
       .replace(/\(\s*plantão\s*\)/gi, " ")

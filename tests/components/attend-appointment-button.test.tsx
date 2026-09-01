@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { linkPatientAndStartSessionAction } from "@/features/calendar/link-patient-actions";
+import { AppointmentCard } from "@/features/calendar/components/appointment-card";
 import { AttendAppointmentButton } from "@/features/calendar/components/attend-appointment-button";
 import { appointmentRowToAttendTarget } from "@/features/calendar/attend-target";
 import type { AppointmentRow } from "@/features/calendar/contracts";
