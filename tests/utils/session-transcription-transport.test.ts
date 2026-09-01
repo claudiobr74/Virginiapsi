@@ -120,6 +120,54 @@ describe("SessionTranscriptionTransport", () => {
     expect(calls).toBeGreaterThan(0);
   });
 
+  it("spool indisponível não afirma preservação e mantém o chunk na memória", async () => {
+    const levels: string[] = [];
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    const unavailable: SessionAudioSpool = {
+      status: "SECURE_SPOOL_UNAVAILABLE",
+      async put() {
+        throw new Error("spool must not be written");
+      },
+      async take() {
+        return [];
+      },
+      async delete() {},
+      async count() {
+        return 0;
+      },
+    };
+    const transport = new SessionTranscriptionTransport(
+      {
+        grant: "g",
+        patientId: "22222222-2222-4222-8222-222222222222",
+        organizationId: "44444444-4444-4444-8444-444444444444",
+        sessionId: "33333333-3333-4333-8333-333333333333",
+        spool: unavailable,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        onAck: () => undefined,
+        onBackpressure: (level) => levels.push(level),
+        onFailed: () => undefined,
+        delay: async () => undefined,
+        isOnline: () => false,
+      },
+      0,
+    );
+    transport.enqueueSlice({
+      chunkId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      blob: new Blob([new Uint8Array([2])], { type: "audio/webm" }),
+      mimeType: "audio/webm",
+      startMs: 0,
+      endMs: 15000,
+      createdAt: Date.now(),
+    });
+    await transport.drain();
+    expect(transport.memoryDepth()).toBe(1);
+    expect(levels.at(-1)).toBe("critical");
+    expect(levels).not.toContain("spooling");
+  });
+
   it("recupera spool, reenvia e apaga após ACK", async () => {
     const store = new Map<string, AudioChunk>();
     const pending = chunk({ chunkId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", sequence: 4 });

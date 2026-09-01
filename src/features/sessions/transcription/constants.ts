@@ -20,6 +20,15 @@ export const TRANSCRIPTION_BACKPRESSURE = [
 ] as const;
 export type TranscriptionBackpressure = (typeof TRANSCRIPTION_BACKPRESSURE)[number];
 
+export const SECURE_SPOOL_UNAVAILABLE_MESSAGE =
+  "Não foi possível ativar a gravação local de segurança neste navegador. A transcrição pode continuar enquanto houver conexão.";
+
+export const SECURE_SPOOLING_MESSAGE =
+  "A conexão com a transcrição está indisponível. Os trechos ainda não processados estão sendo preservados de forma criptografada neste dispositivo.";
+
+export const UNPRESERVED_STOP_MESSAGE =
+  "Sessão encerrada. Trechos já transcritos permanecem no prontuário. Alguns trechos ainda não enviados não puderam ser preservados com segurança neste dispositivo.";
+
 export const SESSION_CAPTURE_STATES = [
   "idle",
   "authorizing",

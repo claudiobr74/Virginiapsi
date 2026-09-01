@@ -85,7 +85,7 @@ describe("POST /api/session-capture/transcribe-chunk", () => {
         organizationId: ORGANIZATION_ID,
         patientId: PATIENT_ID,
         sessionId: SESSION_ID,
-        capability: "session_capture_grant",
+        capability: "session_remote_transcription_grant",
         nonce: "nonce",
         issuedAt: 1,
         expiresAt: Date.now() + 60_000,
@@ -161,6 +161,27 @@ describe("POST /api/session-capture/transcribe-chunk", () => {
     const response = await POST(chunkRequest());
     expect(response.status).toBe(403);
     expect(transcribe).not.toHaveBeenCalled();
+  });
+
+  it("exige session_remote_transcription_grant no caminho Groq live", async () => {
+    const response = await POST(chunkRequest());
+    expect(response.status).toBe(200);
+    expect(verifyGrant).toHaveBeenCalledWith(
+      "signed-grant.signature",
+      expect.objectContaining({ capability: "session_remote_transcription_grant" }),
+    );
+  });
+
+  it("recusa session_capture_grant no caminho Groq live", async () => {
+    verifyGrant.mockReturnValue({ valid: false, reason: "scope_mismatch" });
+    const response = await POST(chunkRequest());
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "scope_mismatch" });
+    expect(transcribe).not.toHaveBeenCalled();
+    expect(verifyGrant).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ capability: "session_remote_transcription_grant" }),
+    );
   });
 
   it("recusa sessão de outro paciente", async () => {

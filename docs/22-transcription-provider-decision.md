@@ -29,3 +29,11 @@ Consentimento de transcrição anterior (`minimo-2026-08`) descrevia “áudio n
 
 - Automatizado: unit, security, Playwright Chromium desktop/mobile e WebKit no spec de transcrição.
 - Dispositivos reais (Chrome Android, Safari iOS/iPadOS): **NOT_VERIFIED** até teste manual.
+
+## 5. Grant remoto e spool fail-closed
+
+- `/api/session-capture/grant` emite só `session_remote_transcription_grant`. O browser não escolhe capability.
+- `transcribe-chunk` verifica esse scope e recusa `session_capture_grant` / `audio_fallback_upload_grant`.
+- Ordem de captura: lock → grant (auth/RBAC/consent) → `getUserMedia`.
+- TTL 4h: cobre sessão ~60 min e recovery/reconnect sem novo gate no meio da sessão. Não é credencial Groq.
+- Spool: AES-256-GCM, CryptoKey non-extractable persistida no IndexedDB. Sem fallback de raw key. Persistência impossível → `SECURE_SPOOL_UNAVAILABLE`.

@@ -21,7 +21,7 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_TOKEN_ENCRYPTION_KEY=
 
-# Assina o session_capture_grant e o audio_fallback_upload_grant (Fase 6).
+# Assina session_remote_transcription_grant, session_capture_grant (legado) e audio_fallback_upload_grant.
 # Segredo dedicado — nunca reutilizar GOOGLE_TOKEN_ENCRYPTION_KEY aqui.
 # A emissão/verificação do grant valida SOMENTE esta chave (`parseSessionCaptureEnv`).
 SESSION_CAPTURE_SECRET=

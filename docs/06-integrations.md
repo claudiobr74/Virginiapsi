@@ -104,8 +104,8 @@ Decisão de provider e rationale em `docs/22-transcription-provider-decision.md`
 
 1. sessão clínica autenticada valida tenant/paciente e consentimentos aplicáveis (`minimo-2026-09-groq` para transcrição);
 2. se o consent gate falhar, não ativar microfone e oferecer sessão sem gravação/transcrição;
-3. o servidor emite um `session_capture_grant` (TTL 4h), ligado a organização/paciente/sessão;
-4. o navegador negocia MIME (`MediaRecorder.isTypeSupported`) e captura chunks ~15 s;
+3. o servidor emite um `session_remote_transcription_grant` (TTL 4h: sessão típica ~60 min + recovery/reconnect), ligado a organização/paciente/sessão; o browser **não** escolhe a capability;
+4. só então o navegador chama `getUserMedia`, negocia MIME (`MediaRecorder.isTypeSupported`) e captura chunks ~15 s;
 5. cada chunk vai em `multipart/form-data` para `POST /api/session-capture/transcribe-chunk`;
 6. o servidor chama Groq em memória, persiste o texto, devolve ACK; o Blob local some só após ACK;
 7. a UI confirma o trecho somente depois do ACK (Groq + DB);
@@ -116,7 +116,7 @@ Idempotência: `(session_id, sequence)`. Replay de lost ACK devolve `already_pro
 ### Contingência
 
 - **Nível 2**: fila em memória, retry em timeout/429/5xx (não depender só de `navigator.onLine`).
-- **Nível 3**: spool AES-GCM no IndexedDB. Sem plaintext em localStorage/sessionStorage/cookies. Se a chave não puder ser persistida com segurança: `SECURE_SPOOL_UNAVAILABLE`.
+- **Nível 3**: spool AES-GCM no IndexedDB com CryptoKey non-extractable persistida. Sem plaintext e **sem** raw AES key no IndexedDB. Se a chave não puder ser persistida com segurança: `SECURE_SPOOL_UNAVAILABLE` (fail-closed). A transcrição online continua; a UI não afirma preservação criptografada.
 - **Nível 4**: importar gravação externa (file picker; drag-and-drop no desktop).
 
 ### Importação (IMPORT)

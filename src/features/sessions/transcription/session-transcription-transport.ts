@@ -176,8 +176,10 @@ export class SessionTranscriptionTransport {
           continue;
         }
         this.options.onBackpressure("critical");
+        break;
       } else if (shouldSpool) {
         this.options.onBackpressure("critical");
+        break;
       } else {
         this.emitBackpressure();
       }

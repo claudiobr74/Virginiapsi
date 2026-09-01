@@ -63,6 +63,12 @@ describe("POST /api/session-capture/grant", () => {
     expect(body.grant).toBe("signed-grant.signature");
     expect(body.expiresInMs).toBeGreaterThan(0);
     expect(issue).toHaveBeenCalledTimes(1);
+    expect(authorize).toHaveBeenCalledWith(
+      PATIENT_ID,
+      SESSION_ID,
+      "session_remote_transcription_grant",
+    );
+    expect(issue).toHaveBeenCalledWith(expect.anything(), "session_remote_transcription_grant");
   });
 
   it("nega consentimento ausente com mensagem específica", async () => {
@@ -116,6 +122,36 @@ describe("POST /api/session-capture/grant", () => {
     expect(body.error).toBe("forbidden_role");
     expect(body.message).toContain("psicóloga responsável");
     expect(issue).not.toHaveBeenCalled();
+  });
+
+  it("ignora capability enviada pelo browser", async () => {
+    authorize.mockResolvedValue({
+      allowed: true,
+      organizationId: ORGANIZATION_ID,
+      patientId: PATIENT_ID,
+      sessionId: SESSION_ID,
+      state: {
+        aiProcessingAllowed: true,
+        recordingAllowed: true,
+        transcriptionAllowed: true,
+      },
+    });
+    issue.mockReturnValue("signed-grant.signature");
+
+    const response = await POST(
+      grantRequest({
+        patientId: PATIENT_ID,
+        sessionId: SESSION_ID,
+        capability: "audio_fallback_upload_grant",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(authorize).toHaveBeenCalledWith(
+      PATIENT_ID,
+      SESSION_ID,
+      "session_remote_transcription_grant",
+    );
+    expect(issue).toHaveBeenCalledWith(expect.anything(), "session_remote_transcription_grant");
   });
 
   it("retorna 400 para payload inválido", async () => {

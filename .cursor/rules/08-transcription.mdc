@@ -11,7 +11,7 @@ Decisão de provider: `docs/22-transcription-provider-decision.md`. Compatibilid
 - Prefer feature detection (MediaRecorder, MIME, IndexedDB, Web Crypto) over user-agent sniffing.
 - `GROQ_API_KEY` is server-only via `getGroqTranscriptionEnv()`. Never `NEXT_PUBLIC_GROQ_*`. Never call Groq from a client module.
 - Live audio stays in request memory. Do not write live chunks to Supabase Storage. Import may use private temporary storage and must delete after persist.
-- The browser obtains a short-lived `session_capture_grant` before activating the microphone. The same consent gate applies to import upload grants.
+- The browser obtains a short-lived `session_remote_transcription_grant` **before** `getUserMedia`. The same consent gate applies to import upload grants. Live Groq rejects `session_capture_grant`.
 - Persist final transcript segments incrementally and idempotently by `(session_id, sequence)`. Show text in the UI only after ACK.
-- Encrypted IndexedDB spool is the prolonged-failure backup. Never store plaintext audio in localStorage/sessionStorage/cookies. If the CryptoKey cannot be persisted, classify `SECURE_SPOOL_UNAVAILABLE` instead of falling back to plaintext.
+- Encrypted IndexedDB spool is the prolonged-failure backup. Never store plaintext audio in localStorage/sessionStorage/cookies. Never persist a raw AES key. If the CryptoKey cannot be persisted, classify `SECURE_SPOOL_UNAVAILABLE` (fail-closed) instead of falling back to extractable key material.
 - Diarization is optional. Do not synthesize speakers. Do not add emotion recognition. ASR is not a clinical fact.

@@ -25,9 +25,9 @@ Implemente:
 - opção de sessão sem IA/gravação sem prejuízo ao fluxo clínico;
 - transcrição ao vivo: MediaRecorder → chunks ~15 s → `POST /api/session-capture/transcribe-chunk` → Groq → persistir texto → ACK;
 - feature detection (MIME, IndexedDB, Web Crypto), não sniffing de navegador;
-- `session_capture_grant` emitido pelo servidor antes de ativar o microfone;
-- recusa server-side de transcrever/persistir sem grant válido;
-- spool AES-GCM para falha prolongada; nunca plaintext em web storage;
+- `session_remote_transcription_grant` emitido pelo servidor **antes** de ativar o microfone;
+- recusa server-side de transcrever/persistir sem grant remoto válido;
+- spool AES-GCM para falha prolongada; nunca plaintext nem raw AES key no IndexedDB;
 - importação de gravação externa via signed upload privado e apagamento após persistir;
 - tratamento de ambiguidade/erro de ASR;
 - diarização apenas quando o adapter oferecer; sem diarização, não inventar falante;

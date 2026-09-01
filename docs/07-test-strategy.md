@@ -82,7 +82,8 @@ Capture network response: não basta verificar que a UI esconde a aba. DTO/endpo
 ### Transcrição
 
 - endpoint de grant sem auth 401;
-- consentimento ausente/revogado nega `session_capture_grant` **e** signed upload grant do fallback;
+- consentimento ausente/revogado/desatualizado nega `session_remote_transcription_grant` **e** signed upload grant do fallback;
+- grant 403/404/500 não chama `getUserMedia`;
 - servidor recusa persistir segmento de transcrição sem grant de captura válido;
 - caminho local não emite nenhuma requisição de rede com áudio (verificar por captura de rede);
 - nenhuma chave de provider aparece no client bundle;

@@ -299,6 +299,7 @@ export function resolveConsentStateFromRows(input: {
 
 export const CAPTURE_CAPABILITIES = [
   "session_capture_grant",
+  "session_remote_transcription_grant",
   "audio_fallback_upload_grant",
 ] as const;
 export type CaptureCapability = (typeof CAPTURE_CAPABILITIES)[number];
@@ -310,9 +311,10 @@ export interface CapabilityDecision {
 }
 
 /**
- * Both capture capabilities — live Groq chunks and external-recording import —
- * require the same recording + transcription consent. There is intentionally
- * no capability that requires less.
+ * Live Groq chunks (`session_remote_transcription_grant`), the legacy
+ * `session_capture_grant`, and external-recording import all require the
+ * same recording + transcription consent. There is intentionally no
+ * capability that requires less.
  */
 export function evaluateCaptureCapability(
   resolution: ConsentResolution,

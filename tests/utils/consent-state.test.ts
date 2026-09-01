@@ -238,9 +238,13 @@ describe("resolveConsentStateFromRows", () => {
 });
 
 describe("evaluateCaptureCapability", () => {
-  const capabilities = ["session_capture_grant", "audio_fallback_upload_grant"] as const;
+  const capabilities = [
+    "session_capture_grant",
+    "session_remote_transcription_grant",
+    "audio_fallback_upload_grant",
+  ] as const;
 
-  it("nega as duas capabilities quando não há consentimento", () => {
+  it("nega as capabilities de captura quando não há consentimento", () => {
     const resolution = resolveConsentStateFromRows({
       rows: [],
       birthDate: "1990-05-10",
@@ -306,12 +310,12 @@ describe("evaluateCaptureCapability", () => {
     expect(
       evaluateCaptureCapability(
         { state, denials, ageGroup: "adult" },
-        "session_capture_grant",
+        "session_remote_transcription_grant",
       ).allowed,
     ).toBe(false);
   });
 
-  it("libera as duas capabilities com gravação e transcrição válidas", () => {
+  it("libera as capabilities de captura com gravação e transcrição válidas", () => {
     const resolution = resolveConsentStateFromRows({
       rows: allCaptureConsents(),
       birthDate: "1990-05-10",

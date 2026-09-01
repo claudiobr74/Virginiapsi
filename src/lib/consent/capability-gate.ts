@@ -63,8 +63,8 @@ async function sessionBelongsToPatient(
 
 /**
  * The single chokepoint every audio-capture capability must pass through: the
- * session capture grant (which authorizes activating the microphone for
- * on-device transcription) and the fallback signed upload grant both call this
+ * remote live-transcription grant (which authorizes getUserMedia only after
+ * this gate) and the fallback signed upload grant both call this
  * before anything is issued (docs/03-architecture.md §Clinical AI boundary;
  * docs/08-implementation-phases.md Fase 5.5/6;
  * docs/22-transcription-provider-decision.md).
@@ -163,11 +163,10 @@ export function issueCaptureGrant(
 }
 
 /**
- * This is the actual server-side enforcement point for the local
- * transcription path: since the server never sees the on-device audio, a
- * transcript segment is only ever persisted if it carries a grant that
- * verifies against this scope (docs/22-transcription-provider-decision.md
- * §5 "Enforcement server-side no caminho local").
+ * Server-side enforcement for a signed capture grant. Live Groq chunks
+ * require `session_remote_transcription_grant`; import uses
+ * `audio_fallback_upload_grant`. The legacy `session_capture_grant` remains
+ * valid only for the historical segment persist path.
  */
 export function verifyCaptureGrantToken(
   token: string,

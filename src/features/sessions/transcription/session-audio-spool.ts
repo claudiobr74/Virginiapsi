@@ -62,7 +62,7 @@ function idbRequest<T>(request: IDBRequest<T>): Promise<T> {
   });
 }
 
-async function persistSpoolKey(db: IDBDatabase, key: CryptoKey): Promise<boolean> {
+async function persistSpoolKey(db: IDBDatabase, key: CryptoKey, subtle: SubtleCrypto): Promise<boolean> {
   try {
     const tx = db.transaction(KEYS_STORE, "readwrite");
     tx.objectStore(KEYS_STORE).put(key, KEY_RECORD_ID);
@@ -72,54 +72,29 @@ async function persistSpoolKey(db: IDBDatabase, key: CryptoKey): Promise<boolean
     });
     const readTx = db.transaction(KEYS_STORE, "readonly");
     const stored = await idbRequest(readTx.objectStore(KEYS_STORE).get(KEY_RECORD_ID));
-    return stored instanceof CryptoKey;
+    if (!(stored instanceof CryptoKey)) {
+      return false;
+    }
+    const probe = new TextEncoder().encode("virginia-psi-spool-probe");
+    const { iv, ciphertext } = await encryptBytes(stored, probe, subtle);
+    const decrypted = await decryptBytes(
+      stored,
+      new Uint8Array(iv),
+      new Uint8Array(ciphertext),
+      subtle,
+    );
+    return new TextDecoder().decode(decrypted) === "virginia-psi-spool-probe";
   } catch {
     return false;
   }
 }
 
-async function persistRawAesKey(
-  db: IDBDatabase,
-  subtle: SubtleCrypto,
-): Promise<CryptoKey | null> {
-  try {
-    const extractable = await subtle.generateKey({ name: "AES-GCM", length: 256 }, true, [
-      "encrypt",
-      "decrypt",
-    ]);
-    const raw = await subtle.exportKey("raw", extractable);
-    const tx = db.transaction(KEYS_STORE, "readwrite");
-    tx.objectStore(KEYS_STORE).put(raw, KEY_RECORD_ID);
-    await new Promise<void>((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? new Error("indexeddb_put_raw_key_failed"));
-    });
-    return subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
-  } catch {
-    return null;
-  }
-}
-
-async function loadSpoolKey(
-  db: IDBDatabase,
-  subtle: SubtleCrypto,
-): Promise<CryptoKey | null> {
+async function loadSpoolKey(db: IDBDatabase): Promise<CryptoKey | null> {
   try {
     const tx = db.transaction(KEYS_STORE, "readonly");
     const stored = await idbRequest(tx.objectStore(KEYS_STORE).get(KEY_RECORD_ID));
     if (stored instanceof CryptoKey) {
       return stored;
-    }
-    if (stored instanceof ArrayBuffer || ArrayBuffer.isView(stored)) {
-      const raw = (
-        stored instanceof ArrayBuffer
-          ? stored
-          : Uint8Array.from(stored as Uint8Array).buffer
-      ) as ArrayBuffer;
-      return await subtle.importKey("raw", raw, { name: "AES-GCM" }, false, [
-        "encrypt",
-        "decrypt",
-      ]);
     }
     return null;
   } catch {
@@ -182,20 +157,14 @@ export async function createSessionAudioSpool(
     return unavailable("storage_unavailable");
   }
 
-  let key = await loadSpoolKey(db, subtle);
+  let key = await loadSpoolKey(db);
   if (!key) {
     const nonExtractable = await generateAesGcmKey(subtle);
-    if (await persistSpoolKey(db, nonExtractable)) {
-      key = nonExtractable;
-    } else {
-      // Some browsers cannot structured-clone a non-extractable CryptoKey.
-      // Persist raw key material in IndexedDB instead of storing plaintext audio.
-      key = await persistRawAesKey(db, subtle);
-      if (!key) {
-        db.close();
-        return unavailable("SECURE_SPOOL_UNAVAILABLE");
-      }
+    if (!(await persistSpoolKey(db, nonExtractable, subtle))) {
+      db.close();
+      return unavailable("SECURE_SPOOL_UNAVAILABLE");
     }
+    key = (await loadSpoolKey(db)) ?? nonExtractable;
   }
 
   const spoolKey = key;
@@ -204,7 +173,7 @@ export async function createSessionAudioSpool(
     status: "available",
     async put(chunk) {
       try {
-        const plaintext = await chunk.blob.arrayBuffer();
+        const plaintext = new Uint8Array(await chunk.blob.arrayBuffer());
         const { iv, ciphertext } = await encryptBytes(spoolKey, plaintext, subtle);
         const record: SpoolRecord = {
           chunkId: chunk.chunkId,
@@ -215,7 +184,7 @@ export async function createSessionAudioSpool(
           endMs: chunk.endMs,
           mimeType: chunk.mimeType,
           ciphertext,
-          iv: Uint8Array.from(iv).buffer as ArrayBuffer,
+          iv: iv.slice().buffer as ArrayBuffer,
           cryptoVersion: SPOOL_CRYPTO_VERSION,
           createdAt: chunk.createdAt,
           retryCount: chunk.retryCount,
@@ -246,8 +215,15 @@ export async function createSessionAudioSpool(
       const chunks: AudioChunk[] = [];
       for (const record of matching) {
         try {
-          const plaintext = await decryptBytes(spoolKey, record.iv, record.ciphertext, subtle);
-          chunks.push(recordToChunk(record, new Blob([plaintext], { type: record.mimeType })));
+          const plaintext = await decryptBytes(
+            spoolKey,
+            new Uint8Array(record.iv),
+            new Uint8Array(record.ciphertext),
+            subtle,
+          );
+          chunks.push(
+            recordToChunk(record, new Blob([new Uint8Array(plaintext)], { type: record.mimeType })),
+          );
         } catch {
           // Corrupt ciphertext stays until an explicit delete after a failed
           // recovery attempt is surfaced to the user.

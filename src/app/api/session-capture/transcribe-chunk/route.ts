@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
   const grant = verifyCaptureGrantToken(parsed.data.grant, {
     organizationId,
     sessionId: parsed.data.sessionId,
-    capability: "session_capture_grant",
+    capability: "session_remote_transcription_grant",
   });
   if (!grant.valid || grant.payload?.patientId !== parsed.data.patientId) {
     return NextResponse.json({ error: grant.reason ?? "invalid_grant" }, { status: 403 });

@@ -258,11 +258,11 @@ Migration `supabase/migrations/*_clinical_sessions.sql`: `clinical_sessions`, `s
 - **Finalização idempotente**: `finalize_clinical_session()` guarda a `finalization_idempotency_key`; repetir a chamada com a mesma chave é no-op bem-sucedido, com chave diferente numa sessão já finalizada não reabre nem duplica nada.
 - `ai_artifacts.structured_content` é imutável após criado (trigger recusa `UPDATE` no conteúdo); só o ciclo de revisão (`review_status: pending → appended|discarded`, `reviewed_by`/`reviewed_at` carimbados por `auth.uid()`/`now()`) pode mudar — nenhum resultado de IA vira prontuário sem essa ação explícita.
 
-Consent gate completo (fechando o que a Fase 5.5 deixou como stub 501): `src/lib/consent/capture-grant.ts` assina/verifica um `session_capture_grant`/`audio_fallback_upload_grant` via HMAC-SHA256, com TTL de 4h. `/api/session-capture/transcribe-chunk` é o ponto de enforcement do caminho ao vivo: recusa transcrever sem grant, RBAC clínico e sessão do paciente. A importação usa um bucket sem **nenhum** `GRANT` para `anon`/`authenticated` em `storage.objects` — só o client de service-role emite o signed upload URL, e só depois do mesmo gate.
+Consent gate completo (fechando o que a Fase 5.5 deixou como stub 501): `src/lib/consent/capture-grant.ts` assina/verifica `session_remote_transcription_grant` (Groq ao vivo), o legado `session_capture_grant` e `audio_fallback_upload_grant` via HMAC-SHA256, com TTL de 4h (sessão ~60 min + recovery). `/api/session-capture/transcribe-chunk` exige o grant remoto. A importação usa um bucket sem **nenhum** `GRANT` para `anon`/`authenticated` em `storage.objects` — só o client de service-role emite o signed upload URL, e só depois do mesmo gate.
 
 Transcrição (`docs/22-transcription-provider-decision.md` v1.7, `docs/27-transcription-v3-cross-platform.md`):
 - **Ao vivo**: MediaRecorder com negociação de MIME, chunks ~15 s, `POST /api/session-capture/transcribe-chunk`, Groq `whisper-large-v3-turbo`, persistência de texto, ACK. Sem Storage no caminho live.
-- **Offline**: fila em memória + spool AES-GCM no IndexedDB; recuperação após reconectar; UI só confirma depois do ACK.
+- **Offline**: fila em memória + spool AES-GCM no IndexedDB (CryptoKey non-extractable; fail-closed se a chave não persistir); recuperação após reconectar; UI só confirma depois do ACK.
 - **Importação**: file picker / drag-and-drop → Storage privado temporário → Groq → apagar objeto.
 - Nenhum adapter oferece diarização — não é inventado rótulo de falante.
 - ASR local (ONNX/Transformers.js/WebGPU) foi removido do app. `docs/23` permanece histórico.

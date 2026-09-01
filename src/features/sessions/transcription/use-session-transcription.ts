@@ -3,24 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_TRANSCRIPTION_CHUNK_MS,
+  SECURE_SPOOLING_MESSAGE,
+  SECURE_SPOOL_UNAVAILABLE_MESSAGE,
+  UNPRESERVED_STOP_MESSAGE,
   type SessionCaptureState,
   type TranscriptionBackpressure,
 } from "@/features/sessions/transcription/constants";
 import { nextTranscriptSequence } from "@/features/sessions/transcription/audio-chunk";
-import {
-  buildProgressiveAudioConstraints,
-  readSupportedAudioConstraints,
-} from "@/features/sessions/transcription/audio-constraints";
 import { acquireSessionCaptureLock, type CaptureLock } from "@/features/sessions/transcription/capture-lock";
-import {
-  CAPTURE_GRANT_FALLBACK_MESSAGE,
-  readCaptureGrantErrorMessage,
-} from "@/features/sessions/transcription/grant-error-message";
-import {
-  MEDIA_RECORDER_UNSUPPORTED_MESSAGE,
-  mapGetUserMediaError,
-} from "@/features/sessions/transcription/microphone-errors";
-import { isMediaRecorderAvailable } from "@/features/sessions/transcription/mime-negotiation";
 import { SessionAudioCapture } from "@/features/sessions/transcription/session-audio-capture";
 import { createSessionAudioSpool, type SessionAudioSpool } from "@/features/sessions/transcription/session-audio-spool";
 import {
@@ -32,6 +22,10 @@ import {
   readStorageEstimate,
   requestPersistentStorage,
 } from "@/features/sessions/transcription/spool-crypto";
+import {
+  fetchLiveTranscriptionGrant,
+  startLiveCaptureSession,
+} from "@/features/sessions/transcription/start-live-capture";
 
 export type TranscriptSegmentResult = ConfirmedTranscriptSegment;
 
@@ -166,6 +160,12 @@ export function useSessionTranscription({
       return;
     }
     if (level === "critical") {
+      const spoolAvailable = spoolRef.current?.status === "available";
+      if (!spoolAvailable) {
+        setStatusDetail(SECURE_SPOOL_UNAVAILABLE_MESSAGE);
+        setCaptureState("connection_degraded");
+        return;
+      }
       setLowStorageWarning(true);
       setStatusDetail(
         "Pouco espaço disponível no dispositivo. A gravação local de segurança pode não conseguir preservar toda a sessão.",
@@ -174,9 +174,7 @@ export function useSessionTranscription({
       return;
     }
     if (level === "spooling") {
-      setStatusDetail(
-        "A conexão com a transcrição está indisponível. Os trechos ainda não processados estão sendo preservados de forma criptografada neste dispositivo.",
-      );
+      setStatusDetail(SECURE_SPOOLING_MESSAGE);
       setCaptureState("local_backup");
       return;
     }
@@ -192,61 +190,28 @@ export function useSessionTranscription({
   }, [setCaptureState]);
 
   const start = useCallback(async () => {
-    if (!isMediaRecorderAvailable()) {
-      await fail(MEDIA_RECORDER_UNSUPPORTED_MESSAGE);
-      return;
-    }
-
     setErrorMessage(null);
     setSegmentWarning(null);
     setBackgroundWarning(null);
-    setCaptureState("requesting_microphone");
 
-    let stream: MediaStream;
-    try {
-      const supported = readSupportedAudioConstraints(navigator.mediaDevices);
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: buildProgressiveAudioConstraints(supported),
-        video: false,
-      });
-    } catch (error) {
-      const mapped = mapGetUserMediaError(error);
-      await fail(mapped.message);
+    const started = await startLiveCaptureSession({
+      sessionId,
+      patientId,
+      acquireLock: acquireSessionCaptureLock,
+      requestGrant: ({ patientId: nextPatientId, sessionId: nextSessionId }) =>
+        fetchLiveTranscriptionGrant(nextPatientId, nextSessionId),
+      getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+      mediaDevices: navigator.mediaDevices,
+      onState: setCaptureState,
+    });
+    if (!started.ok) {
+      await fail(started.message);
       return;
     }
-    streamRef.current = stream;
 
-    setCaptureState("authorizing");
-    const lock = await acquireSessionCaptureLock(sessionId);
-    if (!lock) {
-      stopMediaStream(stream);
-      streamRef.current = null;
-      await fail("Esta sessão já está sendo transcrita em outra aba.");
-      return;
-    }
-    lockRef.current = lock;
-
-    let grant: string;
-    try {
-      const response = await fetch("/api/session-capture/grant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId, sessionId }),
-      });
-      if (!response.ok) {
-        await fail(await readCaptureGrantErrorMessage(response));
-        return;
-      }
-      const body = (await response.json()) as { grant?: unknown };
-      if (typeof body.grant !== "string" || body.grant.length === 0) {
-        await fail(CAPTURE_GRANT_FALLBACK_MESSAGE);
-        return;
-      }
-      grant = body.grant;
-    } catch {
-      await fail(CAPTURE_GRANT_FALLBACK_MESSAGE);
-      return;
-    }
+    lockRef.current = started.lock;
+    streamRef.current = started.stream;
+    const grant = started.grant;
     grantRef.current = grant;
 
     const spool = spoolRef.current ?? (await createSessionAudioSpool());
@@ -273,7 +238,7 @@ export function useSessionTranscription({
     transportRef.current = transport;
 
     const capture = new SessionAudioCapture({
-      stream,
+      stream: started.stream,
       chunkMs,
       onChunk: (slice) => {
         transport.enqueueSlice(slice);
@@ -305,6 +270,7 @@ export function useSessionTranscription({
     );
 
     const onOnline = () => {
+      void transport.drain();
       void transport.recoverFromSpool();
     };
     onlineRef.current = onOnline;
@@ -330,21 +296,12 @@ export function useSessionTranscription({
     setStatusDetail("Os trechos preservados durante a interrupção estão sendo processados.");
     let grant = grantRef.current;
     if (!grant) {
-      const response = await fetch("/api/session-capture/grant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId, sessionId }),
-      });
-      if (!response.ok) {
-        await fail(await readCaptureGrantErrorMessage(response));
+      const issued = await fetchLiveTranscriptionGrant(patientId, sessionId);
+      if (!issued.ok) {
+        await fail(issued.message);
         return;
       }
-      const body = (await response.json()) as { grant?: unknown };
-      if (typeof body.grant !== "string") {
-        await fail(CAPTURE_GRANT_FALLBACK_MESSAGE);
-        return;
-      }
-      grant = body.grant;
+      grant = issued.grant;
       grantRef.current = grant;
     }
 
@@ -394,6 +351,7 @@ export function useSessionTranscription({
       await transport?.recoverFromSpool();
     }
     const remaining = await refreshSpoolCount();
+    const leftoverMemory = transport?.memoryDepth() ?? 0;
     await resetHardware();
     transportRef.current = null;
     grantRef.current = null;
@@ -402,6 +360,8 @@ export function useSessionTranscription({
       setStatusDetail(
         `Sessão encerrada. Trechos já transcritos permanecem no prontuário. ${remaining} trecho(s) preservado(s) neste dispositivo serão concluídos quando houver conexão.`,
       );
+    } else if (leftoverMemory > 0) {
+      setStatusDetail(UNPRESERVED_STOP_MESSAGE);
     }
   }, [refreshSpoolCount, resetHardware, setCaptureState]);
 

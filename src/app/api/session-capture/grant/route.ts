@@ -56,9 +56,9 @@ function logCaptureGrantInternalError(error: unknown, correlationId: string): vo
 
 /**
  * Session capture grant — authorizes activating the microphone for live
- * Groq transcription (docs/22-transcription-provider-decision.md). The
- * browser requests this once per active session, before getUserMedia, and
- * includes the token on every transcribe-chunk call.
+ * Groq transcription after consent/RBAC. Always mints
+ * `session_remote_transcription_grant`. The browser must not send a
+ * capability; extra JSON fields are ignored.
  */
 export async function POST(request: NextRequest) {
   const correlationId = correlationIdFromRequest(request);
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     const gate = await authorizeCaptureCapability(
       parsed.data.patientId,
       parsed.data.sessionId,
-      "session_capture_grant",
+      "session_remote_transcription_grant",
     );
 
     if (!gate.allowed) {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const token = issueCaptureGrant(gate, "session_capture_grant");
+    const token = issueCaptureGrant(gate, "session_remote_transcription_grant");
     return NextResponse.json({
       grant: token,
       expiresInMs: CAPTURE_GRANT_TTL_MS,

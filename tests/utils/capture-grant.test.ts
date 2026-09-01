@@ -12,7 +12,14 @@ const SCOPE = {
   capability: "session_capture_grant" as const,
 };
 
-function issue(overrides: Partial<typeof SCOPE> = {}, now?: number) {
+function issue(
+  overrides: Partial<{
+    organizationId: string;
+    sessionId: string;
+    capability: "session_capture_grant" | "session_remote_transcription_grant" | "audio_fallback_upload_grant";
+  }> = {},
+  now?: number,
+) {
   return signCaptureGrant(
     { ...SCOPE, ...overrides, patientId: "22222222-2222-4222-8222-222222222222" },
     SECRET,
@@ -91,6 +98,26 @@ describe("signCaptureGrant / verifyCaptureGrant", () => {
     const result = verifyCaptureGrant(token, SECRET, {
       ...SCOPE,
       organizationId: "99999999-9999-4999-8999-999999999999",
+    });
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("scope_mismatch");
+  });
+
+  it("um grant de session_capture_grant não serve para session_remote_transcription_grant", () => {
+    const token = issue();
+    const result = verifyCaptureGrant(token, SECRET, {
+      ...SCOPE,
+      capability: "session_remote_transcription_grant",
+    });
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("scope_mismatch");
+  });
+
+  it("um grant remoto não serve para audio_fallback_upload_grant", () => {
+    const token = issue({ capability: "session_remote_transcription_grant" });
+    const result = verifyCaptureGrant(token, SECRET, {
+      ...SCOPE,
+      capability: "audio_fallback_upload_grant",
     });
     expect(result.valid).toBe(false);
     expect(result.reason).toBe("scope_mismatch");

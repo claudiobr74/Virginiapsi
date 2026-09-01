@@ -125,9 +125,9 @@ export function TranscriptPanel({
 
       <p className="text-xs text-muted-foreground">
         Transcrição em tempo real. Durante a sessão, pequenos trechos de áudio são enviados com
-        segurança para gerar a transcrição. Se houver uma interrupção de conexão, os trechos ainda
-        não processados podem ser preservados de forma criptografada neste dispositivo até que a
-        transcrição possa continuar.
+        segurança para gerar a transcrição. Se houver uma interrupção de conexão e este navegador
+        permitir a gravação local de segurança, os trechos ainda não processados podem ser
+        preservados de forma criptografada neste dispositivo até que a transcrição possa continuar.
       </p>
 
       {statusDetail ? (
