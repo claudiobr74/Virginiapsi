@@ -51,6 +51,10 @@ function mockFetch() {
 }
 
 class FakeAudioContext {
+  state = "running";
+  async resume() {
+    this.state = "running";
+  }
   async decodeAudioData() {
     return {
       numberOfChannels: 1,

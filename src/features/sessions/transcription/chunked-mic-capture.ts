@@ -6,6 +6,36 @@
 // alone). Instead, this stops and immediately restarts a fresh recorder on
 // the same MediaStream every `chunkMs` — each resulting blob is a complete,
 // self-contained file `decodeAudioData` can open on its own.
+
+const RECORDER_MIME_CANDIDATES = [
+  "audio/webm;codecs=opus",
+  "audio/webm",
+  "audio/mp4",
+  "audio/ogg;codecs=opus",
+  "audio/ogg",
+] as const;
+
+/**
+ * Android Chrome often rejects the no-option MediaRecorder constructor or
+ * emits a container `decodeAudioData` cannot parse. Prefer an explicitly
+ * supported mime type; fall back to the browser default when none match.
+ */
+export function pickSupportedRecorderMimeType(
+  isTypeSupported: (type: string) => boolean = (type) =>
+    typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type),
+): string | undefined {
+  return RECORDER_MIME_CANDIDATES.find((type) => isTypeSupported(type));
+}
+
+export function createChunkRecorder(stream: MediaStream): MediaRecorder {
+  const mimeType = pickSupportedRecorderMimeType();
+  try {
+    return mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+  } catch {
+    return new MediaRecorder(stream);
+  }
+}
+
 export interface ChunkedMicCaptureOptions {
   stream: MediaStream;
   chunkMs: number;
@@ -39,7 +69,7 @@ export class ChunkedMicCapture {
   }
 
   private startChunk(): void {
-    const factory = this.options.createRecorder ?? ((stream) => new MediaRecorder(stream));
+    const factory = this.options.createRecorder ?? createChunkRecorder;
     let recorder: MediaRecorder;
     try {
       recorder = factory(this.options.stream);

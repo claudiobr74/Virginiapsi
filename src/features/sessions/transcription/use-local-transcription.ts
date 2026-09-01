@@ -15,6 +15,7 @@ import {
   persistSessionSegment,
   SEGMENT_PERSISTENCE_WARNING,
 } from "@/features/sessions/transcription/persist-session-segment";
+import { unlockAudioContext } from "@/features/sessions/transcription/unlock-audio-context";
 
 // Vocabulary matches docs/06-integrations.md §3 "Estados de captura".
 export type CaptureState =
@@ -86,6 +87,7 @@ export function useLocalTranscription({
 
   const captureRef = useRef<ChunkedMicCapture | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const transcriberRef = useRef<LocalTranscriber | null>(null);
   const grantRef = useRef<string | null>(null);
   const modelRef = useRef<LocalModelConfig | null>(null);
@@ -95,6 +97,11 @@ export function useLocalTranscription({
   const resetCaptureRefs = useCallback(() => {
     captureRef.current?.stop();
     stopMediaStream(streamRef.current);
+    const audioContext = audioContextRef.current;
+    audioContextRef.current = null;
+    if (audioContext) {
+      void audioContext.close().catch(() => undefined);
+    }
     captureRef.current = null;
     streamRef.current = null;
     transcriberRef.current = null;
@@ -121,11 +128,17 @@ export function useLocalTranscription({
       }
 
       const startMs = elapsedMsRef.current;
-      let audioContext: AudioContext | null = null;
+      const audioContext = audioContextRef.current;
+      if (!audioContext) {
+        return;
+      }
       try {
         const arrayBuffer = await blob.arrayBuffer();
-        audioContext = new AudioContext();
-        const decoded = await audioContext.decodeAudioData(arrayBuffer);
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+        // Chrome detaches the source buffer; copy so a later retry/decode can run.
+        const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
         const channels = Array.from({ length: decoded.numberOfChannels }, (_, index) =>
           decoded.getChannelData(index),
         );
@@ -186,10 +199,6 @@ export function useLocalTranscription({
         // "nunca depender de um payload único de áudio"). The failure is
         // visible as a non-fatal warning — never silent.
         setSegmentWarning(CHUNK_TRANSCRIBE_WARNING);
-      } finally {
-        if (audioContext) {
-          await audioContext.close().catch(() => undefined);
-        }
       }
     },
     [sessionId, patientId, onSegment],
@@ -199,6 +208,14 @@ export function useLocalTranscription({
     setState("preparing");
     setErrorMessage(null);
     setSegmentWarning(null);
+
+    // Unlock before any await so Chrome Android keeps the user-gesture stack.
+    try {
+      audioContextRef.current = await unlockAudioContext();
+    } catch {
+      fail("Não foi possível iniciar o processamento de áudio.");
+      return;
+    }
 
     const grantResponse = await fetch("/api/session-capture/grant", {
       method: "POST",
@@ -239,6 +256,7 @@ export function useLocalTranscription({
     const device = await detectTranscriptionDevice(gpu);
     const selected = selectLocalModel(device);
     if (!selected) {
+      resetCaptureRefs();
       setState("degraded");
       return;
     }
@@ -258,9 +276,7 @@ export function useLocalTranscription({
         onProgress: ({ percent }) => setDownloadPercent(percent),
       });
     } catch {
-      stopMediaStream(stream);
-      streamRef.current = null;
-      grantRef.current = null;
+      resetCaptureRefs();
       setState("degraded");
       return;
     } finally {
@@ -283,22 +299,15 @@ export function useLocalTranscription({
       capture.start();
       setState("recording");
     } catch {
-      stopMediaStream(stream);
-      streamRef.current = null;
-      grantRef.current = null;
-      transcriberRef.current = null;
       fail("Falha na captura de áudio.");
     }
-  }, [patientId, sessionId, chunkMs, fail, processChunk]);
+  }, [patientId, sessionId, chunkMs, fail, processChunk, resetCaptureRefs]);
 
   const stop = useCallback(() => {
     setState("stopping");
-    captureRef.current?.stop();
-    stopMediaStream(streamRef.current);
-    captureRef.current = null;
-    streamRef.current = null;
+    resetCaptureRefs();
     setState("completed");
-  }, []);
+  }, [resetCaptureRefs]);
 
   return {
     state,

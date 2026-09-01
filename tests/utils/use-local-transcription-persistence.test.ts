@@ -46,6 +46,10 @@ function mockFetch() {
 }
 
 class FakeAudioContext {
+  state = "running";
+  resume = vi.fn(async () => {
+    this.state = "running";
+  });
   async decodeAudioData() {
     return {
       numberOfChannels: 1,
@@ -124,7 +128,7 @@ describe("useLocalTranscription — persistência e erros do grant", () => {
     expect(onSegment).not.toHaveBeenCalled();
     expect(result.current.state).toBe("recording");
     expect(fetchCalls.filter((call) => call.url === "/api/session-capture/segment")).toHaveLength(2);
-    expect(closeAudioContext).toHaveBeenCalled();
+    expect(closeAudioContext).not.toHaveBeenCalled();
   });
 
   it("trata duplicate: true como trecho persistido", async () => {
@@ -216,6 +220,10 @@ describe("useLocalTranscription — persistência e erros do grant", () => {
 
   it("fecha o AudioContext também quando o decode falha", async () => {
     class BrokenAudioContext {
+      state = "running";
+      resume = vi.fn(async () => {
+        this.state = "running";
+      });
       async decodeAudioData() {
         throw new Error("decode failed");
       }
@@ -235,6 +243,15 @@ describe("useLocalTranscription — persistência e erros do grant", () => {
     );
     expect(onSegment).not.toHaveBeenCalled();
     expect(result.current.state).toBe("recording");
+    expect(closeAudioContext).not.toHaveBeenCalled();
+  });
+
+  it("fecha o AudioContext compartilhado ao parar a captura", async () => {
+    const { result } = await startRecording();
+    await act(async () => {
+      result.current.stop();
+    });
+    expect(result.current.state).toBe("completed");
     expect(closeAudioContext).toHaveBeenCalled();
   });
 });
