@@ -1089,3 +1089,180 @@ describe("Agenda V2.3 — google_deleted_at e unavailable_google_color_ids", () 
     }
   });
 });
+
+describe("Agenda V2.4 — vincular paciente no espelho Google", () => {
+  it("link_external_appointment_patient grava só patient_id e inicia sessão sem mudar o Google", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Link Google");
+    const session = await openSession({ userId: admin });
+    try {
+      const patient = await session.query<{ id: string }>(
+        `insert into public.patients (organization_id, preferred_name, full_name, birth_date)
+         values ($1, 'Jessyca Ferreira', 'Jessyca Ferreira', '1992-04-01') returning id`,
+        [organizationId],
+      );
+      const patientId = patient[0].id;
+      const created = await session.query<{ upsert_external_appointment: string }>(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'jessyca-1', 'etag-j',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Jessyca-1(c)', 'scheduled', '7', 'default'
+         ) as upsert_external_appointment`,
+        [organizationId],
+      );
+      const appointmentId = created[0].upsert_external_appointment;
+      const before = await session.query<{
+        summary_snapshot: string;
+        starts_at: string;
+        ends_at: string;
+        google_color_id: string | null;
+        google_event_type: string | null;
+        patient_id: string | null;
+      }>(
+        `select summary_snapshot, starts_at::text, ends_at::text, google_color_id, google_event_type, patient_id
+         from public.appointments where id = $1`,
+        [appointmentId],
+      );
+
+      const linked = await session.query<{ link_external_appointment_patient: string }>(
+        `select public.link_external_appointment_patient($1, $2, $3) as link_external_appointment_patient`,
+        [organizationId, appointmentId, patientId],
+      );
+      expect(linked[0].link_external_appointment_patient).toBe(appointmentId);
+
+      const after = await session.query<{
+        summary_snapshot: string;
+        starts_at: string;
+        ends_at: string;
+        google_color_id: string | null;
+        google_event_type: string | null;
+        patient_id: string | null;
+      }>(
+        `select summary_snapshot, starts_at::text, ends_at::text, google_color_id, google_event_type, patient_id
+         from public.appointments where id = $1`,
+        [appointmentId],
+      );
+      expect(after[0].patient_id).toBe(patientId);
+      expect(after[0].summary_snapshot).toBe(before[0].summary_snapshot);
+      expect(after[0].starts_at).toBe(before[0].starts_at);
+      expect(after[0].ends_at).toBe(before[0].ends_at);
+      expect(after[0].google_color_id).toBe(before[0].google_color_id);
+      expect(after[0].google_event_type).toBe(before[0].google_event_type);
+
+      const started = await session.query<{ start_clinical_session: string }>(
+        "select public.start_clinical_session($1, $2, $3) as start_clinical_session",
+        [organizationId, patientId, appointmentId],
+      );
+      const clinical = await session.query<{
+        patient_id: string;
+        appointment_id: string | null;
+      }>(
+        `select patient_id, appointment_id from public.clinical_sessions where id = $1`,
+        [started[0].start_clinical_session],
+      );
+      expect(clinical[0]).toEqual({ patient_id: patientId, appointment_id: appointmentId });
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("rejeita paciente de outra organização", async () => {
+    const adminA = await createAuthUser();
+    const adminB = await createAuthUser();
+    const orgA = await bootstrapOrganization(adminA, "Consultório Link A");
+    const orgB = await bootstrapOrganization(adminB, "Consultório Link B");
+    const sessionB = await openSession({ userId: adminB });
+    let patientB = "";
+    try {
+      const rows = await sessionB.query<{ id: string }>(
+        `insert into public.patients (organization_id, preferred_name, full_name)
+         values ($1, 'Paciente B', 'Paciente B') returning id`,
+        [orgB],
+      );
+      patientB = rows[0].id;
+    } finally {
+      await sessionB.close();
+    }
+
+    const sessionA = await openSession({ userId: adminA });
+    try {
+      const created = await sessionA.query<{ upsert_external_appointment: string }>(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'cross-org-1', 'etag-x',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Jessyca-1(c)'
+         ) as upsert_external_appointment`,
+        [orgA],
+      );
+      const error = await sessionA.expectError(
+        `select public.link_external_appointment_patient($1, $2, $3)`,
+        [orgA, created[0].upsert_external_appointment, patientB],
+      );
+      expect(error).toMatch(/same organization|23514/i);
+    } finally {
+      await sessionA.close();
+    }
+  });
+
+  it("recusa tombstone google_deleted_at e membro de fora", async () => {
+    const admin = await createAuthUser();
+    const outsider = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Link Tombstone");
+    const session = await openSession({ userId: admin });
+    let appointmentId = "";
+    let patientId = "";
+    try {
+      const patient = await session.query<{ id: string }>(
+        `insert into public.patients (organization_id, preferred_name, full_name)
+         values ($1, 'Jessyca', 'Jessyca') returning id`,
+        [organizationId],
+      );
+      patientId = patient[0].id;
+      const created = await session.query<{ upsert_external_appointment: string }>(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ghost-1', 'etag-g',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Helio-1??? Julianna-1???'
+         ) as upsert_external_appointment`,
+        [organizationId],
+      );
+      appointmentId = created[0].upsert_external_appointment;
+      await session.query(
+        `select public.mark_external_google_event_deleted($1, 'primary', 'ghost-1')`,
+        [organizationId],
+      );
+      const deletedError = await session.expectError(
+        `select public.link_external_appointment_patient($1, $2, $3)`,
+        [organizationId, appointmentId, patientId],
+      );
+      expect(deletedError).toMatch(/not found|P0002/i);
+    } finally {
+      await session.close();
+    }
+
+    const outsiderSession = await openSession({ userId: outsider });
+    try {
+      const error = await outsiderSession.expectError(
+        `select public.link_external_appointment_patient($1, $2, $3)`,
+        [organizationId, appointmentId, patientId],
+      );
+      expect(error).toMatch(/active membership|42501/i);
+    } finally {
+      await outsiderSession.close();
+    }
+  });
+
+  it("anon não executa a RPC de vínculo", async () => {
+    const anon = await openSession({ role: "anon" });
+    try {
+      const error = await anon.expectError(
+        `select public.link_external_appointment_patient($1, $2, $3)`,
+        [randomUUID(), randomUUID(), randomUUID()],
+      );
+      expect(error).toMatch(/permission denied|42501|does not exist/i);
+    } finally {
+      await anon.close();
+    }
+  });
+});
+

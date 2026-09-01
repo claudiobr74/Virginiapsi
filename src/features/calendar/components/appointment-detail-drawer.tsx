@@ -11,12 +11,16 @@ import {
   retryGoogleSyncAction,
   updateAppointmentStatusAction,
 } from "@/features/calendar/appointment-actions";
-import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
+import {
+  getAppointmentVisualStatus,
+  offersClinicalAppointmentActions,
+} from "@/features/calendar/appointment-visual";
+import { appointmentRowToAttendTarget } from "@/features/calendar/attend-target";
+import { AttendAppointmentButton } from "@/features/calendar/components/attend-appointment-button";
 import { GoogleOriginMark } from "@/features/calendar/components/google-origin-mark";
 import { requestMeetForAppointmentAction } from "@/features/calendar/sync-actions";
 import type { AppointmentRow } from "@/features/calendar/contracts";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
-import { StartSessionButton } from "@/features/sessions/components/start-session-button";
 import { formatInTimeZone } from "@/lib/utils/timezone";
 import { cn } from "@/lib/utils/cn";
 
@@ -69,10 +73,7 @@ export function AppointmentDetailDrawer({
   const hasGoogleEvent = Boolean(appointment.google_event_id);
   const canConfirm = !blocked && appointment.status !== "confirmed";
   const canStart =
-    isAdmin &&
-    appointment.origin === "TESSELI" &&
-    Boolean(appointment.patient_id) &&
-    !blocked;
+    isAdmin && offersClinicalAppointmentActions(appointment, now);
 
   const runInPlace = (
     action: () => Promise<{ error?: string }>,
@@ -218,10 +219,13 @@ export function AppointmentDetailDrawer({
             </div>
           ) : null}
 
-          {canStart && appointment.patient_id ? (
-            <StartSessionButton
-              patientId={appointment.patient_id}
-              appointmentId={appointment.id}
+          {canStart ? (
+            <AttendAppointmentButton
+              appointment={appointmentRowToAttendTarget(appointment)}
+              timeZone={timeZone}
+              canStartSession={isAdmin}
+              now={now}
+              returnTo="/app/agenda"
             />
           ) : null}
 

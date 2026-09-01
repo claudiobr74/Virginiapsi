@@ -18,6 +18,11 @@ vi.mock("@/features/sessions/components/start-session-button", () => ({
   StartSessionButton: ({ label }: { label: string }) => <button type="button">{label}</button>,
 }));
 
+vi.mock("@/features/calendar/link-patient-actions", () => ({
+  searchPatientsForAppointmentLinkAction: vi.fn(async () => ({ patients: [] })),
+  linkPatientAndStartSessionAction: vi.fn(),
+}));
+
 const TIME_ZONE = "America/Sao_Paulo";
 const NOW = new Date("2026-08-18T12:00:00.000Z");
 
@@ -58,7 +63,7 @@ function tesseliManaged(): MyDayAppointment {
 }
 
 describe("Meu Dia — Google externo sem paciente", () => {
-  it("aparece na timeline verde sólida, com badge Google, sem ações clínicas", () => {
+  it("aparece na timeline verde sólida, com badge Google e Atender", () => {
     render(
       <TodayTimeline
         appointments={[googleExternal()]}
@@ -73,12 +78,12 @@ describe("Meu Dia — Google externo sem paciente", () => {
     expect(row).toHaveStyle({ backgroundColor: "#34A853" });
     expect(screen.getByText("Google")).toBeInTheDocument();
     expect(screen.queryByText("Google externo")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Atender" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Atender" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /WhatsApp/ })).not.toBeInTheDocument();
   });
 
-  it("aparece no próximo compromisso sem Atender/Confirmar/WhatsApp", () => {
+  it("aparece no próximo compromisso com Atender e sem Confirmar/WhatsApp", () => {
     render(
       <NextSessionCard
         appointment={googleExternal()}
@@ -93,18 +98,18 @@ describe("Meu Dia — Google externo sem paciente", () => {
     expect(card).toHaveAttribute("data-appointment-origin", "GOOGLE_EXTERNAL");
     expect(card).toHaveStyle({ backgroundColor: "#34A853" });
     expect(screen.getByText("Google")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Iniciar sessão|Atender/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Atender" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /WhatsApp/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Marcar Falta" })).not.toBeInTheDocument();
   });
 
-  it("SessionActions TESSELI com paciente oferece Confirmar e WhatsApp", () => {
+  it("SessionActions TESSELI com paciente oferece Confirmar, WhatsApp e Atender", () => {
     render(
       <SessionActions appointment={tesseliManaged()} timeZone={TIME_ZONE} canStartSession />,
     );
     expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Lembrete WhatsApp" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Iniciar sessão" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Atender" })).toBeInTheDocument();
   });
 });

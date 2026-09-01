@@ -1,12 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginViaUi } from "./support/fixtures";
 
-async function setStubGoogleConnection(status: "connected" | "disconnected") {
+async function setStubGoogleConnection(
+  status: "connected" | "disconnected",
+  extras: { nextSession?: "google" } = {},
+) {
   const port = process.env.AUTH_STUB_PORT ?? "54331";
   const response = await fetch(`http://127.0.0.1:${port}/e2e/google-connection`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, ...extras }),
   });
   if (!response.ok) {
     throw new Error(`failed to set stub google connection: ${response.status}`);
@@ -103,7 +106,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
     ).toBeVisible();
   });
 
-  test("Google conectado mostra evento externo no Meu Dia e na Agenda, sem ações clínicas", async ({
+  test("Google conectado mostra evento externo no Meu Dia e na Agenda, com Atender", async ({
     page,
   }) => {
     await loginViaUi(page);
@@ -119,7 +122,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
       await expect(googleRow).toHaveAttribute("data-appointment-visual", "active");
       await expect(googleRow).toHaveCSS("background-color", "rgb(52, 168, 83)");
       await expect(googleRow.getByRole("button", { name: "Confirmar" })).toHaveCount(0);
-      await expect(googleRow.getByRole("button", { name: "Atender" })).toHaveCount(0);
+      await expect(googleRow.getByRole("button", { name: "Atender" })).toBeVisible();
       await expect(googleRow.getByRole("button", { name: "Marcar Falta" })).toHaveCount(0);
       await expect(googleRow.getByRole("link", { name: /WhatsApp/ })).toHaveCount(0);
 
@@ -130,6 +133,45 @@ test.describe("Meu Dia — dashboard operacional", () => {
       await expect(agendaEvent.first()).toBeVisible();
       await expect(agendaEvent.first()).toHaveAttribute("data-appointment-visual", "active");
       await expect(agendaEvent.first().getByText("Google")).toBeVisible();
+      await expect(agendaEvent.first().getByRole("button", { name: "Atender" })).toBeVisible();
+    } finally {
+      await setStubGoogleConnection("disconnected");
+    }
+  });
+
+  test("Próxima sessão Google sem paciente mostra Atender", async ({ page }) => {
+    await loginViaUi(page);
+    try {
+      await setStubGoogleConnection("connected", { nextSession: "google" });
+      await page.reload();
+
+      const nextCard = page.locator("section").filter({ hasText: "Próxima sessão" });
+      await expect(nextCard).toHaveAttribute("data-appointment-origin", "GOOGLE_EXTERNAL");
+      await expect(nextCard.getByText("Reunião do conselho regional")).toBeVisible();
+      await expect(nextCard.getByRole("button", { name: "Atender" })).toBeVisible();
+    } finally {
+      await setStubGoogleConnection("disconnected");
+    }
+  });
+
+  test("Vincular e atender no Google externo persiste paciente e abre a sessão", async ({
+    page,
+  }) => {
+    await loginViaUi(page);
+    try {
+      await setStubGoogleConnection("connected");
+      await page.reload();
+
+      const googleRow = page
+        .getByRole("listitem")
+        .filter({ hasText: "Reunião do conselho regional" });
+      await googleRow.getByRole("button", { name: "Atender" }).click();
+      await expect(page.getByRole("heading", { name: "Vincular paciente" })).toBeVisible();
+      await page.getByRole("searchbox", { name: "Buscar paciente" }).fill("Beatriz");
+      await expect(page.getByRole("button", { name: /Beatriz/ })).toBeVisible();
+      await page.getByRole("button", { name: /Beatriz/ }).click();
+      await page.getByRole("button", { name: "Vincular e atender" }).click();
+      await page.waitForURL(/\/session\/[0-9a-f-]{36}$/);
     } finally {
       await setStubGoogleConnection("disconnected");
     }

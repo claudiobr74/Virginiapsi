@@ -112,6 +112,7 @@ export interface PatientFormProps {
   };
   assignablePsychologists?: { userId: string; email: string | null; role: string }[];
   canAssignResponsible?: boolean;
+  afterCreateHref?: string | null;
 }
 
 export function PatientForm({
@@ -120,6 +121,7 @@ export function PatientForm({
   terms,
   assignablePsychologists = [],
   canAssignResponsible = false,
+  afterCreateHref,
 }: PatientFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -169,7 +171,9 @@ export function PatientForm({
         }
       }
 
-      router.push(`/app/patients/${result.patientId}`);
+      router.push(
+        !patient && afterCreateHref ? afterCreateHref : `/app/patients/${result.patientId}`,
+      );
     });
   });
 

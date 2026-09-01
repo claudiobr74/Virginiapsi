@@ -14,8 +14,8 @@ import {
   type MyDayAppointment,
 } from "@/features/dashboard/contracts";
 import { meetHostLabel } from "@/features/dashboard/stats";
-import { StartSessionButton } from "@/features/sessions/components/start-session-button";
 import { offersClinicalAppointmentActions } from "@/features/calendar/appointment-visual";
+import { AttendAppointmentButton } from "@/features/calendar/components/attend-appointment-button";
 import { cn } from "@/lib/utils/cn";
 
 export function SessionActions({
@@ -53,6 +53,11 @@ export function SessionActions({
       patient_id: appointment.patientId,
       status: appointment.status,
       summarySnapshot: appointment.summarySnapshot,
+      googleDeletedAt: appointment.googleDeletedAt,
+      googleColorId: appointment.googleColorId,
+      googleEventType: appointment.googleEventType,
+      unavailableGoogleColorIds: appointment.unavailableGoogleColorIds,
+      endsAt: appointment.endsAt,
     });
   const canConfirm =
     appointment.origin === "TESSELI" &&
@@ -67,6 +72,35 @@ export function SessionActions({
     appointment.status !== "no_show";
   const meetReady = appointment.meetStatus === "success" && Boolean(appointment.meetUrl);
   const onPrimary = tone === "onPrimary";
+  const attendButton = canStart ? (
+    <AttendAppointmentButton
+      appointment={{
+        id: appointment.id,
+        origin: appointment.origin,
+        patientId: appointment.patientId,
+        status: appointment.status,
+        summarySnapshot: appointment.summarySnapshot,
+        startsAt: appointment.startsAt,
+        endsAt: appointment.endsAt,
+        googleDeletedAt: appointment.googleDeletedAt,
+        googleColorId: appointment.googleColorId,
+        googleEventType: appointment.googleEventType,
+        unavailableGoogleColorIds: appointment.unavailableGoogleColorIds,
+      }}
+      timeZone={timeZone}
+      canStartSession={Boolean(canStartSession)}
+      label="Atender"
+      size={layout === "hero" ? "lg" : "sm"}
+      className={
+        layout === "hero" && onPrimary
+          ? "rounded-[14px] bg-white px-7 text-[15px] text-primary hover:bg-white/90"
+          : layout === "timeline"
+            ? "rounded-xl"
+            : undefined
+      }
+      returnTo="/app"
+    />
+  ) : null;
   const ghostClass = onPrimary
     ? "border border-white/30 bg-transparent text-white hover:bg-white/10"
     : undefined;
@@ -129,14 +163,7 @@ export function SessionActions({
             Confirmar
           </Button>
         ) : null}
-        {canStart && appointment.patientId ? (
-          <StartSessionButton
-            patientId={appointment.patientId}
-            appointmentId={appointment.id}
-            label="Atender"
-            className="rounded-xl"
-          />
-        ) : null}
+        {attendButton}
       </div>
     );
   }
@@ -165,19 +192,7 @@ export function SessionActions({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        {canStart && appointment.patientId ? (
-          <StartSessionButton
-            patientId={appointment.patientId}
-            appointmentId={appointment.id}
-            label="Iniciar sessão"
-            size="lg"
-            className={
-              onPrimary
-                ? "rounded-[14px] bg-white px-7 text-[15px] text-primary hover:bg-white/90"
-                : undefined
-            }
-          />
-        ) : null}
+        {attendButton}
 
         {whatsappUrl ? (
           <Button asChild size={layout === "hero" ? "icon" : "sm"} variant="secondary" className={ghostClass}>

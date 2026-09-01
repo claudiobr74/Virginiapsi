@@ -218,30 +218,44 @@ export function getAppointmentVisualStatus(
   };
 }
 
-export function offersClinicalAppointmentActions(appointment: {
-  origin: AppointmentOrigin;
-  patient_id: string | null;
-  status?: AppointmentStatus;
-  summary_snapshot?: string | null;
-  summarySnapshot?: string | null;
-  google_deleted_at?: string | null;
-  google_color_id?: string | null;
-  unavailable_google_color_ids?: readonly string[] | null;
-}): boolean {
-  if (appointment.origin !== "TESSELI" || appointment.patient_id == null) {
-    return false;
-  }
-  const state = getAppointmentSemanticState({
-    status: appointment.status ?? "scheduled",
-    origin: appointment.origin,
-    summary_snapshot: appointment.summary_snapshot,
-    summarySnapshot: appointment.summarySnapshot,
-    google_deleted_at: appointment.google_deleted_at,
-    google_color_id: appointment.google_color_id,
-    unavailable_google_color_ids: appointment.unavailable_google_color_ids,
-  });
-  if (state === "cancelled" || state === "unavailable" || state === "deleted") {
-    return false;
-  }
-  return true;
+export function offersClinicalAppointmentActions(
+  appointment: {
+    origin?: AppointmentOrigin;
+    patient_id?: string | null;
+    status?: AppointmentStatus;
+    summary_snapshot?: string | null;
+    summarySnapshot?: string | null;
+    google_deleted_at?: string | null;
+    googleDeletedAt?: string | null;
+    google_color_id?: string | null;
+    googleColorId?: string | null;
+    google_event_type?: string | null;
+    googleEventType?: string | null;
+    unavailable_google_color_ids?: readonly string[] | null;
+    unavailableGoogleColorIds?: readonly string[] | null;
+    ends_at?: string;
+    endsAt?: string;
+  },
+  now?: Date,
+): boolean {
+  const state = getAppointmentSemanticState(
+    {
+      status: appointment.status ?? "scheduled",
+      origin: appointment.origin,
+      summary_snapshot: appointment.summary_snapshot,
+      summarySnapshot: appointment.summarySnapshot,
+      google_deleted_at: appointment.google_deleted_at,
+      googleDeletedAt: appointment.googleDeletedAt,
+      google_color_id: appointment.google_color_id,
+      googleColorId: appointment.googleColorId,
+      google_event_type: appointment.google_event_type,
+      googleEventType: appointment.googleEventType,
+      unavailable_google_color_ids: appointment.unavailable_google_color_ids,
+      unavailableGoogleColorIds: appointment.unavailableGoogleColorIds,
+      ends_at: appointment.ends_at,
+      endsAt: appointment.endsAt,
+    },
+    now,
+  );
+  return state === "active" || state === "completed";
 }

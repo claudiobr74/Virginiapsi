@@ -654,6 +654,9 @@ const E2E_AGENDA_FIXTURE_IDS = {
   googleExternal: "aaaaaaaa-0001-4000-8000-000000000005",
 };
 
+/** When true, the Google fixture is the next countable session today. */
+let preferGoogleNextSession = false;
+
 function upsertFixtureTimes(organizationId, id, fields, createOverrides) {
   const table = getOrCreateOrgMap(appointmentsByOrg, organizationId);
   const existing = table.get(id);
@@ -671,9 +674,11 @@ function ensureTodayAgendaFixtures(organizationId) {
     return;
   }
   const [beatriz] = patients.values();
-  const futureBeatriz = futureRangeOnCivilDay(today, 20, 40);
+  const beatrizLead = preferGoogleNextSession ? 90 : 20;
+  const googleLead = preferGoogleNextSession ? 12 : 75;
+  const futureBeatriz = futureRangeOnCivilDay(today, beatrizLead, 40);
   const past = pastRangeOnCivilDay(today, 50);
-  const futureGoogle = futureRangeOnCivilDay(today, 75, 45);
+  const futureGoogle = futureRangeOnCivilDay(today, googleLead, 45);
   const cancelledStart = new Date(`${today}T15:00:00-03:00`);
   const desmarcouStart = new Date(`${today}T16:30:00-03:00`);
 
@@ -901,6 +906,15 @@ const server = createServer(async (req, res) => {
   if (pathname === "/e2e/google-connection" && req.method === "POST") {
     const body = await readBody(req);
     const status = body.status === "connected" ? "connected" : "disconnected";
+    preferGoogleNextSession = status === "connected" && body.nextSession === "google";
+    if (status === "disconnected") {
+      preferGoogleNextSession = false;
+      const table = appointmentsByOrg.get(ADMIN_ORG_ID);
+      const google = table?.get(E2E_AGENDA_FIXTURE_IDS.googleExternal);
+      if (google) {
+        google.patient_id = null;
+      }
+    }
     const current = getConnection(ADMIN_ORG_ID);
     connectionsByOrg.set(ADMIN_ORG_ID, {
       ...current,
@@ -1774,6 +1788,37 @@ const server = createServer(async (req, res) => {
       sync_status: "synced",
     };
     table.set(current.id, updated);
+    json(res, 200, current.id);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/link_external_appointment_patient" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const organizationId = body.org_id;
+    const isMember = (memberships.get(user.id) ?? []).some(
+      (row) => row.active && row.organization_id === organizationId,
+    );
+    const table = appointmentsByOrg.get(organizationId);
+    const current = table?.get(body.p_appointment_id);
+    const patient = patientsByOrg.get(organizationId)?.get(body.p_patient_id);
+    if (!isMember) {
+      json(res, 400, { message: "external appointment link requires an active membership" });
+      return;
+    }
+    if (!patient || patient.organization_id !== organizationId) {
+      json(res, 400, { message: "appointment patient must belong to the same organization" });
+      return;
+    }
+    if (!current || current.origin !== "GOOGLE_EXTERNAL" || current.google_deleted_at) {
+      json(res, 400, { message: "external appointment not found" });
+      return;
+    }
+    table.set(current.id, { ...current, patient_id: body.p_patient_id });
     json(res, 200, current.id);
     return;
   }

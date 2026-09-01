@@ -161,18 +161,77 @@ describe("getAppointmentPresentation — fixtures reais", () => {
 });
 
 describe("offersClinicalAppointmentActions", () => {
-  it("GOOGLE_EXTERNAL sem paciente não recebe ações clínicas", () => {
+  it("GOOGLE_EXTERNAL ativo sem paciente oferece Atender", () => {
     expect(
-      offersClinicalAppointmentActions({ origin: "GOOGLE_EXTERNAL", patient_id: null }),
-    ).toBe(false);
+      offersClinicalAppointmentActions({
+        origin: "GOOGLE_EXTERNAL",
+        patient_id: null,
+        status: "scheduled",
+        summary_snapshot: "Jessyca-1(c)",
+        ends_at: "2026-08-18T18:00:00.000Z",
+      }, NOW),
+    ).toBe(true);
   });
 
-  it("TESSELI com paciente recebe ações clínicas", () => {
+  it("TESSELI com paciente oferece Atender", () => {
     expect(
       offersClinicalAppointmentActions({
         origin: "TESSELI",
         patient_id: "33333333-3333-4333-8333-333333333333",
-      }),
+        status: "scheduled",
+        ends_at: "2026-08-18T18:00:00.000Z",
+      }, NOW),
     ).toBe(true);
+  });
+
+  it("GOOGLE_EXTERNAL completed (azul) oferece Atender", () => {
+    expect(
+      offersClinicalAppointmentActions({
+        origin: "GOOGLE_EXTERNAL",
+        patient_id: null,
+        status: "scheduled",
+        summary_snapshot: "Jessyca-1(c)",
+        ends_at: "2026-08-18T11:00:00.000Z",
+      }, NOW),
+    ).toBe(true);
+  });
+
+  it("cancelado não oferece Atender", () => {
+    expect(
+      offersClinicalAppointmentActions({
+        origin: "GOOGLE_EXTERNAL",
+        patient_id: null,
+        status: "scheduled",
+        summary_snapshot: "Giovanna (desmarcou)",
+        ends_at: "2026-08-18T18:00:00.000Z",
+      }, NOW),
+    ).toBe(false);
+  });
+
+  it("indisponível colorId 8 não oferece Atender", () => {
+    expect(
+      offersClinicalAppointmentActions({
+        origin: "GOOGLE_EXTERNAL",
+        patient_id: null,
+        status: "scheduled",
+        summary_snapshot: "Isadora? não pode",
+        google_color_id: "8",
+        unavailable_google_color_ids: ["8"],
+        ends_at: "2026-08-18T18:00:00.000Z",
+      }, NOW),
+    ).toBe(false);
+  });
+
+  it("google_deleted_at não oferece Atender", () => {
+    expect(
+      offersClinicalAppointmentActions({
+        origin: "GOOGLE_EXTERNAL",
+        patient_id: null,
+        status: "scheduled",
+        summary_snapshot: "Helio-1??? Julianna-1???",
+        google_deleted_at: "2026-08-18T03:00:00.000Z",
+        ends_at: "2026-08-18T18:00:00.000Z",
+      }, NOW),
+    ).toBe(false);
   });
 });

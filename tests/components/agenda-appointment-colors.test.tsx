@@ -9,8 +9,17 @@ import type { AppointmentRow } from "@/features/calendar/contracts";
 import { TodayTimeline } from "@/features/dashboard/components/today-timeline";
 import type { MyDayAppointment } from "@/features/dashboard/contracts";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
 vi.mock("@/features/sessions/components/start-session-button", () => ({
   StartSessionButton: () => null,
+}));
+
+vi.mock("@/features/calendar/link-patient-actions", () => ({
+  searchPatientsForAppointmentLinkAction: vi.fn(async () => ({ patients: [] })),
+  linkPatientAndStartSessionAction: vi.fn(),
 }));
 
 vi.mock("@/features/calendar/appointment-actions", () => ({
@@ -190,7 +199,7 @@ describe("Agenda V2 — cores sólidas em dia/semana/mês", () => {
     expectTone("Livia-1(c) / Flávia-3", "active");
   });
 
-  it("AppointmentCard Google futuro é verde sólido, badge Google, sem Atender", () => {
+  it("AppointmentCard Google futuro é verde sólido, badge Google, com Atender", () => {
     render(
       <AppointmentCard appointment={eventoGoogle} timeZone={TIME_ZONE} isAdmin now={NOW} />,
     );
@@ -199,7 +208,7 @@ describe("Agenda V2 — cores sólidas em dia/semana/mês", () => {
     expect(card).toHaveAttribute("data-appointment-origin", "GOOGLE_EXTERNAL");
     expect(card).toHaveStyle({ backgroundColor: "#34A853" });
     expect(screen.getByText("Google")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Atender" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Atender" })).toBeInTheDocument();
   });
 
   it("Isadora colorId 8 mostra INDISPONÍVEL vermelho, não Cancelado", () => {
@@ -213,12 +222,13 @@ describe("Agenda V2 — cores sólidas em dia/semana/mês", () => {
       starts_at: "2026-08-18T18:00:00.000Z",
       ends_at: "2026-08-18T19:00:00.000Z",
     });
-    render(<AppointmentCard appointment={isadora} timeZone={TIME_ZONE} now={NOW} />);
+    render(<AppointmentCard appointment={isadora} timeZone={TIME_ZONE} isAdmin now={NOW} />);
     const card = screen.getByText("Isadora? não pode").closest("[data-appointment-visual]");
     expect(card).toHaveAttribute("data-appointment-visual", "unavailable");
     expect(card).toHaveStyle({ backgroundColor: "#D93025" });
     expect(screen.getByText("Indisponível")).toBeInTheDocument();
     expect(screen.queryByText("Cancelado")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Atender" })).not.toBeInTheDocument();
   });
 
   it("AppointmentDetailDrawer usa a mesma paleta e permite editar Google", () => {

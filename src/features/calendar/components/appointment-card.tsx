@@ -1,9 +1,13 @@
 import { ExternalLink, Globe2, MapPin, Video } from "lucide-react";
-import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
+import {
+  getAppointmentVisualStatus,
+  offersClinicalAppointmentActions,
+} from "@/features/calendar/appointment-visual";
+import { appointmentRowToAttendTarget } from "@/features/calendar/attend-target";
+import { AttendAppointmentButton } from "@/features/calendar/components/attend-appointment-button";
 import { GoogleOriginMark } from "@/features/calendar/components/google-origin-mark";
 import type { AppointmentRow } from "@/features/calendar/contracts";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
-import { StartSessionButton } from "@/features/sessions/components/start-session-button";
 import { formatInTimeZone } from "@/lib/utils/timezone";
 import { cn } from "@/lib/utils/cn";
 
@@ -24,17 +28,11 @@ export function AppointmentCard({
   now?: Date;
   onClick?: () => void;
 }) {
-  const isExternal = appointment.origin === "GOOGLE_EXTERNAL";
   const visual = getAppointmentVisualStatus(appointment, now);
-  const blocked =
-    visual.tone === "cancelled" || visual.tone === "unavailable";
   const ModalityIcon = MODALITY_ICON[appointment.modality];
   const timeRange = `${formatInTimeZone(appointment.starts_at, timeZone)} – ${formatInTimeZone(appointment.ends_at, timeZone)}`;
   const canStart =
-    isAdmin &&
-    !isExternal &&
-    Boolean(appointment.patient_id) &&
-    !blocked;
+    isAdmin && offersClinicalAppointmentActions(appointment, now);
   const showActions =
     !compact && (canStart || (appointment.meet_url && appointment.meet_status === "success"));
 
@@ -88,11 +86,13 @@ export function AppointmentCard({
 
       {showActions ? (
         <div className="flex flex-wrap items-center gap-2">
-          {canStart && appointment.patient_id ? (
-            <StartSessionButton
-              patientId={appointment.patient_id}
-              appointmentId={appointment.id}
-              label="Atender"
+          {canStart ? (
+            <AttendAppointmentButton
+              appointment={appointmentRowToAttendTarget(appointment)}
+              timeZone={timeZone}
+              canStartSession={isAdmin}
+              now={now}
+              returnTo="/app/agenda"
             />
           ) : null}
           {appointment.meet_url && appointment.meet_status === "success" ? (
