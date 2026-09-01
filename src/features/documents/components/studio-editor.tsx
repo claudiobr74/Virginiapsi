@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
 import { cancelDocumentAction, signDocumentAction } from "@/features/documents/actions";
 import { DocumentAiAssistant } from "@/features/documents/components/document-ai-assistant";
-import { DocumentDeliveryDrawer } from "@/features/documents/components/document-delivery-drawer";
+import { DocumentDeliveryDrawer, type DeliveryFormState } from "@/features/documents/components/document-delivery-drawer";
 import { DocumentFinalizeDrawer } from "@/features/documents/components/document-finalize-drawer";
 import { DocumentMoreMenu } from "@/features/documents/components/document-more-menu";
 import { DocumentSettingsDrawer } from "@/features/documents/components/document-settings-drawer";
@@ -115,10 +115,10 @@ export function StudioEditor({
   const [templateName, setTemplateName] = useState("");
   const [compareId, setCompareId] = useState("");
   const [menuSectionId, setMenuSectionId] = useState<string | null>(null);
-  const [delivery, setDelivery] = useState({
+  const [delivery, setDelivery] = useState<DeliveryFormState>({
     recipientName: "",
     deliveredAt: new Date().toISOString().slice(0, 16),
-    method: "presencial" as const,
+    method: "presencial",
     receiptConfirmed: false,
     devolutionDone: false,
     notes: "",
@@ -587,7 +587,7 @@ export function StudioEditor({
         open={deliveryOpen}
         onOpenChange={setDeliveryOpen}
         delivery={delivery}
-        onChange={(patch) => setDelivery((current) => ({ ...current, ...patch }))}
+        onChange={(patch) => setDelivery((current: DeliveryFormState) => ({ ...current, ...patch }))}
         deliveries={deliveries}
         isPending={isPending}
         onSubmit={() =>

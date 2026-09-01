@@ -10,15 +10,23 @@ import {
   type DocumentVersionRow,
 } from "@/features/documents/contracts";
 
-const saveStudioDraftAction = vi.fn(async () => ({}));
-const cancelDocumentAction = vi.fn(async () => ({}));
-const issueStudioDocumentAction = vi.fn(async () => ({}));
-const previewDocumentAiContextAction = vi.fn(async () => ({
-  preview: "envelope",
-  previewHash: "a".repeat(64),
-}));
-const generateDocumentAiDraftAction = vi.fn(async () => ({
-  error: "gate",
+const {
+  saveStudioDraftAction,
+  cancelDocumentAction,
+  issueStudioDocumentAction,
+  previewDocumentAiContextAction,
+  generateDocumentAiDraftAction,
+} = vi.hoisted(() => ({
+  saveStudioDraftAction: vi.fn(async () => ({})),
+  cancelDocumentAction: vi.fn(async () => ({})),
+  issueStudioDocumentAction: vi.fn(async () => ({})),
+  previewDocumentAiContextAction: vi.fn(async () => ({
+    preview: "envelope",
+    previewHash: "a".repeat(64),
+  })),
+  generateDocumentAiDraftAction: vi.fn(async () => ({
+    error: "gate",
+  })),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -41,20 +49,20 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("@/features/documents/actions", () => ({
-  cancelDocumentAction: (...args: unknown[]) => cancelDocumentAction(...args),
+  cancelDocumentAction,
   signDocumentAction: vi.fn(async () => ({})),
 }));
 
 vi.mock("@/features/documents/studio-actions", () => ({
   duplicateDocumentAction: vi.fn(async () => ({})),
   importScheduledEncountersAction: vi.fn(async () => ({})),
-  issueStudioDocumentAction: (...args: unknown[]) => issueStudioDocumentAction(...args),
+  issueStudioDocumentAction,
   markDocumentReviewedAction: vi.fn(async () => ({})),
   registerDeliveryAction: vi.fn(async () => ({})),
   saveDocumentAsTemplateAction: vi.fn(async () => ({})),
-  saveStudioDraftAction: (...args: unknown[]) => saveStudioDraftAction(...args),
-  generateDocumentAiDraftAction: (...args: unknown[]) => generateDocumentAiDraftAction(...args),
-  previewDocumentAiContextAction: (...args: unknown[]) => previewDocumentAiContextAction(...args),
+  saveStudioDraftAction,
+  generateDocumentAiDraftAction,
+  previewDocumentAiContextAction,
 }));
 
 const DOC = "22222222-2222-4222-8222-222222222222";
