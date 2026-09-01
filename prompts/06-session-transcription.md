@@ -2,7 +2,7 @@
 
 Pré-requisito: Fase 5.5 (Consentimentos mínimos) concluída. O `ConsentState` usado nesta fase vem de `consents` real; não mockar.
 
-Provider de transcrição: **local-first no dispositivo, com fallback opcional no Groq**. Leia `docs/22-transcription-provider-decision.md` antes de começar — Deepgram não faz mais parte da arquitetura.
+Provider de transcrição: **Groq ao vivo**, com spool criptografado e importação. Leia `docs/22-transcription-provider-decision.md` e `docs/27-transcription-v3-cross-platform.md`. Deepgram e ASR local (ONNX/WebGPU/WASM) não fazem parte da arquitetura de produção.
 
 Use `transcription`, `clinical-ai`, `/local-transcription`, `/runtime-ai-prompt-gate` e o verifier.
 
@@ -23,18 +23,16 @@ Implemente:
 - área de trabalho clínico separada de dados administrativos;
 - consent gate server-side para IA/gravação/transcrição;
 - opção de sessão sem IA/gravação sem prejuízo ao fluxo clínico;
-- port `TranscriptionProvider` com dois adapters: `local-webgpu` (padrão) e `groq-batch` (fallback opcional);
-- transcrição no dispositivo com ONNX/WebGPU e queda para WASM; **nenhuma requisição de rede pode carregar áudio nesse caminho**;
-- detecção de capacidade do dispositivo, oferecendo o fallback explicitamente quando o local não sustentar — nunca degradar privacidade em silêncio;
-- `session_capture_grant` de vida curta emitido pelo servidor antes de ativar o microfone;
-- recusa server-side de persistir segmento de transcrição sem grant válido — este é o ponto de enforcement do caminho local;
-- transcrição incremental com trecho em processamento explicitamente provisório;
+- transcrição ao vivo: MediaRecorder → chunks ~15 s → `POST /api/session-capture/transcribe-chunk` → Groq → persistir texto → ACK;
+- feature detection (MIME, IndexedDB, Web Crypto), não sniffing de navegador;
+- `session_capture_grant` emitido pelo servidor antes de ativar o microfone;
+- recusa server-side de transcrever/persistir sem grant válido;
+- spool AES-GCM para falha prolongada; nunca plaintext em web storage;
+- importação de gravação externa via signed upload privado e apagamento após persistir;
 - tratamento de ambiguidade/erro de ASR;
-- diarização apenas quando o adapter oferecer; rótulo de falante é provisório como o resto do texto, nunca vira fato clínico sem confirmação, discrepância de atribuição é sinalizada; sem diarização, não inventar falante;
-- controle de conflito por versionamento otimista (409 em escrita desatualizada); sem lock explícito de sessão nesta fase;
-- retomada de captura sem duplicar segmentos;
-- fallback por upload direto privado ao Supabase Storage **somente após novo consent gate server-side e signed upload grant**, com a chave do provider server-only;
-- encerramento de sessão;
+- diarização apenas quando o adapter oferecer; sem diarização, não inventar falante;
+- controle de conflito por versionamento otimista (409 em escrita desatualizada);
+- encerramento de sessão (clínica completed pode coexistir com transcription pending_recovery);
 - Session AI com três operações:
   1. apoio ao vivo seletivo;
   2. preparação de próxima sessão;
@@ -48,28 +46,4 @@ Implemente:
 - nenhum emotion recognition por voz/face;
 - nenhum scoring/interpretação autônoma de testes psicológicos.
 
-Antes de fechar a fase, rode o spike pendente de `docs/22` §7: medir WER e latência do modelo local em pt-BR no hardware real. Se o resultado for inaceitável, troque o adapter padrão — não a arquitetura.
-
-Não altere os textos em `src/lib/ai/prompts/**` para "melhorar" a saída durante a implementação. Mudanças de prompt são decisão de produto.
-
-Gate:
-- authorization + tenant;
-- consent gate real para o grant de captura **e** para a capability de upload do fallback;
-- nenhum áudio sai do dispositivo no caminho padrão (verificado por captura de rede);
-- persistência recusa segmento sem grant válido;
-- retomada sem duplicação de segmentos;
-- privacy;
-- payload;
-- transcript ambiguity/negation;
-- ausência de diarização não produz falante inventado;
-- prompt injection;
-- malformed output;
-- risk-label behavior;
-- trauma/suggestive-question behavior;
-- no restricted-test interpretation;
-- no auto-commit;
-- DPEP procedure confirmation;
-- `/runtime-ai-prompt-gate`;
-- verifier.
-
-Pare após o gate.
+Não usar ONNX, WebGPU Whisper, Transformers.js nem download de modelo no browser.

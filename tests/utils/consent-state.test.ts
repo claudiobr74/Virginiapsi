@@ -3,6 +3,7 @@ import {
   evaluateCaptureCapability,
   resolveConsentStateFromRows,
   resolveMinorRequirement,
+  TRANSCRIPTION_CONSENT_VERSION,
   type ConsentRow,
   type ConsentType,
 } from "@/features/consents/contracts";
@@ -35,6 +36,7 @@ function allCaptureConsents(overrides: Partial<ConsentRow> = {}): ConsentRow[] {
     consent({
       type: "session_transcription",
       id: "c1111111-1111-4111-8111-111111111111",
+      version: TRANSCRIPTION_CONSENT_VERSION,
       ...overrides,
     }),
   ];
@@ -100,7 +102,7 @@ describe("resolveConsentStateFromRows", () => {
     expect(state.aiProcessingAllowed).toBe(true);
     expect(state.recordingAllowed).toBe(true);
     expect(state.transcriptionAllowed).toBe(true);
-    expect(state.consentVersion).toBe("minimo-2026-08");
+    expect(state.consentVersion).toMatch(/^minimo-2026-/);
     expect(state.consentRecordedAt).toBe("2026-08-01T10:00:00.000Z");
     expect(state.minorGuardianAuthorizationValid).toBeUndefined();
   });
@@ -285,6 +287,28 @@ describe("evaluateCaptureCapability", () => {
     const decision = evaluateCaptureCapability(resolution, "session_capture_grant");
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe("consent_missing");
+  });
+
+  it("versão antiga de transcrição não autoriza captura", () => {
+    const rows = allCaptureConsents();
+    rows[2] = consent({
+      type: "session_transcription",
+      id: "c1111111-1111-4111-8111-111111111111",
+      version: "minimo-2026-08",
+    });
+    const { state, denials } = resolveConsentStateFromRows({
+      rows,
+      birthDate: "1990-05-10",
+      at: NOW,
+    });
+    expect(state.transcriptionAllowed).toBe(false);
+    expect(denials.session_transcription).toBe("consent_outdated");
+    expect(
+      evaluateCaptureCapability(
+        { state, denials, ageGroup: "adult" },
+        "session_capture_grant",
+      ).allowed,
+    ).toBe(false);
   });
 
   it("libera as duas capabilities com gravação e transcrição válidas", () => {

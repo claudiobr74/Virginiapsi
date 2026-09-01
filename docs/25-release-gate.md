@@ -29,7 +29,7 @@ G0 (2026-08-25): `GET /login` em `serena-psi-beta.vercel.app` respondeu **200** 
 
 - Error boundaries (`src/app/error.tsx`, `src/app/global-error.tsx`) e `not-found.tsx` com primitivos canônicos. Mensagens genéricas; o `error` não é logado (pode carregar contexto operacional).
 - Skip-link “Ir para o conteúdo principal” no `AppShell` → `#conteudo-principal`. Sessão em modo foco também expõe `<main id="conteudo-principal">`.
-- Headers globais: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy` (microfone só `self`). COEP/COOP permanecem só em `/session/:sessionId`. Sem CSP estrito que quebre o App Router.
+- Headers globais: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy` (câmera e microfone só `self`). COEP/COOP **não** são mais exigidos na rota da sessão (ASR local removido). Sem CSP estrito que quebre o App Router.
 - Rate limit **best-effort por instância** (Map in-memory): 30/min por IP nos endpoints de grant (`/api/session-capture/grant`, `upload-grant`); 20/min por organização+usuário nas server actions de Supervisor, Session AI e Knowledge. **Não** é cota global de cluster.
 - Teto de body: webhooks Twilio 32 KiB; JSON de grant/segmento 64 KiB; metadata de transcribe 16 KiB. Segmentos ao vivo **não** compartilham o rate limit de grant.
 - Sem Cron na Vercel: `vercel.json` só declara `framework: nextjs` (o preset do projeto estava `null` e o Preview READY 404-ava em todas as rotas). Scheduler continua `pg_cron`/`pg_net`.

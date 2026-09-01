@@ -1,44 +1,29 @@
-import { describe, expect, it, vi } from "vitest";
-import { pickSupportedRecorderMimeType } from "@/features/sessions/transcription/chunked-mic-capture";
-import { unlockAudioContext } from "@/features/sessions/transcription/unlock-audio-context";
+import { describe, expect, it } from "vitest";
+import { selectSupportedRecordingMimeType } from "@/features/sessions/transcription/mime-negotiation";
+import { buildProgressiveAudioConstraints } from "@/features/sessions/transcription/audio-constraints";
 
-describe("pickSupportedRecorderMimeType", () => {
-  it("escolhe o primeiro tipo suportado, incluindo audio/mp4 do Chrome Android", () => {
+describe("MIME negotiation for Chrome-family Android recorders", () => {
+  it("aceita audio/mp4 quando o browser anuncia só esse container", () => {
     expect(
-      pickSupportedRecorderMimeType(
+      selectSupportedRecordingMimeType(
         (type) => type === "audio/mp4" || type === "audio/ogg",
       ),
     ).toBe("audio/mp4");
   });
 
-  it("cai no default do browser quando nenhum candidato é suportado", () => {
-    expect(pickSupportedRecorderMimeType(() => false)).toBeUndefined();
+  it("não assume webm quando o browser não declara suporte", () => {
+    expect(selectSupportedRecordingMimeType(() => false)).toBeUndefined();
   });
 });
 
-describe("unlockAudioContext", () => {
-  it("resume o contexto suspenso criado no gesto do usuário", async () => {
-    const resume = vi.fn(async () => undefined);
-    const context = {
-      state: "suspended" as AudioContextState,
-      resume,
-    };
-    const unlocked = await unlockAudioContext(
-      () => context as unknown as AudioContext,
-    );
-    expect(resume).toHaveBeenCalledTimes(1);
-    expect(unlocked).toBe(context);
-  });
-
-  it("não chama resume quando o contexto já está running", async () => {
-    const resume = vi.fn(async () => undefined);
-    await unlockAudioContext(
-      () =>
-        ({
-          state: "running",
-          resume,
-        }) as unknown as AudioContext,
-    );
-    expect(resume).not.toHaveBeenCalled();
+describe("progressive audio constraints", () => {
+  it("nunca usa exact em propriedades opcionais", () => {
+    const constraints = buildProgressiveAudioConstraints({
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    });
+    expect(JSON.stringify(constraints)).not.toContain("exact");
+    expect(constraints.echoCancellation).toEqual({ ideal: true });
   });
 });

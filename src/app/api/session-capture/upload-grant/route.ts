@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { authorizeCaptureCapability } from "@/lib/consent/capability-gate";
+import { authorizeCaptureCapability, issueCaptureGrant } from "@/lib/consent/capability-gate";
 import { createFallbackUploadGrant } from "@/lib/integrations/transcription/fallback-storage";
 import {
   clientIpFromHeaders,
@@ -16,17 +16,15 @@ import {
 const bodySchema = z.object({
   patientId: z.string().uuid(),
   sessionId: z.string().uuid(),
+  filename: z.string().trim().max(180).optional(),
 });
 
 /**
- * Signed upload grant for the optional audio fallback. It runs the *same*
- * consent gate as the on-device capture grant — `session-audio-fallback` must
- * never accept an upload authorized only by membership
- * (docs/05-security-rbac-rls.md §Áudio/transcrição).
+ * Signed upload grant for importing an external recording. Live capture
+ * never uses this bucket — only the import path does.
  *
- * This path only exists for organizations that explicitly enable the
- * fallback; with it disabled the session proceeds without transcription
- * rather than shipping clinical audio out.
+ * `session-audio-fallback` must never accept an upload authorized only by
+ * membership (docs/05-security-rbac-rls.md §Áudio/transcrição).
  */
 export async function POST(request: NextRequest) {
   const ip = clientIpFromHeaders(request.headers);
@@ -59,8 +57,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const grant = await createFallbackUploadGrant(gate.organizationId, gate.sessionId);
-    return NextResponse.json(grant);
+    const upload = await createFallbackUploadGrant(gate.organizationId, gate.sessionId, {
+      filename: parsed.data.filename,
+    });
+    const grant = issueCaptureGrant(gate, "audio_fallback_upload_grant");
+    return NextResponse.json({
+      grant,
+      bucket: upload.bucket,
+      path: upload.path,
+      token: upload.token,
+      signedUrl: upload.signedUrl,
+    });
   } catch {
     return NextResponse.json(
       { error: "upload_grant_failed", message: "Não foi possível preparar o upload agora." },

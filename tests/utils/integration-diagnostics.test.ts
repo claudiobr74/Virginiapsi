@@ -19,7 +19,7 @@ describe("diagnósticos de integração", () => {
         senderConfigured: false,
         lastError: "TWILIO_AUTH_TOKEN rejected AC00000000000000000000000000000000",
       },
-      transcription: { localDefault: true, fallbackConfigured: false },
+      transcription: { groqConfigured: false },
       gemini: { configured: true },
     });
 

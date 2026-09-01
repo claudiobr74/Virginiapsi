@@ -55,11 +55,10 @@ function logCaptureGrantInternalError(error: unknown, correlationId: string): vo
 }
 
 /**
- * Session capture grant — authorizes activating the microphone for on-device
- * transcription (docs/22-transcription-provider-decision.md). The browser
- * requests this once per active session, before loading the local
- * transcription model, and includes the token on every transcript-segment
- * persistence call.
+ * Session capture grant — authorizes activating the microphone for live
+ * Groq transcription (docs/22-transcription-provider-decision.md). The
+ * browser requests this once per active session, before getUserMedia, and
+ * includes the token on every transcribe-chunk call.
  */
 export async function POST(request: NextRequest) {
   const correlationId = correlationIdFromRequest(request);

@@ -52,6 +52,13 @@ export const CONSENT_STATUS_LABELS: Record<ConsentStatus, string> = {
  */
 export const MINIMAL_CONSENT_VERSION = "minimo-2026-08";
 
+/**
+ * Transcription consent text changed when Groq became the live ASR
+ * (audio leaves the device). Prior `minimo-2026-08` acceptances stay on
+ * record but no longer authorize capture.
+ */
+export const TRANSCRIPTION_CONSENT_VERSION = "minimo-2026-09-groq";
+
 export const consentRowSchema = z.object({
   id: z.string().uuid(),
   organization_id: z.string().uuid(),
@@ -169,6 +176,7 @@ export type ConsentDenialReason =
   | "consent_missing"
   | "consent_revoked"
   | "consent_expired"
+  | "consent_outdated"
   | "consent_pending"
   | "birth_date_missing"
   | "minor_guardian_authorization_missing"
@@ -211,6 +219,12 @@ function evaluateRow(
   }
   if (row.expires_at && new Date(row.expires_at).getTime() <= at.getTime()) {
     return { allowed: false, reason: "consent_expired" };
+  }
+  if (
+    row.type === "session_transcription" &&
+    row.version !== TRANSCRIPTION_CONSENT_VERSION
+  ) {
+    return { allowed: false, reason: "consent_outdated" };
   }
   if (requirement.requiresGuardianAuthorization && !row.guardian_authorization) {
     return { allowed: false, reason: "minor_guardian_authorization_missing" };
@@ -296,13 +310,9 @@ export interface CapabilityDecision {
 }
 
 /**
- * Both capture capabilities — the session capture grant that authorizes
- * on-device transcription and the fallback signed upload grant — require the
- * same recording + transcription consent (docs/03-architecture.md §Clinical AI
- * boundary, docs/05-security-rbac-rls.md §Áudio/transcrição,
- * docs/22-transcription-provider-decision.md). There is intentionally no
- * capability that requires less: capturing on the device is not a lesser act
- * than shipping the audio out.
+ * Both capture capabilities — live Groq chunks and external-recording import —
+ * require the same recording + transcription consent. There is intentionally
+ * no capability that requires less.
  */
 export function evaluateCaptureCapability(
   resolution: ConsentResolution,
@@ -331,6 +341,8 @@ export const CONSENT_DENIAL_MESSAGES: Record<ConsentDenialReason, string> = {
   consent_missing: "Consentimento não registrado para este paciente.",
   consent_revoked: "Consentimento revogado.",
   consent_expired: "Consentimento expirado.",
+  consent_outdated:
+    "O consentimento de transcrição precisa ser registrado novamente — o áudio agora é enviado de forma segura para gerar o texto em tempo real.",
   consent_pending: "Consentimento ainda não foi aceito.",
   birth_date_missing:
     "Data de nascimento ausente no cadastro — não é possível verificar exigências de menor de idade.",

@@ -141,8 +141,7 @@ export async function getIntegrationDiagnosticsForOrg(organizationId: string) {
         lastError: twilioError,
       },
       transcription: {
-        localDefault: true,
-        fallbackConfigured: flags.groq,
+        groqConfigured: flags.groq,
       },
       gemini: {
         configured: flags.gemini,
@@ -248,7 +247,7 @@ export async function getSettingsSnapshot(input: {
         senderConfigured: false,
         lastError: null,
       },
-      transcription: { localDefault: true, fallbackConfigured: false },
+      transcription: { groqConfigured: false },
       gemini: { configured: false },
     });
 

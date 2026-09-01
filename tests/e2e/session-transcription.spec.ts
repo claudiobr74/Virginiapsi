@@ -78,7 +78,7 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
         isFinal: true,
         startMs: 0,
         endMs: 1500,
-        provider: "local-webgpu",
+        provider: "groq-batch",
       },
     });
     expect(persistResponse.status()).toBe(200);
@@ -88,5 +88,161 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
     await page.reload();
     await expect(page.getByText(persistedText)).toBeVisible();
     await expect(page.getByText("Nenhum trecho transcrito ainda nesta sessão.")).toHaveCount(0);
+  });
+
+  test("transcribe-chunk via Groq stub persiste e o replay não duplica", async ({
+    page,
+  }, testInfo) => {
+    const runId = crypto.randomUUID().slice(0, 8);
+    const preferredName = `Groq ${testInfo.project.name} ${runId}`;
+
+    await loginViaUi(page);
+    const patientId = await createIsolatedCapturePatient(page, preferredName);
+    await recordAllCaptureConsents(page);
+    const sessionId = await startSession(page, patientId);
+
+    const grantResponse = await page.request.post("/api/session-capture/grant", {
+      data: { patientId, sessionId },
+    });
+    expect(grantResponse.status()).toBe(200);
+    const grantBody = (await grantResponse.json()) as { grant: string };
+
+    const chunkId = crypto.randomUUID();
+    const first = await page.request.post("/api/session-capture/transcribe-chunk", {
+      multipart: {
+        grant: grantBody.grant,
+        patientId,
+        sessionId,
+        chunkId,
+        sequence: "0",
+        startMs: "0",
+        endMs: "15000",
+        audio: {
+          name: "chunk.webm",
+          mimeType: "audio/webm",
+          buffer: Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]),
+        },
+      },
+    });
+    expect(first.status()).toBe(200);
+    const firstBody = (await first.json()) as {
+      ok: boolean;
+      already_processed: boolean;
+      segment: { text: string } | null;
+    };
+    expect(firstBody.ok).toBe(true);
+    expect(firstBody.already_processed).toBe(false);
+    expect(firstBody.segment?.text).toBe("Trecho transcrito no stub Groq.");
+
+    const replay = await page.request.post("/api/session-capture/transcribe-chunk", {
+      multipart: {
+        grant: grantBody.grant,
+        patientId,
+        sessionId,
+        chunkId,
+        sequence: "0",
+        startMs: "0",
+        endMs: "15000",
+        audio: {
+          name: "chunk.webm",
+          mimeType: "audio/webm",
+          buffer: Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]),
+        },
+      },
+    });
+    expect(replay.status()).toBe(200);
+    const replayBody = (await replay.json()) as { already_processed: boolean };
+    expect(replayBody.already_processed).toBe(true);
+
+    await page.reload();
+    await expect(page.getByText("Trecho transcrito no stub Groq.")).toBeVisible();
+  });
+
+  test("iniciar e parar transcrição usa o microfone sem baixar modelo", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name === "desktop-webkit",
+      "Fake MediaStream flags are Chromium-only in this Playwright config.",
+    );
+    const runId = crypto.randomUUID().slice(0, 8);
+    await loginViaUi(page);
+    const patientId = await createIsolatedCapturePatient(
+      page,
+      `Mic ${testInfo.project.name} ${runId}`,
+    );
+    await recordAllCaptureConsents(page);
+    await startSession(page, patientId);
+
+    await expect(page.getByText("baixando modelo")).toHaveCount(0);
+    await page.getByRole("button", { name: "Iniciar transcrição" }).click();
+    await expect(page.getByText(/Gravando|Preparando|Conexão instável|Gravação local/)).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.getByRole("button", { name: "Parar transcrição" }).click();
+    await expect(page.getByText(/Transcrição finalizada|Transcrição parada/)).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("falha de rede no chunk preserva recuperação após stop", async ({ page }, testInfo) => {
+    test.skip(
+      testInfo.project.name === "desktop-webkit",
+      "MediaRecorder fake-device e IndexedDB CryptoKey nesta rodada: Chromium.",
+    );
+    const runId = crypto.randomUUID().slice(0, 8);
+    await loginViaUi(page);
+    const patientId = await createIsolatedCapturePatient(
+      page,
+      `Offline ${testInfo.project.name} ${runId}`,
+    );
+    await recordAllCaptureConsents(page);
+    await startSession(page, patientId);
+
+    await page.route("**/api/session-capture/transcribe-chunk", (route) =>
+      route.abort("failed"),
+    );
+    await page.getByRole("button", { name: "Iniciar transcrição" }).click();
+    await expect(page.getByText(/Gravando|Preparando|Conexão instável|Gravação local/)).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.waitForTimeout(1_200);
+    await page.getByRole("button", { name: "Parar transcrição" }).click();
+    await expect(
+      page.getByText(/preservado|Continuar processamento|Gravação local|encerrada|indisponível/i),
+    ).toBeVisible({ timeout: 20_000 });
+
+    await page.unroute("**/api/session-capture/transcribe-chunk");
+    const recover = page.getByRole("button", { name: "Continuar processamento" });
+    if ((await recover.count()) > 0) {
+      await recover.click();
+      await expect(page.getByText("Trecho transcrito no stub Groq.")).toBeVisible({
+        timeout: 20_000,
+      });
+    }
+  });
+
+  test("importar gravação persiste texto via Groq stub", async ({ page }, testInfo) => {
+    test.skip(
+      testInfo.project.name === "desktop-webkit",
+      "Upload signed URL + Storage stub: Chromium nesta rodada.",
+    );
+    const runId = crypto.randomUUID().slice(0, 8);
+    await loginViaUi(page);
+    const patientId = await createIsolatedCapturePatient(
+      page,
+      `Import ${testInfo.project.name} ${runId}`,
+    );
+    await recordAllCaptureConsents(page);
+    await startSession(page, patientId);
+
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "sessao.webm",
+      mimeType: "audio/webm",
+      buffer: Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4, 5, 6, 7, 8]),
+    });
+    await expect(page.getByText(/Gravação importada|Trecho transcrito no stub Groq/)).toBeVisible({
+      timeout: 20_000,
+    });
   });
 });

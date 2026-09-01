@@ -126,7 +126,7 @@ test.describe("Persistência de transcrição — enforcement server-side", () =
         sequence: 0,
         text: "Texto que não deveria ser salvo",
         isFinal: true,
-        provider: "local-webgpu",
+        provider: "groq-batch",
       },
     });
     expect(response.status()).toBe(403);
@@ -152,7 +152,7 @@ test.describe("Persistência de transcrição — enforcement server-side", () =
         sequence: 0,
         text: "Não deveria valer para outra sessão",
         isFinal: true,
-        provider: "local-webgpu",
+        provider: "groq-batch",
       },
     });
     expect(response.status()).toBe(403);

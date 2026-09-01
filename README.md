@@ -25,7 +25,7 @@ Em caso de conflito entre uma decisão de implementação e este kit, **este kit
 - Supabase: Postgres, Auth, Storage e RLS
 - Google Calendar API + Google Meet via Calendar `conferenceData`
 - Twilio WhatsApp
-- Transcrição local no dispositivo (ONNX/WebGPU), com fallback opcional no Groq — ver `docs/22-transcription-provider-decision.md`
+- Transcrição ao vivo via Groq (MediaRecorder + chunks), com spool criptografado e importação de gravação — ver `docs/22-transcription-provider-decision.md`
 - Gemini para Supervisor Clínico IA e apoio ao módulo de Conhecimento
 - Supabase pgvector para base de conhecimento/RAG local
 - Playwright + Vitest + TypeScript + ESLint
@@ -249,7 +249,7 @@ Testes: 8 de RLS (`tests/security/consents.test.ts`), 20 de resolução/gate (`t
 
 ## Fase 6 — Sessão Clínica + Prontuário + Transcrição + Session AI
 
-A maior fase até aqui: sessão clínica ativa, DPEP, área de trabalho clínico separada, transcrição local-first com fallback Groq e as três operações de Session AI (live/preparação/encerramento) via Gemini.
+A maior fase até aqui: sessão clínica ativa, DPEP, área de trabalho clínico separada, transcrição Groq ao vivo e as três operações de Session AI (live/preparação/encerramento) via Gemini.
 
 Migration `supabase/migrations/*_clinical_sessions.sql`: `clinical_sessions`, `session_dpep`, `session_clinical_working_notes`, `session_transcript_segments`, `session_transcript_artifacts`, `ai_runs`, `ai_artifacts` + bucket privado `session-audio-fallback`.
 
@@ -258,12 +258,14 @@ Migration `supabase/migrations/*_clinical_sessions.sql`: `clinical_sessions`, `s
 - **Finalização idempotente**: `finalize_clinical_session()` guarda a `finalization_idempotency_key`; repetir a chamada com a mesma chave é no-op bem-sucedido, com chave diferente numa sessão já finalizada não reabre nem duplica nada.
 - `ai_artifacts.structured_content` é imutável após criado (trigger recusa `UPDATE` no conteúdo); só o ciclo de revisão (`review_status: pending → appended|discarded`, `reviewed_by`/`reviewed_at` carimbados por `auth.uid()`/`now()`) pode mudar — nenhum resultado de IA vira prontuário sem essa ação explícita.
 
-Consent gate completo (fechando o que a Fase 5.5 deixou como stub 501): `src/lib/consent/capture-grant.ts` assina/verifica um `session_capture_grant`/`audio_fallback_upload_grant` via HMAC-SHA256, com TTL de 4h (deliberadamente mais longo que o antigo token do Deepgram — não existe mais credencial de provider para limitar o raio de vazamento; o grant só prova que o gate rodou e amarra a escrita a uma sessão específica). `/api/session-capture/segment` é o ponto real de enforcement do caminho local: recusa persistir qualquer segmento sem um grant que bata organização+sessão+capability. O fallback usa um bucket sem **nenhum** `GRANT` para `anon`/`authenticated` em `storage.objects` — só o client de service-role (uso excepcional e documentado no teste de arquitetura) emite o signed upload URL, e só depois do mesmo gate.
+Consent gate completo (fechando o que a Fase 5.5 deixou como stub 501): `src/lib/consent/capture-grant.ts` assina/verifica um `session_capture_grant`/`audio_fallback_upload_grant` via HMAC-SHA256, com TTL de 4h. `/api/session-capture/transcribe-chunk` é o ponto de enforcement do caminho ao vivo: recusa transcrever sem grant, RBAC clínico e sessão do paciente. A importação usa um bucket sem **nenhum** `GRANT` para `anon`/`authenticated` em `storage.objects` — só o client de service-role emite o signed upload URL, e só depois do mesmo gate.
 
-Transcrição (`docs/22-transcription-provider-decision.md`):
-- **Local-first** (`src/features/sessions/transcription/`): `@huggingface/transformers` real, `requestAdapter()` para detectar WebGPU de verdade (a mera existência de `navigator.gpu` não basta — achado do spike em `docs/23`), seleção de modelo por capacidade (`whisper-large-v3-turbo` com WebGPU, `whisper-small` como fallback em WASM), sempre quantização híbrida (encoder fp32 + decoder q4 — nunca q8, que alucina em pt-BR). Captura em chunks auto-contidos (`ChunkedMicCapture` para e reinicia o `MediaRecorder` a cada ciclo, porque um blob de `timeslice` intermediário não é decodificável sozinho), resample para 16kHz mono por interpolação linear, e cada chunk transcrito vira um segmento final incremental — não há "interim" de verdade porque um modelo Whisper em lote não faz streaming palavra a palavra.
-- **Fallback Groq** (`src/lib/integrations/transcription/groq-client.ts`): adapter REST fino sobre o endpoint compatível com OpenAI (`whisper-large-v3-turbo`), acionado só depois do signed upload grant.
-- Nenhum adapter desta fase oferece diarização — não é inventado rótulo de falante.
+Transcrição (`docs/22-transcription-provider-decision.md` v1.7, `docs/27-transcription-v3-cross-platform.md`):
+- **Ao vivo**: MediaRecorder com negociação de MIME, chunks ~15 s, `POST /api/session-capture/transcribe-chunk`, Groq `whisper-large-v3-turbo`, persistência de texto, ACK. Sem Storage no caminho live.
+- **Offline**: fila em memória + spool AES-GCM no IndexedDB; recuperação após reconectar; UI só confirma depois do ACK.
+- **Importação**: file picker / drag-and-drop → Storage privado temporário → Groq → apagar objeto.
+- Nenhum adapter oferece diarização — não é inventado rótulo de falante.
+- ASR local (ONNX/Transformers.js/WebGPU) foi removido do app. `docs/23` permanece histórico.
 
 Integração Gemini (`src/lib/integrations/gemini/`, `src/lib/ai/`): cliente REST fino (`x-goog-api-key`, nunca a chave na URL) contra `generateContent`. Superfície de saída estruturada fixada em `responseJsonSchema` (não o antigo `responseSchema`/subconjunto OpenAPI) — verificado em `ai.google.dev/gemini-api/docs/structured-output` e no anúncio de Structured Outputs do Google AI em 20/08/2026: essa superfície já aceita nativamente `additionalProperties` e `type: [x, "null"]`, o mesmo dialeto dos contratos em `src/lib/ai/contracts/**`, então o adapter de schema (`src/lib/ai/schema-adapter.ts`) é um pass-through estrutural, não uma reescrita de keywords — o spike de composição em duas chamadas fica reservado para o `SUPERVISOR_SCHEMA`, mais aninhado, na Fase 7. Validadores Zod em `src/lib/ai/validators/session.ts` espelham campo a campo e enum a enum os três contratos (`tests/contracts/session-validators.test.ts` prova a equivalência e testa fail-closed: campo extra, `maxItems` estourado e severidade fora do enum canônico são todos rejeitados sem persistir nada).
 
@@ -271,18 +273,17 @@ As três operações de Session AI (`src/features/sessions/ai/`) passam por um g
 
 UI (`src/app/session/[sessionId]/`, sem `<AppShell>` — rota distraction-free): cabeçalho compacto (paciente, horário, status, Finalizar), DPEP e área de trabalho clínico em formulários separados visualmente, painel de transcrição com estados `idle/preparing/recording/degraded/stopping/completed/error`, painel de Session AI com revisão humana antes de qualquer gravação, e wizard de finalização que encerra a sessão e dispara cobrança idempotente (Fase 10) ou consumo de pacote. Entry points: "Iniciar sessão" no Patient Hub (lista o histórico de sessões) e no drawer de detalhes da Agenda (só para `psychologist_admin`, e só quando a consulta já tem paciente vinculado).
 
-**`EXTERNAL_BLOCKED`**: chamadas reais ao Gemini/Groq (API key/crédito de verdade) e a validação de acurácia do modelo local em hardware/navegador reais não são exercidas neste ambiente — o spike de `docs/23-transcription-spike-results.md` já mediu WER/tempo real em pt-BR antes desta fase, e os adapters Gemini/Groq são cobertos por teste de contrato com `fetch` mockado (shape da requisição, autenticação, fail-closed em resposta malformada/vazia). A emissão bem-sucedida do signed upload URL do fallback também fica fora do E2E (exige a Storage API real do Supabase, que o stub de auth não replica) — a negação por falta de consentimento, que é a parte crítica de segurança, está coberta.
+**`EXTERNAL_BLOCKED`**: chamadas reais ao Groq (crédito de verdade) e validação em Android Chrome / Safari iOS reais permanecem `NOT_VERIFIED` até teste manual. Adapters Groq são cobertos por teste de contrato com `fetch` mockado e E2E com stub. ZDR Groq: **NOT_VERIFIED**.
 
-Testes: 22 novos testes de RLS/concorrência/idempotência/autoria (`tests/security/clinical-sessions.test.ts`), unitários de capture-grant/schema-adapter/validators/composição de prompt/dispositivo de transcrição/resample de áudio/clientes Gemini e Groq (`tests/utils/`, `tests/contracts/`, `tests/integrations/`), e 14 novos E2E (`tests/e2e/session.spec.ts`, `tests/e2e/consents.spec.ts` atualizado) cobrindo início/retomada de sessão, DPEP com sucesso e com conflito de versão real (duas abas), bloqueio da secretaria, finalização, e recusa de segmento de transcrição sem grant válido ou com grant de outra sessão.
+Testes da sessão: RLS/concorrência em `tests/security/clinical-sessions.test.ts`, unitários de grant/MIME/spool/transport/Groq, E2E em `tests/e2e/session.spec.ts` e `tests/e2e/session-transcription.spec.ts` (Chromium desktop/mobile; WebKit no spec de transcrição).
 
-### Isolamento cross-origin, progresso e o teste de "nenhum áudio sai do dispositivo"
+### Isolamento e regressão de áudio
 
-`docs/08-implementation-phases.md` também exige, para esta fase: headers COEP/COOP na rota que carrega o modelo local, progresso visível do download inicial, e um teste de regressão que falha se qualquer requisição carregar áudio para fora do dispositivo.
+COEP/COOP e ONNX WASM **não** fazem mais parte da transcrição. Headers globais incluem `Permissions-Policy` com `microphone=(self)`.
 
-- `/session/[sessionId]` responde com `Cross-Origin-Opener-Policy: same-origin` e `Cross-Origin-Embedder-Policy: require-corp` (`next.config.ts`). Isso é o que libera `SharedArrayBuffer` para o backend WASM multi-thread do `onnxruntime-web` (sem COEP ele ainda funciona, só single-thread, 2-4x mais lento). **Fizemos isso com cuidado**: aplicar COEP `require-corp` direto, sem mais nada, quebraria a própria transcrição — os arquivos de runtime/worker do ONNX vêm por padrão do CDN da jsDelivr, que não envia `Cross-Origin-Resource-Policy`, e COEP bloquearia a construção do worker (confirmado contra a versão pinada de `@huggingface/transformers`/`onnxruntime-web` usada aqui — issue [huggingface/transformers.js#1527](https://github.com/huggingface/transformers.js/issues/1527)). A correção: `scripts/copy-onnx-wasm.mjs` hospeda esses binários same-origin em `public/ort/` (gerado no `postinstall`, nunca versionado — `.gitignore`), e `local-pipeline.ts` aponta `env.backends.onnx.wasm.wasmPaths` para lá. Os pesos do modelo Whisper continuam vindo do Hub da Hugging Face via `fetch` normal em modo `cors`, que COEP não afeta.
-- `loadLocalTranscriber()` aceita um `progress_callback` real do `transformers.js`; o hook expõe `downloadPercent` e `TranscriptPanel` mostra uma barra de progresso enquanto o modelo/runtime baixa.
-- `tests/utils/local-transcription-no-audio-egress.test.ts` exercita o hook `useLocalTranscription` de ponta a ponta (grant → captura → chunk → transcrição → persistência), mockando só as bordas de browser/ML que o jsdom não tem (MediaRecorder/AudioContext/pipeline) — nunca a lógica do hook — e prova que toda chamada de rede feita durante a captura vai só para `/api/session-capture/*` e carrega apenas texto, nunca o blob de áudio do chunk.
-- O port `TranscriptionProvider` (`src/features/sessions/transcription/provider.ts`) documenta o contrato e os invariantes compartilhados pelos dois adapters — não como uma interface polimórfica única, porque `local-webgpu`/`local-wasm` rodam inteiramente client-side e `groq-batch` roda server-side; são contextos de execução diferentes por design.
+- O browser chama só `/api/session-capture/*`; nunca `api.groq.com`.
+- Chunks ao vivo não passam por Supabase Storage (`tests/architecture/forbidden-dependencies.test.ts`).
+- `pnpm scan:client-bundle` recusa nomes de env Groq no client build.
 
 ## Fase 7 — Supervisor Clínico IA
 
@@ -394,7 +395,7 @@ Entregue no código:
 
 - Error boundaries e 404 com primitivos canônicos (`src/app/error.tsx`, `global-error.tsx`, `not-found.tsx`).
 - Skip-link e `<main id="conteudo-principal">` no shell; sessão em modo foco também expõe o landmark.
-- Headers globais de segurança; COEP/COOP só na rota da sessão clínica.
+- Headers globais de segurança. Sem COEP/COOP na sessão (ASR local removido).
 - Rate limit in-memory por instância: grants 30/min por IP; IA 20/min por org+usuário.
 - Teto de payload em grants/segmentos/transcribe e webhooks Twilio.
 - Rollback documentado em `docs/24-rollback.md`. Sem Vercel Cron.

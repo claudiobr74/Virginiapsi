@@ -11,7 +11,7 @@ Um único aplicativo Next.js no Vercel. Supabase é o backend persistente. Não 
 - componentes React;
 - Supabase browser client apenas para operações expressamente seguras por RLS;
 - comunicação com Route Handlers para integrações secretas e operações sensíveis;
-- transcrição local no dispositivo (WebGPU/WASM), iniciada somente após autorização/consentimento aplicável; o áudio não sai da máquina no caminho padrão.
+- transcrição ao vivo via Groq (chunks MediaRecorder), iniciada somente após autorização/consentimento aplicável; áudio sai temporariamente do dispositivo para o backend e o Groq, não permanece no Storage no caminho ao vivo.
 
 ### Next.js server
 

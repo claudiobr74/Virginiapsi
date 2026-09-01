@@ -11,6 +11,7 @@ import {
 } from "../../src/lib/env/schema";
 import {
   parseGoogleCalendarEnv,
+  parseGroqTranscriptionEnv,
   parseServerEnv,
   parseSessionCaptureEnv,
   parseSupabaseAdminEnv,
@@ -335,9 +336,34 @@ describe("contrato de ambiente", () => {
     expect(parsed.TWILIO_MESSAGING_SERVICE_SID).toBeUndefined();
   });
 
+  it("getGroqTranscriptionEnv existe como wrapper server-only isolado", () => {
+    const source = readFileSync(path.join(ROOT, "src/lib/env/server.ts"), "utf8");
+    expect(source).toContain("export function getGroqTranscriptionEnv");
+    expect(source).toContain("parseGroqTranscriptionEnv");
+  });
+
+  it("o parser Groq exige só a chave de transcrição", () => {
+    const parsed = parseGroqTranscriptionEnv({
+      GROQ_API_KEY: "groq-key",
+      GROQ_TRANSCRIPTION_MODEL: "whisper-large-v3-turbo",
+      GROQ_TRANSCRIPTION_TIMEOUT_MS: "30000",
+    });
+    expect(parsed.GROQ_API_KEY).toBe("groq-key");
+    expect(parsed.GROQ_TRANSCRIPTION_MODEL).toBe("whisper-large-v3-turbo");
+    expect(parsed.GROQ_TRANSCRIPTION_TIMEOUT_MS).toBe(30000);
+    expect(() => parseGroqTranscriptionEnv({})).toThrow(/GROQ_API_KEY/);
+  });
+
+  it("transcribe-chunk não usa getServerEnv", () => {
+    const source = readFileSync(
+      path.join(ROOT, "src/app/api/session-capture/transcribe-chunk/route.ts"),
+      "utf8",
+    );
+    expect(source).not.toContain("getServerEnv");
+    expect(source).toContain("createGroqTranscriptionClient");
+  });
+
   it("aceita o contrato servidor sem GROQ_API_KEY", () => {
-    // A transcrição padrão roda no dispositivo: sem provider de fallback
-    // configurado o app continua completo (docs/22).
     expect(parseServerEnv(validServer).GROQ_API_KEY).toBeUndefined();
     expect(
       parseServerEnv({ ...validServer, GROQ_API_KEY: "groq-key" }).GROQ_API_KEY,

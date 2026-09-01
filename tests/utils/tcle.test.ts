@@ -81,6 +81,8 @@ describe("resolveTcleStatus", () => {
 
   it("informa a redação assistida de documentos como finalidade do Gemini", () => {
     expect(TCLE_BODY_TEMPLATE).toContain("redação assistida de documentos");
-    expect(TCLE_VERSION).toBe("tcle-2026-08-v2");
+    expect(TCLE_VERSION).toBe("tcle-2026-09-v3");
+    expect(TCLE_BODY_TEMPLATE).toContain("Groq");
+    expect(TCLE_BODY_TEMPLATE).toContain("criptografada neste dispositivo");
   });
 });

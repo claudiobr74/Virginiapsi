@@ -2,12 +2,14 @@ import "server-only";
 
 import {
   parseGoogleCalendarEnv,
+  parseGroqTranscriptionEnv,
   parseServerEnv,
   parseSessionCaptureEnv,
   parseSupabaseAdminEnv,
 } from "@/lib/env/server-schema";
 import type {
   GoogleCalendarEnv,
+  GroqTranscriptionEnv,
   ServerEnv,
   SessionCaptureEnv,
   SupabaseAdminEnv,
@@ -29,4 +31,8 @@ export function getSupabaseAdminEnv(): SupabaseAdminEnv {
 
 export function getSessionCaptureEnv(): SessionCaptureEnv {
   return parseSessionCaptureEnv();
+}
+
+export function getGroqTranscriptionEnv(): GroqTranscriptionEnv {
+  return parseGroqTranscriptionEnv();
 }

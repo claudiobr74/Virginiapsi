@@ -102,12 +102,11 @@ Pré-requisito: Fase 5.5 concluída — o `ConsentState` desta fase é resolvido
 - clinical session;
 - DPEP;
 - área de trabalho clínico separada;
-- consent gate + transcrição local no dispositivo (`docs/22-transcription-provider-decision.md`, com números medidos em `docs/23-transcription-spike-results.md`);
-- port `TranscriptionProvider` com adapters (`local-webgpu` padrão, `groq-batch` fallback opcional);
-- quantização híbrida (encoder fp32 + decoder q4) — q8 está desqualificada por alucinação em loop;
-- seleção de modelo por capacidade real do dispositivo (`requestAdapter()`, não `navigator.gpu`): `turbo` com WebGPU, `small` sem;
-- headers de isolamento cross-origin (COEP/COOP) nas rotas que carregam o modelo, e progresso visível do download inicial;
-- teste de regressão que falha se qualquer requisição carregar áudio para fora do dispositivo;
+- consent gate + transcrição Groq ao vivo (`docs/22-transcription-provider-decision.md` v1.7). O spike ONNX em `docs/23` é histórico e não descreve produção;
+- port `TranscriptionProvider` com motor ao vivo `groq-batch`; ids `local-webgpu`/`local-wasm` só em segmentos antigos;
+- captura MediaRecorder + MIME negotiation (feature detection, sem sniffing de iPad/Safari);
+- spool IndexedDB AES-GCM e importação de gravação externa;
+- teste de regressão: browser nunca chama Groq; live chunks não vão ao Storage;
 - diarização é capacidade opcional do provider; quando existir, identificação de falante é tratada como provisória com a mesma cautela do texto transcrito — sujeita a erro, nunca vira fato clínico sem confirmação, e discrepância de atribuição é sinalizada, não corrigida silenciosamente; quando não existir, não inventar falante;
 - incremental transcript;
 - direct-upload batch fallback somente após consent-gated signed upload grant;
@@ -121,7 +120,9 @@ Pré-requisito: Fase 5.5 concluída — o `ConsentState` desta fase é resolvido
 - transcrição provisória/ASR ambiguity;
 - sem avaliação psicológica/teste restrito autônomo.
 
-Gate: privacy (nenhum áudio sai do dispositivo no caminho padrão) + payload + transcript + runtime AI tests + diarization-as-provisional test + optimistic-concurrency (409) test.
+Gate: privacy (áudio ao vivo não permanece em Storage; spool local só criptografado) + payload + transcript + runtime AI tests + diarization-as-provisional test + optimistic-concurrency (409) test.
+
+Atualização V3 (transcrição Groq multiplataforma): substitui ASR local. Migration de schema: **NONE** (provider `groq-batch` já existia). Consentimento de transcrição novo (`minimo-2026-09-groq`); aceites `minimo-2026-08` não autorizam captura. Validação em dispositivo real Android/iOS: ver `docs/27`.
 
 ## Fase 7 — Supervisor IA
 

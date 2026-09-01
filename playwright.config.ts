@@ -20,6 +20,9 @@ const sharedEnv = {
     process.env.GOOGLE_TOKEN_ENCRYPTION_KEY ?? "e2e-google-token-encryption-key",
   SESSION_CAPTURE_SECRET:
     process.env.SESSION_CAPTURE_SECRET ?? "e2e-session-capture-secret-placeholder",
+  GROQ_API_KEY: process.env.GROQ_API_KEY ?? "e2e-groq-api-key-placeholder",
+  GROQ_TRANSCRIPTION_STUB_URL: `http://127.0.0.1:${authStubPort}/groq/openai/v1/audio/transcriptions`,
+  GROQ_TRANSCRIPTION_MODEL: process.env.GROQ_TRANSCRIPTION_MODEL ?? "whisper-large-v3-turbo",
   TWILIO_ACCOUNT_SID:
     process.env.TWILIO_ACCOUNT_SID ?? "AC00000000000000000000000000000000",
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN ?? "e2e-twilio-auth-token",
@@ -44,7 +47,7 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
-    permissions: ["camera"],
+    permissions: ["microphone", "camera"],
     launchOptions: {
       args: [
         "--use-fake-ui-for-media-stream",
@@ -81,6 +84,11 @@ export default defineConfig({
         hasTouch: true,
         deviceScaleFactor: 3,
       },
+    },
+    {
+      name: "desktop-webkit",
+      testMatch: /session-transcription\.spec\.ts/,
+      use: { ...devices["Desktop Safari"], viewport: { width: 1440, height: 900 } },
     },
   ],
 });

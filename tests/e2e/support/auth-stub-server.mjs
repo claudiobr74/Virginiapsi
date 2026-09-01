@@ -11,6 +11,8 @@ import { randomUUID } from "node:crypto";
 import { crc32, deflateSync } from "node:zlib";
 
 const PORT = Number(process.env.AUTH_STUB_PORT ?? 54331);
+const STUB_ORIGIN = `http://127.0.0.1:${PORT}`;
+const storageObjects = new Map();
 
 function pngChunk(type, data) {
   const len = Buffer.alloc(4);
@@ -1007,6 +1009,12 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === "/groq/openai/v1/audio/transcriptions" && req.method === "POST") {
+    await readBody(req);
+    json(res, 200, { text: "Trecho transcrito no stub Groq.", language: "pt", duration: 1.5 });
+    return;
+  }
+
   // Playwright-only hook: toggle the seeded admin Google connection so Meu Dia
   // and Agenda can share the same visibility rule (connected → TESSELI +
   // GOOGLE_EXTERNAL). Always reset to disconnected in the test `finally`.
@@ -1041,9 +1049,13 @@ const server = createServer(async (req, res) => {
   if (pathname.startsWith("/storage/v1/object/upload/sign/") && req.method === "POST") {
     const objectPath = pathname.replace("/storage/v1/object/upload/sign/", "");
     await readBody(req);
+    const signedUrl = `${STUB_ORIGIN}/storage/v1/object/upload/sign/${objectPath}?token=fake-upload-token`;
     json(res, 200, {
       url: `/object/upload/sign/${objectPath}?token=fake-upload-token`,
+      signedUrl,
+      signedURL: signedUrl,
       token: "fake-upload-token",
+      path: objectPath,
     });
     return;
   }
@@ -1052,11 +1064,35 @@ const server = createServer(async (req, res) => {
   // is a separate POST) — different HTTP method on the same path prefix.
   if (pathname.startsWith("/storage/v1/object/upload/sign/") && req.method === "PUT") {
     const objectPath = pathname.replace("/storage/v1/object/upload/sign/", "");
+    const chunks = [];
     await new Promise((resolve) => {
-      req.on("data", () => {});
+      req.on("data", (chunk) => chunks.push(chunk));
       req.on("end", resolve);
     });
+    storageObjects.set(objectPath, {
+      bytes: Buffer.concat(chunks),
+      type: req.headers["content-type"] || "application/octet-stream",
+    });
     json(res, 200, { Key: objectPath });
+    return;
+  }
+
+  if (
+    pathname.startsWith("/storage/v1/object/") &&
+    req.method === "GET" &&
+    !pathname.startsWith("/storage/v1/object/sign/") &&
+    !pathname.startsWith("/storage/v1/object/upload/")
+  ) {
+    const objectPath = pathname
+      .replace("/storage/v1/object/", "")
+      .replace(/^authenticated\//, "");
+    const stored = storageObjects.get(objectPath);
+    res.writeHead(200, {
+      "Content-Type": stored?.type || "audio/webm",
+      "Cache-Control": "no-store",
+      ...CORS_HEADERS,
+    });
+    res.end(stored?.bytes ?? Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]));
     return;
   }
 
@@ -1091,6 +1127,8 @@ const server = createServer(async (req, res) => {
   }
 
   if (pathname.startsWith("/storage/v1/object/") && req.method === "DELETE") {
+    const objectPath = pathname.replace("/storage/v1/object/", "");
+    storageObjects.delete(objectPath);
     await readBody(req);
     json(res, 200, []);
     return;

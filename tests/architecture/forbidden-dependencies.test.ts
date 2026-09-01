@@ -183,7 +183,7 @@ describe("arquitetura proibida", () => {
         `${path.relative(ROOT, file)} não chama o consent gate`,
       ).toBe(true);
       expect(
-        source.includes("readLimitedJson"),
+        source.includes("readLimitedJson") || source.includes("contentLengthExceeds"),
         `${path.relative(ROOT, file)} não aplica teto de payload`,
       ).toBe(true);
     }
@@ -265,5 +265,33 @@ describe("arquitetura proibida", () => {
     expect(existsSync(path.join(ROOT, "src/lib/ai/contracts"))).toBe(true);
     expect(existsSync(path.join(ROOT, "src/components/ui"))).toBe(true);
     expect(existsSync(path.join(ROOT, "supabase/migrations"))).toBe(true);
+  });
+
+  it("não declara ASR local no package.json nem o script ONNX", () => {
+    const pkg = JSON.parse(
+      readFileSync(path.join(ROOT, "package.json"), "utf8"),
+    ) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
+    expect(pkg.dependencies?.["@huggingface/transformers"]).toBeUndefined();
+    expect(pkg.devDependencies?.["@huggingface/transformers"]).toBeUndefined();
+    expect(pkg.scripts?.postinstall ?? "").not.toMatch(/copy-onnx/);
+    expect(existsSync(path.join(ROOT, "scripts/copy-onnx-wasm.mjs"))).toBe(false);
+    expect(existsSync(path.join(ROOT, "src/features/sessions/transcription/local-pipeline.ts"))).toBe(
+      false,
+    );
+  });
+
+  it("caminho ao vivo não grava áudio no Storage", () => {
+    const source = readFileSync(
+      path.join(ROOT, "src/app/api/session-capture/transcribe-chunk/route.ts"),
+      "utf8",
+    );
+    expect(source).toContain("consumeTranscribeChunkRateLimit");
+    expect(source).not.toContain("createSupabaseAdminClient");
+    expect(source).not.toContain("FALLBACK_AUDIO_BUCKET");
+    expect(source).not.toContain(".storage");
   });
 });

@@ -201,6 +201,7 @@ export function ActiveSessionView({
             <TranscriptPanel
               sessionId={session.id}
               patientId={session.patient_id}
+              organizationId={session.organization_id}
               initialSegments={transcriptSegments}
               disabled={isFinalized}
               feedClassName="max-h-72 lg:max-h-[min(28rem,calc(100dvh-22rem))]"

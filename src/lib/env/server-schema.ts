@@ -28,11 +28,11 @@ export const serverEnvSchema = publicEnvSchema.extend({
   // Sender *or* Messaging Service — required only at send time.
   TWILIO_WHATSAPP_FROM: optionalNonEmpty,
   TWILIO_MESSAGING_SERVICE_SID: optionalNonEmpty,
-  // Optional on purpose: transcription runs on-device by default, so the app
-  // is fully functional without a transcription provider. This key only exists
-  // for organizations that enable the fallback
-  // (docs/22-transcription-provider-decision.md).
+  // Optional at boot so Agenda/Settings still load if Groq is not provisioned.
+  // Live transcription reads the isolated `groqTranscriptionEnvSchema` instead.
   GROQ_API_KEY: nonEmpty.optional(),
+  GROQ_TRANSCRIPTION_MODEL: optionalNonEmpty,
+  GROQ_TRANSCRIPTION_TIMEOUT_MS: optionalNonEmpty,
   GEMINI_API_KEY: nonEmpty,
   GEMINI_MODEL_SESSION: nonEmpty,
   GEMINI_MODEL_SUPERVISOR: nonEmpty,
@@ -71,6 +71,15 @@ export const sessionCaptureEnvSchema = z.object({
 
 export type SessionCaptureEnv = z.infer<typeof sessionCaptureEnvSchema>;
 
+/** Groq Speech-to-Text — independent from Twilio, Google, Gemini and Cron. */
+export const groqTranscriptionEnvSchema = z.object({
+  GROQ_API_KEY: nonEmpty,
+  GROQ_TRANSCRIPTION_MODEL: optionalNonEmpty,
+  GROQ_TRANSCRIPTION_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(120_000).optional(),
+});
+
+export type GroqTranscriptionEnv = z.infer<typeof groqTranscriptionEnvSchema>;
+
 export const SERVER_ONLY_ENV_KEYS = [
   "SUPABASE_SECRET_KEY",
   "GOOGLE_CLIENT_ID",
@@ -82,6 +91,8 @@ export const SERVER_ONLY_ENV_KEYS = [
   "TWILIO_WHATSAPP_FROM",
   "TWILIO_MESSAGING_SERVICE_SID",
   "GROQ_API_KEY",
+  "GROQ_TRANSCRIPTION_MODEL",
+  "GROQ_TRANSCRIPTION_TIMEOUT_MS",
   "GEMINI_API_KEY",
   "GEMINI_MODEL_SESSION",
   "GEMINI_MODEL_SUPERVISOR",
@@ -110,6 +121,8 @@ function readServerEnvFromProcess(): EnvSource {
     TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM,
     TWILIO_MESSAGING_SERVICE_SID: process.env.TWILIO_MESSAGING_SERVICE_SID,
     GROQ_API_KEY: process.env.GROQ_API_KEY,
+    GROQ_TRANSCRIPTION_MODEL: process.env.GROQ_TRANSCRIPTION_MODEL,
+    GROQ_TRANSCRIPTION_TIMEOUT_MS: process.env.GROQ_TRANSCRIPTION_TIMEOUT_MS,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     GEMINI_MODEL_SESSION: process.env.GEMINI_MODEL_SESSION,
     GEMINI_MODEL_SUPERVISOR: process.env.GEMINI_MODEL_SUPERVISOR,
@@ -177,6 +190,20 @@ export function parseSessionCaptureEnv(
 ): SessionCaptureEnv {
   const parsed = sessionCaptureEnvSchema.safeParse({
     SESSION_CAPTURE_SECRET: source.SESSION_CAPTURE_SECRET,
+  });
+  if (!parsed.success) {
+    throw new Error(formatEnvIssues(parsed.error));
+  }
+  return parsed.data;
+}
+
+export function parseGroqTranscriptionEnv(
+  source: EnvSource = readServerEnvFromProcess(),
+): GroqTranscriptionEnv {
+  const parsed = groqTranscriptionEnvSchema.safeParse({
+    GROQ_API_KEY: source.GROQ_API_KEY,
+    GROQ_TRANSCRIPTION_MODEL: source.GROQ_TRANSCRIPTION_MODEL,
+    GROQ_TRANSCRIPTION_TIMEOUT_MS: source.GROQ_TRANSCRIPTION_TIMEOUT_MS,
   });
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));

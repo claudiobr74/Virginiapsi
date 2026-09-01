@@ -2,6 +2,7 @@ export const BODY_LIMIT_BYTES = {
   twilioWebhook: 32 * 1024,
   jsonCapture: 64 * 1024,
   jsonTranscribeMetadata: 16 * 1024,
+  multipartAudioChunk: 4 * 1024 * 1024,
 } as const;
 
 export function utf8ByteLength(text: string): number {
