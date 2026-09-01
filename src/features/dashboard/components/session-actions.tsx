@@ -15,6 +15,7 @@ import {
 } from "@/features/dashboard/contracts";
 import { meetHostLabel } from "@/features/dashboard/stats";
 import { StartSessionButton } from "@/features/sessions/components/start-session-button";
+import { offersClinicalAppointmentActions } from "@/features/calendar/appointment-visual";
 import { cn } from "@/lib/utils/cn";
 
 export function SessionActions({
@@ -45,7 +46,12 @@ export function SessionActions({
           timeZone,
         )
       : null;
-  const meetReady = appointment.meetStatus === "success" && Boolean(appointment.meetUrl);
+  const canStart =
+    Boolean(canStartSession) &&
+    offersClinicalAppointmentActions({
+      origin: appointment.origin,
+      patient_id: appointment.patientId,
+    });
   const canConfirm =
     appointment.origin === "TESSELI" &&
     appointment.status !== "confirmed" &&
@@ -57,6 +63,7 @@ export function SessionActions({
     appointment.status !== "cancelled" &&
     appointment.status !== "completed" &&
     appointment.status !== "no_show";
+  const meetReady = appointment.meetStatus === "success" && Boolean(appointment.meetUrl);
   const onPrimary = tone === "onPrimary";
   const ghostClass = onPrimary
     ? "border border-white/30 bg-transparent text-white hover:bg-white/10"
@@ -88,9 +95,7 @@ export function SessionActions({
     }
   }
 
-  const hasTimelineActions = Boolean(
-    whatsappUrl || canConfirm || (canStartSession && appointment.patientId),
-  );
+  const hasTimelineActions = Boolean(whatsappUrl || canConfirm || canStart);
 
   if (layout === "timeline") {
     if (!hasTimelineActions && !error) {
@@ -122,7 +127,7 @@ export function SessionActions({
             Confirmar
           </Button>
         ) : null}
-        {canStartSession && appointment.patientId ? (
+        {canStart && appointment.patientId ? (
           <StartSessionButton
             patientId={appointment.patientId}
             appointmentId={appointment.id}
@@ -158,7 +163,7 @@ export function SessionActions({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        {canStartSession && appointment.patientId ? (
+        {canStart && appointment.patientId ? (
           <StartSessionButton
             patientId={appointment.patientId}
             appointmentId={appointment.id}

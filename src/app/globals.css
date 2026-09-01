@@ -19,7 +19,7 @@
 @source inline("bg-zinc-400");
 @source inline("border-2");
 @source inline("opacity-75");
-@source inline("line-through");
+@source inline("border-dashed");
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -198,10 +198,8 @@ body {
   color: #991b1b;
   opacity: 0.75;
 }
-[data-appointment-visual="neutral"] {
-  background-color: #f4f4f5;
-  border-color: #a1a1aa;
-  color: #18181b;
+[data-appointment-origin="GOOGLE_EXTERNAL"] {
+  border-style: dashed;
 }
 
 ::selection {

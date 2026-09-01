@@ -9,6 +9,7 @@ import {
   monthCellStats,
   summarizeDayAppointments,
   visibleAgendaAppointments,
+  visibleAppointments,
 } from "@/features/calendar/display";
 import type { AppointmentRow } from "@/features/calendar/contracts";
 
@@ -134,7 +135,11 @@ describe("monthCellStats", () => {
   });
 });
 
-describe("visibleAgendaAppointments", () => {
+describe("visibleAppointments", () => {
+  it("é a mesma função da Agenda e do Meu Dia", () => {
+    expect(visibleAppointments).toBe(visibleAgendaAppointments);
+  });
+
   it("esconde GOOGLE_EXTERNAL quando a Agenda está desconectada", () => {
     const appointments = [
       stubAppointment({
@@ -151,17 +156,16 @@ describe("visibleAgendaAppointments", () => {
     ];
 
     expect(
-      visibleAgendaAppointments(appointments, { status: "disconnected" }).map(
-        (row) => row.origin,
-      ),
+      visibleAppointments(appointments, { status: "disconnected" }).map((row) => row.origin),
     ).toEqual(["TESSELI"]);
-    expect(visibleAgendaAppointments(appointments, null).map((row) => row.origin)).toEqual([
+    expect(visibleAppointments(appointments, null).map((row) => row.origin)).toEqual([
       "TESSELI",
     ]);
     expect(
-      visibleAgendaAppointments(appointments, { status: "connected" }).map(
-        (row) => row.origin,
-      ),
+      visibleAppointments(appointments, { status: "connected" }).map((row) => row.origin),
+    ).toEqual(["TESSELI", "GOOGLE_EXTERNAL"]);
+    expect(
+      visibleAgendaAppointments(appointments, { status: "connected" }).map((row) => row.origin),
     ).toEqual(["TESSELI", "GOOGLE_EXTERNAL"]);
   });
 

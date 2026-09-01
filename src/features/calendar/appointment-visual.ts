@@ -3,30 +3,53 @@ import type {
   AppointmentStatus,
 } from "@/features/calendar/contracts";
 
-export type AppointmentVisualTone = "active" | "completed" | "cancelled" | "neutral";
+export type AppointmentVisualTone = "active" | "completed" | "cancelled";
 
 /**
  * Full class names only — Tailwind must see these strings at build time.
  * Never interpolate `bg-${color}-100`.
  */
+export const APPOINTMENT_STATUS_STYLES: Record<
+  AppointmentStatus,
+  { tone: AppointmentVisualTone; className: string }
+> = {
+  scheduled: {
+    tone: "active",
+    className: "bg-green-100 border-green-500 text-green-900",
+  },
+  confirmed: {
+    tone: "active",
+    className: "bg-green-100 border-green-500 text-green-900",
+  },
+  completed: {
+    tone: "completed",
+    className: "bg-blue-100 border-blue-500 text-blue-900",
+  },
+  cancelled: {
+    tone: "cancelled",
+    className: "bg-red-100 border-red-400 text-red-800 opacity-75",
+  },
+  no_show: {
+    tone: "cancelled",
+    className: "bg-red-100 border-red-400 text-red-800 opacity-75",
+  },
+};
+
 export const APPOINTMENT_VISUAL_SURFACE: Record<AppointmentVisualTone, string> = {
-  active: "bg-green-100 border-green-500 text-green-900",
-  completed: "bg-blue-100 border-blue-500 text-blue-900",
-  cancelled: "bg-red-100 border-red-400 text-red-800 opacity-75",
-  neutral: "bg-zinc-100 border-zinc-400 text-zinc-900",
+  active: APPOINTMENT_STATUS_STYLES.scheduled.className,
+  completed: APPOINTMENT_STATUS_STYLES.completed.className,
+  cancelled: APPOINTMENT_STATUS_STYLES.cancelled.className,
 };
 
 export const APPOINTMENT_VISUAL_DOT: Record<AppointmentVisualTone, string> = {
   active: "bg-green-500",
   completed: "bg-blue-500",
   cancelled: "bg-red-400",
-  neutral: "bg-zinc-400",
 };
 
 /**
- * Tailwind default palette hex (green/blue/red/zinc). Applied as inline style so
- * `* { border-color }` in globals.css and production CSS layers cannot hide the
- * appointment color.
+ * Tailwind default palette hex. Applied as inline style so
+ * `* { border-color }` in globals.css cannot hide the appointment color.
  */
 export const APPOINTMENT_VISUAL_INLINE: Record<
   AppointmentVisualTone,
@@ -53,11 +76,6 @@ export const APPOINTMENT_VISUAL_INLINE: Record<
     color: "#991b1b",
     opacity: 0.75,
   },
-  neutral: {
-    backgroundColor: "#f4f4f5",
-    borderColor: "#a1a1aa",
-    color: "#18181b",
-  },
 };
 
 export interface AppointmentVisualInput {
@@ -69,8 +87,10 @@ export interface AppointmentVisualInput {
 export interface AppointmentVisualStatus {
   tone: AppointmentVisualTone;
   className: string;
-  dotClassName: string;
+  borderStyle: "solid" | "dashed";
+  badge: "Google externo" | null;
   titleClassName: string;
+  dotClassName: string;
   style: {
     backgroundColor: string;
     borderColor: string;
@@ -81,50 +101,39 @@ export interface AppointmentVisualStatus {
   };
 }
 
-function isUnassociatedGoogleExternal(appointment: AppointmentVisualInput): boolean {
-  return appointment.origin === "GOOGLE_EXTERNAL" && appointment.patient_id == null;
-}
-
-function toneForClinicalStatus(status: AppointmentStatus): Exclude<
-  AppointmentVisualTone,
-  "neutral"
-> {
-  switch (status) {
-    case "completed":
-      return "completed";
-    case "cancelled":
-    case "no_show":
-      return "cancelled";
-    case "scheduled":
-    case "confirmed":
-      return "active";
-  }
-}
-
 /**
- * Single Agenda presentation helper. Clinical `status` wins.
- * Google colorId, sync_status, origin and modality do not pick the color.
+ * Single Agenda/Meu Dia presentation helper.
+ * Color comes only from administrative `status`. Origin never picks the fill.
  */
 export function getAppointmentVisualStatus(
   appointment: AppointmentVisualInput,
 ): AppointmentVisualStatus {
-  const tone = isUnassociatedGoogleExternal(appointment)
-    ? "neutral"
-    : toneForClinicalStatus(appointment.status);
-  const palette = APPOINTMENT_VISUAL_INLINE[tone];
+  const mapped = APPOINTMENT_STATUS_STYLES[appointment.status];
+  const palette = APPOINTMENT_VISUAL_INLINE[mapped.tone];
+  const isGoogleExternal = appointment.origin === "GOOGLE_EXTERNAL";
+  const borderStyle = isGoogleExternal ? "dashed" : "solid";
 
   return {
-    tone,
-    className: APPOINTMENT_VISUAL_SURFACE[tone],
-    dotClassName: APPOINTMENT_VISUAL_DOT[tone],
-    titleClassName: tone === "cancelled" ? "line-through decoration-current" : "",
+    tone: mapped.tone,
+    className: mapped.className,
+    borderStyle,
+    badge: isGoogleExternal ? "Google externo" : null,
+    titleClassName: mapped.tone === "cancelled" ? "line-through decoration-current" : "",
+    dotClassName: APPOINTMENT_VISUAL_DOT[mapped.tone],
     style: {
       backgroundColor: palette.backgroundColor,
       borderColor: palette.borderColor,
       color: palette.color,
       ...(palette.opacity !== undefined ? { opacity: palette.opacity } : {}),
       borderWidth: 2,
-      borderStyle: tone === "neutral" ? "dashed" : "solid",
+      borderStyle,
     },
   };
+}
+
+export function offersClinicalAppointmentActions(appointment: {
+  origin: AppointmentOrigin;
+  patient_id: string | null;
+}): boolean {
+  return appointment.origin === "TESSELI" && appointment.patient_id != null;
 }

@@ -36,6 +36,11 @@ describe("biblioteca de templates do estúdio", () => {
   it("carrega os 18 modelos canônicos do primeiro lote, cada um com conteúdo próprio", () => {
     const templates = listSystemTemplates();
     expect(templates).toHaveLength(18);
+    const names = templates.map((template) => template.name);
+    expect(names.some((name) => name.startsWith("Declaração"))).toBe(true);
+    expect(names.some((name) => /Relatório psicológico/i.test(name))).toBe(true);
+    expect(names.some((name) => /Contrato psicoterapêutico|contrato/i.test(name))).toBe(true);
+    expect(names.some((name) => /Parecer/i.test(name))).toBe(true);
     const keys = templates.map((template) => template.key);
     expect(new Set(keys).size).toBe(18);
     const bodies = templates.map((template) =>

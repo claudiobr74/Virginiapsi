@@ -28,7 +28,7 @@ describe("marca VirgíniaPsi", () => {
     expect(pageHeading("/app/pendencias")).toBe("Central de Pendências Inteligente");
     expect(pageHeading("/app/indicadores")).toBe("Indicadores e Métricas Clínicas");
     expect(pageHeading("/app/sessions")).toBe("Sessões");
-    expect(pageHeading("/app/documents")).toBe("Centro de Documentos");
+    expect(pageHeading("/app/documents")).toBe("Estúdio de Documentos");
   });
 });
 

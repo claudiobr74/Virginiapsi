@@ -56,7 +56,7 @@ export function pageHeading(
     return "Supervisor IA";
   }
   if (pathname.startsWith("/app/documents")) {
-    return "Centro de Documentos";
+    return "Estúdio de Documentos";
   }
   if (pathname.startsWith("/app/indicadores")) {
     return "Indicadores e Métricas Clínicas";

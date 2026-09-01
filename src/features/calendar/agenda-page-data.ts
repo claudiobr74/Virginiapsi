@@ -9,7 +9,7 @@ import type { AppointmentRow, ConnectionRow } from "@/features/calendar/contract
 import { getConnection } from "@/features/calendar/connection-queries";
 import {
   googleConnectionIsLive,
-  visibleAgendaAppointments,
+  visibleAppointments,
 } from "@/features/calendar/display";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -69,7 +69,7 @@ export async function loadAgendaPageData(
   ]);
 
   return {
-    appointments: visibleAgendaAppointments(appointments, connection),
+    appointments: visibleAppointments(appointments, connection),
     connection,
     patients,
   };

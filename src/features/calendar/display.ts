@@ -82,15 +82,23 @@ export function googleConnectionIsLive(
   return connection?.status === "connected" || connection?.status === "error";
 }
 
-/** When Google Agenda is disconnected, never render mirrored GOOGLE_EXTERNAL rows. */
-export function visibleAgendaAppointments<
-  T extends { origin: AppointmentRow["origin"] },
->(appointments: T[], connection: { status: string } | null | undefined): T[] {
-  if (googleConnectionIsLive(connection)) {
+/**
+ * Shared Agenda + Meu Dia visibility.
+ * Connected (or error) → TESSELI + GOOGLE_EXTERNAL.
+ * Disconnected / absent → TESSELI only.
+ */
+export function visibleAppointments<T extends { origin: AppointmentRow["origin"] }>(
+  appointments: T[],
+  googleConnectionStatus: { status: string } | null | undefined,
+): T[] {
+  if (googleConnectionIsLive(googleConnectionStatus)) {
     return appointments;
   }
   return appointments.filter((appointment) => appointment.origin !== "GOOGLE_EXTERNAL");
 }
+
+/** Alias kept for existing Agenda call sites. */
+export const visibleAgendaAppointments = visibleAppointments;
 
 export function monthCellStats(appointments: AppointmentRow[]) {
   const visible = appointments.filter((appointment) => appointment.status !== "cancelled");

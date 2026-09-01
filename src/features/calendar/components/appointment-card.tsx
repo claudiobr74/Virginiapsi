@@ -53,12 +53,14 @@ export function AppointmentCard({
   return (
     <article
       data-appointment-visual={visual.tone}
+      data-appointment-origin={appointment.origin}
       style={visual.style}
       className={cn(
         "flex w-full flex-col rounded-2xl border-2",
         compact ? "gap-1.5 px-2.5 py-2" : "gap-3 px-4 py-4",
         visual.className,
-        visual.tone !== "neutral" && "shadow-sm",
+        visual.borderStyle === "dashed" && "border-dashed",
+        "shadow-sm",
       )}
     >
       <button
@@ -79,20 +81,21 @@ export function AppointmentCard({
             </p>
             <p className="mt-0.5 font-mono text-xs opacity-80 sm:text-sm">{timeRange}</p>
           </div>
-          {visual.tone === "neutral" ? (
-            <StatusBadge status="info" label="Evento externo do Google" />
-          ) : (
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {visual.badge ? (
+              <StatusBadge status="info" label={visual.badge} />
+            ) : null}
             <StatusBadge
               status={APPOINTMENT_STATUS_BADGE[appointment.status]}
               label={APPOINTMENT_STATUS_LABELS[appointment.status]}
             />
-          )}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/50 px-2.5 py-0.5 text-[11px] font-medium opacity-80">
             <ModalityIcon className="size-3.5 shrink-0" aria-hidden />
-            {visual.tone === "neutral" ? "Google Calendar" : modalityLine(appointment)}
+            {isExternal ? "Google Calendar" : modalityLine(appointment)}
           </span>
           {appointment.meet_url && appointment.meet_status === "success" && !compact ? (
             <span className="truncate text-xs opacity-80">{appointment.meet_url}</span>

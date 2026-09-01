@@ -50,11 +50,13 @@ export function TodayTimeline({
             <li
               key={appointment.id}
               data-appointment-visual={visual.tone}
+              data-appointment-origin={appointment.origin}
               style={visual.style}
               className={cn(
                 "my-1 flex flex-col gap-2 rounded-xl border-2 px-3 py-3",
                 visual.className,
                 visual.titleClassName,
+                visual.borderStyle === "dashed" && "border-dashed",
                 isNext && "ring-2 ring-sage-700",
               )}
             >
@@ -82,10 +84,15 @@ export function TodayTimeline({
                     <span className="truncate">{MODALITY_LABELS[appointment.modality]}</span>
                   </p>
                 </div>
-                <StatusBadge
-                  status={APPOINTMENT_STATUS_BADGE[appointment.status]}
-                  label={APPOINTMENT_STATUS_LABELS[appointment.status]}
-                />
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  {visual.badge ? (
+                    <StatusBadge status="info" label={visual.badge} />
+                  ) : null}
+                  <StatusBadge
+                    status={APPOINTMENT_STATUS_BADGE[appointment.status]}
+                    label={APPOINTMENT_STATUS_LABELS[appointment.status]}
+                  />
+                </div>
               </div>
               <SessionActions
                 appointment={appointment}

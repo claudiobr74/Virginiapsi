@@ -86,7 +86,24 @@ const eventoD = stub({
   ends_at: "2026-08-18T19:00:00.000Z",
 });
 
-const appointments = [consultaA, consultaB, consultaC, eventoD];
+const consultaNoShow = stub({
+  id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+  status: "no_show",
+  origin: "TESSELI",
+  summary_snapshot: "Consulta E",
+  starts_at: "2026-08-18T19:00:00.000Z",
+  ends_at: "2026-08-18T20:00:00.000Z",
+});
+const consultaConfirmed = stub({
+  id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+  status: "confirmed",
+  origin: "TESSELI",
+  summary_snapshot: "Consulta Confirmada",
+  starts_at: "2026-08-18T10:00:00.000Z",
+  ends_at: "2026-08-18T11:00:00.000Z",
+});
+
+const appointments = [consultaA, consultaB, consultaC, eventoD, consultaNoShow, consultaConfirmed];
 
 function byDay(rows: AppointmentRow[]) {
   const map = new Map<string, AppointmentRow[]>();
@@ -98,7 +115,6 @@ const PAINT: Record<string, string> = {
   active: "#dcfce7",
   completed: "#dbeafe",
   cancelled: "#fee2e2",
-  neutral: "#f4f4f5",
 };
 
 function expectTone(name: string, tone: string, classes: string[]) {
@@ -111,6 +127,10 @@ function expectTone(name: string, tone: string, classes: string[]) {
       expect(node).toHaveClass(className);
     }
     expect(node).toHaveStyle({ backgroundColor: PAINT[tone] });
+    if (tone === "active" && name === "Evento D") {
+      expect(node).toHaveAttribute("data-appointment-origin", "GOOGLE_EXTERNAL");
+      expect(node).toHaveStyle({ borderStyle: "dashed" });
+    }
   }
 }
 
@@ -125,9 +145,12 @@ describe("Agenda — cores por status em dia/semana/mês", () => {
     );
 
     expectTone("Consulta A", "active", ["bg-green-100", "border-green-500", "text-green-900"]);
+    expectTone("Consulta Confirmada", "active", ["bg-green-100"]);
     expectTone("Consulta B", "completed", ["bg-blue-100", "border-blue-500", "text-blue-900"]);
     expectTone("Consulta C", "cancelled", ["bg-red-100", "border-red-400", "text-red-800"]);
-    expectTone("Evento D", "neutral", ["bg-zinc-100", "border-zinc-400", "text-zinc-900"]);
+    expectTone("Consulta E", "cancelled", ["bg-red-100"]);
+    expectTone("Evento D", "active", ["bg-green-100", "border-green-500", "text-green-900"]);
+    expect(screen.getAllByText("Google externo").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Consulta A")[0].closest("[data-appointment-visual]")).not.toHaveClass(
       "bg-card",
     );
@@ -147,7 +170,8 @@ describe("Agenda — cores por status em dia/semana/mês", () => {
     expectTone("Consulta A", "active", ["bg-green-100"]);
     expectTone("Consulta B", "completed", ["bg-blue-100"]);
     expectTone("Consulta C", "cancelled", ["bg-red-100"]);
-    expectTone("Evento D", "neutral", ["bg-zinc-100"]);
+    expectTone("Consulta E", "cancelled", ["bg-red-100"]);
+    expectTone("Evento D", "active", ["bg-green-100"]);
     for (const node of screen.getAllByText("Consulta A")) {
       expect(node.closest("[data-appointment-visual]")).not.toHaveClass("bg-sage-light/80");
     }
@@ -169,7 +193,7 @@ describe("Agenda — cores por status em dia/semana/mês", () => {
     expectTone("Consulta A", "active", ["bg-green-100", "border-green-500"]);
     expectTone("Consulta B", "completed", ["bg-blue-100", "border-blue-500"]);
     expectTone("Consulta C", "cancelled", ["bg-red-100", "border-red-400"]);
-    expectTone("Evento D", "neutral", ["bg-zinc-100", "border-zinc-400"]);
+    expectTone("Evento D", "active", ["bg-green-100", "border-green-500"]);
   });
 
   it("AppointmentCard scheduled online não fica verde só porque é Google/online", () => {
@@ -182,13 +206,24 @@ describe("Agenda — cores por status em dia/semana/mês", () => {
     expect(card).not.toHaveClass("bg-card");
   });
 
+  it("AppointmentCard Google externo scheduled é verde, tracejado, sem Atender", () => {
+    render(<AppointmentCard appointment={eventoD} timeZone={TIME_ZONE} isAdmin />);
+    const card = screen.getByText("Evento D").closest("[data-appointment-visual]");
+    expect(card).toHaveAttribute("data-appointment-visual", "active");
+    expect(card).toHaveAttribute("data-appointment-origin", "GOOGLE_EXTERNAL");
+    expect(card).toHaveStyle({ backgroundColor: "#dcfce7", borderStyle: "dashed" });
+    expect(screen.getByText("Google externo")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Atender" })).not.toBeInTheDocument();
+  });
+
   it("AppointmentDetailDrawer usa a mesma paleta por status", () => {
     const noop = () => undefined;
     for (const [row, tone, background] of [
       [consultaA, "active", "#dcfce7"],
       [consultaB, "completed", "#dbeafe"],
       [consultaC, "cancelled", "#fee2e2"],
-      [eventoD, "neutral", "#f4f4f5"],
+      [eventoD, "active", "#dcfce7"],
+      [consultaNoShow, "cancelled", "#fee2e2"],
     ] as const) {
       const { unmount } = render(
         <AppointmentDetailDrawer
@@ -239,6 +274,8 @@ describe("Agenda — cores por status em dia/semana/mês", () => {
     expectTone("Consulta A", "active", ["bg-green-100"]);
     expectTone("Consulta B", "completed", ["bg-blue-100"]);
     expectTone("Consulta C", "cancelled", ["bg-red-100"]);
-    expectTone("Evento D", "neutral", ["bg-zinc-100"]);
+    expectTone("Consulta E", "cancelled", ["bg-red-100"]);
+    expectTone("Evento D", "active", ["bg-green-100"]);
+    expect(screen.getAllByText("Google externo").length).toBeGreaterThan(0);
   });
 });

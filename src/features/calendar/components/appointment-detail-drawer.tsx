@@ -117,20 +117,19 @@ export function AppointmentDetailDrawer({
 
           <div
             data-appointment-visual={visual.tone}
+            data-appointment-origin={appointment.origin}
             style={visual.style}
             className={cn(
               "flex flex-wrap items-center gap-2 rounded-xl border-2 px-3 py-2",
               visual.className,
+              visual.borderStyle === "dashed" && "border-dashed",
             )}
           >
-            {visual.tone === "neutral" ? (
-              <StatusBadge status="info" label="Somente leitura" />
-            ) : (
-              <StatusBadge
-                status={APPOINTMENT_STATUS_BADGE[appointment.status]}
-                label={APPOINTMENT_STATUS_LABELS[appointment.status]}
-              />
-            )}
+            {visual.badge ? <StatusBadge status="info" label={visual.badge} /> : null}
+            <StatusBadge
+              status={APPOINTMENT_STATUS_BADGE[appointment.status]}
+              label={APPOINTMENT_STATUS_LABELS[appointment.status]}
+            />
           </div>
 
           <dl className="grid grid-cols-2 gap-3 text-sm">

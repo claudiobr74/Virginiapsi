@@ -31,6 +31,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
       has: page.getByRole("heading", { name: "Agenda de Hoje" }),
     });
     await expect(todayAgenda.getByText("Beatriz • PAC-001")).toBeVisible();
+    await expect(page.getByText("Reunião do conselho regional")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Atendimento Avulso" })).toBeVisible();
     await expect(page.getByText("Sessões esta semana")).toBeVisible();
 

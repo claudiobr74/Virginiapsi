@@ -1,11 +1,14 @@
 import { CalendarClock, Globe, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import { SessionActions } from "@/features/dashboard/components/session-actions";
 import type { MyDayAppointment } from "@/features/dashboard/contracts";
 import { heroPatientName, meetHostLabel, startsInLabel } from "@/features/dashboard/stats";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { formatInTimeZone } from "@/lib/utils/timezone";
+import { cn } from "@/lib/utils/cn";
 
 export function NextSessionCard({
   appointment,
@@ -61,11 +64,23 @@ export function NextSessionCard({
   const isOnline = appointment.modality === "online";
   const untilLabel = startsInLabel(appointment.startsAt);
   const meetHost = meetHostLabel(appointment.meetUrl);
+  const visual = getAppointmentVisualStatus({
+    status: appointment.status,
+    origin: appointment.origin,
+    patient_id: appointment.patientId,
+  });
 
   return (
     <section
       aria-labelledby="next-session-heading"
-      className="flex flex-col gap-5 rounded-[20px] border border-border bg-card p-6"
+      data-appointment-visual={visual.tone}
+      data-appointment-origin={appointment.origin}
+      style={visual.style}
+      className={cn(
+        "flex flex-col gap-5 rounded-[20px] border-2 p-6",
+        visual.className,
+        visual.borderStyle === "dashed" && "border-dashed",
+      )}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -76,15 +91,18 @@ export function NextSessionCard({
             <span className="text-[13px] text-muted-foreground">{untilLabel}</span>
           ) : null}
         </div>
-        {isOnline ? (
-          <span className="rounded-md bg-sage-light px-2 py-1 text-[11px] font-semibold uppercase text-sage-700">
-            Online
-          </span>
-        ) : (
-          <span className="rounded-md bg-surface px-2 py-1 text-[11px] font-semibold uppercase text-muted-foreground">
-            {modalityLabel}
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {visual.badge ? <StatusBadge status="info" label={visual.badge} /> : null}
+          {isOnline ? (
+            <span className="rounded-md bg-white/50 px-2 py-1 text-[11px] font-semibold uppercase">
+              Online
+            </span>
+          ) : (
+            <span className="rounded-md bg-white/50 px-2 py-1 text-[11px] font-semibold uppercase opacity-80">
+              {modalityLabel}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-1">

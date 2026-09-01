@@ -19,7 +19,7 @@ import {
 import {
   formatAgendaLongDate,
   formatAgendaMonthLabel,
-  visibleAgendaAppointments,
+  visibleAppointments as filterVisibleAppointments,
 } from "@/features/calendar/display";
 import { syncGoogleCalendarAction } from "@/features/calendar/sync-actions";
 import type { PatientRow } from "@/features/patients/contracts";
@@ -83,7 +83,7 @@ export function AgendaBoard({
   const openFromQuery = searchParams.get("new") === "1";
 
   const visibleAppointments = useMemo(
-    () => visibleAgendaAppointments(appointments, connection),
+    () => filterVisibleAppointments(appointments, connection),
     [appointments, connection],
   );
 
