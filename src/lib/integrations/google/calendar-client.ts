@@ -30,12 +30,22 @@ export interface ConferenceData {
   conferenceId?: string;
 }
 
+export type GoogleCalendarEventType =
+  | "default"
+  | "outOfOffice"
+  | "focusTime"
+  | "workingLocation"
+  | "birthday"
+  | "fromGmail"
+  | (string & {});
+
 export interface GoogleCalendarEvent {
   id: string;
   etag?: string;
   status?: string;
   summary?: string;
   colorId?: string;
+  eventType?: GoogleCalendarEventType;
   start?: { dateTime?: string; date?: string; timeZone?: string };
   end?: { dateTime?: string; date?: string; timeZone?: string };
   conferenceData?: ConferenceData;

@@ -72,15 +72,83 @@ describe("deriveImportedAppointmentStatus", () => {
     ).toBe("scheduled");
   });
 
-  it("colorId configurado como cancelled → cancelled", () => {
+  it("colorId configurado como cancelled em eventType default → cancelled", () => {
     expect(
       deriveImportedAppointmentStatus(
         {
           status: "confirmed",
           summary: "Isadora? não pode",
           colorId: clinicCancelledColor,
+          eventType: "default",
         },
         { cancelledColorIds: [clinicCancelledColor] },
+      ),
+    ).toBe("cancelled");
+  });
+
+  it("default + colorId 8 configurado → cancelled", () => {
+    expect(
+      deriveImportedAppointmentStatus(
+        {
+          status: "confirmed",
+          summary: "Thatiane+1(plantão)",
+          colorId: "8",
+          eventType: "default",
+        },
+        { cancelledColorIds: ["8"] },
+      ),
+    ).toBe("cancelled");
+  });
+
+  it("outOfOffice + colorId 8 configurado → scheduled", () => {
+    expect(
+      deriveImportedAppointmentStatus(
+        {
+          status: "confirmed",
+          summary: "Lucas B+1(viajando)",
+          colorId: "8",
+          eventType: "outOfOffice",
+        },
+        { cancelledColorIds: ["8"] },
+      ),
+    ).toBe("scheduled");
+  });
+
+  it("default + null colorId → scheduled", () => {
+    expect(
+      deriveImportedAppointmentStatus(
+        {
+          status: "confirmed",
+          summary: "Jessyca-1(c)",
+          colorId: null,
+          eventType: "default",
+        },
+        { cancelledColorIds: ["8"] },
+      ),
+    ).toBe("scheduled");
+  });
+
+  it("default + (desmarcou) → cancelled", () => {
+    expect(
+      deriveImportedAppointmentStatus({
+        status: "confirmed",
+        summary: "Giovanna (desmarcou)",
+        colorId: "8",
+        eventType: "default",
+      }),
+    ).toBe("cancelled");
+  });
+
+  it("outOfOffice + (desmarcou) → cancelled", () => {
+    expect(
+      deriveImportedAppointmentStatus(
+        {
+          status: "confirmed",
+          summary: "Vinicius-2(desmarcou)",
+          colorId: "8",
+          eventType: "outOfOffice",
+        },
+        { cancelledColorIds: ["8"] },
       ),
     ).toBe("cancelled");
   });
@@ -152,16 +220,25 @@ describe("countValidAgendaSessions", () => {
           status: "scheduled",
           summary_snapshot: "Isadora? não pode",
           google_color_id: "9",
+          google_event_type: "default",
+          cancelled_google_color_ids: ["9"],
+        },
+        {
+          status: "scheduled",
+          summary_snapshot: "Lucas B+1(viajando)",
+          google_color_id: "9",
+          google_event_type: "outOfOffice",
           cancelled_google_color_ids: ["9"],
         },
         {
           status: "scheduled",
           summary_snapshot: "Jessyca-1(c)",
           google_color_id: null,
+          google_event_type: "default",
           cancelled_google_color_ids: ["9"],
         },
       ]),
-    ).toBe(1);
+    ).toBe(2);
   });
 });
 
@@ -185,5 +262,24 @@ describe("apresentação após classificador de cor", () => {
     expect(result.backgroundColor).toBe("#D93025");
     expect(result.isCancelled).toBe(true);
     expect(result.isPast).toBe(true);
+  });
+
+  it("outOfOffice com colorId configurado permanece verde se futuro", () => {
+    const result = getAppointmentPresentation({
+      appointment: {
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        ends_at: "2026-09-01T23:00:00.000Z",
+        summary_snapshot: "Lucas B+1(viajando)",
+        google_color_id: "8",
+        google_event_type: "outOfOffice",
+        cancelled_google_color_ids: ["8"],
+        patient_id: null,
+      },
+      now,
+    });
+    expect(result.visualState).toBe("active");
+    expect(result.backgroundColor).toBe("#34A853");
+    expect(result.isCancelled).toBe(false);
   });
 });

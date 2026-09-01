@@ -53,6 +53,7 @@ interface AppointmentMetricRow {
   origin?: string;
   summary_snapshot?: string | null;
   google_color_id?: string | null;
+  google_event_type?: string | null;
   cancelled_google_color_ids?: string[];
 }
 
@@ -61,6 +62,7 @@ function isCountableMetricRow(row: AppointmentMetricRow): boolean {
     status: row.status as AppointmentStatus,
     summary_snapshot: row.summary_snapshot,
     google_color_id: row.google_color_id,
+    google_event_type: row.google_event_type,
     cancelled_google_color_ids: row.cancelled_google_color_ids,
   });
 }
@@ -94,7 +96,7 @@ export async function getIndicatorSnapshot(
   const [{ data, error }, patients, access, connection] = await Promise.all([
     supabase
       .from("appointments")
-      .select("starts_at, ends_at, status, origin, summary_snapshot, google_color_id")
+      .select("starts_at, ends_at, status, origin, summary_snapshot, google_color_id, google_event_type")
       .eq("organization_id", organizationId)
       .gte("starts_at", `${lookbackStart}T00:00:00.000Z`),
     listPatients(organizationId),

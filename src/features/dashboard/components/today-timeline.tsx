@@ -37,6 +37,7 @@ export function TodayTimeline({
       status: appointment.status,
       summarySnapshot: appointment.summarySnapshot,
       googleColorId: appointment.googleColorId,
+      googleEventType: appointment.googleEventType,
       cancelledGoogleColorIds: appointment.cancelledGoogleColorIds,
     })),
   );

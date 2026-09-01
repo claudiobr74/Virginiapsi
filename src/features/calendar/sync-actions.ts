@@ -5,7 +5,7 @@ import { persistGoogleCreateLink, LOCAL_MIRROR_UPDATE_ERROR } from "@/features/c
 import { deleteGoogleEventIgnoring404 } from "@/features/calendar/google-write";
 import { getAppointment } from "@/features/calendar/appointment-queries";
 import { getConnection } from "@/features/calendar/connection-queries";
-import { deriveImportedAppointmentStatus } from "@/features/calendar/google-event-status";
+import { deriveImportedAppointmentStatus, persistedGoogleEventType } from "@/features/calendar/google-event-status";
 import {
   getCalendarClientForOrganization,
 } from "@/lib/integrations/google/connection";
@@ -311,6 +311,7 @@ export async function syncGoogleCalendarPull(
           p_summary_snapshot: event.summary ?? "Evento do Google",
           p_status: status,
           p_google_color_id: event.colorId ?? null,
+          p_google_event_type: persistedGoogleEventType(event.eventType),
         });
         if (upsertError) {
           throw new Error(upsertError.message);

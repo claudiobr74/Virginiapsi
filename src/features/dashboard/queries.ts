@@ -36,6 +36,7 @@ interface AppointmentJoinRow {
   origin: string;
   summary_snapshot: string | null;
   google_color_id: string | null;
+  google_event_type: string | null;
   meet_url: string | null;
   meet_status: string;
   patient_id: string | null;
@@ -64,6 +65,7 @@ function toMyDayAppointment(row: AppointmentJoinRow): MyDayAppointment {
     origin: row.origin,
     summarySnapshot: row.summary_snapshot,
     googleColorId: row.google_color_id,
+    googleEventType: row.google_event_type,
     meetUrl: row.meet_url,
     meetStatus: row.meet_status,
     patientId: row.patient_id,
@@ -88,7 +90,7 @@ async function listTodayAppointments(
   let query = supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, status, modality, origin, summary_snapshot, google_color_id, meet_url, meet_status, patient_id, patients(preferred_name, public_code, phone)",
+      "id, starts_at, ends_at, status, modality, origin, summary_snapshot, google_color_id, google_event_type, meet_url, meet_status, patient_id, patients(preferred_name, public_code, phone)",
     )
     .eq("organization_id", organizationId)
     .lt("starts_at", window.toIso)
@@ -190,7 +192,7 @@ async function countWeekSessions(
 
   let query = supabase
     .from("appointments")
-    .select("id, status, origin, summary_snapshot, google_color_id, starts_at")
+    .select("id, status, origin, summary_snapshot, google_color_id, google_event_type, starts_at")
     .eq("organization_id", organizationId)
     .gte("starts_at", window.fromIso)
     .lt("starts_at", window.toIso);
@@ -211,6 +213,7 @@ async function countWeekSessions(
         origin: "TESSELI" | "GOOGLE_EXTERNAL";
         summary_snapshot: string | null;
         google_color_id?: string | null;
+        google_event_type?: string | null;
       }> | null) ?? [],
       connection?.cancelled_google_color_ids,
     ),
@@ -221,6 +224,7 @@ async function countWeekSessions(
       status: row.status as "scheduled" | "confirmed" | "cancelled" | "completed" | "no_show",
       summary_snapshot: row.summary_snapshot,
       google_color_id: row.google_color_id,
+      google_event_type: row.google_event_type,
       cancelled_google_color_ids: row.cancelled_google_color_ids,
     })),
   );

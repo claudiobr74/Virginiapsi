@@ -16,6 +16,8 @@ export interface AppointmentCancellationInput {
   summarySnapshot?: string | null;
   google_color_id?: string | null;
   googleColorId?: string | null;
+  google_event_type?: string | null;
+  googleEventType?: string | null;
   cancelled_google_color_ids?: readonly string[] | null;
   cancelledGoogleColorIds?: readonly string[] | null;
 }
@@ -48,10 +50,27 @@ export function normalizeCancelledGoogleColorIds(
   return [...unique];
 }
 
+export function persistedGoogleEventType(
+  eventType: string | null | undefined,
+): string | null {
+  const trimmed = (eventType ?? "").trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/** Color-map cancellation applies only to default (or still-unobserved) events. */
+export function isDefaultGoogleEventType(eventType: string | null | undefined): boolean {
+  const trimmed = (eventType ?? "").trim();
+  return trimmed.length === 0 || trimmed === "default";
+}
+
 export function colorIdIndicatesCancellation(
   colorId: string | null | undefined,
   cancelledColorIds: readonly string[] | null | undefined,
+  eventType?: string | null,
 ): boolean {
+  if (!isDefaultGoogleEventType(eventType)) {
+    return false;
+  }
   const id = (colorId ?? "").trim();
   if (!id) {
     return false;
@@ -78,6 +97,7 @@ export function isAppointmentCancelled(appointment: AppointmentCancellationInput
   return colorIdIndicatesCancellation(
     appointment.google_color_id ?? appointment.googleColorId,
     appointment.cancelled_google_color_ids ?? appointment.cancelledGoogleColorIds,
+    appointment.google_event_type ?? appointment.googleEventType,
   );
 }
 
@@ -97,6 +117,7 @@ export function deriveImportedAppointmentStatus(
     status?: string;
     summary?: string;
     colorId?: string | null;
+    eventType?: string | null;
   },
   options?: { cancelledColorIds?: readonly string[] | null },
 ): AppointmentStatus {
@@ -106,7 +127,13 @@ export function deriveImportedAppointmentStatus(
   if (summaryIndicatesCancellation(event.summary)) {
     return "cancelled";
   }
-  if (colorIdIndicatesCancellation(event.colorId, options?.cancelledColorIds)) {
+  if (
+    colorIdIndicatesCancellation(
+      event.colorId,
+      options?.cancelledColorIds,
+      event.eventType,
+    )
+  ) {
     return "cancelled";
   }
   return "scheduled";

@@ -55,6 +55,7 @@ describe("GoogleCalendarClient", () => {
             summary: "Isadora? não pode",
             status: "confirmed",
             colorId: "9",
+            eventType: "default",
           },
         ],
       }),
@@ -65,6 +66,7 @@ describe("GoogleCalendarClient", () => {
       timeMax: "2026-09-02T00:00:00.000Z",
     });
     expect(page.items[0]?.colorId).toBe("9");
+    expect(page.items[0]?.eventType).toBe("default");
     expect(page.items[0]?.summary).toBe("Isadora? não pode");
   });
 
@@ -148,5 +150,22 @@ describe("GoogleCalendarClient", () => {
     expect(url).toBe(
       "https://www.googleapis.com/calendar/v3/calendars/consultorio%40example.com/events/evt%2Fwith%2Fslash",
     );
+  });
+
+  it("getEvent preserva eventType devolvido pela API", async () => {
+    const fetchImpl = mockFetch(async () =>
+      jsonResponse({
+        id: "evt-lucas",
+        summary: "Lucas B+1(viajando)",
+        status: "confirmed",
+        colorId: "8",
+        eventType: "outOfOffice",
+      }),
+    );
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+    const event = await client.getEvent("primary", "evt-lucas");
+    expect(event.eventType).toBe("outOfOffice");
+    expect(event.colorId).toBe("8");
+    expect(event.summary).toBe("Lucas B+1(viajando)");
   });
 });

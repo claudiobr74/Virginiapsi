@@ -55,6 +55,8 @@ export interface AppointmentPresentationInput {
   summarySnapshot?: string | null;
   google_color_id?: string | null;
   googleColorId?: string | null;
+  google_event_type?: string | null;
+  googleEventType?: string | null;
   cancelled_google_color_ids?: readonly string[] | null;
   cancelledGoogleColorIds?: readonly string[] | null;
   patient_id?: string | null;
@@ -66,6 +68,7 @@ export function myDayAppointmentToPresentationInput(appointment: {
   endsAt?: string;
   summarySnapshot?: string | null;
   googleColorId?: string | null;
+  googleEventType?: string | null;
   cancelledGoogleColorIds?: readonly string[] | null;
   patientId?: string | null;
 }): AppointmentPresentationInput {
@@ -75,6 +78,7 @@ export function myDayAppointmentToPresentationInput(appointment: {
     ends_at: appointment.endsAt,
     summary_snapshot: appointment.summarySnapshot,
     google_color_id: appointment.googleColorId,
+    google_event_type: appointment.googleEventType,
     cancelled_google_color_ids: appointment.cancelledGoogleColorIds,
     patient_id: appointment.patientId,
   };

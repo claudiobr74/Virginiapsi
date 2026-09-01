@@ -32,6 +32,7 @@ export const myDayAppointmentSchema = z.object({
   patientPublicCode: z.string().nullable(),
   patientPhone: z.string().nullable(),
   googleColorId: z.string().nullable().optional(),
+  googleEventType: z.string().nullable().optional(),
   cancelledGoogleColorIds: z.array(z.string()).optional(),
 });
 

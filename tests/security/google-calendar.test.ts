@@ -813,3 +813,52 @@ describe("Agenda V2.1 — cancelled_google_color_ids por organização", () => {
     }
   });
 });
+
+describe("Agenda V2.2 — google_event_type no espelho", () => {
+  it("upsert_external_appointment persiste e atualiza google_event_type", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Event Type");
+    const session = await openSession({ userId: admin });
+    try {
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-type-1', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Lucas B+1(viajando)', 'scheduled', '8', null
+         )`,
+        [organizationId],
+      );
+      const before = await session.query<{ google_event_type: string | null }>(
+        `select google_event_type from public.appointments
+         where organization_id = $1 and google_event_id = 'ext-type-1'`,
+        [organizationId],
+      );
+      expect(before[0].google_event_type).toBeNull();
+
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-type-1', 'etag-b',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Lucas B+1(viajando)', 'scheduled', '8', 'outOfOffice'
+         )`,
+        [organizationId],
+      );
+      const after = await session.query<{
+        google_event_type: string | null;
+        google_color_id: string | null;
+        status: string;
+      }>(
+        `select google_event_type, google_color_id, status from public.appointments
+         where organization_id = $1 and google_event_id = 'ext-type-1'`,
+        [organizationId],
+      );
+      expect(after[0]).toEqual({
+        google_event_type: "outOfOffice",
+        google_color_id: "8",
+        status: "scheduled",
+      });
+    } finally {
+      await session.close();
+    }
+  });
+});
