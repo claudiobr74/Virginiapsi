@@ -45,6 +45,20 @@ import type { IntegrationHealth } from "@/features/settings/diagnostics";
 import { expectedEliminationPhrase } from "@/features/settings/elimination";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils/cn";
+import {
+  cnpjInputValue,
+  cpfInputValue,
+} from "@/lib/utils/brazil-tax-id";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import {
+  PSYCHOLOGY_QUOTES,
+  type QuoteMode,
+} from "@/features/appearance/psychology-quotes";
+import {
+  quoteCivilDate,
+  resolvePsychologyQuote,
+} from "@/features/appearance/daily-quote";
+import { DailyQuoteRefresh } from "@/features/appearance/daily-quote-refresh";
 
 const TABS = [
   { id: "profile", label: "Meu Perfil" },
@@ -293,7 +307,8 @@ function ClinicSection({ snapshot }: { snapshot: SettingsSnapshot }) {
               professionalName: String(form.get("professionalName") ?? ""),
               subtitle: String(form.get("subtitle") ?? ""),
               crp: String(form.get("crp") ?? ""),
-              taxId: String(form.get("taxId") ?? ""),
+              professionalCpf: String(form.get("professionalCpf") ?? ""),
+              companyCnpj: String(form.get("companyCnpj") ?? ""),
               pixKey: String(form.get("pixKey") ?? ""),
               clinicName: String(form.get("clinicName") ?? ""),
               companyName: String(form.get("companyName") ?? ""),
@@ -320,8 +335,23 @@ function ClinicSection({ snapshot }: { snapshot: SettingsSnapshot }) {
         <Field label="CRP">
           <Input name="crp" defaultValue={p.crp ?? ""} />
         </Field>
-        <Field label="CPF/CNPJ">
-          <Input name="taxId" defaultValue={p.tax_id ?? ""} />
+        <Field label="CPF profissional">
+          <Input
+            name="professionalCpf"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="000.000.000-00"
+            defaultValue={cpfInputValue(p.professional_cpf)}
+          />
+        </Field>
+        <Field label="CNPJ do consultório">
+          <Input
+            name="companyCnpj"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="00.000.000/0000-00"
+            defaultValue={cnpjInputValue(p.company_cnpj)}
+          />
         </Field>
         <Field label="Chave Pix">
           <Input name="pixKey" defaultValue={p.pix_key ?? ""} />
@@ -361,12 +391,27 @@ function AppearanceSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [quoteMode, setQuoteMode] = useState<QuoteMode>(
+    snapshot.practice.quote_mode === "custom" ? "custom" : "daily",
+  );
+  const [customQuote, setCustomQuote] = useState(snapshot.practice.quote ?? "");
+  const [bankOpen, setBankOpen] = useState(false);
+
+  const todayQuote = resolvePsychologyQuote({
+    mode: quoteMode,
+    customQuote,
+    timeZone: snapshot.organization.timezone,
+  });
 
   return (
     <section className="rounded-3xl border border-border bg-card p-5">
+      <DailyQuoteRefresh
+        timeZone={snapshot.organization.timezone}
+        serverCivilDate={quoteCivilDate(snapshot.organization.timezone)}
+      />
       <SectionHeader
         title="Aparência"
-        description="Saudação do Início, citação e tema claro/escuro neste dispositivo."
+        description="Saudação do Início, citação do dia e tema claro/escuro neste dispositivo."
       />
       <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3">
         <div>
@@ -384,7 +429,8 @@ function AppearanceSection({ snapshot }: { snapshot: SettingsSnapshot }) {
           startTransition(async () => {
             const result = await updateAppearanceAction({
               greetingPrefix: String(form.get("greetingPrefix") ?? ""),
-              quote: String(form.get("quote") ?? ""),
+              quoteMode,
+              quote: customQuote,
             });
             setMessage(result.error ?? "Aparência atualizada.");
             if (!result.error) router.refresh();
@@ -398,14 +444,87 @@ function AppearanceSection({ snapshot }: { snapshot: SettingsSnapshot }) {
             placeholder="Olá"
           />
         </Field>
-        <Field label="Citação">
-          <Input name="quote" defaultValue={snapshot.practice.quote ?? ""} />
-        </Field>
+
+        <fieldset className="flex flex-col gap-3">
+          <legend className="text-xs font-bold uppercase tracking-wide text-deep-neutral">
+            Citação do dia
+          </legend>
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+            <input
+              type="radio"
+              name="quoteMode"
+              className="mt-1"
+              checked={quoteMode === "daily"}
+              onChange={() => setQuoteMode("daily")}
+            />
+            <span>
+              <span className="block text-sm font-semibold text-foreground">
+                Rotação automática
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                Uma nova reflexão é exibida todos os dias às 00:00, no fuso do consultório.
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+            <input
+              type="radio"
+              name="quoteMode"
+              className="mt-1"
+              checked={quoteMode === "custom"}
+              onChange={() => setQuoteMode("custom")}
+            />
+            <span className="text-sm font-semibold text-foreground">Personalizada</span>
+          </label>
+        </fieldset>
+
+        {quoteMode === "daily" ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-deep-neutral">
+              Citação de hoje
+            </p>
+            <p className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-foreground">
+              {todayQuote}
+            </p>
+            <p className="text-xs text-muted-foreground">Próxima atualização: amanhã, 00:00</p>
+            <Button type="button" variant="secondary" size="sm" className="self-start" onClick={() => setBankOpen(true)}>
+              Ver banco de 30 citações
+            </Button>
+          </div>
+        ) : (
+          <Field label="Citação personalizada">
+            <Input
+              name="quote"
+              value={customQuote}
+              maxLength={280}
+              onChange={(event) => setCustomQuote(event.target.value)}
+            />
+          </Field>
+        )}
+
         <Button type="submit" isLoading={isPending} className="self-start">
           Salvar aparência
         </Button>
         <Message value={message} />
       </form>
+
+      <Drawer open={bankOpen} onOpenChange={setBankOpen}>
+        <DrawerContent
+          title="Banco de citações"
+          description="30 reflexões do produto, sem atribuição a terceiros. A rotação diária percorre esta lista."
+        >
+          <ol className="flex flex-col gap-3">
+            {PSYCHOLOGY_QUOTES.map((quote, index) => (
+              <li key={quote} className="text-sm text-foreground">
+                <span className="font-mono text-xs text-muted-foreground">
+                  {String(index + 1).padStart(2, "0")}
+                </span>{" "}
+                {quote}
+              </li>
+            ))}
+          </ol>
+        </DrawerContent>
+      </Drawer>
     </section>
   );
 }

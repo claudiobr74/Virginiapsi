@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginViaUi } from "./support/fixtures";
+import { getDailyPsychologyQuote } from "../../src/features/appearance/daily-quote";
 
 async function setStubGoogleConnection(
   status: "connected" | "disconnected",
@@ -36,7 +37,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
 
     await expect(page.getByRole("heading", { name: /Ana Serena/ })).toBeVisible();
     await expect(
-      page.getByText("Um dia de cada vez — presença e cuidado na rotina clínica."),
+      page.getByText(getDailyPsychologyQuote("America/Sao_Paulo")),
     ).toBeVisible();
 
     await expect(

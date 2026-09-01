@@ -161,8 +161,8 @@ Valores usam alinhamento/tabular. Estados atrasado/pendente usam âmbar/vermelho
 
 Navegação interna por seções:
 - Meu Perfil (foto profissional + nome de exibição);
-- Consultório;
-- Aparência;
+- Consultório (CPF profissional e CNPJ do consultório separados);
+- Aparência (citação do dia automática ou personalizada);
 - Segurança;
 - Equipe e Acessos;
 - Integrações;

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { MyDaySnapshot } from "@/features/dashboard/contracts";
 import { ProfessionalAvatar } from "@/features/settings/components/professional-avatar";
+import { DailyQuoteRefresh } from "@/features/appearance/daily-quote-refresh";
 import { formatBRL } from "@/lib/finance/money";
 
 function StatCard({
@@ -30,6 +31,10 @@ export function MyDayWelcome({ snapshot }: { snapshot: MyDaySnapshot }) {
 
   return (
     <section className="flex flex-col gap-5">
+      <DailyQuoteRefresh
+        timeZone={snapshot.timezone}
+        serverCivilDate={snapshot.quoteCivilDate}
+      />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           <ProfessionalAvatar

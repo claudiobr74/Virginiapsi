@@ -74,6 +74,7 @@ describe("isolamento por papel", () => {
           "photo_path",
           "professional_name",
           "quote",
+          "quote_mode",
           "session_duration_minutes",
           "timezone",
         ].sort(),
@@ -82,6 +83,8 @@ describe("isolamento por papel", () => {
       expect(Object.keys(rows[0])).not.toContain("secretary_finance_access");
       expect(Object.keys(rows[0])).not.toContain("pix_key");
       expect(Object.keys(rows[0])).not.toContain("tax_id");
+      expect(Object.keys(rows[0])).not.toContain("professional_cpf");
+      expect(Object.keys(rows[0])).not.toContain("company_cnpj");
     } finally {
       await session.close();
     }

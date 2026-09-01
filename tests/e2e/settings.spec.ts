@@ -144,6 +144,48 @@ test.describe("Configurações", () => {
     await expect(page.getByText("A frase de confirmação não confere. Nada foi alterado.")).toBeVisible();
   });
 
+  test("admin separa CPF e CNPJ no consultório e vê a citação diária", async ({ page }) => {
+    await loginViaUi(page);
+    await page.goto("/app/settings");
+    await page.getByRole("tab", { name: "Consultório" }).click();
+
+    await expect(page.getByText("CPF/CNPJ")).toHaveCount(0);
+    await page.getByLabel("CPF profissional").fill("529.982.247-25");
+    await page.getByLabel("CNPJ do consultório").fill("11.222.333/0001-81");
+    await page.getByRole("button", { name: "Salvar consultório" }).click();
+    await expect(page.getByText("Consultório atualizado.")).toBeVisible();
+
+    await page.reload();
+    await page.getByRole("tab", { name: "Consultório" }).click();
+    await expect(page.getByLabel("CPF profissional")).toHaveValue("529.982.247-25");
+    await expect(page.getByLabel("CNPJ do consultório")).toHaveValue("11.222.333/0001-81");
+
+    await page.getByLabel("CPF profissional").fill("111.111.111-11");
+    await page.getByRole("button", { name: "Salvar consultório" }).click();
+    await expect(page.getByText("CPF inválido.")).toBeVisible();
+
+    await page.getByRole("tab", { name: "Aparência" }).click();
+    await expect(page.getByRole("radio", { name: /Rotação automática/ })).toBeChecked();
+    await expect(page.getByText("Citação de hoje")).toBeVisible();
+    await page.getByRole("button", { name: "Ver banco de 30 citações" }).click();
+    await expect(page.getByRole("heading", { name: "Banco de citações" })).toBeVisible();
+    await expect(page.getByText(/Escutar com presença/)).toBeVisible();
+    await page.getByRole("button", { name: "Fechar" }).click();
+
+    await page.getByRole("radio", { name: /Personalizada/ }).click();
+    await page.getByLabel("Citação personalizada").fill("texto guardado da clínica");
+    await page.getByRole("button", { name: "Salvar aparência" }).click();
+    await expect(page.getByText("Aparência atualizada.")).toBeVisible();
+
+    await page.getByRole("radio", { name: /Rotação automática/ }).click();
+    await page.getByRole("button", { name: "Salvar aparência" }).click();
+    await expect(page.getByText("Aparência atualizada.")).toBeVisible();
+    await page.getByRole("radio", { name: /Personalizada/ }).click();
+    await expect(page.getByLabel("Citação personalizada")).toHaveValue(
+      "texto guardado da clínica",
+    );
+  });
+
   test("job de retenção rejeita CRON_SECRET inválido", async ({ request }) => {
     const response = await request.post("/api/jobs/audio-retention", {
       headers: { "x-cron-secret": "segredo-errado-e-comprido" },

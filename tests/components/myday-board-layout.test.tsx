@@ -47,6 +47,7 @@ function snapshot(): MyDaySnapshot {
     greeting: { prefix: "Bom dia", professionalName: "Ana", quote: null },
     professionalPhotoUrl: null,
     timezone: "America/Sao_Paulo",
+    quoteCivilDate: "2026-08-18",
     roleLabel: "Psicóloga",
     clinicName: "Consultório Serena",
     canStartSession: true,

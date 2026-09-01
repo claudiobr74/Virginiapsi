@@ -1,13 +1,18 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MyDayWelcome } from "@/features/dashboard/components/my-day-welcome";
 import { PHASE_AVAILABILITY, type MyDaySnapshot } from "@/features/dashboard/contracts";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
 
 function snapshot(photoUrl: string | null): MyDaySnapshot {
   return {
     greeting: { prefix: "Olá", professionalName: "Ana Serena", quote: null },
     professionalPhotoUrl: photoUrl,
     timezone: "America/Sao_Paulo",
+    quoteCivilDate: "2026-09-01",
     roleLabel: "Psicóloga",
     clinicName: "Consultório Serena",
     canStartSession: true,

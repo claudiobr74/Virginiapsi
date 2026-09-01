@@ -35,12 +35,15 @@ Criar migrations SQL versionadas, normalizadas e alinhadas ao modelo de domínio
 - professional_name
 - subtitle
 - crp
-- cpf/cnpj quando aplicável
+- professional_cpf text nullable — CPF da profissional, somente dígitos. Opcional.
+- company_cnpj text nullable — CNPJ do consultório, somente dígitos. Opcional e independente do CPF.
+- tax_id text nullable — legado misto CPF/CNPJ. Não aparece em telas novas; não apagar. Document Studio usa `document_branding.tax_id` (rótulo CNPJ), independente desta coluna. Nenhum consumidor novo lê `practice_settings.tax_id`. Se um relatório legado ainda precisar de identificador fiscal genérico: `company_cnpj`, senão `professional_cpf`, senão `tax_id`.
 - pix
 - clinic_name
 - company_name
 - greeting_prefix
 - quote
+- quote_mode: daily | custom (default `daily`) — `daily` escolhe uma das 30 citações do produto pela data civil no timezone da organização, sem write diário; `custom` usa `quote`
 - session_duration_minutes
 - monthly_goal
 - photo_path text nullable — objeto no bucket `practice-assets` (`{organization_id}/professional/…`), retrato da profissional mostrado no Meu Dia junto ao nome. Só a administradora grava; membros leem o path via `organization_shell_settings`. Links só via signed URL.

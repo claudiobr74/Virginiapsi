@@ -126,7 +126,7 @@ export async function packLogicalExport(input: {
   const settings = await input.supabase
     .from("practice_settings")
     .select(
-      "organization_id, professional_name, subtitle, crp, clinic_name, company_name, greeting_prefix, quote, session_duration_minutes, inactivity_timeout_minutes, secretary_finance_access, session_audio_fallback_retention_days, transcript_retention_policy, transcript_retention_fixed_days, clinical_record_minimum_retention_years",
+      "organization_id, professional_name, subtitle, crp, clinic_name, company_name, professional_cpf, company_cnpj, greeting_prefix, quote, quote_mode, session_duration_minutes, inactivity_timeout_minutes, secretary_finance_access, session_audio_fallback_retention_days, transcript_retention_policy, transcript_retention_fixed_days, clinical_record_minimum_retention_years",
     )
     .eq("organization_id", input.organizationId);
   files.push({

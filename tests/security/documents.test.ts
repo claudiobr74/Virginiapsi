@@ -462,6 +462,11 @@ describe("Storage buckets — clinical-documents/patient-attachments/consents se
     const session = await openSession({ userId: admin });
     try {
       for (const bucket of ["clinical-documents", "patient-attachments", "consents"]) {
+        const buckets = await session.query<{ id: string; public: boolean }>(
+          "select id, public from storage.buckets where id = $1",
+          [bucket],
+        );
+        expect(buckets[0]?.public).toBe(false);
         const error = await session.expectError(
           `insert into storage.objects (bucket_id, name) values ($1, $2)`,
           [bucket, `${organizationId}/forged.pdf`],

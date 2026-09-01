@@ -37,6 +37,7 @@ import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { DOCUMENT_BUCKETS, createSignedUploadUrl, removeFile } from "@/lib/documents/storage";
 import { SIGNED_URL_TTL_SECONDS, buildStoragePath } from "@/lib/documents/storage-meta";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizeOptionalCnpj, normalizeOptionalCpf } from "@/lib/utils/brazil-tax-id";
 
 function revalidateSettings() {
   revalidatePath("/app/settings");
@@ -206,7 +207,8 @@ export async function updateClinicAction(input: unknown): Promise<SettingsAction
         professional_name: emptyToNull(parsed.data.professionalName),
         subtitle: emptyToNull(parsed.data.subtitle),
         crp: emptyToNull(parsed.data.crp),
-        tax_id: emptyToNull(parsed.data.taxId),
+        professional_cpf: normalizeOptionalCpf(parsed.data.professionalCpf),
+        company_cnpj: normalizeOptionalCnpj(parsed.data.companyCnpj),
         pix_key: emptyToNull(parsed.data.pixKey),
         clinic_name: emptyToNull(parsed.data.clinicName),
         company_name: emptyToNull(parsed.data.companyName),
@@ -236,12 +238,20 @@ export async function updateAppearanceAction(input: unknown): Promise<SettingsAc
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
   const supabase = await createSupabaseServerClient();
+  const patch: {
+    greeting_prefix: string | null;
+    quote_mode: "daily" | "custom";
+    quote?: string | null;
+  } = {
+    greeting_prefix: emptyToNull(parsed.data.greetingPrefix),
+    quote_mode: parsed.data.quoteMode,
+  };
+  if (parsed.data.quoteMode === "custom") {
+    patch.quote = emptyToNull(parsed.data.quote);
+  }
   const { error } = await supabase
     .from("practice_settings")
-    .update({
-      greeting_prefix: emptyToNull(parsed.data.greetingPrefix),
-      quote: emptyToNull(parsed.data.quote),
-    })
+    .update(patch)
     .eq("organization_id", ctx.organizationId);
   if (error) {
     return { error: "Não foi possível salvar a aparência." };

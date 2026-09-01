@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidCpf } from "@/lib/utils/brazil-tax-id";
 
 export const PATIENT_STATUS_VALUES = [
   "active",
@@ -35,27 +36,6 @@ export const MODALITY_LABELS: Record<ConsultationModality, string> = {
   online: "Online",
   hybrid: "Híbrido",
 };
-
-function isValidCpf(value: string): boolean {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) {
-    return false;
-  }
-
-  const calcCheckDigit = (length: number) => {
-    let sum = 0;
-    for (let i = 0; i < length; i += 1) {
-      sum += Number(digits[i]) * (length + 1 - i);
-    }
-    const remainder = (sum * 10) % 11;
-    return remainder === 10 ? 0 : remainder;
-  };
-
-  return (
-    calcCheckDigit(9) === Number(digits[9]) &&
-    calcCheckDigit(10) === Number(digits[10])
-  );
-}
 
 export const responsibleSchema = z.object({
   name: z

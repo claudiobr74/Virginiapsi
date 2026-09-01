@@ -44,6 +44,13 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
+    permissions: ["camera"],
+    launchOptions: {
+      args: [
+        "--use-fake-ui-for-media-stream",
+        "--use-fake-device-for-media-stream",
+      ],
+    },
   },
   webServer: [
     {

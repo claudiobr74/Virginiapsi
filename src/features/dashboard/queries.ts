@@ -2,7 +2,6 @@ import "server-only";
 
 import {
   DEFAULT_GREETING_PREFIX,
-  DEFAULT_QUOTE,
   PHASE_AVAILABILITY,
   myDayAppointmentSchema,
   practiceTaskSchema,
@@ -16,6 +15,10 @@ import {
 import type { OrganizationRole, ShellSettings } from "@/features/organizations/contracts";
 import { ROLE_LABELS } from "@/features/organizations/labels";
 import { getProfessionalPhotoUrl } from "@/features/settings/queries";
+import {
+  quoteCivilDate,
+  resolvePsychologyQuote,
+} from "@/features/appearance/daily-quote";
 import { listRecentDocuments } from "@/features/documents/queries";
 import { getFinanceAccess, listCharges, listPayments, buildChargeViews } from "@/features/finance/queries";
 import { todayIsoDate } from "@/features/finance/contracts";
@@ -254,7 +257,11 @@ export async function getMyDaySnapshot(input: {
 
   const greetingPrefix =
     input.settings?.greeting_prefix?.trim() || DEFAULT_GREETING_PREFIX;
-  const quote = input.settings?.quote?.trim() || DEFAULT_QUOTE;
+  const quote = resolvePsychologyQuote({
+    mode: input.settings?.quote_mode,
+    customQuote: input.settings?.quote,
+    timeZone: input.timezone,
+  });
 
   const access = await getFinanceAccess(input.organizationId, input.role);
   let financialPending: MyDaySnapshot["financialPending"] = [];
@@ -287,6 +294,7 @@ export async function getMyDaySnapshot(input: {
       input.settings?.photo_path,
     ),
     timezone: input.timezone,
+    quoteCivilDate: quoteCivilDate(input.timezone),
     roleLabel: ROLE_LABELS[input.role],
     clinicName: input.settings?.clinic_name?.trim() || null,
     canStartSession: isClinicalPractitioner(input.role),

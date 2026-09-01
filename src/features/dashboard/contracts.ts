@@ -108,6 +108,7 @@ export interface MyDaySnapshot {
   greeting: MyDayGreeting;
   professionalPhotoUrl: string | null;
   timezone: string;
+  quoteCivilDate: string;
   roleLabel: string;
   clinicName: string | null;
   canStartSession: boolean;

@@ -4,6 +4,17 @@ import { Camera, ImagePlus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal, ModalContent } from "@/components/ui/modal";
+import {
+  cameraErrorMessage,
+  captureSquareJpeg,
+  isCameraApiAvailable,
+  isVideoFrameReady,
+  playCameraVideo,
+  requestCameraStream,
+  stopMediaStream,
+  waitForVideoReady,
+  type CameraUiState,
+} from "@/features/patients/camera-capture";
 import { PatientAvatar } from "@/features/patients/components/patient-avatar";
 import {
   PORTRAIT_MAX_BYTES,
@@ -20,13 +31,17 @@ export function PatientPhotoField({
   onFileChange: (file: File | null) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const nativeCaptureRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [cleared, setCleared] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraState, setCameraState] = useState<CameraUiState>("idle");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [videoReady, setVideoReady] = useState(false);
+  const [streamNonce, setStreamNonce] = useState(0);
 
   useEffect(() => {
     return () => {
@@ -35,34 +50,27 @@ export function PatientPhotoField({
   }, [previewUrl]);
 
   useEffect(() => {
-    if (!cameraOpen) {
-      return;
-    }
-    let cancelled = false;
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "user" }, audio: false })
-      .then((stream) => {
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      })
-      .catch(() => {
-        setCameraError(
-          "Não foi possível acessar a câmera. Você pode enviar um arquivo.",
-        );
-      });
-
     return () => {
-      cancelled = true;
-      streamRef.current?.getTracks().forEach((track) => track.stop());
+      stopMediaStream(streamRef.current);
       streamRef.current = null;
     };
-  }, [cameraOpen]);
+  }, []);
+
+  function stopTracks() {
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setVideoReady(false);
+  }
+
+  function closeCamera() {
+    stopTracks();
+    setCameraOpen(false);
+    setCameraError(null);
+    setCameraState("idle");
+  }
 
   function applyFile(file: File) {
     if (!isPortraitMimeType(file.type)) {
@@ -82,39 +90,108 @@ export function PatientPhotoField({
     onFileChange(file);
   }
 
-  function captureFrame() {
+  useEffect(() => {
+    if (!cameraOpen || streamNonce === 0) {
+      return;
+    }
+    let cancelled = false;
+    let raf = 0;
+
+    const tryAttach = () => {
+      const video = videoRef.current;
+      const stream = streamRef.current;
+      if (cancelled) {
+        return;
+      }
+      if (!video || !stream) {
+        raf = window.requestAnimationFrame(tryAttach);
+        return;
+      }
+      void playCameraVideo(video, stream)
+        .then(() => waitForVideoReady(video))
+        .then(() => {
+          if (cancelled || !isVideoFrameReady(video)) {
+            return;
+          }
+          setVideoReady(true);
+          setCameraState("streaming");
+        })
+        .catch((error) => {
+          if (cancelled) {
+            return;
+          }
+          stopMediaStream(streamRef.current);
+          streamRef.current = null;
+          if (videoRef.current) {
+            videoRef.current.srcObject = null;
+          }
+          setVideoReady(false);
+          setCameraError(cameraErrorMessage(error));
+          setCameraState("error");
+        });
+    };
+
+    tryAttach();
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf);
+    };
+  }, [cameraOpen, streamNonce]);
+
+  async function openGetUserMediaCamera() {
+    setCameraError(null);
+    setVideoReady(false);
+    setCameraState("requesting_permission");
+    setCameraOpen(true);
+    const streamPromise = requestCameraStream();
+    try {
+      const stream = await streamPromise;
+      streamRef.current = stream;
+      setStreamNonce((value) => value + 1);
+    } catch (error) {
+      setCameraError(cameraErrorMessage(error));
+      setCameraState("error");
+    }
+  }
+
+  async function onTakePhoto() {
+    if (!isCameraApiAvailable()) {
+      nativeCaptureRef.current?.click();
+      return;
+    }
+    await openGetUserMediaCamera();
+  }
+
+  async function captureFrame() {
     const video = videoRef.current;
-    if (!video || video.videoWidth === 0) {
+    if (!video || !isVideoFrameReady(video)) {
       setCameraError("Aguarde a câmera carregar e tente de novo.");
       return;
     }
-    const side = Math.min(video.videoWidth, video.videoHeight);
-    const sx = (video.videoWidth - side) / 2;
-    const sy = (video.videoHeight - side) / 2;
-    const canvas = document.createElement("canvas");
-    canvas.width = 720;
-    canvas.height = 720;
-    const context = canvas.getContext("2d");
-    if (!context) {
-      setCameraError("Não foi possível capturar o quadro.");
-      return;
+    setCameraState("capturing");
+    try {
+      const blob = await captureSquareJpeg(video);
+      applyFile(new File([blob], "retrato.jpg", { type: "image/jpeg" }));
+      closeCamera();
+    } catch (error) {
+      const name = error instanceof Error ? error.message : "";
+      if (name === "BlobNull") {
+        setCameraError("Não foi possível capturar o quadro. Tente de novo.");
+      } else if (name === "VideoNotReady") {
+        setCameraError("Aguarde a câmera carregar e tente de novo.");
+      } else {
+        setCameraError(cameraErrorMessage(error));
+      }
+      setCameraState("error");
     }
-    context.drawImage(video, sx, sy, side, side, 0, 0, 720, 720);
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          setCameraError("Não foi possível capturar o quadro.");
-          return;
-        }
-        applyFile(new File([blob], "retrato.jpg", { type: "image/jpeg" }));
-        setCameraOpen(false);
-      },
-      "image/jpeg",
-      0.86,
-    );
   }
 
   const displayUrl = cleared ? null : previewUrl ?? currentPhotoUrl ?? null;
+  const captureDisabled =
+    cameraState === "requesting_permission" ||
+    cameraState === "capturing" ||
+    cameraState === "error" ||
+    !videoReady;
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -136,6 +213,18 @@ export function PatientPhotoField({
               event.target.value = "";
             }}
           />
+          <input
+            ref={nativeCaptureRef}
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) applyFile(file);
+              event.target.value = "";
+            }}
+          />
           <Button
             type="button"
             variant="secondary"
@@ -145,15 +234,7 @@ export function PatientPhotoField({
             <ImagePlus className="size-4" aria-hidden />
             Enviar foto
           </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setCameraError(null);
-              setCameraOpen(true);
-            }}
-          >
+          <Button type="button" variant="secondary" size="sm" onClick={() => void onTakePhoto()}>
             <Camera className="size-4" aria-hidden />
             Tirar foto
           </Button>
@@ -180,22 +261,34 @@ export function PatientPhotoField({
         {fieldError ? <p className="text-xs text-failed">{fieldError}</p> : null}
       </div>
 
-      <Modal open={cameraOpen} onOpenChange={setCameraOpen}>
+      <Modal
+        open={cameraOpen}
+        onOpenChange={(open) => {
+          if (!open) closeCamera();
+        }}
+      >
         <ModalContent
           title="Tirar foto"
           description="Posicione o rosto no quadro e capture."
           size="sm"
           footer={
             <>
-              <Button type="button" variant="secondary" onClick={() => setCameraOpen(false)}>
+              <Button type="button" variant="secondary" onClick={closeCamera}>
                 Cancelar
               </Button>
-              <Button type="button" onClick={captureFrame} disabled={Boolean(cameraError)}>
+              <Button
+                type="button"
+                onClick={() => void captureFrame()}
+                disabled={captureDisabled}
+              >
                 Capturar
               </Button>
             </>
           }
         >
+          {cameraState === "requesting_permission" ? (
+            <p className="text-sm text-muted-foreground">Abrindo câmera...</p>
+          ) : null}
           {cameraError ? (
             <p role="alert" className="text-sm text-failed">
               {cameraError}
@@ -209,6 +302,9 @@ export function PatientPhotoField({
               className="aspect-square w-full rounded-2xl bg-deep-neutral object-cover"
             />
           )}
+          {cameraState === "streaming" && !videoReady && !cameraError ? (
+            <p className="mt-2 text-sm text-muted-foreground">Abrindo câmera...</p>
+          ) : null}
         </ModalContent>
       </Modal>
     </div>

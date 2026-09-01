@@ -67,6 +67,9 @@ function defaultPracticeSettings(organizationId, extras = {}) {
     monthly_goal: extras.monthly_goal ?? null,
     photo_path: null,
     signature_path: null,
+    professional_cpf: extras.professional_cpf ?? null,
+    company_cnpj: extras.company_cnpj ?? null,
+    quote_mode: extras.quote_mode ?? "daily",
     inactivity_timeout_minutes: extras.inactivity_timeout_minutes ?? 15,
     secretary_finance_access: extras.secretary_finance_access ?? "none",
     session_audio_fallback_retention_days:
@@ -1195,6 +1198,7 @@ const server = createServer(async (req, res) => {
         photo_path: practiceSettingsByOrg.get(body.org_id)?.photo_path ?? null,
         greeting_prefix: practiceSettingsByOrg.get(body.org_id)?.greeting_prefix ?? null,
         quote: practiceSettingsByOrg.get(body.org_id)?.quote ?? null,
+        quote_mode: practiceSettingsByOrg.get(body.org_id)?.quote_mode ?? "daily",
       },
     ]);
     return;

@@ -5,6 +5,7 @@ import {
   isPortraitStoragePath,
   portraitFilename,
 } from "@/features/patients/portrait";
+import { buildStoragePath } from "@/lib/documents/storage-meta";
 
 describe("retrato de identificação", () => {
   const orgId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -18,9 +19,12 @@ describe("retrato de identificação", () => {
     expect(isPortraitMimeType("application/pdf")).toBe(false);
   });
 
-  it("nomeia o arquivo pelo MIME", () => {
-    expect(portraitFilename("image/jpeg")).toBe("portrait.jpg");
-    expect(portraitFilename("image/png")).toBe("portrait.png");
+  it("cada retrato recebe um object key único mesmo com o mesmo MIME", () => {
+    const first = buildStoragePath(orgId, patientId, portraitFilename("image/jpeg"));
+    const second = buildStoragePath(orgId, patientId, portraitFilename("image/jpeg"));
+    expect(first).not.toBe(second);
+    expect(isPortraitStoragePath(orgId, patientId, first)).toBe(true);
+    expect(isPortraitStoragePath(orgId, patientId, second)).toBe(true);
   });
 
   it("só aceita path deste tenant e deste paciente, com extensão de imagem", () => {
