@@ -25,6 +25,7 @@ export const DOCUMENT_BUCKETS = {
   patientAttachments: "patient-attachments",
   consents: "consents",
   documentBranding: "document-branding",
+  practiceAssets: "practice-assets",
 } as const;
 export type DocumentBucket = (typeof DOCUMENT_BUCKETS)[keyof typeof DOCUMENT_BUCKETS];
 

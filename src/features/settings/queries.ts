@@ -16,6 +16,8 @@ import { buildEliminationReport, type EliminationCounts } from "@/features/setti
 import { readIntegrationEnvFlags } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDocumentBranding, listDocumentLogos } from "@/features/documents/branding-queries";
+import { DOCUMENT_BUCKETS, createSignedDownloadUrl } from "@/lib/documents/storage";
+import { isProfessionalPhotoStoragePath } from "@/features/settings/professional-photo";
 
 function emptyNumber(value: unknown): number {
   return typeof value === "number" ? value : Number(value ?? 0);
@@ -35,6 +37,20 @@ export async function getPracticeSettings(
   }
   const parsed = practiceSettingsRowSchema.safeParse(data);
   return parsed.success ? parsed.data : null;
+}
+
+export async function getProfessionalPhotoUrl(
+  organizationId: string,
+  photoPath: string | null | undefined,
+): Promise<string | null> {
+  if (!photoPath || !isProfessionalPhotoStoragePath(organizationId, photoPath)) {
+    return null;
+  }
+  try {
+    return await createSignedDownloadUrl(DOCUMENT_BUCKETS.practiceAssets, photoPath);
+  } catch {
+    return null;
+  }
 }
 
 export async function listTeamMembers(organizationId: string): Promise<TeamMemberRow[]> {
@@ -259,6 +275,10 @@ export async function getSettingsSnapshot(input: {
       ]);
 
     const practiceRow = practice ?? defaultPracticeSettings(input.organizationId);
+    const professionalPhotoUrl = await getProfessionalPhotoUrl(
+      input.organizationId,
+      practiceRow.photo_path,
+    );
 
     return {
       profile: {
@@ -284,6 +304,7 @@ export async function getSettingsSnapshot(input: {
       secretaryFinanceAccess: practiceRow.secretary_finance_access,
       documentBranding,
       documentLogos,
+      professionalPhotoUrl,
     };
   } catch {
     const practiceRow = defaultPracticeSettings(input.organizationId);
@@ -307,6 +328,7 @@ export async function getSettingsSnapshot(input: {
       secretaryFinanceAccess: practiceRow.secretary_finance_access,
       documentBranding: null,
       documentLogos: [],
+      professionalPhotoUrl: null,
     };
   }
 }

@@ -25,9 +25,12 @@ import { ROLE_LABELS } from "@/features/organizations/labels";
 import {
   createExportDownloadUrlAction,
   confirmEliminationAction,
+  clearProfessionalPhotoAction,
+  confirmProfessionalPhotoUploadAction,
   inviteMemberAction,
   previewEliminationAction,
   requestLogicalExportAction,
+  requestProfessionalPhotoUploadUrlAction,
   setMemberActiveAction,
   updateAppearanceAction,
   updateClinicAction,
@@ -36,9 +39,11 @@ import {
   updateSecurityAction,
 } from "@/features/settings/actions";
 import type { SettingsSnapshot } from "@/features/settings/contracts";
+import { ProfessionalPhotoField } from "@/features/settings/components/professional-photo-field";
 import { BrandingSettingsPanel } from "@/features/documents/components/branding-settings-panel";
 import type { IntegrationHealth } from "@/features/settings/diagnostics";
 import { expectedEliminationPhrase } from "@/features/settings/elimination";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils/cn";
 
 const TABS = [
@@ -175,12 +180,48 @@ function ProfileSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const displayName = snapshot.profile.fullName || snapshot.practice.professional_name || "Profissional";
+
+  function persistPhoto(file: File) {
+    setMessage(null);
+    startTransition(async () => {
+      const grant = await requestProfessionalPhotoUploadUrlAction({ mimeType: file.type });
+      if (grant.error || !grant.path || !grant.token) {
+        setMessage(grant.error ?? "Não foi possível preparar o envio da foto.");
+        return;
+      }
+      const supabase = createSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from("practice-assets")
+        .uploadToSignedUrl(grant.path, grant.token, file);
+      if (uploadError) {
+        setMessage("Não foi possível enviar a foto agora.");
+        return;
+      }
+      const confirmed = await confirmProfessionalPhotoUploadAction({
+        storagePath: grant.path,
+        mimeType: file.type,
+        byteSize: file.size,
+      });
+      setMessage(confirmed.error ?? "Foto profissional atualizada.");
+      if (!confirmed.error) router.refresh();
+    });
+  }
+
+  function removePhoto() {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await clearProfessionalPhotoAction();
+      setMessage(result.error ?? "Foto profissional removida.");
+      if (!result.error) router.refresh();
+    });
+  }
 
   return (
     <section className="rounded-3xl border border-border bg-card p-5">
       <SectionHeader
         title="Meu Perfil"
-        description="Nome de exibição da profissional autenticada. A senha é alterada pelo fluxo de recuperação."
+        description="Nome de exibição e foto da profissional. A foto aparece no Meu Dia, junto ao nome. A senha é alterada pelo fluxo de recuperação."
       />
       <form
         className="mt-4 grid gap-4 sm:grid-cols-2"
@@ -197,6 +238,13 @@ function ProfileSection({ snapshot }: { snapshot: SettingsSnapshot }) {
           });
         }}
       >
+        <ProfessionalPhotoField
+          name={displayName}
+          currentPhotoUrl={snapshot.professionalPhotoUrl}
+          disabled={isPending}
+          onFileChange={persistPhoto}
+          onRemove={removePhoto}
+        />
         <Field label="E-mail">
           <Input value={snapshot.profile.email} readOnly />
         </Field>

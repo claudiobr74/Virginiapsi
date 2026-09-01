@@ -283,4 +283,69 @@ describe("settings — exports, equipe, retenção e eliminação", () => {
     }
   });
 
+  it("admin grava photo_path do próprio tenant; CHECK bloqueia outro org; secretária não atualiza", async () => {
+    const validPath = `${organizationId}/professional/c0ffee00-portrait.jpg`;
+    const adminSession = await openSession({ userId: admin });
+    try {
+      const updated = await adminSession.query<{ photo_path: string }>(
+        `update public.practice_settings
+         set photo_path = $2
+         where organization_id = $1
+         returning photo_path`,
+        [organizationId, validPath],
+      );
+      expect(updated[0].photo_path).toBe(validPath);
+
+      const checkError = await adminSession.expectError(
+        `update public.practice_settings
+         set photo_path = $2
+         where organization_id = $1`,
+        [organizationId, "33333333-3333-4333-8333-333333333333/professional/evil.jpg"],
+      );
+      expect(checkError).toMatch(/photo_path_tenant_prefix|check constraint/i);
+    } finally {
+      await adminSession.close();
+    }
+
+    const secretarySession = await openSession({ userId: secretary });
+    try {
+      const updatedBySecretary = await secretarySession.query(
+        `update public.practice_settings set photo_path = $2 where organization_id = $1 returning photo_path`,
+        [organizationId, `${organizationId}/professional/secretary.jpg`],
+      );
+      expect(updatedBySecretary).toEqual([]);
+
+      const shell = await secretarySession.query<{ photo_path: string | null }>(
+        "select photo_path from public.organization_shell_settings($1)",
+        [organizationId],
+      );
+      expect(shell[0].photo_path).toBe(validPath);
+    } finally {
+      await secretarySession.close();
+    }
+  });
+
+  it("bucket practice-assets existe, é privado, e storage.objects não tem policy aberta", async () => {
+    const session = await openSession({ userId: admin });
+    try {
+      const buckets = await session.query<{ id: string; public: boolean }>(
+        "select id, public from storage.buckets where id = 'practice-assets'",
+      );
+      expect(buckets).toHaveLength(1);
+      expect(buckets[0].public).toBe(false);
+      const insertError = await session.expectError(
+        `insert into storage.objects (bucket_id, name, owner)
+         values ('practice-assets', $1, $2)`,
+        [`${organizationId}/professional/secret.jpg`, admin],
+      );
+      expect(insertError).toMatch(/row-level security/i);
+      const selectRows = await session.query(
+        `select id from storage.objects where bucket_id = 'practice-assets'`,
+      );
+      expect(selectRows).toEqual([]);
+    } finally {
+      await session.close();
+    }
+  });
+
 });

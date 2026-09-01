@@ -52,7 +52,7 @@ Cards passam a largura total com margins 12–16 px. Modais complexos podem ocup
 
 ## 4. Meu Dia
 
-Primeiro bloco: PageHeader Tesseli e saudação. Em seguida, um card de “Próxima sessão” visualmente prioritário, sem parecer alerta. Mostrar horário em JetBrains Mono ou Inter tabular, paciente, modalidade, confirmação, WhatsApp e Meet quando cabível.
+Primeiro bloco: saudação com a foto circular da profissional à esquerda do nome (quando houver; senão, inicial em círculo sage). Em seguida, um card de “Próxima sessão” visualmente prioritário, sem parecer alerta. Mostrar horário em JetBrains Mono ou Inter tabular, paciente, modalidade, confirmação, WhatsApp e Meet quando cabível.
 
 Abaixo, organizar a rotina em seções respiradas:
 - Linha do tempo de hoje;
@@ -160,7 +160,7 @@ Valores usam alinhamento/tabular. Estados atrasado/pendente usam âmbar/vermelho
 ## 14. Configurações
 
 Navegação interna por seções:
-- Meu Perfil;
+- Meu Perfil (foto profissional + nome de exibição);
 - Consultório;
 - Aparência;
 - Segurança;

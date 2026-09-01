@@ -26,10 +26,16 @@ import {
   getPracticeSettings,
   previewPatientElimination,
 } from "@/features/settings/queries";
+import {
+  isProfessionalPhotoMimeType,
+  isProfessionalPhotoStoragePath,
+  professionalPhotoFilename,
+  PROFESSIONAL_PHOTO_MAX_BYTES,
+} from "@/features/settings/professional-photo";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
-import { DOCUMENT_BUCKETS, removeFile } from "@/lib/documents/storage";
-import { SIGNED_URL_TTL_SECONDS } from "@/lib/documents/storage-meta";
+import { DOCUMENT_BUCKETS, createSignedUploadUrl, removeFile } from "@/lib/documents/storage";
+import { SIGNED_URL_TTL_SECONDS, buildStoragePath } from "@/lib/documents/storage-meta";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function revalidateSettings() {
@@ -72,6 +78,105 @@ export async function updateProfileAction(input: unknown): Promise<SettingsActio
   });
   revalidateSettings();
   return { id: ctx.user.id };
+}
+
+export async function requestProfessionalPhotoUploadUrlAction(input: {
+  mimeType: string;
+}): Promise<SettingsActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return ctx;
+  if (!isProfessionalPhotoMimeType(input.mimeType)) {
+    return { error: "Use uma imagem JPEG, PNG ou WebP." };
+  }
+
+  const path = buildStoragePath(
+    ctx.organizationId,
+    "professional",
+    professionalPhotoFilename(input.mimeType),
+  );
+  if (!isProfessionalPhotoStoragePath(ctx.organizationId, path)) {
+    return { error: "Caminho de upload inválido." };
+  }
+
+  try {
+    const { token } = await createSignedUploadUrl(DOCUMENT_BUCKETS.practiceAssets, path);
+    return { path, token };
+  } catch {
+    return { error: "Não foi possível preparar o envio da foto agora." };
+  }
+}
+
+export async function confirmProfessionalPhotoUploadAction(input: {
+  storagePath: string;
+  mimeType: string;
+  byteSize: number;
+}): Promise<SettingsActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return ctx;
+  if (!isProfessionalPhotoMimeType(input.mimeType)) {
+    return { error: "Use uma imagem JPEG, PNG ou WebP." };
+  }
+  if (input.byteSize <= 0 || input.byteSize > PROFESSIONAL_PHOTO_MAX_BYTES) {
+    return { error: "A foto deve ter no máximo 5 MB." };
+  }
+  if (!isProfessionalPhotoStoragePath(ctx.organizationId, input.storagePath)) {
+    return { error: "Caminho de upload inválido." };
+  }
+
+  const current = await getPracticeSettings(ctx.organizationId);
+  const previousPath = current?.photo_path ?? null;
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("practice_settings")
+    .update({ photo_path: input.storagePath })
+    .eq("organization_id", ctx.organizationId);
+
+  if (error) {
+    return { error: "Não foi possível salvar a foto agora." };
+  }
+
+  if (previousPath && previousPath !== input.storagePath) {
+    await removeFile(DOCUMENT_BUCKETS.practiceAssets, previousPath);
+  }
+
+  await logAuditEvent({
+    organizationId: ctx.organizationId,
+    action: "settings.professional_photo.update",
+    resourceType: "practice_settings",
+    resourceId: ctx.organizationId,
+  });
+  revalidateSettings();
+  return { id: ctx.organizationId };
+}
+
+export async function clearProfessionalPhotoAction(): Promise<SettingsActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return ctx;
+
+  const current = await getPracticeSettings(ctx.organizationId);
+  const previousPath = current?.photo_path ?? null;
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("practice_settings")
+    .update({ photo_path: null })
+    .eq("organization_id", ctx.organizationId);
+
+  if (error) {
+    return { error: "Não foi possível remover a foto agora." };
+  }
+
+  if (previousPath) {
+    await removeFile(DOCUMENT_BUCKETS.practiceAssets, previousPath);
+  }
+
+  await logAuditEvent({
+    organizationId: ctx.organizationId,
+    action: "settings.professional_photo.clear",
+    resourceType: "practice_settings",
+    resourceId: ctx.organizationId,
+  });
+  revalidateSettings();
+  return { id: ctx.organizationId };
 }
 
 export async function updateClinicAction(input: unknown): Promise<SettingsActionResult> {

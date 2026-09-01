@@ -106,6 +106,7 @@ export interface MyDayMetrics {
 
 export interface MyDaySnapshot {
   greeting: MyDayGreeting;
+  professionalPhotoUrl: string | null;
   timezone: string;
   roleLabel: string;
   clinicName: string | null;

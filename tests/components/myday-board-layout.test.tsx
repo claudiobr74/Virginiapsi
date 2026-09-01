@@ -45,6 +45,7 @@ const appointment = {
 function snapshot(): MyDaySnapshot {
   return {
     greeting: { prefix: "Bom dia", professionalName: "Ana", quote: null },
+    professionalPhotoUrl: null,
     timezone: "America/Sao_Paulo",
     roleLabel: "Psicóloga",
     clinicName: "Consultório Serena",

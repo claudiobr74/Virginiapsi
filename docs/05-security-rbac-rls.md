@@ -81,6 +81,7 @@ Buckets privados, por exemplo:
 - `clinical-documents`
 - `consents`
 - `patient-attachments`
+- `practice-assets` (retrato da profissional; zero policies em `storage.objects`; leitura só por signed URL)
 - `knowledge-sources`
 - `session-audio-fallback` (se ativado)
 

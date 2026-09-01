@@ -43,7 +43,7 @@ Criar migrations SQL versionadas, normalizadas e alinhadas ao modelo de domínio
 - quote
 - session_duration_minutes
 - monthly_goal
-- photo_path
+- photo_path text nullable — objeto no bucket `practice-assets` (`{organization_id}/professional/…`), retrato da profissional mostrado no Meu Dia junto ao nome. Só a administradora grava; membros leem o path via `organization_shell_settings`. Links só via signed URL.
 - signature_path
 - inactivity_timeout_minutes
 - secretary_finance_access: none | view | manage (default `none`)

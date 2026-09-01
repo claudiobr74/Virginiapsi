@@ -58,7 +58,7 @@ Tela mais operacional do produto.
 
 Conteúdos:
 
-- saudação personalizável, nome da profissional e frase curta;
+- saudação personalizável, foto profissional junto ao nome e frase curta;
 - próxima sessão em destaque;
 - linha do tempo de hoje;
 - status de confirmação;
@@ -325,7 +325,7 @@ Subabas:
 
 Seções:
 
-- Meu Perfil
+- Meu Perfil — nome de exibição e upload da foto profissional (aparece no Meu Dia, junto ao nome)
 - Consultório
 - Aparência
 - Segurança

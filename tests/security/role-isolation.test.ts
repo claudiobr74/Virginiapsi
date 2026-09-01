@@ -71,6 +71,7 @@ describe("isolamento por papel", () => {
           "inactivity_timeout_minutes",
           "organization_id",
           "organization_name",
+          "photo_path",
           "professional_name",
           "quote",
           "session_duration_minutes",

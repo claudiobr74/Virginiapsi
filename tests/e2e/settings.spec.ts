@@ -98,6 +98,30 @@ test.describe("Configurações", () => {
     ).toBeVisible();
   });
 
+  test("admin envia foto profissional e vê no Meu Dia junto ao nome", async ({ page }) => {
+    await loginViaUi(page);
+    await page.goto("/app/settings");
+    await page.getByRole("tab", { name: "Meu Perfil" }).click();
+
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Enviar foto" }).click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({
+      name: "retrato.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "base64",
+      ),
+    });
+    await expect(page.getByText("Foto profissional atualizada.")).toBeVisible();
+    await expect(page.getByRole("img", { name: /Foto de / })).toBeVisible();
+
+    await page.goto("/app");
+    await expect(page.getByRole("heading", { name: /Ana Serena/ })).toBeVisible();
+    await expect(page.getByRole("img", { name: /Foto de Ana Serena/ })).toBeVisible();
+  });
+
   test("eliminação exige a frase correta", async ({ page }) => {
     await loginViaUi(page);
     await page.goto("/app/settings");

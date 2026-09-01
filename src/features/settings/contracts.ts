@@ -132,6 +132,7 @@ export const practiceSettingsRowSchema = z.object({
   company_name: nullableText,
   greeting_prefix: nullableText,
   quote: nullableText,
+  photo_path: nullableText,
   session_duration_minutes: z.coerce.number().int().optional().default(50),
   monthly_goal: z.union([z.string(), z.number()]).nullable().optional().default(null),
   inactivity_timeout_minutes: z.coerce.number().int().optional().default(15),
@@ -221,12 +222,15 @@ export interface SettingsSnapshot {
   secretaryFinanceAccess: SecretaryFinanceAccess;
   documentBranding?: import("@/features/documents/branding-contracts").DocumentBrandingRow | null;
   documentLogos?: import("@/features/documents/branding-contracts").DocumentLogoRow[];
+  professionalPhotoUrl?: string | null;
 }
 
 export interface SettingsActionResult {
   error?: string;
   id?: string;
   url?: string;
+  path?: string;
+  token?: string;
 }
 
 export interface EliminationPreviewResult {

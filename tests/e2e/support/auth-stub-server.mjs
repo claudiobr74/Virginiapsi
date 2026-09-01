@@ -1192,6 +1192,7 @@ const server = createServer(async (req, res) => {
         session_duration_minutes:
           practiceSettingsByOrg.get(body.org_id)?.session_duration_minutes ??
           organization.session_duration_minutes,
+        photo_path: practiceSettingsByOrg.get(body.org_id)?.photo_path ?? null,
         greeting_prefix: practiceSettingsByOrg.get(body.org_id)?.greeting_prefix ?? null,
         quote: practiceSettingsByOrg.get(body.org_id)?.quote ?? null,
       },
