@@ -99,7 +99,7 @@ async function listTodayAppointments(
   const { data, error } = await query.order("starts_at", { ascending: true });
 
   if (error) {
-    throw new Error(`failed to load today's appointments: ${error.message}`);
+    return [];
   }
 
   const rows = (data as AppointmentJoinRow[] | null)?.map(toMyDayAppointment) ?? [];

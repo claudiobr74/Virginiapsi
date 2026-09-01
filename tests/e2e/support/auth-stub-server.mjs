@@ -806,6 +806,18 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Playwright-only hook: toggle the seeded admin Google connection so Meu Dia
+  // and Agenda can share the same visibility rule (connected → TESSELI +
+  // GOOGLE_EXTERNAL). Always reset to disconnected in the test `finally`.
+  if (pathname === "/e2e/google-connection" && req.method === "POST") {
+    const body = await readBody(req);
+    const status = body.status === "connected" ? "connected" : "disconnected";
+    const current = getConnection(ADMIN_ORG_ID);
+    connectionsByOrg.set(ADMIN_ORG_ID, { ...current, status });
+    json(res, 200, { organization_id: ADMIN_ORG_ID, status });
+    return;
+  }
+
   // ------------------------------------------- Storage (Fase 8/9) ---
   // Minimal stand-ins for the Storage endpoints the admin/browser clients
   // call — just enough to exercise upload/download UI flows end to end.

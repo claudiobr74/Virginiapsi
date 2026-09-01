@@ -1,6 +1,18 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginViaUi } from "./support/fixtures";
 
+async function setStubGoogleConnection(status: "connected" | "disconnected") {
+  const port = process.env.AUTH_STUB_PORT ?? "54331";
+  const response = await fetch(`http://127.0.0.1:${port}/e2e/google-connection`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) {
+    throw new Error(`failed to set stub google connection: ${response.status}`);
+  }
+}
+
 async function openPatient(page: Page, preferredName: string): Promise<string> {
   await page.goto("/app/patients");
   await page.getByText(preferredName, { exact: true }).click();
@@ -30,7 +42,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
     const todayAgenda = page.locator("section").filter({
       has: page.getByRole("heading", { name: "Agenda de Hoje" }),
     });
-    await expect(todayAgenda.getByText("Beatriz • PAC-001")).toBeVisible();
+    await expect(todayAgenda.getByText("Beatriz • PAC-001").first()).toBeVisible();
     await expect(page.getByText("Reunião do conselho regional")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Atendimento Avulso" })).toBeVisible();
     await expect(page.getByText("Sessões esta semana")).toBeVisible();
@@ -76,12 +88,50 @@ test.describe("Meu Dia — dashboard operacional", () => {
   test("confirma a consulta gerenciada a partir da timeline", async ({ page }) => {
     await loginViaUi(page);
 
-    const row = page.getByRole("listitem").filter({ hasText: "Beatriz • PAC-001" });
-    await expect(row).toBeVisible();
-    const confirmButton = row.getByRole("button", { name: "Confirmar" });
-    if ((await confirmButton.count()) > 0) {
-      await confirmButton.click();
+    const scheduled = page
+      .getByRole("listitem")
+      .filter({ hasText: "Beatriz • PAC-001" })
+      .filter({ hasText: "Agendada" });
+    if ((await scheduled.count()) > 0) {
+      await scheduled.getByRole("button", { name: "Confirmar" }).click();
     }
-    await expect(row.getByText("Confirmada")).toBeVisible();
+    await expect(
+      page
+        .getByRole("listitem")
+        .filter({ hasText: "Beatriz • PAC-001" })
+        .filter({ hasText: "Confirmada" }),
+    ).toBeVisible();
+  });
+
+  test("Google conectado mostra evento externo no Meu Dia e na Agenda, sem ações clínicas", async ({
+    page,
+  }) => {
+    await loginViaUi(page);
+    try {
+      await setStubGoogleConnection("connected");
+      await page.reload();
+
+      const googleRow = page
+        .getByRole("listitem")
+        .filter({ hasText: "Reunião do conselho regional" });
+      await expect(googleRow).toBeVisible();
+      await expect(googleRow.getByText("Google externo")).toBeVisible();
+      await expect(googleRow).toHaveAttribute("data-appointment-visual", "active");
+      await expect(googleRow).toHaveCSS("border-style", "dashed");
+      await expect(googleRow.getByRole("button", { name: "Confirmar" })).toHaveCount(0);
+      await expect(googleRow.getByRole("button", { name: "Atender" })).toHaveCount(0);
+      await expect(googleRow.getByRole("button", { name: "Marcar Falta" })).toHaveCount(0);
+      await expect(googleRow.getByRole("link", { name: /WhatsApp/ })).toHaveCount(0);
+
+      await page.goto("/app/agenda");
+      const agendaEvent = page
+        .locator("[data-appointment-origin='GOOGLE_EXTERNAL']")
+        .filter({ hasText: "Reunião do conselho regional" });
+      await expect(agendaEvent.first()).toBeVisible();
+      await expect(agendaEvent.first()).toHaveAttribute("data-appointment-visual", "active");
+      await expect(agendaEvent.first().getByText("Google externo")).toBeVisible();
+    } finally {
+      await setStubGoogleConnection("disconnected");
+    }
   });
 });

@@ -135,7 +135,7 @@ function expectTone(name: string, tone: string, classes: string[]) {
 }
 
 describe("Agenda — cores por status em dia/semana/mês", () => {
-  it("DayView pinta A verde, B azul, C vermelho suave, D neutro", () => {
+  it("DayView pinta A verde, B azul, C vermelho suave, D verde tracejado", () => {
     render(
       <DayView
         appointments={appointments}
