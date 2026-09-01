@@ -42,11 +42,12 @@ export function TranscriptPanel({
     })),
   );
 
-  const { state, errorMessage, model, downloadPercent, start, stop } = useLocalTranscription({
-    sessionId,
-    patientId,
-    onSegment: (segment) => setSegments((prev) => [...prev, segment]),
-  });
+  const { state, errorMessage, segmentWarning, model, downloadPercent, start, stop } =
+    useLocalTranscription({
+      sessionId,
+      patientId,
+      onSegment: (segment) => setSegments((prev) => [...prev, segment]),
+    });
 
   const isRecording = state === "recording" || state === "preparing" || state === "stopping";
   const meta = STATE_LABEL[state] ?? STATE_LABEL.idle;
@@ -111,6 +112,16 @@ export function TranscriptPanel({
       {errorMessage ? (
         <p role="alert" className="rounded-xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed">
           {errorMessage}
+        </p>
+      ) : null}
+
+      {segmentWarning ? (
+        <p
+          role="status"
+          className="flex items-center gap-2 rounded-xl border border-attention/30 bg-attention-bg px-4 py-3 text-sm text-attention"
+        >
+          <TriangleAlert className="size-4 shrink-0" aria-hidden />
+          {segmentWarning}
         </p>
       ) : null}
 

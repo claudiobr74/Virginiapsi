@@ -7,6 +7,14 @@ import { detectTranscriptionDevice } from "@/features/sessions/transcription/dev
 import { loadLocalTranscriber, type LocalTranscriber } from "@/features/sessions/transcription/local-pipeline";
 import { selectLocalModel, type LocalModelConfig } from "@/features/sessions/transcription/model-catalog";
 import type { TranscriptSegmentOutput } from "@/features/sessions/transcription/provider";
+import {
+  CAPTURE_GRANT_FALLBACK_MESSAGE,
+  readCaptureGrantErrorMessage,
+} from "@/features/sessions/transcription/grant-error-message";
+import {
+  persistSessionSegment,
+  SEGMENT_PERSISTENCE_WARNING,
+} from "@/features/sessions/transcription/persist-session-segment";
 
 // Vocabulary matches docs/06-integrations.md §3 "Estados de captura".
 export type CaptureState =
@@ -37,11 +45,20 @@ export interface UseLocalTranscriptionOptions {
 export interface UseLocalTranscriptionResult {
   state: CaptureState;
   errorMessage: string | null;
+  /** Non-fatal persistence/decode warning; capture can continue. */
+  segmentWarning: string | null;
   model: LocalModelConfig | null;
   /** 0-100 while the model/runtime download is in progress, otherwise null. */
   downloadPercent: number | null;
   start: () => Promise<void>;
   stop: () => void;
+}
+
+const CHUNK_TRANSCRIBE_WARNING =
+  "Um trecho não pôde ser transcrito. A transcrição continua.";
+
+function stopMediaStream(stream: MediaStream | null): void {
+  stream?.getTracks().forEach((track) => track.stop());
 }
 
 /**
@@ -63,6 +80,7 @@ export function useLocalTranscription({
 }: UseLocalTranscriptionOptions): UseLocalTranscriptionResult {
   const [state, setState] = useState<CaptureState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [segmentWarning, setSegmentWarning] = useState<string | null>(null);
   const [model, setModel] = useState<LocalModelConfig | null>(null);
   const [downloadPercent, setDownloadPercent] = useState<number | null>(null);
 
@@ -74,13 +92,23 @@ export function useLocalTranscription({
   const sequenceRef = useRef(0);
   const elapsedMsRef = useRef(0);
 
+  const resetCaptureRefs = useCallback(() => {
+    captureRef.current?.stop();
+    stopMediaStream(streamRef.current);
+    captureRef.current = null;
+    streamRef.current = null;
+    transcriberRef.current = null;
+    grantRef.current = null;
+  }, []);
+
   const fail = useCallback(
     (message: string) => {
+      resetCaptureRefs();
       setErrorMessage(message);
       setState("error");
       onError?.(message);
     },
-    [onError],
+    [onError, resetCaptureRefs],
   );
 
   const processChunk = useCallback(
@@ -93,16 +121,16 @@ export function useLocalTranscription({
       }
 
       const startMs = elapsedMsRef.current;
+      let audioContext: AudioContext | null = null;
       try {
         const arrayBuffer = await blob.arrayBuffer();
-        const audioContext = new AudioContext();
+        audioContext = new AudioContext();
         const decoded = await audioContext.decodeAudioData(arrayBuffer);
         const channels = Array.from({ length: decoded.numberOfChannels }, (_, index) =>
           decoded.getChannelData(index),
         );
         const audio = resampleToMono16k(channels, decoded.sampleRate, 16000);
         const durationMs = Math.round(decoded.duration * 1000);
-        await audioContext.close();
 
         const output = await transcriber(audio, {
           language: "pt",
@@ -118,6 +146,10 @@ export function useLocalTranscription({
           return;
         }
 
+        // Reserve the sequence before awaiting persistence so overlapping
+        // chunks cannot share a number. A failed persist leaves a gap rather
+        // than mapping a later chunk onto a sequence the server may already
+        // have stored.
         const sequence = sequenceRef.current;
         sequenceRef.current += 1;
 
@@ -129,27 +161,35 @@ export function useLocalTranscription({
           provider: activeModel.device === "webgpu" ? "local-webgpu" : "local-wasm",
         };
 
-        await fetch("/api/session-capture/segment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            grant,
-            sessionId,
-            patientId,
-            sequence: segment.sequence,
-            text: segment.text,
-            isFinal: true,
-            startMs: segment.startMs,
-            endMs: segment.endMs,
-            provider: segment.provider,
-          }),
+        const persisted = await persistSessionSegment({
+          grant,
+          sessionId,
+          patientId,
+          sequence: segment.sequence,
+          text: segment.text,
+          isFinal: true,
+          startMs: segment.startMs,
+          endMs: segment.endMs,
+          provider: segment.provider,
         });
 
+        if (!persisted.ok) {
+          setSegmentWarning(SEGMENT_PERSISTENCE_WARNING);
+          return;
+        }
+
+        setSegmentWarning(null);
         onSegment(segment);
       } catch {
-        // A single failed chunk must not take down the whole session; the
-        // next chunk keeps the capture going (docs/01 §Transcrição: "nunca
-        // depender de um payload único de áudio").
+        // A single failed decode/transcribe must not take down the whole
+        // session; the next chunk keeps the capture going (docs/01 §Transcrição:
+        // "nunca depender de um payload único de áudio"). The failure is
+        // visible as a non-fatal warning — never silent.
+        setSegmentWarning(CHUNK_TRANSCRIBE_WARNING);
+      } finally {
+        if (audioContext) {
+          await audioContext.close().catch(() => undefined);
+        }
       }
     },
     [sessionId, patientId, onSegment],
@@ -158,18 +198,40 @@ export function useLocalTranscription({
   const start = useCallback(async () => {
     setState("preparing");
     setErrorMessage(null);
+    setSegmentWarning(null);
 
     const grantResponse = await fetch("/api/session-capture/grant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ patientId, sessionId }),
-    });
-    if (!grantResponse.ok) {
-      const body = await grantResponse.json().catch(() => ({}) as { message?: string });
-      fail(body.message ?? "Não foi possível autorizar a captura.");
+    }).catch(() => null);
+    if (!grantResponse) {
+      fail(CAPTURE_GRANT_FALLBACK_MESSAGE);
       return;
     }
-    const { grant } = (await grantResponse.json()) as { grant: string };
+    if (!grantResponse.ok) {
+      fail(await readCaptureGrantErrorMessage(grantResponse));
+      return;
+    }
+
+    let grantPayload: unknown;
+    try {
+      grantPayload = await grantResponse.json();
+    } catch {
+      fail(CAPTURE_GRANT_FALLBACK_MESSAGE);
+      return;
+    }
+    const grant =
+      grantPayload &&
+      typeof grantPayload === "object" &&
+      "grant" in grantPayload &&
+      typeof (grantPayload as { grant: unknown }).grant === "string"
+        ? (grantPayload as { grant: string }).grant
+        : "";
+    if (!grant) {
+      fail(CAPTURE_GRANT_FALLBACK_MESSAGE);
+      return;
+    }
     grantRef.current = grant;
 
     const gpu = (navigator as unknown as { gpu?: { requestAdapter: () => Promise<unknown> } })
@@ -196,8 +258,9 @@ export function useLocalTranscription({
         onProgress: ({ percent }) => setDownloadPercent(percent),
       });
     } catch {
-      stream.getTracks().forEach((track) => track.stop());
+      stopMediaStream(stream);
       streamRef.current = null;
+      grantRef.current = null;
       setState("degraded");
       return;
     } finally {
@@ -207,27 +270,43 @@ export function useLocalTranscription({
     modelRef.current = selected;
     setModel(selected);
 
-    const capture = new ChunkedMicCapture({
-      stream,
-      chunkMs,
-      onChunk: (blob) => {
-        void processChunk(blob);
-      },
-      onError: () => fail("Falha na captura de áudio."),
-    });
-    captureRef.current = capture;
-    capture.start();
-    setState("recording");
+    try {
+      const capture = new ChunkedMicCapture({
+        stream,
+        chunkMs,
+        onChunk: (blob) => {
+          void processChunk(blob);
+        },
+        onError: () => fail("Falha na captura de áudio."),
+      });
+      captureRef.current = capture;
+      capture.start();
+      setState("recording");
+    } catch {
+      stopMediaStream(stream);
+      streamRef.current = null;
+      grantRef.current = null;
+      transcriberRef.current = null;
+      fail("Falha na captura de áudio.");
+    }
   }, [patientId, sessionId, chunkMs, fail, processChunk]);
 
   const stop = useCallback(() => {
     setState("stopping");
     captureRef.current?.stop();
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+    stopMediaStream(streamRef.current);
     captureRef.current = null;
     streamRef.current = null;
     setState("completed");
   }, []);
 
-  return { state, errorMessage, model, downloadPercent, start, stop };
+  return {
+    state,
+    errorMessage,
+    segmentWarning,
+    model,
+    downloadPercent,
+    start,
+    stop,
+  };
 }

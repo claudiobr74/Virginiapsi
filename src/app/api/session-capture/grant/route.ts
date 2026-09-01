@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 import {
   authorizeCaptureCapability,
@@ -21,6 +22,38 @@ const bodySchema = z.object({
   sessionId: z.string().uuid(),
 });
 
+const CAPTURE_GRANT_INTERNAL_MESSAGE =
+  "Não foi possível autorizar a transcrição agora.";
+
+function correlationIdFromRequest(request: NextRequest): string {
+  return (
+    request.headers.get("x-vercel-id") ??
+    request.headers.get("x-request-id") ??
+    crypto.randomUUID()
+  );
+}
+
+function errorCodeOf(error: unknown): string | number | null {
+  if (!error || typeof error !== "object" || !("code" in error)) {
+    return null;
+  }
+  const code = (error as { code: unknown }).code;
+  return typeof code === "string" || typeof code === "number" ? code : null;
+}
+
+function logCaptureGrantInternalError(error: unknown, correlationId: string): void {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      route: "/api/session-capture/grant",
+      operation: "issue_capture_grant",
+      correlationId,
+      errorClass: error instanceof Error ? error.constructor.name : typeof error,
+      errorCode: errorCodeOf(error),
+    }),
+  );
+}
+
 /**
  * Session capture grant — authorizes activating the microphone for on-device
  * transcription (docs/22-transcription-provider-decision.md). The browser
@@ -29,38 +62,54 @@ const bodySchema = z.object({
  * persistence call.
  */
 export async function POST(request: NextRequest) {
-  const ip = clientIpFromHeaders(request.headers);
-  const rate = consumeCaptureGrantRateLimit(ip);
-  if (!rate.allowed) {
-    return tooManyRequestsResponse(rate.retryAfterSeconds);
-  }
+  const correlationId = correlationIdFromRequest(request);
 
-  const limited = await readLimitedJson(request, BODY_LIMIT_BYTES.jsonCapture);
-  if (!limited.ok) {
-    return limited.status === 413 ? payloadTooLargeResponse() : invalidJsonResponse();
-  }
+  try {
+    const ip = clientIpFromHeaders(request.headers);
+    const rate = consumeCaptureGrantRateLimit(ip);
+    if (!rate.allowed) {
+      return tooManyRequestsResponse(rate.retryAfterSeconds);
+    }
 
-  const parsed = bodySchema.safeParse(limited.value);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "invalid_request" }, { status: 400 });
-  }
+    const limited = await readLimitedJson(request, BODY_LIMIT_BYTES.jsonCapture);
+    if (!limited.ok) {
+      return limited.status === 413 ? payloadTooLargeResponse() : invalidJsonResponse();
+    }
 
-  const gate = await authorizeCaptureCapability(
-    parsed.data.patientId,
-    parsed.data.sessionId,
-    "session_capture_grant",
-  );
+    const parsed = bodySchema.safeParse(limited.value);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+    }
 
-  if (!gate.allowed) {
+    const gate = await authorizeCaptureCapability(
+      parsed.data.patientId,
+      parsed.data.sessionId,
+      "session_capture_grant",
+    );
+
+    if (!gate.allowed) {
+      return NextResponse.json(
+        { error: gate.reason, message: gate.message },
+        { status: gate.status },
+      );
+    }
+
+    const token = issueCaptureGrant(gate, "session_capture_grant");
+    return NextResponse.json({
+      grant: token,
+      expiresInMs: CAPTURE_GRANT_TTL_MS,
+    });
+  } catch (error) {
+    // requireOrgContext/requireUser use redirect() — that throw must escape
+    // so unauthenticated callers still get 307 /login, not a sanitised 500.
+    unstable_rethrow(error);
+    logCaptureGrantInternalError(error, correlationId);
     return NextResponse.json(
-      { error: gate.reason, message: gate.message },
-      { status: gate.status },
+      {
+        error: "capture_grant_failed",
+        message: CAPTURE_GRANT_INTERNAL_MESSAGE,
+      },
+      { status: 500 },
     );
   }
-
-  const token = issueCaptureGrant(gate, "session_capture_grant");
-  return NextResponse.json({
-    grant: token,
-    expiresInMs: CAPTURE_GRANT_TTL_MS,
-  });
 }
