@@ -57,8 +57,8 @@ test.describe("Diretório e Meu Dia — retratos", () => {
     expect(heroBox).toBeTruthy();
     expect(Math.abs((photoBox?.width ?? 0) - (photoBox?.height ?? 0))).toBeLessThan(2);
     if (isMobile) {
-      expect(photoBox?.width ?? 0).toBeGreaterThanOrEqual(78);
-      expect(photoBox?.width ?? 0).toBeLessThanOrEqual(92);
+      expect(photoBox?.width ?? 0).toBeGreaterThanOrEqual(92);
+      expect(photoBox?.width ?? 0).toBeLessThanOrEqual(100);
     } else {
       expect(photoBox?.width ?? 0).toBeGreaterThanOrEqual(108);
       expect(photoBox?.width ?? 0).toBeLessThanOrEqual(116);

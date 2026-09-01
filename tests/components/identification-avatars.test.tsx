@@ -33,7 +33,7 @@ describe("avatars de identificação", () => {
     const { container: hero } = render(<ProfessionalAvatar name="Ana" size="hero" />);
     const { container: md } = render(<ProfessionalAvatar name="Ana" size="md" />);
     const { container: lg } = render(<ProfessionalAvatar name="Ana" size="lg" />);
-    expect(hero.firstElementChild?.className).toContain("size-20");
+    expect(hero.firstElementChild?.className).toContain("size-24");
     expect(hero.firstElementChild?.className).toContain("lg:size-28");
     expect(md.firstElementChild?.className).toMatch(/\bsize-12\b/);
     expect(lg.firstElementChild?.className).toMatch(/\bsize-20\b/);

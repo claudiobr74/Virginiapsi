@@ -21,26 +21,45 @@ function pngChunk(type, data) {
   return Buffer.concat([len, typeBuf, data, crc]);
 }
 
-/** Deterministic circular sage portrait so signed-URL <img> tags render in E2E. */
+/** Warm stylized portrait — must not match the sage initial fallback. */
 function e2ePortraitPng(size = 128) {
   const raw = Buffer.alloc(size * (1 + size * 3));
   const radius = size / 2 - 2;
+  const cx = size / 2;
+  const cy = size / 2;
   for (let y = 0; y < size; y++) {
     const row = y * (1 + size * 3);
     raw[row] = 0;
     for (let x = 0; x < size; x++) {
-      const dx = x + 0.5 - size / 2;
-      const dy = y + 0.5 - size / 2;
+      const dx = x + 0.5 - cx;
+      const dy = y + 0.5 - cy;
       const inside = dx * dx + dy * dy <= radius * radius;
       const i = row + 1 + x * 3;
-      if (inside) {
-        raw[i] = 126;
-        raw[i + 1] = 154;
-        raw[i + 2] = 132;
-      } else {
+      if (!inside) {
         raw[i] = 245;
         raw[i + 1] = 247;
         raw[i + 2] = 242;
+        continue;
+      }
+      const hair = y < size * 0.42 || (y < size * 0.55 && Math.abs(dx) > size * 0.28);
+      const leftEye = (x - size * 0.38) ** 2 + (y - size * 0.52) ** 2 < (size * 0.035) ** 2;
+      const rightEye = (x - size * 0.62) ** 2 + (y - size * 0.52) ** 2 < (size * 0.035) ** 2;
+      const mouth =
+        y > size * 0.68 &&
+        y < size * 0.73 &&
+        Math.abs(dx) < size * 0.12;
+      if (leftEye || rightEye || mouth) {
+        raw[i] = 62;
+        raw[i + 1] = 38;
+        raw[i + 2] = 58;
+      } else if (hair) {
+        raw[i] = 92;
+        raw[i + 1] = 58;
+        raw[i + 2] = 122;
+      } else {
+        raw[i] = 232;
+        raw[i + 1] = 176;
+        raw[i + 2] = 148;
       }
     }
   }
