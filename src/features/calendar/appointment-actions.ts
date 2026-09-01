@@ -15,6 +15,11 @@ import {
 } from "@/features/calendar/appointment-queries";
 import { getConnection } from "@/features/calendar/connection-queries";
 import {
+  persistGoogleCreateLink,
+  resultAfterGoogleDeleteAndLocal,
+  resultAfterGooglePatchAndLocal,
+} from "@/features/calendar/google-sync-compensation";
+import {
   deleteGoogleEventIgnoring404,
   googleEventWriteBody,
 } from "@/features/calendar/google-write";
@@ -77,7 +82,7 @@ async function logSyncEvent(input: {
   errorMessage?: string;
 }) {
   const supabase = await createSupabaseServerClient();
-  await supabase.rpc("log_calendar_sync_event", {
+  const { error } = await supabase.rpc("log_calendar_sync_event", {
     org_id: input.organizationId,
     direction: input.direction,
     action: input.action,
@@ -86,6 +91,9 @@ async function logSyncEvent(input: {
     response_status: input.responseStatus ?? null,
     error_message: input.errorMessage ?? null,
   });
+  if (error) {
+    return;
+  }
 }
 
 function revalidateAgenda() {
@@ -135,10 +143,7 @@ async function updateExternalMirror(input: {
     p_patient_id: input.patientId ?? null,
     p_modality: input.modality ?? null,
   });
-  if (error) {
-    return { error: "Não foi possível atualizar o espelho local do agendamento." };
-  }
-  return {};
+  return resultAfterGooglePatchAndLocal(error);
 }
 
 async function deleteExternalMirror(
@@ -150,10 +155,7 @@ async function deleteExternalMirror(
     org_id: organizationId,
     p_appointment_id: appointmentId,
   });
-  if (error) {
-    return { error: "Não foi possível remover o agendamento local." };
-  }
-  return {};
+  return resultAfterGoogleDeleteAndLocal(error);
 }
 
 async function pushNewGoogleEvent(input: {
@@ -180,18 +182,58 @@ async function pushNewGoogleEvent(input: {
       }),
     );
 
-    await supabase
-      .from("appointments")
-      .update({
-        google_calendar_id: connection.calendar_id,
-        google_event_id: event.id,
-        google_etag: event.etag ?? null,
-        google_color_id: event.colorId ?? null,
-        sync_status: "synced",
-        last_synced_at: new Date().toISOString(),
-      })
-      .eq("id", input.appointmentId)
-      .eq("origin", "TESSELI");
+    const calendarId = connection.calendar_id;
+    const link = await persistGoogleCreateLink({
+      appointmentId: input.appointmentId,
+      googleEventId: event.id,
+      persist: async () => {
+        const { error } = await supabase
+          .from("appointments")
+          .update({
+            google_calendar_id: calendarId,
+            google_event_id: event.id,
+            google_etag: event.etag ?? null,
+            google_color_id: event.colorId ?? null,
+            sync_status: "synced",
+            last_synced_at: new Date().toISOString(),
+          })
+          .eq("id", input.appointmentId)
+          .eq("origin", "TESSELI");
+        return { error };
+      },
+      compensateDelete: async () => {
+        try {
+          await deleteGoogleEventIgnoring404(client, calendarId, event.id);
+          return { ok: true };
+        } catch {
+          return { ok: false };
+        }
+      },
+      markLocalError: async () => {
+        const { error } = await supabase
+          .from("appointments")
+          .update({ sync_status: "error" })
+          .eq("id", input.appointmentId)
+          .eq("origin", "TESSELI");
+        return { error };
+      },
+    });
+
+    if (!link.ok) {
+      await logSyncEvent({
+        organizationId: input.organizationId,
+        direction: "push",
+        action: link.compensated ? "create_event" : "PARTIAL_SYNC_FAILURE",
+        appointmentId: input.appointmentId,
+        requestPayload: {
+          appointment_id: input.appointmentId,
+          google_event_id: event.id,
+          compensated: link.compensated,
+        },
+        errorMessage: link.syncError,
+      });
+      return { syncError: link.syncError };
+    }
 
     await logAuditEvent({
       organizationId: input.organizationId,
@@ -209,11 +251,20 @@ async function pushNewGoogleEvent(input: {
     });
     return {};
   } catch (error) {
-    await supabase
+    const { error: markError } = await supabase
       .from("appointments")
       .update({ sync_status: "error" })
       .eq("id", input.appointmentId)
       .eq("origin", "TESSELI");
+    if (markError) {
+      await logSyncEvent({
+        organizationId: input.organizationId,
+        direction: "push",
+        action: "create_event",
+        appointmentId: input.appointmentId,
+        errorMessage: markError.message,
+      });
+    }
     await logSyncEvent({
       organizationId: input.organizationId,
       direction: "push",
@@ -519,7 +570,7 @@ export async function rescheduleAppointmentAction(
         .select("id")
         .single();
       if (error || !data) {
-        return { error: "Não foi possível remarcar a consulta agora." };
+        return resultAfterGooglePatchAndLocal(error ?? "missing_row");
       }
     }
   } else if (appointment.origin === "TESSELI") {

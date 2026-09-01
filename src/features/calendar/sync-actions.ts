@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { persistGoogleCreateLink, LOCAL_MIRROR_UPDATE_ERROR } from "@/features/calendar/google-sync-compensation";
+import { deleteGoogleEventIgnoring404 } from "@/features/calendar/google-write";
 import { getAppointment } from "@/features/calendar/appointment-queries";
 import { getConnection } from "@/features/calendar/connection-queries";
 import { deriveImportedAppointmentStatus } from "@/features/calendar/google-event-status";
@@ -26,7 +28,7 @@ async function logSyncEvent(input: {
   errorMessage?: string;
 }) {
   const supabase = await createSupabaseServerClient();
-  await supabase.rpc("log_calendar_sync_event", {
+  const { error } = await supabase.rpc("log_calendar_sync_event", {
     org_id: input.organizationId,
     direction: input.direction,
     action: input.action,
@@ -35,6 +37,9 @@ async function logSyncEvent(input: {
     response_status: input.responseStatus ?? null,
     error_message: input.errorMessage ?? null,
   });
+  if (error) {
+    return;
+  }
 }
 
 /**
@@ -60,6 +65,7 @@ export async function pushAppointmentToGoogleAction(
   if (!connection || connection.status !== "connected" || !connection.calendar_id) {
     return { error: "Conecte e selecione um calendário do Google primeiro." };
   }
+  const calendarId = connection.calendar_id;
 
   const eventBody = {
     summary: appointment.summary_snapshot ?? "Consulta VirgíniaPsi",
@@ -69,26 +75,87 @@ export async function pushAppointmentToGoogleAction(
 
   try {
     const client = await getCalendarClientForOrganization(organizationId);
-    const event = appointment.google_event_id
-      ? await client.patchEvent(connection.calendar_id, appointment.google_event_id, eventBody)
-      : await client.insertEvent(connection.calendar_id, eventBody);
+    const wasInsert = !appointment.google_event_id;
+    const event = wasInsert
+      ? await client.insertEvent(calendarId, eventBody)
+      : await client.patchEvent(calendarId, appointment.google_event_id!, eventBody);
 
     const supabase = await createSupabaseServerClient();
-    await supabase
-      .from("appointments")
-      .update({
-        google_calendar_id: connection.calendar_id,
-        google_event_id: event.id,
-        google_etag: event.etag ?? null,
-        sync_status: "synced",
-        last_synced_at: new Date().toISOString(),
-      })
-      .eq("id", appointmentId);
+    if (wasInsert) {
+      const link = await persistGoogleCreateLink({
+        appointmentId,
+        googleEventId: event.id,
+        persist: async () => {
+          const { error } = await supabase
+            .from("appointments")
+            .update({
+              google_calendar_id: calendarId,
+              google_event_id: event.id,
+              google_etag: event.etag ?? null,
+              sync_status: "synced",
+              last_synced_at: new Date().toISOString(),
+            })
+            .eq("id", appointmentId);
+          return { error };
+        },
+        compensateDelete: async () => {
+          try {
+            await deleteGoogleEventIgnoring404(client, calendarId, event.id);
+            return { ok: true };
+          } catch {
+            return { ok: false };
+          }
+        },
+        markLocalError: async () => {
+          const { error } = await supabase
+            .from("appointments")
+            .update({ sync_status: "error" })
+            .eq("id", appointmentId);
+          return { error };
+        },
+      });
+      if (!link.ok) {
+        await logSyncEvent({
+          organizationId,
+          direction: "push",
+          action: link.compensated ? "create_event" : "PARTIAL_SYNC_FAILURE",
+          appointmentId,
+          requestPayload: {
+            appointment_id: appointmentId,
+            google_event_id: event.id,
+            compensated: link.compensated,
+          },
+          errorMessage: link.syncError,
+        });
+        return { error: link.syncError };
+      }
+    } else {
+      const { error } = await supabase
+        .from("appointments")
+        .update({
+          google_calendar_id: calendarId,
+          google_event_id: event.id,
+          google_etag: event.etag ?? null,
+          sync_status: "synced",
+          last_synced_at: new Date().toISOString(),
+        })
+        .eq("id", appointmentId);
+      if (error) {
+        await logSyncEvent({
+          organizationId,
+          direction: "push",
+          action: "update_event",
+          appointmentId,
+          errorMessage: error.message,
+        });
+        return { error: LOCAL_MIRROR_UPDATE_ERROR };
+      }
+    }
 
     await logSyncEvent({
       organizationId,
       direction: "push",
-      action: appointment.google_event_id ? "update_event" : "create_event",
+      action: wasInsert ? "create_event" : "update_event",
       appointmentId,
       requestPayload: { starts_at: appointment.starts_at, ends_at: appointment.ends_at },
       responseStatus: "200",
@@ -140,7 +207,7 @@ export async function requestMeetForAppointmentAction(
       client,
     });
 
-    await supabase
+    const { error: meetWriteError } = await supabase
       .from("appointments")
       .update({
         meet_status: outcome.status,
@@ -148,6 +215,9 @@ export async function requestMeetForAppointmentAction(
         meet_url: outcome.status === "success" ? outcome.meetUrl : appointment.meet_url,
       })
       .eq("id", appointmentId);
+    if (meetWriteError) {
+      return { error: "Não foi possível salvar o status do Meet." };
+    }
 
     await logSyncEvent({
       organizationId,
@@ -229,7 +299,7 @@ export async function syncGoogleCalendarPull(
         }
 
         const status = deriveImportedAppointmentStatus(event);
-        await supabase.rpc("upsert_external_appointment", {
+        const { error: upsertError } = await supabase.rpc("upsert_external_appointment", {
           org_id: organizationId,
           p_google_calendar_id: connection.calendar_id,
           p_google_event_id: event.id,
@@ -240,16 +310,22 @@ export async function syncGoogleCalendarPull(
           p_status: status,
           p_google_color_id: event.colorId ?? null,
         });
+        if (upsertError) {
+          throw new Error(upsertError.message);
+        }
         syncedCount += 1;
       }
 
       pageToken = page.nextPageToken;
     } while (pageToken);
 
-    await supabase
+    const { error: connectionWriteError } = await supabase
       .from("google_calendar_connections")
       .update({ last_synced_at: new Date().toISOString(), last_sync_error: null })
       .eq("organization_id", organizationId);
+    if (connectionWriteError) {
+      throw new Error(connectionWriteError.message);
+    }
 
     await logSyncEvent({
       organizationId,
@@ -263,10 +339,18 @@ export async function syncGoogleCalendarPull(
     return { syncedCount };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
-    await supabase
+    const { error: syncErrorWrite } = await supabase
       .from("google_calendar_connections")
       .update({ last_sync_error: message })
       .eq("organization_id", organizationId);
+    if (syncErrorWrite) {
+      await logSyncEvent({
+        organizationId,
+        direction: "pull",
+        action: "sync_pull",
+        errorMessage: syncErrorWrite.message,
+      });
+    }
 
     await logSyncEvent({
       organizationId,

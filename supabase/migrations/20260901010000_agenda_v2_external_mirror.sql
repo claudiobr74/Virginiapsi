@@ -66,6 +66,7 @@ end;
 $$;
 
 revoke all on function public.upsert_external_appointment(uuid, text, text, text, timestamptz, timestamptz, text, public.appointment_status, text) from public;
+revoke all on function public.upsert_external_appointment(uuid, text, text, text, timestamptz, timestamptz, text, public.appointment_status, text) from anon;
 grant execute on function public.upsert_external_appointment(uuid, text, text, text, timestamptz, timestamptz, text, public.appointment_status, text) to authenticated;
 
 create or replace function public.update_external_appointment_mirror(
@@ -122,6 +123,7 @@ end;
 $$;
 
 revoke all on function public.update_external_appointment_mirror(uuid, uuid, timestamptz, timestamptz, text, public.appointment_status, text, text, uuid, public.consultation_modality) from public;
+revoke all on function public.update_external_appointment_mirror(uuid, uuid, timestamptz, timestamptz, text, public.appointment_status, text, text, uuid, public.consultation_modality) from anon;
 grant execute on function public.update_external_appointment_mirror(uuid, uuid, timestamptz, timestamptz, text, public.appointment_status, text, text, uuid, public.consultation_modality) to authenticated;
 
 create or replace function public.delete_external_appointment_mirror(
@@ -159,4 +161,5 @@ end;
 $$;
 
 revoke all on function public.delete_external_appointment_mirror(uuid, uuid) from public;
+revoke all on function public.delete_external_appointment_mirror(uuid, uuid) from anon;
 grant execute on function public.delete_external_appointment_mirror(uuid, uuid) to authenticated;
