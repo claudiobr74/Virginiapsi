@@ -12,6 +12,7 @@ import {
 import {
   parseGoogleCalendarEnv,
   parseServerEnv,
+  parseSupabaseAdminEnv,
   readIntegrationEnvFlags,
   SERVER_ONLY_ENV_KEYS,
 } from "../../src/lib/env/server-schema";
@@ -202,6 +203,50 @@ describe("contrato de ambiente", () => {
     expect(googleCalendarRedirectUri(parsed.NEXT_PUBLIC_APP_URL)).toBe(
       "https://serena-psi-beta.vercel.app/api/integrations/google/callback",
     );
+  });
+
+  it("cliente admin de Storage valida só URL e secret key", () => {
+    const parsed = parseSupabaseAdminEnv({
+      NEXT_PUBLIC_SUPABASE_URL: validPublic.NEXT_PUBLIC_SUPABASE_URL,
+      SUPABASE_SECRET_KEY: validServer.SUPABASE_SECRET_KEY,
+    });
+    expect(parsed.NEXT_PUBLIC_SUPABASE_URL).toBe(validPublic.NEXT_PUBLIC_SUPABASE_URL);
+    expect(parsed.SUPABASE_SECRET_KEY).toBe(validServer.SUPABASE_SECRET_KEY);
+    expect("TWILIO_ACCOUNT_SID" in parsed).toBe(false);
+    expect("GEMINI_API_KEY" in parsed).toBe(false);
+    expect("GOOGLE_CLIENT_ID" in parsed).toBe(false);
+    expect("CRON_SECRET" in parsed).toBe(false);
+    expect("SESSION_CAPTURE_SECRET" in parsed).toBe(false);
+  });
+
+  it("upload de foto não exige Twilio, Gemini, Google nem CRON_SECRET", () => {
+    expect(() =>
+      parseSupabaseAdminEnv({
+        NEXT_PUBLIC_SUPABASE_URL: validPublic.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_SECRET_KEY: validServer.SUPABASE_SECRET_KEY,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      parseServerEnv({
+        ...validPublic,
+        SUPABASE_SECRET_KEY: validServer.SUPABASE_SECRET_KEY,
+      }),
+    ).toThrow(/Invalid environment configuration/);
+  });
+
+  it("cliente admin falha sem vazar a secret key", () => {
+    const secret = "sb_secret_must_not_appear_in_error";
+    try {
+      parseSupabaseAdminEnv({
+        NEXT_PUBLIC_SUPABASE_URL: "not-a-url",
+        SUPABASE_SECRET_KEY: secret,
+      });
+      throw new Error("expected parseSupabaseAdminEnv to throw");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).toMatch(/Invalid environment configuration/);
+      expect(message).not.toContain(secret);
+    }
   });
 
   it("lista só os nomes das chaves faltando, sem valores", () => {

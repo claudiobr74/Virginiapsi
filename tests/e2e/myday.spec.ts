@@ -43,9 +43,9 @@ test.describe("Meu Dia — dashboard operacional", () => {
     await expect(
       page.getByRole("heading", { name: "Agenda de Hoje" }),
     ).toBeVisible();
-    const todayAgenda = page.locator("section").filter({
-      has: page.getByRole("heading", { name: "Agenda de Hoje" }),
-    });
+    // Visual Refresh V2 moved the heading into Card; the list lives in the
+    // labelled section, so filtering `section` by the heading matched nothing.
+    const todayAgenda = page.locator("section[aria-labelledby='timeline-heading']");
     await expect(todayAgenda.getByText("Beatriz • PAC-001").first()).toBeVisible();
     await expect(page.getByText("Reunião do conselho regional")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Atendimento Avulso" })).toBeVisible();
@@ -170,9 +170,13 @@ test.describe("Meu Dia — dashboard operacional", () => {
     await expect(nextSession).toBeVisible();
     await expect(agenda).toBeVisible();
 
+    const primaryColumn = page.locator("[data-myday-region='primary']");
+    const nextCard = primaryColumn.locator(":scope > *").nth(0);
+    const agendaCard = primaryColumn.locator(":scope > *").nth(1);
+
     const boxes = {
-      next: await nextSession.boundingBox(),
-      agenda: await agenda.boundingBox(),
+      next: await nextCard.boundingBox(),
+      agenda: await agendaCard.boundingBox(),
       finalize: await finalize.boundingBox(),
       finance: await finance.boundingBox(),
       tasks: await tasks.boundingBox(),
@@ -193,6 +197,8 @@ test.describe("Meu Dia — dashboard operacional", () => {
 
     const viewport = page.viewportSize();
     if ((viewport?.width ?? 0) >= 1024) {
+      // Compare the column cards, not the inner "Próxima sessão" badge vs the
+      // Card heading (the heading is indented by ToneIcon ≈ 36px + gap).
       expect(Math.abs(agendaBox.x - nextBox.x)).toBeLessThan(48);
       expect(finalizeBox.x).toBeGreaterThan(nextBox.x + nextBox.width * 0.4);
       expect(finalizeBox.y).toBeLessThan(agendaBox.y);

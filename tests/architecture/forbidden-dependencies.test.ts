@@ -116,6 +116,9 @@ describe("arquitetura proibida", () => {
     const adminClient = readFileSync(adminClientPath, "utf8");
     expect(adminClient).toMatch(/^import "server-only";/);
 
+    expect(adminClient).toMatch(/getSupabaseAdminEnv/);
+    expect(adminClient).not.toMatch(/getServerEnv/);
+
     // A secret key contorna a RLS, então cada consumidor futuro precisa ser
     // adicionado aqui de propósito — nunca por acidente de import.
     //
@@ -221,13 +224,17 @@ describe("arquitetura proibida", () => {
   });
 
   it("preserva o arquivo oficial da logo sem alteração de bytes", () => {
-    const logoPath = path.join(ROOT, "public/brand/virginia-psi-mark.png");
-    const digest = createHash("sha256")
-      .update(readFileSync(logoPath))
-      .digest("hex");
-    expect(digest).toBe(
-      "d23c0e4095b37c4cd7c6cc2695fbc376bd13ace939c7b5e75d651c6dc1575184",
-    );
+    const original = "d23c0e4095b37c4cd7c6cc2695fbc376bd13ace939c7b5e75d651c6dc1575184";
+    const files = [
+      "public/brand/virginia-psi-mark.png",
+      "public/brand/source/virginia-psi-lockup-original.png",
+    ];
+    for (const relative of files) {
+      const digest = createHash("sha256")
+        .update(readFileSync(path.join(ROOT, relative)))
+        .digest("hex");
+      expect(digest, relative).toBe(original);
+    }
   });
 
   it("mantém a estrutura de features exigida pelo master prompt", () => {

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 export const PROFESSIONAL_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
 export const PROFESSIONAL_PHOTO_MIME_TYPES = [
@@ -20,7 +22,7 @@ export function isProfessionalPhotoMimeType(
 }
 
 export function professionalPhotoFilename(mimeType: ProfessionalPhotoMimeType): string {
-  return `portrait.${MIME_EXTENSION[mimeType]}`;
+  return `portrait-${randomUUID()}.${MIME_EXTENSION[mimeType]}`;
 }
 
 /**

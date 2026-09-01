@@ -2,7 +2,7 @@ import Image from "next/image";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils/cn";
 
-export const LOGO_SRC = "/brand/virginia-psi-mark.png";
+export const LOGO_SRC = "/brand/virginia-psi-lockup-transparent.png";
 export const LOGO_INTRINSIC_WIDTH = 1536;
 export const LOGO_INTRINSIC_HEIGHT = 1024;
 
@@ -15,9 +15,9 @@ export interface LogoProps {
 }
 
 /**
- * Official VirgíniaPsi lockup (symbol + wordmark), used exactly as provided.
- * The source PNG is never cropped, recolored, vectorized or rewritten.
- * Opaque off-white in the file is neutralized at render time (multiply in light).
+ * Official VirgíniaPsi lockup (symbol + wordmark). The display asset is the
+ * archived original with only the edge-connected off-white matte converted
+ * to alpha. Artwork, colors and dimensions are otherwise unchanged.
  */
 export function Logo({
   className,

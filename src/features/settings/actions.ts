@@ -35,6 +35,7 @@ import {
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { DOCUMENT_BUCKETS, createSignedUploadUrl, removeFile } from "@/lib/documents/storage";
+import { classifyStorageFailure } from "@/lib/documents/storage-failure";
 import { SIGNED_URL_TTL_SECONDS, buildStoragePath } from "@/lib/documents/storage-meta";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeOptionalCnpj, normalizeOptionalCpf } from "@/lib/utils/brazil-tax-id";
@@ -102,7 +103,12 @@ export async function requestProfessionalPhotoUploadUrlAction(input: {
   try {
     const { token } = await createSignedUploadUrl(DOCUMENT_BUCKETS.practiceAssets, path);
     return { path, token };
-  } catch {
+  } catch (error) {
+    console.error("[professional-photo] signed upload failed", {
+      code: classifyStorageFailure(error).code,
+      bucket: DOCUMENT_BUCKETS.practiceAssets,
+      stage: "create_signed_upload_url",
+    });
     return { error: "Não foi possível preparar o envio da foto agora." };
   }
 }

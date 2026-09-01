@@ -20,7 +20,8 @@ Non-negotiable:
 Componente canônico obrigatório (`docs/02-visual-spec.md` §Biblioteca de Componentes Canônica): `PageContainer`, `PageHeader`, `SectionHeader`, `Modal`, `Drawer`, `EmptyState`, `LoadingState`, `SearchField`, `ConfirmDialog`, `StatusBadge`, `Button`. Nenhuma tela reimplementa modal, drawer, estado vazio, estado de carregamento, busca ou confirmação com Tailwind solto — nem quando o resultado visual parece idêntico. Extensão de comportamento é prop nova no primitivo, nunca cópia local.
 
 Official brand asset:
-- `public/brand/virginia-psi-mark.png` is the immutable lockup (symbol + VirgíniaPsi wordmark), used exactly as provided.
+- `public/brand/source/virginia-psi-lockup-original.png` is the immutable source lockup (byte-identical to the file sent).
+- `public/brand/virginia-psi-lockup-transparent.png` is the display asset: same artwork with only the edge-connected off-white matte converted to alpha.
 - Do not overlay `BrandWordmark` or any other brand text on top of the PNG.
-- Render that exact PNG. Never redraw, reinterpret, vectorize, crop, recolor, or generate dark-mode variants.
+- Never redraw, reinterpret, vectorize, crop, recolor the foreground, or use mix-blend-mode / cream plates.
 - Resize only the display container and preserve aspect ratio with `object-fit: contain`.

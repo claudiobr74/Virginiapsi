@@ -217,22 +217,24 @@ Sombra padrão: `--elevation-card`. Hover clicável: `--elevation-card-hover` + 
 
 O arquivo oficial da marca (símbolo + wordmark **VirgíniaPsi** no mesmo PNG) é:
 
-`public/brand/virginia-psi-mark.png`
+`public/brand/source/virginia-psi-lockup-original.png` (arquivo-fonte, byte-identical ao PNG enviado)
 
-Esse PNG deve ser usado **exatamente como fornecido** em todas as menções da logo. Ele já contém o lockup completo. Não sobrepor `BrandWordmark` nem outro texto da marca.
+`public/brand/virginia-psi-lockup-transparent.png` (asset de exibição)
+
+O lockup completo (símbolo + wordmark **VirgíniaPsi**) deve aparecer em todas as menções da logo. Não sobrepor `BrandWordmark` nem outro texto da marca.
 
 É proibido:
 - redesenhar ou gerar uma nova logo a partir de descrição textual;
 - converter para SVG ou vetorizar;
-- recortar, recolorir, remover fundo ou adaptar o PNG para dark mode no arquivo;
-- aplicar filtros, sombras, bordas, clip-path ou efeitos destrutivos à própria imagem;
-- comprimir ou reprocessar de modo destrutivo.
+- recortar, recolorir o foreground, alterar dimensões ou adaptar o desenho para dark mode;
+- aplicar filtros, sombras, bordas, clip-path, `mix-blend-mode` ou placa cream no wrapper;
+- apagar o arquivo-fonte arquivado.
 
-Exceção de renderização (não altera o arquivo): `.brand-surface` / `.brand-mark` com `mix-blend-mode: multiply` em light mode, e placa cream mínima em dark mode.
+A única alteração permitida no asset de exibição é converter o fundo off-white **conectado às bordas** para alpha 0 (flood fill determinístico). Contadores internos e cores do desenho permanecem. `LOGO_SRC` aponta para o PNG transparente.
 
 Na interface, apenas o **container de exibição** pode ser redimensionado. Preserve a razão de aspecto, use `object-fit: contain` e mantenha a imagem íntegra.
 
-O PNG oficial é RGB sem canal alpha (fundo off-white opaco). É proibido editar, recortar ou reexportar o arquivo. Em light mode, o wrapper `.brand-surface` aplica `mix-blend-mode: multiply` somente na marca, para o fundo do arquivo não contaminar o cream da página. Em dark mode o multiply falha; usa-se uma placa cream mínima no wrapper (`TRANSPARENT_RENDER_LIMITATION`). Não aplicar blend em containers genéricos.
+O arquivo-fonte continua RGB opaco. O asset de exibição é RGBA, com o matte das bordas em alpha 0, para light, dark e fundos pastel sem workaround de blend.
 
 ## Critério de fidelidade
 

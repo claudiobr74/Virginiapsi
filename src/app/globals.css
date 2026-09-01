@@ -438,17 +438,7 @@ body {
 }
 
 .brand-mark {
-  mix-blend-mode: multiply;
-}
-
-.dark .brand-mark {
-  mix-blend-mode: normal;
-}
-
-.dark .brand-surface {
-  background: #fbf9f6;
-  border-radius: 0.5rem;
-  padding: 0.2rem 0.45rem;
+  background: transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {

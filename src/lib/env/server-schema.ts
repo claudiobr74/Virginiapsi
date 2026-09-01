@@ -55,6 +55,15 @@ export const googleCalendarEnvSchema = publicEnvSchema
 
 export type GoogleCalendarEnv = z.infer<typeof googleCalendarEnvSchema>;
 
+/** Storage/admin client — independent from Google, Twilio, Gemini and Cron. */
+export const supabaseAdminEnvSchema = publicEnvSchema
+  .pick({ NEXT_PUBLIC_SUPABASE_URL: true })
+  .extend({
+    SUPABASE_SECRET_KEY: nonEmpty.startsWith("sb_secret_"),
+  });
+
+export type SupabaseAdminEnv = z.infer<typeof supabaseAdminEnvSchema>;
+
 export const SERVER_ONLY_ENV_KEYS = [
   "SUPABASE_SECRET_KEY",
   "GOOGLE_CLIENT_ID",
@@ -124,6 +133,19 @@ function canonicalCalendarAppUrl(source: EnvSource): string | undefined {
     return undefined;
   }
   return raw;
+}
+
+export function parseSupabaseAdminEnv(
+  source: EnvSource = readServerEnvFromProcess(),
+): SupabaseAdminEnv {
+  const parsed = supabaseAdminEnvSchema.safeParse({
+    NEXT_PUBLIC_SUPABASE_URL: source.NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_SECRET_KEY: source.SUPABASE_SECRET_KEY,
+  });
+  if (!parsed.success) {
+    throw new Error(formatEnvIssues(parsed.error));
+  }
+  return parsed.data;
 }
 
 export function parseGoogleCalendarEnv(

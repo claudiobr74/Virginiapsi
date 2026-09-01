@@ -175,9 +175,9 @@ Zona de Risco fica visualmente separada no final, com confirmações fortes.
 
 ## 15. Marca VirgíniaPsi
 
-Usar obrigatoriamente o lockup oficial `public/brand/virginia-psi-mark.png` (símbolo + wordmark no mesmo arquivo), exatamente como fornecido.
+Usar obrigatoriamente o lockup de exibição `public/brand/virginia-psi-lockup-transparent.png` (símbolo + wordmark no mesmo arquivo). O arquivo-fonte arquivado em `public/brand/source/virginia-psi-lockup-original.png` permanece byte-identical ao PNG enviado.
 
-Não criar placeholder, SVG reinterpretado ou variação de cor do PNG. A imagem deve permanecer íntegra. Para adequação responsiva, modifique somente dimensões do container e preserve a razão de aspecto com `object-fit: contain`.
+Não criar placeholder, SVG reinterpretado, blend ou variação de cor do desenho. Para adequação responsiva, modifique somente dimensões do container e preserve a razão de aspecto com `object-fit: contain`.
 
 ## Gate visual por rota
 
