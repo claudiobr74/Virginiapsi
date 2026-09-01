@@ -241,8 +241,9 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
       mimeType: "audio/webm",
       buffer: Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4, 5, 6, 7, 8]),
     });
-    await expect(page.getByText(/Gravação importada|Trecho transcrito no stub Groq/)).toBeVisible({
+    await expect(page.getByText("Gravação importada e transcrita.")).toBeVisible({
       timeout: 20_000,
     });
+    await expect(page.getByText("Trecho transcrito no stub Groq.")).toBeVisible();
   });
 });
