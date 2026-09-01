@@ -55,8 +55,14 @@ export function pageHeading(
   if (pathname.startsWith("/app/supervisor")) {
     return "Supervisor IA";
   }
+  if (pathname.startsWith("/app/documents/new")) {
+    return "Novo documento";
+  }
+  if (pathname.startsWith("/app/documents/templates")) {
+    return "Modelos";
+  }
   if (pathname.startsWith("/app/documents")) {
-    return "Estúdio de Documentos";
+    return "Documentos";
   }
   if (pathname.startsWith("/app/indicadores")) {
     return "Indicadores e Métricas Clínicas";

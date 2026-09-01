@@ -1,62 +1,53 @@
 "use client";
 
-import { FilePlus2, FileText, Search, Star } from "lucide-react";
+import { FilePlus2, FileText, Star } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchField } from "@/components/ui/search-field";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ToneIcon } from "@/components/ui/tone-icon";
-import { TemplatesPanel } from "@/features/documents/components/templates-panel";
+import { TemplateCatalog } from "@/features/documents/components/template-catalog";
 import {
   DOCUMENT_KIND_LABELS,
   DOCUMENT_STATUS_LABELS,
   type DocumentRow,
-  type DocumentTemplateRow,
 } from "@/features/documents/contracts";
 import { documentStatusTone } from "@/features/documents/status-presentation";
 import {
-  searchSystemTemplates,
-  TEMPLATE_CATEGORY_LABELS,
-  type SystemTemplateCategory,
-  type SystemTemplateDefinition,
-} from "@/features/documents/system-templates";
+  HOME_SHORTCUTS,
+  recentSystemTemplateKeys,
+  shortcutHref,
+} from "@/features/documents/studio-presentation";
 import { toggleTemplateFavoriteAction } from "@/features/documents/studio-actions";
-import { cn } from "@/lib/utils/cn";
-
-const CATEGORY_ORDER: SystemTemplateCategory[] = [
-  "declaracoes",
-  "atestados",
-  "relatorios",
-  "avaliacao",
-  "pareceres",
-  "encaminhamentos",
-  "contratos",
-  "termos",
-  "administrativos",
-];
+import { getSystemTemplate, searchSystemTemplates } from "@/features/documents/system-templates";
 
 export function DocumentStudioHome({
   documents,
   patientNames,
-  templates,
   favorites,
   isAdmin,
 }: {
   documents: DocumentRow[];
   patientNames: Record<string, string>;
-  templates: DocumentTemplateRow[];
   favorites: string[];
   isAdmin: boolean;
 }) {
   const [search, setSearch] = useState("");
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [showAllDocuments, setShowAllDocuments] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [favoriteKeys, setFavoriteKeys] = useState(favorites);
 
-  const matches = useMemo(() => searchSystemTemplates(search), [search]);
-  const favoriteTemplates = matches.filter((template) => favoriteKeys.includes(template.key));
-  const recent = documents.slice(0, 8);
+  const searchMatches = useMemo(() => (search.trim() ? searchSystemTemplates(search) : []), [search]);
+  const favoriteTemplates = favoriteKeys
+    .map((key) => getSystemTemplate(key))
+    .filter((template): template is NonNullable<typeof template> => Boolean(template));
+  const recentTemplateKeys = recentSystemTemplateKeys(documents, 4);
+  const recentDocuments = showAllDocuments ? documents : documents.slice(0, 5);
 
   function toggleFavorite(key: string) {
     setFavoriteKeys((current) =>
@@ -69,96 +60,141 @@ export function DocumentStudioHome({
 
   return (
     <div className="flex flex-col gap-8">
-      <Card tone="documents" className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            Produza documentos profissionais com a identidade da clínica — para pacientes, escolas,
-            médicos, operadoras e instituições.
-          </p>
+      <section>
+        <h2 className="mb-3 font-serif text-lg font-bold italic text-foreground">O que você quer criar?</h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          {HOME_SHORTCUTS.map((shortcut) => {
+            const Icon = shortcut.icon;
+            if (!shortcut.category) {
+              return (
+                <button
+                  key={shortcut.id}
+                  type="button"
+                  onClick={() => setCatalogOpen(true)}
+                  className="flex items-start gap-3 rounded-[20px] border border-tone-documents-border bg-card p-4 text-left shadow-card hover:shadow-card-hover"
+                >
+                  <ToneIcon tone="documents">
+                    <Icon />
+                  </ToneIcon>
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-foreground">{shortcut.label}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{shortcut.description}</span>
+                  </span>
+                </button>
+              );
+            }
+            return (
+              <Link
+                key={shortcut.id}
+                href={shortcutHref(shortcut.category)}
+                className="flex items-start gap-3 rounded-[20px] border border-tone-documents-border bg-card p-4 shadow-card hover:shadow-card-hover"
+              >
+                <ToneIcon tone="documents">
+                  <Icon />
+                </ToneIcon>
+                <span className="min-w-0">
+                  <span className="block font-semibold text-foreground">{shortcut.label}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{shortcut.description}</span>
+                </span>
+              </Link>
+            );
+          })}
         </div>
-        <Link
-          href="/app/documents/new"
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
-        >
-          <FilePlus2 className="size-4" aria-hidden />
-          Novo documento
-        </Link>
-      </Card>
+      </section>
 
       <SearchField
         value={search}
         onChange={setSearch}
-        placeholder="Buscar documento… relatório para psiquiatra, escola, contrato, menor"
+        placeholder="Buscar um modelo..."
         className="max-w-xl"
       />
 
-      {favoriteTemplates.length > 0 ? (
+      {searchMatches.length > 0 ? (
         <section>
-          <h2 className="mb-3 font-serif text-lg font-bold italic text-foreground">Favoritos</h2>
-          <div className="flex flex-wrap gap-2">
-            {favoriteTemplates.map((template) => (
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Resultados</h2>
+          <div className="flex flex-col gap-2">
+            {searchMatches.slice(0, 8).map((template) => (
               <Link
                 key={template.key}
                 href={`/app/documents/new?template=${template.key}`}
-                className="rounded-full border border-primary/30 bg-sage-light/30 px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary"
+                className="rounded-2xl border border-border bg-card px-4 py-3 text-sm hover:border-primary/30"
               >
-                {template.name}
+                <span className="font-semibold text-foreground">{template.name}</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">{template.description}</span>
               </Link>
             ))}
           </div>
         </section>
       ) : null}
 
-      <section>
-        <h2 className="mb-3 font-serif text-lg font-bold italic text-foreground">
-          Modelos profissionais
-        </h2>
-        <div className="flex flex-col gap-6">
-          {CATEGORY_ORDER.map((category) => {
-            const items = matches.filter((template) => template.category === category);
-            if (items.length === 0) return null;
-            return (
-              <div key={category}>
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                  {TEMPLATE_CATEGORY_LABELS[category]}
-                </h3>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {items.map((template) => (
-                    <TemplateCard
-                      key={template.key}
-                      template={template}
-                      favorite={favoriteKeys.includes(template.key)}
-                      onFavorite={() => toggleFavorite(template.key)}
-                      pending={isPending}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      {recentTemplateKeys.length > 0 ? (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Usados recentemente</h2>
+          <div className="flex flex-wrap gap-2">
+            {recentTemplateKeys.map((key) => {
+              const template = getSystemTemplate(key);
+              if (!template) return null;
+              return (
+                <Link
+                  key={key}
+                  href={`/app/documents/new?template=${key}`}
+                  className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary/30"
+                >
+                  {template.name}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
-      <Card headed tone="documents" title="Meus modelos">
-        {isAdmin ? (
-          <TemplatesPanel templates={templates} />
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Modelos da clínica são gerenciados pela psicóloga administradora.
-          </p>
-        )}
-      </Card>
+      {favoriteTemplates.length > 0 ? (
+        <section>
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <Star className="size-3.5 fill-primary text-primary" aria-hidden />
+            Favoritos
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {favoriteTemplates.map((template) => (
+              <span
+                key={template.key}
+                className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-sage-light/30 pl-3 pr-1 py-1 text-xs font-semibold text-foreground"
+              >
+                <Link href={`/app/documents/new?template=${template.key}`} className="hover:text-primary">
+                  {template.name}
+                </Link>
+                <button
+                  type="button"
+                  aria-label={`Remover ${template.name} dos favoritos`}
+                  disabled={isPending}
+                  onClick={() => toggleFavorite(template.key)}
+                  className="rounded-full p-1 text-primary hover:bg-card"
+                >
+                  <Star className="size-3 fill-primary" aria-hidden />
+                </button>
+              </span>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <Card headed tone="documents" title="Documentos recentes">
-        {recent.length === 0 ? (
+        {documents.length === 0 ? (
           <EmptyState
             icon={FileText}
             title="Nenhum documento ainda"
-            description="Comece por um modelo profissional ou crie a partir do prontuário."
+            action={
+              <Button asChild size="sm">
+                <Link href="/app/documents/new">
+                  <FilePlus2 className="size-4" aria-hidden />
+                  Criar primeiro documento
+                </Link>
+              </Button>
+            }
           />
         ) : (
           <div className="flex flex-col gap-2">
-            {recent.map((document) => (
+            {recentDocuments.map((document) => (
               <Link
                 key={document.id}
                 href={`/app/documents/${document.id}`}
@@ -182,62 +218,42 @@ export function DocumentStudioHome({
             ))}
           </div>
         )}
-        {documents.length > 8 ? (
-          <p className="mt-3 text-xs text-muted-foreground">
-            <Search className="mr-1 inline size-3" aria-hidden />
-            {documents.length} documentos no arquivo. Use a busca acima para modelos; a lista completa
-            permanece nos recentes e no prontuário.
-          </p>
+        {documents.length > 5 ? (
+          <button
+            type="button"
+            className="mt-3 text-xs font-semibold text-primary"
+            onClick={() => setShowAllDocuments((current) => !current)}
+          >
+            {showAllDocuments ? "Mostrar menos" : "Ver todos"}
+          </button>
         ) : null}
       </Card>
-    </div>
-  );
-}
 
-function TemplateCard({
-  template,
-  favorite,
-  onFavorite,
-  pending,
-}: {
-  template: SystemTemplateDefinition;
-  favorite: boolean;
-  onFavorite: () => void;
-  pending: boolean;
-}) {
-  return (
-    <article className="overflow-hidden rounded-[20px] border border-tone-documents-border bg-card shadow-card">
-      <div className="flex items-start justify-between gap-2 border-b border-tone-documents-border bg-tone-documents px-4 py-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <ToneIcon tone="documents">
-            <FileText />
-          </ToneIcon>
-          <div className="min-w-0">
-            <h3 className="font-semibold text-foreground">{template.name}</h3>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">{template.description}</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          aria-label={favorite ? "Remover dos favoritos" : "Favoritar"}
-          disabled={pending}
-          onClick={onFavorite}
-          className="rounded-full p-1 text-muted-foreground hover:text-primary"
-        >
-          <Star className={cn("size-4", favorite && "fill-primary text-primary")} />
-        </button>
+      <div className="flex flex-wrap gap-3">
+        <Button type="button" variant="secondary" size="sm" onClick={() => setCatalogOpen(true)}>
+          Ver todos os modelos
+        </Button>
+        {isAdmin ? (
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/app/documents/templates">Gerenciar modelos</Link>
+          </Button>
+        ) : null}
       </div>
-      <div className="flex flex-col gap-3 bg-card px-4 py-3">
-        <p className="text-[11px] text-muted-foreground">
-          {template.intendedRecipients.slice(0, 3).join(" · ")}
-        </p>
-        <Link
-          href={`/app/documents/new?template=${template.key}`}
-          className="text-xs font-semibold text-primary hover:text-primary-hover"
+
+      <Drawer open={catalogOpen} onOpenChange={setCatalogOpen}>
+        <DrawerContent
+          title="Todos os modelos"
+          description="Busque, filtre por categoria e escolha um modelo profissional."
+          tone="documents"
+          className="sm:max-w-3xl"
         >
-          Usar este modelo
-        </Link>
-      </div>
-    </article>
+          <TemplateCatalog
+            favoriteKeys={favoriteKeys}
+            onFavorite={toggleFavorite}
+            pending={isPending}
+          />
+        </DrawerContent>
+      </Drawer>
+    </div>
   );
 }

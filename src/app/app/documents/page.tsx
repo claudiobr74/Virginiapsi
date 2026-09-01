@@ -1,19 +1,19 @@
-import { FileText } from "lucide-react";
+import { FilePlus2, FileText } from "lucide-react";
+import Link from "next/link";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
 import { DocumentStudioHome } from "@/features/documents/components/document-studio-home";
 import { listTemplateFavorites } from "@/features/documents/branding-queries";
-import { listDocuments, listTemplates } from "@/features/documents/queries";
+import { listDocuments } from "@/features/documents/queries";
 import { listPatients } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata = { title: "Estúdio de Documentos — VirgíniaPsi" };
+export const metadata = { title: "Documentos — VirgíniaPsi" };
 
 export default async function DocumentsPage() {
   const { organizationId, role, user } = await requireOrgContext();
 
-  const [templates, documents, patients, favorites] = await Promise.all([
-    listTemplates(organizationId),
+  const [documents, patients, favorites] = await Promise.all([
     listDocuments(organizationId),
     listPatients(organizationId),
     listTemplateFavorites(organizationId, user.id).catch(() => []),
@@ -26,13 +26,21 @@ export default async function DocumentsPage() {
     <PageContainer>
       <PageHeader
         icon={FileText}
-        title="Estúdio de Documentos"
-        subtitle="Produza documentos profissionais com sua identidade"
+        title="Documentos"
+        subtitle="Escolher, escrever e finalizar"
+        actions={
+          <Link
+            href="/app/documents/new"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
+          >
+            <FilePlus2 className="size-4" aria-hidden />
+            Novo documento
+          </Link>
+        }
       />
       <DocumentStudioHome
         documents={documents}
         patientNames={patientNames}
-        templates={templates}
         favorites={favorites}
         isAdmin={role === "psychologist_admin"}
       />
