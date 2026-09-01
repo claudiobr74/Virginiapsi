@@ -11,7 +11,7 @@ import {
   googleConnectionIsLive,
   visibleAppointments,
 } from "@/features/calendar/display";
-import { applyOrgCancelledColorPolicy } from "@/features/calendar/google-event-status";
+import { applyOrgAgendaColorPolicies } from "@/features/calendar/google-event-status";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const agendaPatientOptionSchema = z.object({
@@ -70,9 +70,9 @@ export async function loadAgendaPageData(
   ]);
 
   return {
-    appointments: applyOrgCancelledColorPolicy(
+    appointments: applyOrgAgendaColorPolicies(
       visibleAppointments(appointments, connection),
-      connection?.cancelled_google_color_ids,
+      connection,
     ),
     connection,
     patients,

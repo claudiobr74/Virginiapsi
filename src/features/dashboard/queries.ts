@@ -24,7 +24,7 @@ import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { computeAgendaWindow, todayInTimeZone } from "@/features/calendar/date-window";
 import { getConnection } from "@/features/calendar/connection-queries";
 import { googleConnectionIsLive, visibleAppointments } from "@/features/calendar/display";
-import { countValidAgendaSessions, applyOrgCancelledColorPolicy } from "@/features/calendar/google-event-status";
+import { countValidAgendaSessions, applyOrgAgendaColorPolicies } from "@/features/calendar/google-event-status";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface AppointmentJoinRow {
@@ -37,6 +37,7 @@ interface AppointmentJoinRow {
   summary_snapshot: string | null;
   google_color_id: string | null;
   google_event_type: string | null;
+  google_deleted_at: string | null;
   meet_url: string | null;
   meet_status: string;
   patient_id: string | null;
@@ -66,6 +67,7 @@ function toMyDayAppointment(row: AppointmentJoinRow): MyDayAppointment {
     summarySnapshot: row.summary_snapshot,
     googleColorId: row.google_color_id,
     googleEventType: row.google_event_type,
+    googleDeletedAt: row.google_deleted_at,
     meetUrl: row.meet_url,
     meetStatus: row.meet_status,
     patientId: row.patient_id,
@@ -90,9 +92,10 @@ async function listTodayAppointments(
   let query = supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, status, modality, origin, summary_snapshot, google_color_id, google_event_type, meet_url, meet_status, patient_id, patients(preferred_name, public_code, phone)",
+      "id, starts_at, ends_at, status, modality, origin, summary_snapshot, google_color_id, google_event_type, google_deleted_at, meet_url, meet_status, patient_id, patients(preferred_name, public_code, phone)",
     )
     .eq("organization_id", organizationId)
+    .is("google_deleted_at", null)
     .lt("starts_at", window.toIso)
     .gt("ends_at", window.fromIso);
 
@@ -106,12 +109,13 @@ async function listTodayAppointments(
     return [];
   }
 
-  const rows = applyOrgCancelledColorPolicy(
+  const rows = applyOrgAgendaColorPolicies(
     (data as AppointmentJoinRow[] | null)?.map(toMyDayAppointment) ?? [],
-    connection?.cancelled_google_color_ids,
+    connection,
   ).map((row) => ({
     ...row,
     cancelledGoogleColorIds: row.cancelled_google_color_ids,
+    unavailableGoogleColorIds: row.unavailable_google_color_ids,
   }));
   return visibleAppointments(rows, connection);
 }
@@ -192,8 +196,9 @@ async function countWeekSessions(
 
   let query = supabase
     .from("appointments")
-    .select("id, status, origin, summary_snapshot, google_color_id, google_event_type, starts_at")
+    .select("id, status, origin, summary_snapshot, google_color_id, google_event_type, google_deleted_at, starts_at, ends_at")
     .eq("organization_id", organizationId)
+    .is("google_deleted_at", null)
     .gte("starts_at", window.fromIso)
     .lt("starts_at", window.toIso);
 
@@ -207,25 +212,33 @@ async function countWeekSessions(
   }
 
   const visible = visibleAppointments(
-    applyOrgCancelledColorPolicy(
+    applyOrgAgendaColorPolicies(
       (data as Array<{
         status: string;
         origin: "TESSELI" | "GOOGLE_EXTERNAL";
         summary_snapshot: string | null;
         google_color_id?: string | null;
         google_event_type?: string | null;
+        google_deleted_at?: string | null;
+        starts_at?: string;
+        ends_at?: string;
       }> | null) ?? [],
-      connection?.cancelled_google_color_ids,
+      connection,
     ),
     connection,
   );
   return countValidAgendaSessions(
     visible.map((row) => ({
       status: row.status as "scheduled" | "confirmed" | "cancelled" | "completed" | "no_show",
+      origin: row.origin,
       summary_snapshot: row.summary_snapshot,
       google_color_id: row.google_color_id,
       google_event_type: row.google_event_type,
+      google_deleted_at: row.google_deleted_at,
       cancelled_google_color_ids: row.cancelled_google_color_ids,
+      unavailable_google_color_ids: row.unavailable_google_color_ids,
+      starts_at: row.starts_at,
+      ends_at: row.ends_at,
     })),
   );
 }

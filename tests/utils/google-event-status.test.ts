@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   countValidAgendaSessions,
   deriveImportedAppointmentStatus,
+  getAppointmentSemanticState,
   summaryIndicatesCancellation,
 } from "@/features/calendar/google-event-status";
 import { getAppointmentPresentation } from "@/features/calendar/appointment-visual";
@@ -27,21 +28,20 @@ describe("summaryIndicatesCancellation", () => {
     expect(summaryIndicatesCancellation("Lucas B+1(viajando)")).toBe(false);
   });
 
-  it("não adiciona plantão, não pode nem interrogação como marcadores globais", () => {
+  it("não adiciona plantão, não pode, viajando nem interrogação como marcadores globais", () => {
     expect(summaryIndicatesCancellation("Paciente em plantão")).toBe(false);
     expect(summaryIndicatesCancellation("Isadora? não pode")).toBe(false);
     expect(summaryIndicatesCancellation("Thatiane+1(plantão)")).toBe(false);
+    expect(summaryIndicatesCancellation("Lucas B+1(viajando)")).toBe(false);
     expect(summaryIndicatesCancellation("Ygor??? Manuela??")).toBe(false);
   });
 });
 
 describe("deriveImportedAppointmentStatus", () => {
-  const clinicCancelledColor = "9";
-
-  it("usa status Google cancelled", () => {
+  it("não persiste Google status=cancelled como cancelamento clínico", () => {
     expect(
       deriveImportedAppointmentStatus({ status: "cancelled", summary: "Ana Cláudia-1(c)" }),
-    ).toBe("cancelled");
+    ).toBe("scheduled");
   });
 
   it("classifica desmarcou no título mesmo com status confirmed", () => {
@@ -55,14 +55,11 @@ describe("deriveImportedAppointmentStatus", () => {
 
   it("classifica (desmarcou) independentemente de colorId", () => {
     expect(
-      deriveImportedAppointmentStatus(
-        {
-          status: "confirmed",
-          summary: "Vinicius-2(desmarcou)",
-          colorId: "11",
-        },
-        { cancelledColorIds: [clinicCancelledColor] },
-      ),
+      deriveImportedAppointmentStatus({
+        status: "confirmed",
+        summary: "Vinicius-2(desmarcou)",
+        colorId: "8",
+      }),
     ).toBe("cancelled");
   });
 
@@ -72,214 +69,227 @@ describe("deriveImportedAppointmentStatus", () => {
     ).toBe("scheduled");
   });
 
-  it("colorId configurado como cancelled em eventType default → cancelled", () => {
-    expect(
-      deriveImportedAppointmentStatus(
-        {
-          status: "confirmed",
-          summary: "Isadora? não pode",
-          colorId: clinicCancelledColor,
-          eventType: "default",
-        },
-        { cancelledColorIds: [clinicCancelledColor] },
-      ),
-    ).toBe("cancelled");
-  });
-
-  it("default + colorId 8 configurado → cancelled", () => {
-    expect(
-      deriveImportedAppointmentStatus(
-        {
-          status: "confirmed",
-          summary: "Thatiane+1(plantão)",
-          colorId: "8",
-          eventType: "default",
-        },
-        { cancelledColorIds: ["8"] },
-      ),
-    ).toBe("cancelled");
-  });
-
-  it("outOfOffice + colorId 8 configurado → scheduled", () => {
-    expect(
-      deriveImportedAppointmentStatus(
-        {
-          status: "confirmed",
-          summary: "Lucas B+1(viajando)",
-          colorId: "8",
-          eventType: "outOfOffice",
-        },
-        { cancelledColorIds: ["8"] },
-      ),
-    ).toBe("scheduled");
-  });
-
-  it("default + null colorId → scheduled", () => {
-    expect(
-      deriveImportedAppointmentStatus(
-        {
-          status: "confirmed",
-          summary: "Jessyca-1(c)",
-          colorId: null,
-          eventType: "default",
-        },
-        { cancelledColorIds: ["8"] },
-      ),
-    ).toBe("scheduled");
-  });
-
-  it("default + (desmarcou) → cancelled", () => {
+  it("não altera status persistido por colorId 8", () => {
     expect(
       deriveImportedAppointmentStatus({
         status: "confirmed",
-        summary: "Giovanna (desmarcou)",
+        summary: "Lucas B+1(viajando)",
         colorId: "8",
         eventType: "default",
       }),
-    ).toBe("cancelled");
-  });
-
-  it("outOfOffice + (desmarcou) → cancelled", () => {
-    expect(
-      deriveImportedAppointmentStatus(
-        {
-          status: "confirmed",
-          summary: "Vinicius-2(desmarcou)",
-          colorId: "8",
-          eventType: "outOfOffice",
-        },
-        { cancelledColorIds: ["8"] },
-      ),
-    ).toBe("cancelled");
-  });
-
-  it("mesmo título sem cancelled colorId → scheduled", () => {
-    expect(
-      deriveImportedAppointmentStatus(
-        {
-          status: "confirmed",
-          summary: "Isadora? não pode",
-          colorId: "11",
-        },
-        { cancelledColorIds: [clinicCancelledColor] },
-      ),
     ).toBe("scheduled");
     expect(
       deriveImportedAppointmentStatus({
         status: "confirmed",
         summary: "Isadora? não pode",
-        colorId: clinicCancelledColor,
+        colorId: "8",
+        eventType: "default",
       }),
     ).toBe("scheduled");
   });
+});
 
-  it("não cancela plantão só pelo texto quando a cor é de evento ativo", () => {
+describe("getAppointmentSemanticState — colorId 8", () => {
+  const now = new Date("2026-09-01T12:00:00.000Z");
+  const unavailable = ["8"];
+
+  it("colorId 8 + mapa unavailable → unavailable", () => {
     expect(
-      deriveImportedAppointmentStatus(
+      getAppointmentSemanticState(
         {
-          status: "confirmed",
-          summary: "Paciente em plantão",
-          colorId: "11",
+          status: "scheduled",
+          origin: "GOOGLE_EXTERNAL",
+          summary_snapshot: "Isadora? não pode",
+          google_color_id: "8",
+          unavailable_google_color_ids: unavailable,
+          ends_at: "2026-09-01T18:00:00.000Z",
         },
-        { cancelledColorIds: [clinicCancelledColor] },
+        now,
       ),
-    ).toBe("scheduled");
+    ).toBe("unavailable");
+  });
+
+  it("colorId null → active", () => {
+    expect(
+      getAppointmentSemanticState(
+        {
+          status: "scheduled",
+          origin: "GOOGLE_EXTERNAL",
+          summary_snapshot: "Jessyca-1(c)",
+          google_color_id: null,
+          unavailable_google_color_ids: unavailable,
+          ends_at: "2026-09-01T18:00:00.000Z",
+        },
+        now,
+      ),
+    ).toBe("active");
+  });
+
+  it("(desmarcou) + colorId 8 → cancelled", () => {
+    expect(
+      getAppointmentSemanticState(
+        {
+          status: "scheduled",
+          origin: "GOOGLE_EXTERNAL",
+          summary_snapshot: "Giovanna (desmarcou)",
+          google_color_id: "8",
+          unavailable_google_color_ids: unavailable,
+          ends_at: "2026-09-01T18:00:00.000Z",
+        },
+        now,
+      ),
+    ).toBe("cancelled");
+  });
+
+  it("status cancelled local → cancelled", () => {
+    expect(
+      getAppointmentSemanticState(
+        {
+          status: "cancelled",
+          origin: "GOOGLE_EXTERNAL",
+          summary_snapshot: "Ana Cláudia-1(c)",
+          google_color_id: null,
+          unavailable_google_color_ids: unavailable,
+          ends_at: "2026-09-01T18:00:00.000Z",
+        },
+        now,
+      ),
+    ).toBe("cancelled");
+  });
+
+  it("google_deleted_at → deleted, mesmo com título ativo", () => {
+    expect(
+      getAppointmentSemanticState(
+        {
+          status: "cancelled",
+          origin: "GOOGLE_EXTERNAL",
+          summary_snapshot: "Helio-1??? Julianna-1???",
+          google_deleted_at: "2026-09-01T03:00:00.000Z",
+          ends_at: "2026-09-01T18:00:00.000Z",
+        },
+        now,
+      ),
+    ).toBe("deleted");
   });
 });
 
 describe("countValidAgendaSessions", () => {
   it("8 ativos + 2 cancelados + 3 horários concluídos = 11", () => {
-    const week: Array<{ status: AppointmentStatus; summary_snapshot: string }> = [
+    const week: Array<{ status: AppointmentStatus; summary_snapshot: string; ends_at: string }> = [
       ...Array.from({ length: 8 }, (_, index) => ({
         status: "scheduled" as const,
         summary_snapshot: `Ativo ${index + 1}`,
+        ends_at: "2026-09-02T12:00:00.000Z",
       })),
-      { status: "cancelled", summary_snapshot: "Vinicius-2(desmarcou)" },
-      { status: "no_show", summary_snapshot: "Faltou" },
+      { status: "cancelled", summary_snapshot: "Vinicius-2(desmarcou)", ends_at: "2026-09-02T12:00:00.000Z" },
+      { status: "no_show", summary_snapshot: "Faltou", ends_at: "2026-09-02T12:00:00.000Z" },
       ...Array.from({ length: 3 }, (_, index) => ({
         status: "confirmed" as const,
         summary_snapshot: `Encerrado ${index + 1}`,
+        ends_at: "2026-08-01T12:00:00.000Z",
       })),
     ];
     expect(countValidAgendaSessions(week)).toBe(11);
   });
 
-  it("não conta desmarcou com status scheduled", () => {
+  it("não conta desmarcou, unavailable nem deleted", () => {
     expect(
       countValidAgendaSessions([
-        { status: "scheduled", summary_snapshot: "Giovanna (desmarcou)" },
-        { status: "scheduled", summary_snapshot: "Ana Cláudia-1(c)" },
+        {
+          status: "scheduled",
+          origin: "GOOGLE_EXTERNAL",
+          summary_snapshot: "Giovanna (desmarcou)",
+          google_color_id: "8",
+          unavailable_google_color_ids: ["8"],
+          ends_at: "2026-09-02T12:00:00.000Z",
+        },
+        {
+          status: "scheduled",
+          origin: "GOOGLE_EXTERNAL",
+          summary_snapshot: "Lucas B+1(viajando)",
+          google_color_id: "8",
+          unavailable_google_color_ids: ["8"],
+          ends_at: "2026-09-02T12:00:00.000Z",
+        },
+        {
+          status: "scheduled",
+          origin: "GOOGLE_EXTERNAL",
+          summary_snapshot: "Helio-1??? Julianna-1???",
+          google_deleted_at: "2026-09-01T03:00:00.000Z",
+          ends_at: "2026-09-02T12:00:00.000Z",
+        },
+        {
+          status: "scheduled",
+          origin: "GOOGLE_EXTERNAL",
+          summary_snapshot: "Jessyca-1(c)",
+          google_color_id: null,
+          unavailable_google_color_ids: ["8"],
+          ends_at: "2026-09-02T12:00:00.000Z",
+        },
       ]),
     ).toBe(1);
   });
-
-  it("não conta evento cancelado apenas pela cor Google da organização", () => {
-    expect(
-      countValidAgendaSessions([
-        {
-          status: "scheduled",
-          summary_snapshot: "Isadora? não pode",
-          google_color_id: "9",
-          google_event_type: "default",
-          cancelled_google_color_ids: ["9"],
-        },
-        {
-          status: "scheduled",
-          summary_snapshot: "Lucas B+1(viajando)",
-          google_color_id: "9",
-          google_event_type: "outOfOffice",
-          cancelled_google_color_ids: ["9"],
-        },
-        {
-          status: "scheduled",
-          summary_snapshot: "Jessyca-1(c)",
-          google_color_id: null,
-          google_event_type: "default",
-          cancelled_google_color_ids: ["9"],
-        },
-      ]),
-    ).toBe(2);
-  });
 });
 
-describe("apresentação após classificador de cor", () => {
-  const now = new Date("2026-09-01T22:30:00.000Z");
+describe("apresentação V2.3", () => {
+  const now = new Date("2026-09-01T12:00:00.000Z");
 
-  it("cancelado pela cor + horário passado permanece vermelho", () => {
-    const result = getAppointmentPresentation({
-      appointment: {
-        status: "cancelled",
-        origin: "GOOGLE_EXTERNAL",
-        ends_at: "2026-09-01T22:00:00.000Z",
-        summary_snapshot: "Isadora? não pode",
-        google_color_id: "9",
-        cancelled_google_color_ids: ["9"],
-        patient_id: null,
-      },
-      now,
-    });
-    expect(result.visualState).toBe("cancelled");
+  it("Isadora colorId 8 → vermelho indisponível e não conta", () => {
+    const appointment = {
+      status: "scheduled" as const,
+      origin: "GOOGLE_EXTERNAL" as const,
+      ends_at: "2026-09-01T18:00:00.000Z",
+      summary_snapshot: "Isadora? não pode",
+      google_color_id: "8",
+      unavailable_google_color_ids: ["8"],
+      patient_id: null,
+    };
+    const result = getAppointmentPresentation({ appointment, now });
+    expect(result.visualState).toBe("unavailable");
+    expect(result.statusLabel).toBe("Indisponível");
     expect(result.backgroundColor).toBe("#D93025");
-    expect(result.isCancelled).toBe(true);
-    expect(result.isPast).toBe(true);
+    expect(result.isCancelled).toBe(false);
+    expect(result.isUnavailable).toBe(true);
+    expect(countValidAgendaSessions([appointment])).toBe(0);
   });
 
-  it("outOfOffice com colorId configurado permanece verde se futuro", () => {
-    const result = getAppointmentPresentation({
-      appointment: {
-        status: "scheduled",
-        origin: "GOOGLE_EXTERNAL",
-        ends_at: "2026-09-01T23:00:00.000Z",
-        summary_snapshot: "Lucas B+1(viajando)",
-        google_color_id: "8",
-        google_event_type: "outOfOffice",
-        cancelled_google_color_ids: ["8"],
-        patient_id: null,
-      },
-      now,
-    });
-    expect(result.visualState).toBe("active");
-    expect(result.backgroundColor).toBe("#34A853");
-    expect(result.isCancelled).toBe(false);
+  it("Thatiane e Lucas colorId 8 → vermelho indisponível", () => {
+    for (const summary of ["Thatiane+1(plantão)", "Lucas B+1(viajando)"]) {
+      const result = getAppointmentPresentation({
+        appointment: {
+          status: "scheduled",
+          origin: "GOOGLE_EXTERNAL",
+          ends_at: "2026-09-01T18:00:00.000Z",
+          summary_snapshot: summary,
+          google_color_id: "8",
+          unavailable_google_color_ids: ["8"],
+          patient_id: null,
+        },
+        now,
+      });
+      expect(result.visualState).toBe("unavailable");
+      expect(result.statusLabel).toBe("Indisponível");
+      expect(result.backgroundColor).toBe("#D93025");
+    }
+  });
+
+  it("Giovanna/Vinicius (desmarcou) + colorId 8 → vermelho cancelado", () => {
+    for (const summary of ["Giovanna (desmarcou)", "Vinicius-2(desmarcou)"]) {
+      const result = getAppointmentPresentation({
+        appointment: {
+          status: "scheduled",
+          origin: "GOOGLE_EXTERNAL",
+          ends_at: "2026-09-01T18:00:00.000Z",
+          summary_snapshot: summary,
+          google_color_id: "8",
+          unavailable_google_color_ids: ["8"],
+          patient_id: null,
+        },
+        now,
+      });
+      expect(result.visualState).toBe("cancelled");
+      expect(result.statusLabel).toBe("Cancelado");
+      expect(result.backgroundColor).toBe("#D93025");
+    }
   });
 });

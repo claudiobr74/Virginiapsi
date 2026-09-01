@@ -18,9 +18,9 @@ import { listPatients } from "@/features/patients/queries";
 import type { OrganizationRole } from "@/features/organizations/contracts";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addCents } from "@/lib/finance/money";
-import { isValidCountableSession, applyOrgCancelledColorPolicy } from "@/features/calendar/google-event-status";
+import { isValidCountableSession, applyOrgAgendaColorPolicies } from "@/features/calendar/google-event-status";
 import { getConnection } from "@/features/calendar/connection-queries";
-import type { AppointmentStatus } from "@/features/calendar/contracts";
+import type { AppointmentOrigin, AppointmentStatus } from "@/features/calendar/contracts";
 
 export interface WeeklyPoint {
   label: string;
@@ -50,20 +50,27 @@ interface AppointmentMetricRow {
   starts_at: string;
   ends_at: string;
   status: string;
-  origin?: string;
+  origin?: AppointmentOrigin;
   summary_snapshot?: string | null;
   google_color_id?: string | null;
   google_event_type?: string | null;
+  google_deleted_at?: string | null;
   cancelled_google_color_ids?: string[];
+  unavailable_google_color_ids?: string[];
 }
 
 function isCountableMetricRow(row: AppointmentMetricRow): boolean {
   return isValidCountableSession({
     status: row.status as AppointmentStatus,
+    origin: row.origin,
     summary_snapshot: row.summary_snapshot,
     google_color_id: row.google_color_id,
     google_event_type: row.google_event_type,
+    google_deleted_at: row.google_deleted_at,
     cancelled_google_color_ids: row.cancelled_google_color_ids,
+    unavailable_google_color_ids: row.unavailable_google_color_ids,
+    starts_at: row.starts_at,
+    ends_at: row.ends_at,
   });
 }
 
@@ -96,22 +103,23 @@ export async function getIndicatorSnapshot(
   const [{ data, error }, patients, access, connection] = await Promise.all([
     supabase
       .from("appointments")
-      .select("starts_at, ends_at, status, origin, summary_snapshot, google_color_id, google_event_type")
+      .select("starts_at, ends_at, status, origin, summary_snapshot, google_color_id, google_event_type, google_deleted_at")
       .eq("organization_id", organizationId)
+      .is("google_deleted_at", null)
       .gte("starts_at", `${lookbackStart}T00:00:00.000Z`),
     listPatients(organizationId),
     getFinanceAccess(organizationId, role),
     getConnection(organizationId).catch((): null => null),
   ]);
 
-  const appointments = applyOrgCancelledColorPolicy(
+  const appointments = applyOrgAgendaColorPolicies(
     (error ? [] : (data as AppointmentMetricRow[] | null) ?? []).map(
       (row) => ({
         ...row,
         date: isoDateInTimeZone(row.starts_at, timezone),
       }),
     ),
-    connection?.cancelled_google_color_ids,
+    connection,
   );
 
   const activePatients = patients.filter((patient) => patient.status === "active").length;

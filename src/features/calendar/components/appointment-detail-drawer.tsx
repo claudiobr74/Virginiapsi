@@ -14,11 +14,7 @@ import {
 import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import { GoogleOriginMark } from "@/features/calendar/components/google-origin-mark";
 import { requestMeetForAppointmentAction } from "@/features/calendar/sync-actions";
-import {
-  APPOINTMENT_STATUS_LABELS,
-  type AppointmentRow,
-} from "@/features/calendar/contracts";
-import { isAppointmentCancelled } from "@/features/calendar/google-event-status";
+import type { AppointmentRow } from "@/features/calendar/contracts";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { StartSessionButton } from "@/features/sessions/components/start-session-button";
 import { formatInTimeZone } from "@/lib/utils/timezone";
@@ -68,14 +64,15 @@ export function AppointmentDetailDrawer({
   }
 
   const visual = getAppointmentVisualStatus(appointment, now);
-  const cancelled = isAppointmentCancelled(appointment);
+  const blocked =
+    visual.tone === "cancelled" || visual.tone === "unavailable";
   const hasGoogleEvent = Boolean(appointment.google_event_id);
-  const canConfirm = !cancelled && appointment.status !== "confirmed";
+  const canConfirm = !blocked && appointment.status !== "confirmed";
   const canStart =
     isAdmin &&
     appointment.origin === "TESSELI" &&
     Boolean(appointment.patient_id) &&
-    !cancelled;
+    !blocked;
 
   const runInPlace = (
     action: () => Promise<{ error?: string }>,
@@ -153,11 +150,7 @@ export function AppointmentDetailDrawer({
             <div className="mt-1 flex flex-wrap items-center gap-2">
               {visual.badge ? <GoogleOriginMark /> : null}
               <span className="text-[10px] font-semibold uppercase tracking-wide text-white/85">
-                {cancelled
-                  ? "Cancelado"
-                  : visual.tone === "completed"
-                    ? "Encerrado"
-                    : APPOINTMENT_STATUS_LABELS[appointment.status]}
+                {visual.statusLabel}
               </span>
             </div>
           </div>
@@ -267,7 +260,7 @@ export function AppointmentDetailDrawer({
             <Button type="button" size="sm" variant="secondary" onClick={onEdit}>
               Editar
             </Button>
-            {!cancelled ? (
+            {!blocked ? (
               <Button
                 type="button"
                 size="sm"

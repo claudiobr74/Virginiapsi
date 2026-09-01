@@ -4,9 +4,6 @@ import {
   myDayAppointmentToPresentationInput,
 } from "@/features/calendar/appointment-visual";
 import { GoogleOriginMark } from "@/features/calendar/components/google-origin-mark";
-import {
-  APPOINTMENT_STATUS_LABELS,
-} from "@/features/calendar/contracts";
 import { countValidAgendaSessions } from "@/features/calendar/google-event-status";
 import { DashboardWidget } from "@/features/dashboard/components/dashboard-widget";
 import { SessionActions } from "@/features/dashboard/components/session-actions";
@@ -35,10 +32,14 @@ export function TodayTimeline({
   const validCount = countValidAgendaSessions(
     appointments.map((appointment) => ({
       status: appointment.status,
+      origin: appointment.origin,
       summarySnapshot: appointment.summarySnapshot,
       googleColorId: appointment.googleColorId,
       googleEventType: appointment.googleEventType,
+      googleDeletedAt: appointment.googleDeletedAt,
       cancelledGoogleColorIds: appointment.cancelledGoogleColorIds,
+      unavailableGoogleColorIds: appointment.unavailableGoogleColorIds,
+      endsAt: appointment.endsAt,
     })),
   );
 
@@ -97,11 +98,7 @@ export function TodayTimeline({
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   {visual.badge ? <GoogleOriginMark compact /> : null}
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-white/85">
-                    {visual.tone === "cancelled"
-                      ? "Cancelado"
-                      : visual.tone === "completed"
-                        ? "Encerrado"
-                        : APPOINTMENT_STATUS_LABELS[appointment.status]}
+                    {visual.statusLabel}
                   </span>
                 </div>
               </div>

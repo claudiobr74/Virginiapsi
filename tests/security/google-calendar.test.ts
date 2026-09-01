@@ -862,3 +862,230 @@ describe("Agenda V2.2 — google_event_type no espelho", () => {
     }
   });
 });
+
+describe("Agenda V2.3 — google_deleted_at e unavailable_google_color_ids", () => {
+  it("mark_external_google_event_deleted marca o mirror sem reescrever status", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Ghost Delete");
+    const session = await openSession({ userId: admin });
+    try {
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'helio-x', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Helio-1??? Julianna-1???', 'scheduled', null, 'default'
+         )`,
+        [organizationId],
+      );
+
+      const marked = await session.query<{ mark_external_google_event_deleted: string | null }>(
+        `select public.mark_external_google_event_deleted($1, 'primary', 'helio-x') as mark_external_google_event_deleted`,
+        [organizationId],
+      );
+      expect(marked[0].mark_external_google_event_deleted).toBeTruthy();
+
+      const after = await session.query<{
+        status: string;
+        google_deleted_at: string | null;
+      }>(
+        `select status, google_deleted_at from public.appointments
+         where organization_id = $1 and google_event_id = 'helio-x'`,
+        [organizationId],
+      );
+      expect(after[0].status).toBe("scheduled");
+      expect(after[0].google_deleted_at).not.toBeNull();
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("upsert de evento ativo limpa google_deleted_at", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Undelete");
+    const session = await openSession({ userId: admin });
+    try {
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'restore-1', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Jessyca-1(c)', 'scheduled', null, 'default'
+         )`,
+        [organizationId],
+      );
+      await session.query(
+        `select public.mark_external_google_event_deleted($1, 'primary', 'restore-1')`,
+        [organizationId],
+      );
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'restore-1', 'etag-b',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Jessyca-1(c)', 'scheduled', null, 'default'
+         )`,
+        [organizationId],
+      );
+      const after = await session.query<{ google_deleted_at: string | null }>(
+        `select google_deleted_at from public.appointments
+         where organization_id = $1 and google_event_id = 'restore-1'`,
+        [organizationId],
+      );
+      expect(after[0].google_deleted_at).toBeNull();
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("reconcile_unseen_google_mirrors marca só o id ausente, não a instância irmã", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Snapshot");
+    const session = await openSession({ userId: admin });
+    try {
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'series_20260901T100000Z', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Série instância 1', 'scheduled', null, 'default'
+         )`,
+        [organizationId],
+      );
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'series_20260908T100000Z', 'etag-a',
+           now() + interval '8 day', now() + interval '8 day 1 hour',
+           'Série instância 2', 'scheduled', null, 'default'
+         )`,
+        [organizationId],
+      );
+
+      const marked = await session.query<{ reconcile_unseen_google_mirrors: number }>(
+        `select public.reconcile_unseen_google_mirrors(
+           $1, 'primary', array['series_20260908T100000Z'],
+           now() - interval '1 day', now() + interval '30 day'
+         ) as reconcile_unseen_google_mirrors`,
+        [organizationId],
+      );
+      expect(marked[0].reconcile_unseen_google_mirrors).toBe(1);
+
+      const rows = await session.query<{
+        google_event_id: string;
+        google_deleted_at: string | null;
+      }>(
+        `select google_event_id, google_deleted_at from public.appointments
+         where organization_id = $1 and google_event_id like 'series_%'
+         order by google_event_id`,
+        [organizationId],
+      );
+      expect(rows).toHaveLength(2);
+      expect(rows.find((row) => row.google_event_id === "series_20260901T100000Z")?.google_deleted_at).not.toBeNull();
+      expect(rows.find((row) => row.google_event_id === "series_20260908T100000Z")?.google_deleted_at).toBeNull();
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("admin define unavailable_google_color_ids; secretária, anon e outro tenant não", async () => {
+    const admin = await createAuthUser();
+    const secretary = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Unavailable Map");
+    await addMember(admin, organizationId, secretary, "secretary");
+    await connectGoogle(admin, organizationId);
+
+    const adminSession = await openSession({ userId: admin });
+    try {
+      const saved = await adminSession.query<{ set_google_unavailable_color_ids: string[] }>(
+        `select public.set_google_unavailable_color_ids($1, array['8', 'abc', '8', '']) as set_google_unavailable_color_ids`,
+        [organizationId],
+      );
+      expect(saved[0].set_google_unavailable_color_ids).toEqual(["8"]);
+
+      const stored = await adminSession.query<{ unavailable_google_color_ids: string[] }>(
+        `select unavailable_google_color_ids from public.google_calendar_connections
+         where organization_id = $1`,
+        [organizationId],
+      );
+      expect(stored[0].unavailable_google_color_ids).toEqual(["8"]);
+    } finally {
+      await adminSession.close();
+    }
+
+    const secretarySession = await openSession({ userId: secretary });
+    try {
+      const rpcError = await secretarySession.expectError(
+        `select public.set_google_unavailable_color_ids($1, array['11'])`,
+        [organizationId],
+      );
+      expect(rpcError).toMatch(/only psychologist_admin/i);
+
+      const updateError = await secretarySession.expectError(
+        `update public.google_calendar_connections
+         set unavailable_google_color_ids = array['11']
+         where organization_id = $1`,
+        [organizationId],
+      );
+      expect(updateError).toMatch(/only psychologist_admin/i);
+    } finally {
+      await secretarySession.close();
+    }
+
+    const outsider = await createAuthUser();
+    const outsiderSession = await openSession({ userId: outsider });
+    try {
+      const error = await outsiderSession.expectError(
+        `select public.set_google_unavailable_color_ids($1, array['8'])`,
+        [organizationId],
+      );
+      expect(error).toMatch(/only psychologist_admin/i);
+
+      const markError = await outsiderSession.expectError(
+        `select public.mark_external_google_event_deleted($1, 'primary', 'x')`,
+        [organizationId],
+      );
+      expect(markError).toMatch(/active membership|42501/i);
+    } finally {
+      await outsiderSession.close();
+    }
+
+    const anonSession = await openSession({ role: "anon" });
+    try {
+      const error = await anonSession.expectError(
+        `select public.mark_external_google_event_deleted($1, 'primary', 'x')`,
+        [organizationId],
+      );
+      expect(error).toMatch(/permission denied|42501|does not exist/i);
+    } finally {
+      await anonSession.close();
+    }
+  });
+
+  it("upsert colorId 8 não grava status cancelled", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Color Persist");
+    const session = await openSession({ userId: admin });
+    try {
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'lucas-1', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Lucas B+1(viajando)', 'scheduled', '8', 'default'
+         )`,
+        [organizationId],
+      );
+      const stored = await session.query<{
+        status: string;
+        google_color_id: string | null;
+        google_deleted_at: string | null;
+      }>(
+        `select status, google_color_id, google_deleted_at from public.appointments
+         where organization_id = $1 and google_event_id = 'lucas-1'`,
+        [organizationId],
+      );
+      expect(stored[0]).toEqual({
+        status: "scheduled",
+        google_color_id: "8",
+        google_deleted_at: null,
+      });
+    } finally {
+      await session.close();
+    }
+  });
+});

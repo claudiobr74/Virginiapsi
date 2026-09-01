@@ -24,6 +24,7 @@ export async function listAppointments(
     .from("appointments")
     .select("*")
     .eq("organization_id", organizationId)
+    .is("google_deleted_at", null)
     .lt("starts_at", window.toIso)
     .gt("ends_at", window.fromIso);
 

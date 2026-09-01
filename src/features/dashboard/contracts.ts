@@ -6,6 +6,7 @@ import {
   type AppointmentModality,
   type AppointmentStatus,
 } from "@/features/calendar/contracts";
+import { isValidCountableSession } from "@/features/calendar/google-event-status";
 import type { DocumentStatus } from "@/features/documents/contracts";
 
 export const PHASE_AVAILABILITY = {
@@ -33,7 +34,9 @@ export const myDayAppointmentSchema = z.object({
   patientPhone: z.string().nullable(),
   googleColorId: z.string().nullable().optional(),
   googleEventType: z.string().nullable().optional(),
+  googleDeletedAt: z.string().nullable().optional(),
   cancelledGoogleColorIds: z.array(z.string()).optional(),
+  unavailableGoogleColorIds: z.array(z.string()).optional(),
 });
 
 export type MyDayAppointment = z.infer<typeof myDayAppointmentSchema>;
@@ -139,9 +142,7 @@ export function patientDisplayLabel(appointment: MyDayAppointment): string {
   return appointment.summarySnapshot ?? "Sem paciente vinculado";
 }
 
-import { isAppointmentCancelled } from "@/features/calendar/google-event-status";
-
-/** The next session is the first valid one that has not yet ended; otherwise null. */
+/** The next session is the first countable one that has not yet ended; otherwise null. */
 export function selectNextSession(
   timeline: MyDayAppointment[],
   nowMs: number = Date.now(),
@@ -149,8 +150,17 @@ export function selectNextSession(
   return (
     timeline.find(
       (appointment) =>
-        !isAppointmentCancelled(appointment) &&
-        new Date(appointment.endsAt).getTime() > nowMs,
+        isValidCountableSession({
+          status: appointment.status,
+          origin: appointment.origin,
+          summarySnapshot: appointment.summarySnapshot,
+          googleColorId: appointment.googleColorId,
+          googleEventType: appointment.googleEventType,
+          googleDeletedAt: appointment.googleDeletedAt,
+          cancelledGoogleColorIds: appointment.cancelledGoogleColorIds,
+          unavailableGoogleColorIds: appointment.unavailableGoogleColorIds,
+          endsAt: appointment.endsAt,
+        }) && new Date(appointment.endsAt).getTime() > nowMs,
     ) ?? null
   );
 }

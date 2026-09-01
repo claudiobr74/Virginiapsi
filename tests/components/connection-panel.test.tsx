@@ -28,6 +28,7 @@ const disconnectedWithStaleMetadata: ConnectionRow = {
   last_synced_at: "2026-08-21T15:00:00.000Z",
   last_sync_error: "token revogado",
   cancelled_google_color_ids: [],
+  unavailable_google_color_ids: [],
 };
 
 describe("ConnectionPanel — desconectado", () => {

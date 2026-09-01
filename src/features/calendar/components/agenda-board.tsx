@@ -21,7 +21,7 @@ import {
   formatAgendaMonthLabel,
   visibleAppointments as filterVisibleAppointments,
 } from "@/features/calendar/display";
-import { applyOrgCancelledColorPolicy } from "@/features/calendar/google-event-status";
+import { applyOrgAgendaColorPolicies } from "@/features/calendar/google-event-status";
 import { syncGoogleCalendarAction } from "@/features/calendar/sync-actions";
 import { useAgendaClock } from "@/features/calendar/use-agenda-clock";
 import { civilDateInTimeZone } from "@/lib/utils/timezone";
@@ -87,9 +87,9 @@ export function AgendaBoard({
 
   const visibleAppointments = useMemo(
     () =>
-      applyOrgCancelledColorPolicy(
+      applyOrgAgendaColorPolicies(
         filterVisibleAppointments(appointments, connection),
-        connection?.cancelled_google_color_ids,
+        connection,
       ),
     [appointments, connection],
   );

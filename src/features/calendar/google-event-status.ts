@@ -1,4 +1,4 @@
-import type { AppointmentStatus } from "@/features/calendar/contracts";
+import type { AppointmentOrigin, AppointmentStatus } from "@/features/calendar/contracts";
 
 const CANCELLATION_MARKERS = [
   "(desmarcou)",
@@ -10,22 +10,36 @@ const CANCELLATION_MARKERS = [
   "cancelado",
 ] as const;
 
+export type AppointmentSemanticState =
+  | "active"
+  | "completed"
+  | "cancelled"
+  | "unavailable"
+  | "deleted";
+
 export interface AppointmentCancellationInput {
   status: AppointmentStatus;
+  origin?: AppointmentOrigin;
   summary_snapshot?: string | null;
   summarySnapshot?: string | null;
   google_color_id?: string | null;
   googleColorId?: string | null;
   google_event_type?: string | null;
   googleEventType?: string | null;
+  google_deleted_at?: string | null;
+  googleDeletedAt?: string | null;
   cancelled_google_color_ids?: readonly string[] | null;
   cancelledGoogleColorIds?: readonly string[] | null;
+  unavailable_google_color_ids?: readonly string[] | null;
+  unavailableGoogleColorIds?: readonly string[] | null;
+  ends_at?: string;
+  endsAt?: string;
 }
 
 /**
  * Deterministic title classifier. Reads the Google/VirginiaPsi summary
  * without rewriting it. "(c)" is not a cancellation marker.
- * Do not add clinic slang like "plantão", "não pode" or "?" here.
+ * Do not add clinic slang like "plantão", "não pode", "viajando" or "?" here.
  */
 export function summaryIndicatesCancellation(
   summary: string | null | undefined,
@@ -37,7 +51,7 @@ export function summaryIndicatesCancellation(
   return CANCELLATION_MARKERS.some((marker) => normalized.includes(marker));
 }
 
-export function normalizeCancelledGoogleColorIds(
+export function normalizeGoogleColorIds(
   colorIds: readonly string[] | null | undefined,
 ): string[] {
   const unique = new Set<string>();
@@ -48,6 +62,13 @@ export function normalizeCancelledGoogleColorIds(
     }
   }
   return [...unique];
+}
+
+/** @deprecated Legacy cancelled color map. Prefer normalizeGoogleColorIds / unavailable. */
+export function normalizeCancelledGoogleColorIds(
+  colorIds: readonly string[] | null | undefined,
+): string[] {
+  return normalizeGoogleColorIds(colorIds);
 }
 
 export function persistedGoogleEventType(
@@ -63,6 +84,10 @@ export function isDefaultGoogleEventType(eventType: string | null | undefined): 
   return trimmed.length === 0 || trimmed === "default";
 }
 
+/**
+ * Legacy helper. ColorId is not a clinical cancellation by itself.
+ * Kept so existing V2.1 tests of the unused map stay explicit about deprecation.
+ */
 export function colorIdIndicatesCancellation(
   colorId: string | null | undefined,
   cancelledColorIds: readonly string[] | null | undefined,
@@ -75,15 +100,47 @@ export function colorIdIndicatesCancellation(
   if (!id) {
     return false;
   }
-  return normalizeCancelledGoogleColorIds(cancelledColorIds).includes(id);
+  return normalizeGoogleColorIds(cancelledColorIds).includes(id);
+}
+
+export function colorIdIndicatesUnavailability(
+  colorId: string | null | undefined,
+  unavailableColorIds: readonly string[] | null | undefined,
+): boolean {
+  const id = (colorId ?? "").trim();
+  if (!id) {
+    return false;
+  }
+  return normalizeGoogleColorIds(unavailableColorIds).includes(id);
 }
 
 export function applyOrgCancelledColorPolicy<T extends object>(
   rows: T[],
   cancelledColorIds: readonly string[] | null | undefined,
 ): Array<T & { cancelled_google_color_ids: string[] }> {
-  const ids = normalizeCancelledGoogleColorIds(cancelledColorIds);
+  const ids = normalizeGoogleColorIds(cancelledColorIds);
   return rows.map((row) => ({ ...row, cancelled_google_color_ids: ids }));
+}
+
+export function applyOrgUnavailableColorPolicy<T extends object>(
+  rows: T[],
+  unavailableColorIds: readonly string[] | null | undefined,
+): Array<T & { unavailable_google_color_ids: string[] }> {
+  const ids = normalizeGoogleColorIds(unavailableColorIds);
+  return rows.map((row) => ({ ...row, unavailable_google_color_ids: ids }));
+}
+
+export function applyOrgAgendaColorPolicies<T extends object>(
+  rows: T[],
+  connection: {
+    cancelled_google_color_ids?: readonly string[] | null;
+    unavailable_google_color_ids?: readonly string[] | null;
+  } | null | undefined,
+): Array<T & { cancelled_google_color_ids: string[]; unavailable_google_color_ids: string[] }> {
+  return applyOrgUnavailableColorPolicy(
+    applyOrgCancelledColorPolicy(rows, connection?.cancelled_google_color_ids),
+    connection?.unavailable_google_color_ids,
+  );
 }
 
 export function isAppointmentCancelled(appointment: AppointmentCancellationInput): boolean {
@@ -91,19 +148,58 @@ export function isAppointmentCancelled(appointment: AppointmentCancellationInput
     return true;
   }
   const summary = appointment.summary_snapshot ?? appointment.summarySnapshot ?? null;
-  if (summaryIndicatesCancellation(summary)) {
-    return true;
-  }
-  return colorIdIndicatesCancellation(
-    appointment.google_color_id ?? appointment.googleColorId,
-    appointment.cancelled_google_color_ids ?? appointment.cancelledGoogleColorIds,
-    appointment.google_event_type ?? appointment.googleEventType,
-  );
+  return summaryIndicatesCancellation(summary);
 }
 
-/** Valid countable session: not cancelled / no_show / desmarcou / org cancelled color. Origin ignored. */
+function googleDeletedAtOf(appointment: AppointmentCancellationInput): string | null {
+  return appointment.google_deleted_at ?? appointment.googleDeletedAt ?? null;
+}
+
+function endsAtOf(appointment: AppointmentCancellationInput): string {
+  return appointment.ends_at ?? appointment.endsAt ?? "";
+}
+
+/**
+ * Canonical Agenda/Meu Dia semantic state.
+ * Precedence: deleted → cancelled (status/text) → unavailable (org color map) → completed → active.
+ * ColorId never writes clinical status. eventType is not used to disambiguate color.
+ */
+export function getAppointmentSemanticState(
+  appointment: AppointmentCancellationInput,
+  now: Date = new Date(),
+): AppointmentSemanticState {
+  if (googleDeletedAtOf(appointment)) {
+    return "deleted";
+  }
+  if (isAppointmentCancelled(appointment)) {
+    return "cancelled";
+  }
+  if (
+    appointment.origin === "GOOGLE_EXTERNAL" &&
+    colorIdIndicatesUnavailability(
+      appointment.google_color_id ?? appointment.googleColorId,
+      appointment.unavailable_google_color_ids ?? appointment.unavailableGoogleColorIds,
+    )
+  ) {
+    return "unavailable";
+  }
+  const endsMs = new Date(endsAtOf(appointment)).getTime();
+  if (Number.isFinite(endsMs) && endsMs <= now.getTime()) {
+    return "completed";
+  }
+  return "active";
+}
+
+export function isRenderedAgendaAppointment(
+  appointment: AppointmentCancellationInput,
+): boolean {
+  return getAppointmentSemanticState(appointment) !== "deleted";
+}
+
+/** Countable session: active or completed. Same helper as presentation. */
 export function isValidCountableSession(appointment: AppointmentCancellationInput): boolean {
-  return !isAppointmentCancelled(appointment);
+  const state = getAppointmentSemanticState(appointment);
+  return state === "active" || state === "completed";
 }
 
 export function countValidAgendaSessions<T extends AppointmentCancellationInput>(
@@ -112,28 +208,13 @@ export function countValidAgendaSessions<T extends AppointmentCancellationInput>
   return appointments.filter(isValidCountableSession).length;
 }
 
-export function deriveImportedAppointmentStatus(
-  event: {
-    status?: string;
-    summary?: string;
-    colorId?: string | null;
-    eventType?: string | null;
-  },
-  options?: { cancelledColorIds?: readonly string[] | null },
-): AppointmentStatus {
-  if (event.status === "cancelled") {
-    return "cancelled";
-  }
+export function deriveImportedAppointmentStatus(event: {
+  status?: string;
+  summary?: string;
+  colorId?: string | null;
+  eventType?: string | null;
+}): AppointmentStatus {
   if (summaryIndicatesCancellation(event.summary)) {
-    return "cancelled";
-  }
-  if (
-    colorIdIndicatesCancellation(
-      event.colorId,
-      options?.cancelledColorIds,
-      event.eventType,
-    )
-  ) {
     return "cancelled";
   }
   return "scheduled";

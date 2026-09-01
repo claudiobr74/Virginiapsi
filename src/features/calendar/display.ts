@@ -1,5 +1,8 @@
 import type { AppointmentRow } from "@/features/calendar/contracts";
-import { isValidCountableSession } from "@/features/calendar/google-event-status";
+import {
+  isRenderedAgendaAppointment,
+  isValidCountableSession,
+} from "@/features/calendar/google-event-status";
 
 const FALLBACK_TIME_ZONE = "America/Sao_Paulo";
 
@@ -88,14 +91,32 @@ export function googleConnectionIsLive(
  * Connected (or error) → TESSELI + GOOGLE_EXTERNAL.
  * Disconnected / absent → TESSELI only.
  */
-export function visibleAppointments<T extends { origin: AppointmentRow["origin"] }>(
+export function visibleAppointments<
+  T extends {
+    origin: AppointmentRow["origin"];
+    status?: AppointmentRow["status"];
+    summary_snapshot?: string | null;
+    summarySnapshot?: string | null;
+    google_deleted_at?: string | null;
+    googleDeletedAt?: string | null;
+  },
+>(
   appointments: T[],
   googleConnectionStatus: { status: string } | null | undefined,
 ): T[] {
-  if (googleConnectionIsLive(googleConnectionStatus)) {
-    return appointments;
-  }
-  return appointments.filter((appointment) => appointment.origin !== "GOOGLE_EXTERNAL");
+  const scoped = googleConnectionIsLive(googleConnectionStatus)
+    ? appointments
+    : appointments.filter((appointment) => appointment.origin !== "GOOGLE_EXTERNAL");
+  return scoped.filter((appointment) =>
+    isRenderedAgendaAppointment({
+      status: appointment.status ?? "scheduled",
+      origin: appointment.origin,
+      summary_snapshot: appointment.summary_snapshot,
+      summarySnapshot: appointment.summarySnapshot,
+      google_deleted_at: appointment.google_deleted_at,
+      googleDeletedAt: appointment.googleDeletedAt,
+    }),
+  );
 }
 
 /** Alias kept for existing Agenda call sites. */

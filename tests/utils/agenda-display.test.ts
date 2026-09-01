@@ -193,4 +193,58 @@ describe("visibleAppointments", () => {
     expect(googleConnectionIsLive({ status: "connected" })).toBe(true);
     expect(googleConnectionIsLive({ status: "error" })).toBe(true);
   });
+
+  it("esconde mirror com google_deleted_at (Hélio fantasma)", () => {
+    const appointments = [
+      stubAppointment({
+        starts_at: "2026-09-01T12:00:00.000Z",
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Jessyca-1(c)",
+      }),
+      stubAppointment({
+        id: "44444444-4444-4444-8444-444444444444",
+        starts_at: "2026-09-01T13:00:00.000Z",
+        status: "cancelled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Helio-1??? Julianna-1???",
+        google_deleted_at: "2026-09-01T03:00:00.000Z",
+      }),
+    ];
+    const visible = visibleAppointments(appointments, { status: "connected" });
+    expect(visible.map((row) => row.summary_snapshot)).toEqual(["Jessyca-1(c)"]);
+  });
+});
+
+describe("contadores V2.3", () => {
+  it("não conta unavailable colorId 8 nem deleted", () => {
+    const summary = summarizeDayAppointments([
+      stubAppointment({
+        starts_at: "2026-09-01T12:00:00.000Z",
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Jessyca-1(c)",
+        google_color_id: null,
+        unavailable_google_color_ids: ["8"],
+      }),
+      stubAppointment({
+        id: "55555555-5555-4555-8555-555555555555",
+        starts_at: "2026-09-01T13:00:00.000Z",
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Lucas B+1(viajando)",
+        google_color_id: "8",
+        unavailable_google_color_ids: ["8"],
+      }),
+      stubAppointment({
+        id: "66666666-6666-4666-8666-666666666666",
+        starts_at: "2026-09-01T14:00:00.000Z",
+        status: "cancelled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Helio-1??? Julianna-1???",
+        google_deleted_at: "2026-09-01T03:00:00.000Z",
+      }),
+    ]);
+    expect(summary.total).toBe(1);
+  });
 });

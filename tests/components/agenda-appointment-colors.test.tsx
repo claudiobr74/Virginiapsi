@@ -50,6 +50,8 @@ function stub(
     meet_status: "none",
     google_color_id: null,
     cancelled_google_color_ids: [],
+    unavailable_google_color_ids: [],
+    google_deleted_at: null,
     sync_status: "synced",
     ...extras,
   };
@@ -200,6 +202,25 @@ describe("Agenda V2 — cores sólidas em dia/semana/mês", () => {
     expect(screen.queryByRole("button", { name: "Atender" })).not.toBeInTheDocument();
   });
 
+  it("Isadora colorId 8 mostra INDISPONÍVEL vermelho, não Cancelado", () => {
+    const isadora = stub({
+      id: "12121212-1212-4121-8121-121212121212",
+      status: "scheduled",
+      origin: "GOOGLE_EXTERNAL",
+      summary_snapshot: "Isadora? não pode",
+      google_color_id: "8",
+      unavailable_google_color_ids: ["8"],
+      starts_at: "2026-08-18T18:00:00.000Z",
+      ends_at: "2026-08-18T19:00:00.000Z",
+    });
+    render(<AppointmentCard appointment={isadora} timeZone={TIME_ZONE} now={NOW} />);
+    const card = screen.getByText("Isadora? não pode").closest("[data-appointment-visual]");
+    expect(card).toHaveAttribute("data-appointment-visual", "unavailable");
+    expect(card).toHaveStyle({ backgroundColor: "#D93025" });
+    expect(screen.getByText("Indisponível")).toBeInTheDocument();
+    expect(screen.queryByText("Cancelado")).not.toBeInTheDocument();
+  });
+
   it("AppointmentDetailDrawer usa a mesma paleta e permite editar Google", () => {
     const noop = () => undefined;
     const { unmount } = render(
@@ -242,6 +263,8 @@ describe("Agenda V2 — cores sólidas em dia/semana/mês", () => {
         patientPhone: null,
         googleColorId: row.google_color_id ?? null,
         cancelledGoogleColorIds: row.cancelled_google_color_ids ?? [],
+        unavailableGoogleColorIds: row.unavailable_google_color_ids ?? [],
+        googleDeletedAt: row.google_deleted_at ?? null,
       };
     }
 

@@ -564,6 +564,7 @@ function seedAppointment(organizationId, overrides) {
     meet_url: null,
     meet_status: "none",
     summary_snapshot: null,
+    google_deleted_at: null,
     sync_status: "synced",
     create_idempotency_key: randomUUID(),
     created_at: now,
@@ -586,6 +587,7 @@ function getConnection(organizationId) {
       last_synced_at: null,
       last_sync_error: null,
       cancelled_google_color_ids: [],
+      unavailable_google_color_ids: [],
     }
   );
 }

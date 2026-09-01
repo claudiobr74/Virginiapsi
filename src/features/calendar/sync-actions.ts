@@ -5,7 +5,7 @@ import { persistGoogleCreateLink, LOCAL_MIRROR_UPDATE_ERROR } from "@/features/c
 import { deleteGoogleEventIgnoring404 } from "@/features/calendar/google-write";
 import { getAppointment } from "@/features/calendar/appointment-queries";
 import { getConnection } from "@/features/calendar/connection-queries";
-import { deriveImportedAppointmentStatus, persistedGoogleEventType } from "@/features/calendar/google-event-status";
+import { runGoogleCalendarPull } from "@/features/calendar/google-calendar-pull";
 import {
   getCalendarClientForOrganization,
 } from "@/lib/integrations/google/connection";
@@ -249,22 +249,6 @@ export async function requestMeetForAppointmentAction(
 const SYNC_WINDOW_DAYS = 30;
 const SYNC_LOOKBACK_DAYS = 7;
 
-function eventWindowIso(event: {
-  start?: { dateTime?: string; date?: string };
-  end?: { dateTime?: string; date?: string };
-}): { startIso: string; endIso: string } | null {
-  const startIso =
-    event.start?.dateTime ??
-    (event.start?.date ? `${event.start.date}T00:00:00.000Z` : null);
-  const endIso =
-    event.end?.dateTime ??
-    (event.end?.date ? `${event.end.date}T00:00:00.000Z` : null);
-  if (!startIso || !endIso) {
-    return null;
-  }
-  return { startIso, endIso };
-}
-
 export async function syncGoogleCalendarPull(
   organizationId: string,
 ): Promise<SyncActionResult> {
@@ -276,51 +260,64 @@ export async function syncGoogleCalendarPull(
 
   const timeMin = new Date(Date.now() - SYNC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const timeMax = new Date(Date.now() + SYNC_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const calendarId = connection.calendar_id;
 
   const supabase = await createSupabaseServerClient();
 
   try {
     const client = await getCalendarClientForOrganization(organizationId);
-    let pageToken: string | undefined;
-    let syncedCount = 0;
-
-    do {
-      const page = await client.listEvents(connection.calendar_id, {
-        timeMin,
-        timeMax,
-        pageToken,
-        showDeleted: true,
-      });
-
-      for (const event of page.items) {
-        const window = eventWindowIso(event);
-        if (!window) {
-          continue;
-        }
-
-        const status = deriveImportedAppointmentStatus(event, {
-          cancelledColorIds: connection.cancelled_google_color_ids,
-        });
+    const pull = await runGoogleCalendarPull({
+      listEvents: async (pageToken) =>
+        client.listEvents(calendarId, {
+          timeMin,
+          timeMax,
+          pageToken,
+          showDeleted: true,
+        }),
+      upsertExternal: async (decision) => {
         const { error: upsertError } = await supabase.rpc("upsert_external_appointment", {
           org_id: organizationId,
-          p_google_calendar_id: connection.calendar_id,
-          p_google_event_id: event.id,
-          p_google_etag: event.etag ?? null,
-          p_starts_at: window.startIso,
-          p_ends_at: window.endIso,
-          p_summary_snapshot: event.summary ?? "Evento do Google",
-          p_status: status,
-          p_google_color_id: event.colorId ?? null,
-          p_google_event_type: persistedGoogleEventType(event.eventType),
+          p_google_calendar_id: calendarId,
+          p_google_event_id: decision.googleEventId,
+          p_google_etag: decision.googleEtag,
+          p_starts_at: decision.startIso,
+          p_ends_at: decision.endIso,
+          p_summary_snapshot: decision.summary,
+          p_status: decision.status,
+          p_google_color_id: decision.googleColorId,
+          p_google_event_type: decision.googleEventType,
         });
         if (upsertError) {
           throw new Error(upsertError.message);
         }
-        syncedCount += 1;
-      }
-
-      pageToken = page.nextPageToken;
-    } while (pageToken);
+      },
+      markDeleted: async (googleEventId) => {
+        const { error: markError } = await supabase.rpc("mark_external_google_event_deleted", {
+          org_id: organizationId,
+          p_google_calendar_id: calendarId,
+          p_google_event_id: googleEventId,
+        });
+        if (markError) {
+          throw new Error(markError.message);
+        }
+      },
+      reconcileUnseen: async (seenActiveGoogleEventIds) => {
+        const { data, error: reconcileError } = await supabase.rpc(
+          "reconcile_unseen_google_mirrors",
+          {
+            org_id: organizationId,
+            p_google_calendar_id: calendarId,
+            p_seen_google_event_ids: seenActiveGoogleEventIds,
+            p_window_start: timeMin,
+            p_window_end: timeMax,
+          },
+        );
+        if (reconcileError) {
+          throw new Error(reconcileError.message);
+        }
+        return typeof data === "number" ? data : 0;
+      },
+    });
 
     const { error: connectionWriteError } = await supabase
       .from("google_calendar_connections")
@@ -334,12 +331,17 @@ export async function syncGoogleCalendarPull(
       organizationId,
       direction: "pull",
       action: "sync_pull",
-      requestPayload: { timeMin, timeMax },
+      requestPayload: {
+        timeMin,
+        timeMax,
+        syncedCount: pull.syncedCount,
+        reconciledUnseenCount: pull.reconciledUnseenCount,
+      },
       responseStatus: "200",
     });
 
     revalidatePath("/app/agenda");
-    return { syncedCount };
+    return { syncedCount: pull.syncedCount };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
     const { error: syncErrorWrite } = await supabase
