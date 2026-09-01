@@ -175,7 +175,7 @@ Zona de Risco fica visualmente separada no final, com confirmações fortes.
 
 ## 15. Marca VirgíniaPsi
 
-Usar obrigatoriamente o símbolo oficial `public/brand/virginia-psi-mark.png` e o wordmark composto na UI.
+Usar obrigatoriamente o lockup oficial `public/brand/virginia-psi-mark.png` (símbolo + wordmark no mesmo arquivo), exatamente como fornecido.
 
 Não criar placeholder, SVG reinterpretado ou variação de cor do PNG. A imagem deve permanecer íntegra. Para adequação responsiva, modifique somente dimensões do container e preserve a razão de aspecto com `object-fit: contain`.
 

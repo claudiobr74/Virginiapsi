@@ -196,13 +196,11 @@ Esta seção é normativa, não descritiva: define os primitivos de UI que exist
 
 ## Logo — asset oficial
 
-O arquivo oficial do **símbolo** é:
+O arquivo oficial da marca (símbolo + wordmark **VirgíniaPsi** no mesmo PNG) é:
 
 `public/brand/virginia-psi-mark.png`
 
-O wordmark **VirgíniaPsi** é composto na UI (`BrandWordmark`): “Virgínia” em navy `#1F2A44` e “Psi” em gradiente lavanda→roxo. Não redesenhar o PNG do símbolo.
-
-Esse PNG deve ser usado **exatamente como fornecido**. Ele é a fonte de verdade para o símbolo (Psi em folhas teal/lavanda).
+Esse PNG deve ser usado **exatamente como fornecido** em todas as menções da logo. Ele já contém o lockup completo. Não sobrepor `BrandWordmark` nem outro texto da marca.
 
 É proibido:
 - redesenhar ou gerar uma nova logo a partir de descrição textual;

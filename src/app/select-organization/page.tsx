@@ -29,7 +29,7 @@ export default async function SelectOrganizationPage() {
 
       <div className="relative z-10 w-full max-w-lg rounded-3xl border border-border bg-card p-8 shadow-[0_16px_24px_rgba(31,36,33,0.04)] sm:p-10">
         <div className="flex flex-col items-center gap-4 text-center">
-          <Logo variant="stacked" width={96} priority />
+          <Logo variant="stacked" width={180} priority />
           <h1 className="font-serif text-2xl font-bold text-foreground">
             Escolha o consultório
           </h1>

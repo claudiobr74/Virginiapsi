@@ -37,7 +37,7 @@ export function Sidebar({
     <aside className="hidden w-[260px] shrink-0 flex-col border-r border-border bg-card lg:flex">
       <div className="px-6 pb-2 pt-6">
         <Link href="/app" className="inline-flex" aria-label="VirgíniaPsi — início">
-          <Logo variant="inline" width={32} />
+          <Logo variant="inline" width={188} />
         </Link>
       </div>
 

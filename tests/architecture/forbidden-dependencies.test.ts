@@ -226,7 +226,7 @@ describe("arquitetura proibida", () => {
       .update(readFileSync(logoPath))
       .digest("hex");
     expect(digest).toBe(
-      "a8295a09c1686e3727712c5ff08a9d2ac474e86b38e06fd6782252f13541e8e4",
+      "d23c0e4095b37c4cd7c6cc2695fbc376bd13ace939c7b5e75d651c6dc1575184",
     );
   });
 
