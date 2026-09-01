@@ -17,7 +17,7 @@ import {
 import { hasPatientClinicalAccess } from "@/features/patients/clinical-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
-import { getServerEnv } from "@/lib/env/server";
+import { getSessionCaptureEnv } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface CapabilityGrant {
@@ -150,7 +150,7 @@ export function issueCaptureGrant(
   grant: CapabilityGrant,
   capability: CaptureCapability,
 ): string {
-  const env = getServerEnv();
+  const env = getSessionCaptureEnv();
   return signCaptureGrant(
     {
       organizationId: grant.organizationId,
@@ -173,6 +173,6 @@ export function verifyCaptureGrantToken(
   token: string,
   expectedScope: VerifyCaptureGrantExpectedScope,
 ): VerifyCaptureGrantResult {
-  const env = getServerEnv();
+  const env = getSessionCaptureEnv();
   return verifyCaptureGrant(token, env.SESSION_CAPTURE_SECRET, expectedScope);
 }

@@ -13,6 +13,7 @@ import {
 import {
   parseGoogleCalendarEnv,
   parseServerEnv,
+  parseSessionCaptureEnv,
   peekGoogleCalendarRedirectUri,
   readIntegrationEnvFlags,
   SERVER_ONLY_ENV_KEYS,
@@ -245,6 +246,51 @@ describe("contrato de ambiente", () => {
     ).toBe(
       "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
     );
+  });
+
+  it("valida o capture grant só com SESSION_CAPTURE_SECRET", () => {
+    const parsed = parseSessionCaptureEnv({
+      SESSION_CAPTURE_SECRET: "session-capture-secret-placeholder",
+    });
+    expect(parsed).toEqual({
+      SESSION_CAPTURE_SECRET: "session-capture-secret-placeholder",
+    });
+  });
+
+  it("rejeita SESSION_CAPTURE_SECRET ausente no parser de captura", () => {
+    expect(() => parseSessionCaptureEnv({})).toThrow(/SESSION_CAPTURE_SECRET/);
+    expect(() => parseSessionCaptureEnv({ SESSION_CAPTURE_SECRET: "   " })).toThrow(
+      /SESSION_CAPTURE_SECRET/,
+    );
+  });
+
+  it("Twilio, Google, Gemini e CRON_SECRET ausentes não quebram o parser de captura", () => {
+    const parsed = parseSessionCaptureEnv({
+      SESSION_CAPTURE_SECRET: "session-capture-secret-placeholder",
+      TWILIO_ACCOUNT_SID: undefined,
+      TWILIO_AUTH_TOKEN: undefined,
+      GOOGLE_CLIENT_ID: undefined,
+      GOOGLE_CLIENT_SECRET: undefined,
+      GEMINI_API_KEY: undefined,
+      GEMINI_MODEL_SESSION: undefined,
+      CRON_SECRET: undefined,
+    });
+    expect(parsed.SESSION_CAPTURE_SECRET).toBe("session-capture-secret-placeholder");
+  });
+
+  it("getSessionCaptureEnv existe como wrapper server-only do parser isolado", () => {
+    const source = readFileSync(path.join(ROOT, "src/lib/env/server.ts"), "utf8");
+    expect(source).toContain("export function getSessionCaptureEnv");
+    expect(source).toContain("parseSessionCaptureEnv");
+  });
+
+  it("emissão e verificação do capture grant não usam getServerEnv", () => {
+    const source = readFileSync(
+      path.join(ROOT, "src/lib/consent/capability-gate.ts"),
+      "utf8",
+    );
+    expect(source).toContain("getSessionCaptureEnv");
+    expect(source).not.toContain("getServerEnv");
   });
 
   it("valida a Agenda sem Twilio, Gemini nem CRON_SECRET", () => {

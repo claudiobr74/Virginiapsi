@@ -61,6 +61,13 @@ export const googleCalendarEnvSchema = publicEnvSchema
 
 export type GoogleCalendarEnv = z.infer<typeof googleCalendarEnvSchema>;
 
+/** Capture grant signing/verification — independent from Twilio, Google, Gemini and Cron. */
+export const sessionCaptureEnvSchema = z.object({
+  SESSION_CAPTURE_SECRET: nonEmpty,
+});
+
+export type SessionCaptureEnv = z.infer<typeof sessionCaptureEnvSchema>;
+
 export const SERVER_ONLY_ENV_KEYS = [
   "SUPABASE_SECRET_KEY",
   "GOOGLE_CLIENT_ID",
@@ -141,6 +148,18 @@ export function parseGoogleCalendarEnv(
       appUrl,
     ),
     GOOGLE_TOKEN_ENCRYPTION_KEY: source.GOOGLE_TOKEN_ENCRYPTION_KEY,
+  });
+  if (!parsed.success) {
+    throw new Error(formatEnvIssues(parsed.error));
+  }
+  return parsed.data;
+}
+
+export function parseSessionCaptureEnv(
+  source: EnvSource = readServerEnvFromProcess(),
+): SessionCaptureEnv {
+  const parsed = sessionCaptureEnvSchema.safeParse({
+    SESSION_CAPTURE_SECRET: source.SESSION_CAPTURE_SECRET,
   });
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
