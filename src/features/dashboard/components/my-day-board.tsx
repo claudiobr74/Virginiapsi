@@ -19,15 +19,19 @@ export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
   const now = useAgendaClock(endsAtList);
 
   return (
-    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,500px)]">
-      <NextSessionCard
-        appointment={snapshot.nextSession}
-        timeZone={snapshot.timezone}
-        canStartSession={snapshot.canStartSession}
-        emptyDay={emptyDay}
-        now={now}
-      />
-      <aside className="min-w-0 lg:col-start-2 lg:row-span-2">
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
+      <div
+        data-myday-region="primary"
+        className="flex min-w-0 flex-col gap-6"
+      >
+        <NextSessionCard
+          appointment={snapshot.nextSession}
+          timeZone={snapshot.timezone}
+          canStartSession={snapshot.canStartSession}
+          emptyDay={emptyDay}
+          now={now}
+        />
+
         <TodayTimeline
           appointments={snapshot.timeline}
           timeZone={snapshot.timezone}
@@ -35,8 +39,12 @@ export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
           canStartSession={snapshot.canStartSession}
           now={now}
         />
-      </aside>
-      <div className="flex min-w-0 flex-col gap-6">
+      </div>
+
+      <aside
+        data-myday-region="secondary"
+        className="flex min-w-0 flex-col gap-6"
+      >
         <SessionsToFinalizePanel
           sessions={snapshot.sessionsToFinalize}
           timeZone={snapshot.timezone}
@@ -44,7 +52,7 @@ export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
         <FinancialPendingPanel charges={snapshot.financialPending} />
         <TasksPanel tasks={snapshot.tasks} />
         <RecentDocumentsPanel documents={snapshot.recentDocuments} />
-      </div>
+      </aside>
     </div>
   );
 }

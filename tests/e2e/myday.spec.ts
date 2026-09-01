@@ -154,6 +154,112 @@ test.describe("Meu Dia — dashboard operacional", () => {
     }
   });
 
+  test("hierarquia visual: coluna principal e lateral, sem overflow", async ({
+    page,
+  }, testInfo) => {
+    await loginViaUi(page);
+
+    const nextSession = page.getByText("Próxima sessão").first();
+    const agenda = page.getByRole("heading", { name: "Agenda de Hoje" });
+    const finalize = page.getByRole("heading", { name: "Sessões a Finalizar" });
+    const finance = page.getByRole("heading", { name: "Pendências Financeiras" });
+    const tasks = page.getByRole("heading", { name: "Minhas Tarefas" });
+    const documents = page.getByRole("heading", { name: "Documentos Gerados" });
+
+    await expect(nextSession).toBeVisible();
+    await expect(agenda).toBeVisible();
+
+    const boxes = {
+      next: await nextSession.boundingBox(),
+      agenda: await agenda.boundingBox(),
+      finalize: await finalize.boundingBox(),
+      finance: await finance.boundingBox(),
+      tasks: await tasks.boundingBox(),
+      documents: await documents.boundingBox(),
+    };
+    for (const [name, box] of Object.entries(boxes)) {
+      expect(box, `${name} deve estar no layout`).toBeTruthy();
+    }
+
+    const nextBox = boxes.next!;
+    const agendaBox = boxes.agenda!;
+    const finalizeBox = boxes.finalize!;
+    const financeBox = boxes.finance!;
+    const tasksBox = boxes.tasks!;
+    const documentsBox = boxes.documents!;
+
+    expect(agendaBox.y).toBeGreaterThan(nextBox.y);
+
+    const viewport = page.viewportSize();
+    if ((viewport?.width ?? 0) >= 1024) {
+      expect(Math.abs(agendaBox.x - nextBox.x)).toBeLessThan(48);
+      expect(finalizeBox.x).toBeGreaterThan(nextBox.x + nextBox.width * 0.4);
+      expect(finalizeBox.y).toBeLessThan(agendaBox.y);
+      expect(financeBox.y).toBeGreaterThan(finalizeBox.y);
+      expect(tasksBox.y).toBeGreaterThan(financeBox.y);
+      expect(documentsBox.y).toBeGreaterThan(tasksBox.y);
+      expect(Math.abs(finalizeBox.x - financeBox.x)).toBeLessThan(48);
+    } else {
+      expect(finalizeBox.y).toBeGreaterThan(agendaBox.y);
+      expect(financeBox.y).toBeGreaterThan(finalizeBox.y);
+      expect(tasksBox.y).toBeGreaterThan(financeBox.y);
+      expect(documentsBox.y).toBeGreaterThan(tasksBox.y);
+    }
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+
+    await page.screenshot({
+      path: `test-results/myday-layout-${testInfo.project.name}.png`,
+      fullPage: true,
+    });
+
+    if (testInfo.project.name === "mobile-chromium") {
+      await page.locator("header").first().screenshot({
+        path: "test-results/myday-logo-mobile-topbar.png",
+      });
+    }
+
+    if (testInfo.project.name === "desktop-chromium") {
+      for (const size of [
+        { width: 412, height: 915 },
+        { width: 768, height: 1024 },
+        { width: 1366, height: 768 },
+        { width: 1440, height: 900 },
+      ] as const) {
+        await page.setViewportSize(size);
+        await expect(agenda).toBeVisible();
+        const extraOverflow = await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(extraOverflow, `${size.width}x${size.height}`).toBeLessThanOrEqual(1);
+
+        const resized = {
+          next: await nextSession.boundingBox(),
+          agenda: await agenda.boundingBox(),
+          finalize: await finalize.boundingBox(),
+        };
+        expect(resized.agenda!.y).toBeGreaterThan(resized.next!.y);
+        if (size.width >= 1024) {
+          expect(resized.finalize!.x).toBeGreaterThan(
+            resized.next!.x + resized.next!.width * 0.4,
+          );
+        } else {
+          expect(resized.finalize!.y).toBeGreaterThan(resized.agenda!.y);
+        }
+      }
+
+      await page.goto("/login");
+      await expect(page.getByRole("img", { name: "VirgíniaPsi" })).toBeVisible();
+      await page.screenshot({
+        path: "test-results/login-logo-desktop.png",
+        fullPage: false,
+      });
+    }
+  });
+
   test("Vincular e atender no Google externo persiste paciente e abre a sessão", async ({
     page,
   }) => {
