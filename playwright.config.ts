@@ -47,13 +47,6 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
-    permissions: ["microphone", "camera"],
-    launchOptions: {
-      args: [
-        "--use-fake-ui-for-media-stream",
-        "--use-fake-device-for-media-stream",
-      ],
-    },
   },
   webServer: [
     {
@@ -73,7 +66,17 @@ export default defineConfig({
   projects: [
     {
       name: "desktop-chromium",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        permissions: ["microphone", "camera"],
+        launchOptions: {
+          args: [
+            "--use-fake-ui-for-media-stream",
+            "--use-fake-device-for-media-stream",
+          ],
+        },
+      },
     },
     {
       name: "mobile-chromium",
@@ -83,12 +86,25 @@ export default defineConfig({
         isMobile: true,
         hasTouch: true,
         deviceScaleFactor: 3,
+        permissions: ["microphone", "camera"],
+        launchOptions: {
+          args: [
+            "--use-fake-ui-for-media-stream",
+            "--use-fake-device-for-media-stream",
+          ],
+        },
       },
     },
-    {
-      name: "desktop-webkit",
-      testMatch: /session-transcription\.spec\.ts/,
-      use: { ...devices["Desktop Safari"], viewport: { width: 1440, height: 900 } },
-    },
+    // WebKit is opt-in: Chromium fake-media flags are invalid there, and CI
+    // only installs Chromium. `E2E_WEBKIT=1 pnpm test:e2e:webkit`.
+    ...(process.env.E2E_WEBKIT === "1"
+      ? [
+          {
+            name: "desktop-webkit",
+            testMatch: /session-transcription\.spec\.ts/,
+            use: { ...devices["Desktop Safari"], viewport: { width: 1440, height: 900 } },
+          },
+        ]
+      : []),
   ],
 });

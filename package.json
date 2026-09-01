@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:security": "vitest run --config vitest.security.config.ts",
     "test:e2e": "playwright test",
+    "test:e2e:webkit": "E2E_WEBKIT=1 playwright test --project=desktop-webkit",
     "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
     "scan:architecture": "vitest run tests/architecture",
     "scan:client-bundle": "node scripts/check-client-bundle-secrets.mjs",

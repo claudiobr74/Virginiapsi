@@ -4,10 +4,10 @@ Tabela preenchida só com o que esta rodada verificou. Não inventar suporte.
 
 | Feature | Chrome Android | Safari iOS/iPadOS | Chrome Desktop | Edge Desktop | Safari macOS |
 |---|---|---|---|---|---|
-| getUserMedia | not verified | not verified | verified (Playwright Chromium) | not verified | not verified |
-| MediaRecorder | not verified | not verified | verified (Playwright Chromium) | not verified | not verified (Playwright WebKit: API path only) |
-| preferred MIME | not verified | not verified | negotiated (webm/opus when advertised) | not verified | not verified |
-| IndexedDB | not verified | not verified | unit (Node) / Playwright recovery path | not verified | not verified |
+| getUserMedia | not verified (emulação Playwright mobile Chromium não substitui dispositivo) | not verified | verified (Playwright Chromium desktop) | not verified | not verified |
+| MediaRecorder | not verified | not verified | verified (Playwright Chromium desktop, start/stop) | not verified | not verified |
+| preferred MIME | not verified | not verified | negotiated in unit tests (isTypeSupported); MIME real do MediaRecorder **not verified** | not verified | not verified |
+| IndexedDB | not verified | not verified | verified (unit + Playwright offline/recovery em Chromium) | not verified | not verified |
 | WebCrypto AES-GCM | not verified | not verified | verified (unit, Node 22) | not verified | not verified |
 | Storage estimate | not verified | not verified | not verified | not verified | not verified |
 | Storage persist | not verified | not verified | not verified | not verified | not verified |
@@ -17,6 +17,8 @@ Tabela preenchida só com o que esta rodada verificou. Não inventar suporte.
 Firefox: não bloqueia a arquitetura; sem verificação nesta rodada.
 
 MIME escolhido em dispositivo real: **not verified** (não inventar `audio/webm` vs `audio/mp4`).
+
+Playwright WebKit (Safari desktop emulado): projeto opcional `E2E_WEBKIT=1` / `pnpm test:e2e:webkit`. Flags `--use-fake-*-media-stream` são só Chromium (WebKit recusa o argumento). Nesta VM, após instalar deps, o browser lança, mas o login E2E não preenche o campo `type=email` (valor permanece vazio; validação «Informe seu e-mail»). Caminho HTTP grant/chunk, captura, offline e import no WebKit desta rodada: **not verified**.
 
 ## Data flow
 
