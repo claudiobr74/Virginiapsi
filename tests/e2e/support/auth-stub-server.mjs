@@ -589,9 +589,9 @@ function getConnection(organizationId) {
   );
 }
 
-// Seed: one appointment today at 09:00 America/Sao_Paulo (TESSELI) and one
-// external Google event later the same day, so the default day view (today)
-// has something to render without any navigation. Sao Paulo has observed no
+// Seed: TESSELI + Google events on today's São Paulo civil date. Future slots
+// are relative to now so Agenda V2 green/blue (ends_at vs clock) does not
+// flake after a fixed 22:00/23:00 local wall time. São Paulo has observed no
 // DST since 2019 (fixed UTC-3), so the offset below is always correct.
 function todaySaoPauloDateStr() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -604,16 +604,35 @@ function todaySaoPauloDateStr() {
   return `${map.year}-${map.month}-${map.day}`;
 }
 
+function futureRangeOnCivilDay(today, leadMinutes, durationMinutes) {
+  const nowMs = Date.now();
+  const dayEndMs = new Date(`${today}T23:59:50-03:00`).getTime();
+  const durationMs = durationMinutes * 60 * 1000;
+  let startMs = nowMs + leadMinutes * 60 * 1000;
+  let endMs = startMs + durationMs;
+  if (endMs > dayEndMs) {
+    endMs = dayEndMs;
+    startMs = Math.max(nowMs + 15_000, endMs - durationMs);
+  }
+  if (endMs <= nowMs) {
+    startMs = nowMs + 15_000;
+    endMs = startMs + durationMs;
+  }
+  return {
+    starts_at: new Date(startMs).toISOString(),
+    ends_at: new Date(endMs).toISOString(),
+  };
+}
+
 {
   const today = todaySaoPauloDateStr();
   const [beatriz] = patientsByOrg.get(ADMIN_ORG_ID).values();
+  const futureBeatriz = futureRangeOnCivilDay(today, 20, 40);
 
-  const futureStart = new Date(`${today}T23:00:00-03:00`);
-  const futureEnd = new Date(futureStart.getTime() + 50 * 60 * 1000);
   seedAppointment(ADMIN_ORG_ID, {
     patient_id: beatriz.id,
-    starts_at: futureStart.toISOString(),
-    ends_at: futureEnd.toISOString(),
+    starts_at: futureBeatriz.starts_at,
+    ends_at: futureBeatriz.ends_at,
     summary_snapshot: `${beatriz.full_name} • ${beatriz.public_code}`,
   });
 
@@ -645,16 +664,15 @@ function todaySaoPauloDateStr() {
     summary_snapshot: "Vinicius-2(desmarcou)",
   });
 
-  const externalStart = new Date(`${today}T22:00:00-03:00`);
-  const externalEnd = new Date(externalStart.getTime() + 60 * 60 * 1000);
+  const futureGoogle = futureRangeOnCivilDay(today, 75, 45);
   seedAppointment(ADMIN_ORG_ID, {
     origin: "GOOGLE_EXTERNAL",
     managed_by_tesseli: false,
     google_calendar_id: "primary",
     google_event_id: "external-evt-1",
     summary_snapshot: "Reunião do conselho regional",
-    starts_at: externalStart.toISOString(),
-    ends_at: externalEnd.toISOString(),
+    starts_at: futureGoogle.starts_at,
+    ends_at: futureGoogle.ends_at,
   });
 }
 
