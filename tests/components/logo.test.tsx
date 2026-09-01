@@ -8,7 +8,7 @@ import { LOGO_INTRINSIC_HEIGHT, LOGO_INTRINSIC_WIDTH, LOGO_SRC, Logo } from "@/c
 const ORIGINAL_SHA256 =
   "d23c0e4095b37c4cd7c6cc2695fbc376bd13ace939c7b5e75d651c6dc1575184";
 const TRANSPARENT_SHA256 =
-  "03c2174515e466d71f969dec57e82448223eabd03888ecb40b3190b2583d6aec";
+  "3b8d9aecd915bb63331466686b5c9e5703a5b971ae2b740a129ac153551ec20f";
 
 function sha256Of(relative: string): string {
   return createHash("sha256")
