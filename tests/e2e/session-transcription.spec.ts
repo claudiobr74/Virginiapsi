@@ -7,11 +7,22 @@ const CAPTURE_LABELS = [
   "Transcrição da sessão",
 ] as const;
 
-const PERSISTED_TEXT = "Frase curta persistida no prontuário.";
-
-async function openPatient(page: Page, preferredName: string): Promise<string> {
-  await page.goto("/app/patients");
-  await page.getByText(preferredName, { exact: true }).click();
+/**
+ * Each Playwright project shares one in-memory auth stub, and
+ * `start_clinical_session` reuses an in-progress session for the same patient.
+ * A fixed seed like "Consentimento Dois" therefore leaks desktop persistence
+ * into mobile (empty state disappears before the grant). This spec creates a
+ * unique adult patient per run so desktop and mobile stay isolated.
+ */
+async function createIsolatedCapturePatient(
+  page: Page,
+  preferredName: string,
+): Promise<string> {
+  await page.goto("/app/patients/new");
+  await page.getByLabel("Nome preferencial").fill(preferredName);
+  await page.getByLabel("Nome completo").fill(`${preferredName} Completo`);
+  await page.getByLabel("Data de nascimento").fill("1990-05-10");
+  await page.getByRole("button", { name: "Cadastrar paciente" }).click();
   await page.waitForURL(/\/app\/patients\/[0-9a-f-]{36}$/);
   return page.url().split("/").pop() as string;
 }
@@ -35,13 +46,19 @@ async function startSession(page: Page, patientId: string): Promise<string> {
 }
 
 test.describe("Transcrição em sessão — grant e persistência", () => {
-  test("grant válido persiste trecho e o texto permanece após reload", async ({ page }) => {
+  test("grant válido persiste trecho e o texto permanece após reload", async ({
+    page,
+  }, testInfo) => {
+    const runId = crypto.randomUUID().slice(0, 8);
+    const preferredName = `Captura ${testInfo.project.name} ${runId}`;
+    const persistedText = `Trecho sintético ${testInfo.project.name} ${runId}`;
+
     await loginViaUi(page);
-    const patientId = await openPatient(page, "Consentimento Dois");
+    const patientId = await createIsolatedCapturePatient(page, preferredName);
     await recordAllCaptureConsents(page);
     const sessionId = await startSession(page, patientId);
 
-    await expect(page.getByRole("heading", { name: "Transcrição" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Transcrição em tempo real" })).toBeVisible();
     await expect(page.getByText("Nenhum trecho transcrito ainda nesta sessão.")).toBeVisible();
 
     const grantResponse = await page.request.post("/api/session-capture/grant", {
@@ -57,7 +74,7 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
         sessionId,
         patientId,
         sequence: 0,
-        text: PERSISTED_TEXT,
+        text: persistedText,
         isFinal: true,
         startMs: 0,
         endMs: 1500,
@@ -69,7 +86,7 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
     expect(persistBody.ok).toBe(true);
 
     await page.reload();
-    await expect(page.getByText(PERSISTED_TEXT)).toBeVisible();
+    await expect(page.getByText(persistedText)).toBeVisible();
     await expect(page.getByText("Nenhum trecho transcrito ainda nesta sessão.")).toHaveCount(0);
   });
 });
