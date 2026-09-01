@@ -114,6 +114,34 @@ describe("getAppointmentPresentation — fixtures reais", () => {
     expect(result.badgeLabel).toBe("Google");
   });
 
+  it("Isadora? não pode sem colorId configurado permanece verde", () => {
+    const result = presentation({
+      origin: "GOOGLE_EXTERNAL",
+      summary: "Isadora? não pode",
+      endsAt: "2026-08-18T22:00:00.000Z",
+      patientId: null,
+    });
+    expect(result.visualState).toBe("active");
+    expect(result.backgroundColor).toBe("#34A853");
+  });
+
+  it("cancelado pela cor da organização permanece vermelho depois do horário", () => {
+    const result = getAppointmentPresentation({
+      appointment: {
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        ends_at: "2026-08-18T08:00:00.000Z",
+        summary_snapshot: "Thatiane+1(plantão)",
+        google_color_id: "9",
+        cancelled_google_color_ids: ["9"],
+        patient_id: null,
+      },
+      now: NOW,
+    });
+    expect(result.visualState).toBe("cancelled");
+    expect(result.backgroundColor).toBe("#D93025");
+  });
+
   it("não usa colorId nem origem para o preenchimento", () => {
     const visual = getAppointmentVisualStatus(
       {

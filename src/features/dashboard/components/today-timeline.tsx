@@ -36,6 +36,8 @@ export function TodayTimeline({
     appointments.map((appointment) => ({
       status: appointment.status,
       summarySnapshot: appointment.summarySnapshot,
+      googleColorId: appointment.googleColorId,
+      cancelledGoogleColorIds: appointment.cancelledGoogleColorIds,
     })),
   );
 

@@ -585,6 +585,7 @@ function getConnection(organizationId) {
       scopes: [],
       last_synced_at: null,
       last_sync_error: null,
+      cancelled_google_color_ids: [],
     }
   );
 }

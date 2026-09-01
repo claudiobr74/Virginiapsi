@@ -46,6 +46,28 @@ describe("GoogleCalendarClient", () => {
     expect(parsed.searchParams.get("orderBy")).toBe("startTime");
   });
 
+  it("listEvents preserva colorId devolvido pela API", async () => {
+    const fetchImpl = mockFetch(async () =>
+      jsonResponse({
+        items: [
+          {
+            id: "evt-isadora",
+            summary: "Isadora? não pode",
+            status: "confirmed",
+            colorId: "9",
+          },
+        ],
+      }),
+    );
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+    const page = await client.listEvents("primary", {
+      timeMin: "2026-09-01T00:00:00.000Z",
+      timeMax: "2026-09-02T00:00:00.000Z",
+    });
+    expect(page.items[0]?.colorId).toBe("9");
+    expect(page.items[0]?.summary).toBe("Isadora? não pode");
+  });
+
   it("listEvents com showDeleted não envia orderBy", async () => {
     const fetchImpl = mockFetch(async () => jsonResponse({ items: [] }));
     const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });

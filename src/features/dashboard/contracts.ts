@@ -31,6 +31,8 @@ export const myDayAppointmentSchema = z.object({
   patientPreferredName: z.string().nullable(),
   patientPublicCode: z.string().nullable(),
   patientPhone: z.string().nullable(),
+  googleColorId: z.string().nullable().optional(),
+  cancelledGoogleColorIds: z.array(z.string()).optional(),
 });
 
 export type MyDayAppointment = z.infer<typeof myDayAppointmentSchema>;

@@ -53,6 +53,10 @@ export interface AppointmentPresentationInput {
   endsAt?: string;
   summary_snapshot?: string | null;
   summarySnapshot?: string | null;
+  google_color_id?: string | null;
+  googleColorId?: string | null;
+  cancelled_google_color_ids?: readonly string[] | null;
+  cancelledGoogleColorIds?: readonly string[] | null;
   patient_id?: string | null;
 }
 
@@ -61,6 +65,8 @@ export function myDayAppointmentToPresentationInput(appointment: {
   origin?: AppointmentOrigin;
   endsAt?: string;
   summarySnapshot?: string | null;
+  googleColorId?: string | null;
+  cancelledGoogleColorIds?: readonly string[] | null;
   patientId?: string | null;
 }): AppointmentPresentationInput {
   return {
@@ -68,6 +74,8 @@ export function myDayAppointmentToPresentationInput(appointment: {
     origin: appointment.origin,
     ends_at: appointment.endsAt,
     summary_snapshot: appointment.summarySnapshot,
+    google_color_id: appointment.googleColorId,
+    cancelled_google_color_ids: appointment.cancelledGoogleColorIds,
     patient_id: appointment.patientId,
   };
 }

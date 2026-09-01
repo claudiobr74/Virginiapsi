@@ -24,7 +24,7 @@ import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { computeAgendaWindow, todayInTimeZone } from "@/features/calendar/date-window";
 import { getConnection } from "@/features/calendar/connection-queries";
 import { googleConnectionIsLive, visibleAppointments } from "@/features/calendar/display";
-import { countValidAgendaSessions } from "@/features/calendar/google-event-status";
+import { countValidAgendaSessions, applyOrgCancelledColorPolicy } from "@/features/calendar/google-event-status";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface AppointmentJoinRow {
@@ -35,6 +35,7 @@ interface AppointmentJoinRow {
   modality: string;
   origin: string;
   summary_snapshot: string | null;
+  google_color_id: string | null;
   meet_url: string | null;
   meet_status: string;
   patient_id: string | null;
@@ -62,6 +63,7 @@ function toMyDayAppointment(row: AppointmentJoinRow): MyDayAppointment {
     modality: row.modality,
     origin: row.origin,
     summarySnapshot: row.summary_snapshot,
+    googleColorId: row.google_color_id,
     meetUrl: row.meet_url,
     meetStatus: row.meet_status,
     patientId: row.patient_id,
@@ -86,7 +88,7 @@ async function listTodayAppointments(
   let query = supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, status, modality, origin, summary_snapshot, meet_url, meet_status, patient_id, patients(preferred_name, public_code, phone)",
+      "id, starts_at, ends_at, status, modality, origin, summary_snapshot, google_color_id, meet_url, meet_status, patient_id, patients(preferred_name, public_code, phone)",
     )
     .eq("organization_id", organizationId)
     .lt("starts_at", window.toIso)
@@ -102,7 +104,13 @@ async function listTodayAppointments(
     return [];
   }
 
-  const rows = (data as AppointmentJoinRow[] | null)?.map(toMyDayAppointment) ?? [];
+  const rows = applyOrgCancelledColorPolicy(
+    (data as AppointmentJoinRow[] | null)?.map(toMyDayAppointment) ?? [],
+    connection?.cancelled_google_color_ids,
+  ).map((row) => ({
+    ...row,
+    cancelledGoogleColorIds: row.cancelled_google_color_ids,
+  }));
   return visibleAppointments(rows, connection);
 }
 
@@ -182,7 +190,7 @@ async function countWeekSessions(
 
   let query = supabase
     .from("appointments")
-    .select("id, status, origin, summary_snapshot, starts_at")
+    .select("id, status, origin, summary_snapshot, google_color_id, starts_at")
     .eq("organization_id", organizationId)
     .gte("starts_at", window.fromIso)
     .lt("starts_at", window.toIso);
@@ -197,17 +205,23 @@ async function countWeekSessions(
   }
 
   const visible = visibleAppointments(
-    (data as Array<{
-      status: string;
-      origin: "TESSELI" | "GOOGLE_EXTERNAL";
-      summary_snapshot: string | null;
-    }> | null) ?? [],
+    applyOrgCancelledColorPolicy(
+      (data as Array<{
+        status: string;
+        origin: "TESSELI" | "GOOGLE_EXTERNAL";
+        summary_snapshot: string | null;
+        google_color_id?: string | null;
+      }> | null) ?? [],
+      connection?.cancelled_google_color_ids,
+    ),
     connection,
   );
   return countValidAgendaSessions(
     visible.map((row) => ({
       status: row.status as "scheduled" | "confirmed" | "cancelled" | "completed" | "no_show",
       summary_snapshot: row.summary_snapshot,
+      google_color_id: row.google_color_id,
+      cancelled_google_color_ids: row.cancelled_google_color_ids,
     })),
   );
 }

@@ -5,6 +5,7 @@ export function googleEventWriteBody(input: {
   startsAt: string;
   endsAt: string;
 }): Record<string, unknown> {
+  // Intentionally omits colorId so PATCH/INSERT preserve the Google event color.
   return {
     summary: input.summary,
     start: { dateTime: input.startsAt },

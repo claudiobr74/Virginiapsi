@@ -16,6 +16,7 @@ export const connectionRowSchema = z.object({
   scopes: z.array(z.string()).catch([]),
   last_synced_at: z.string().nullable(),
   last_sync_error: z.string().nullable(),
+  cancelled_google_color_ids: z.array(z.string()).nullish(),
 });
 export type ConnectionRow = z.infer<typeof connectionRowSchema>;
 
@@ -75,6 +76,7 @@ export const appointmentRowSchema = z.object({
   summary_snapshot: z.string().nullable(),
   google_etag: z.string().nullable().optional(),
   google_color_id: z.string().nullable().optional(),
+  cancelled_google_color_ids: z.array(z.string()).nullish(),
   last_synced_at: z.string().nullable().optional(),
   sync_status: z.string(),
 });

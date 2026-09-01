@@ -48,6 +48,8 @@ function stub(
     google_event_id: extras.origin === "GOOGLE_EXTERNAL" ? "evt-d" : null,
     meet_url: null,
     meet_status: "none",
+    google_color_id: null,
+    cancelled_google_color_ids: [],
     sync_status: "synced",
     ...extras,
   };
@@ -238,6 +240,8 @@ describe("Agenda V2 — cores sólidas em dia/semana/mês", () => {
         patientPreferredName: row.summary_snapshot,
         patientPublicCode: null,
         patientPhone: null,
+        googleColorId: row.google_color_id ?? null,
+        cancelledGoogleColorIds: row.cancelled_google_color_ids ?? [],
       };
     }
 

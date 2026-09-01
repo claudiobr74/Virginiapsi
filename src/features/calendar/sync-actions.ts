@@ -298,7 +298,9 @@ export async function syncGoogleCalendarPull(
           continue;
         }
 
-        const status = deriveImportedAppointmentStatus(event);
+        const status = deriveImportedAppointmentStatus(event, {
+          cancelledColorIds: connection.cancelled_google_color_ids,
+        });
         const { error: upsertError } = await supabase.rpc("upsert_external_appointment", {
           org_id: organizationId,
           p_google_calendar_id: connection.calendar_id,

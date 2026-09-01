@@ -18,7 +18,8 @@ import { listPatients } from "@/features/patients/queries";
 import type { OrganizationRole } from "@/features/organizations/contracts";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addCents } from "@/lib/finance/money";
-import { isValidCountableSession } from "@/features/calendar/google-event-status";
+import { isValidCountableSession, applyOrgCancelledColorPolicy } from "@/features/calendar/google-event-status";
+import { getConnection } from "@/features/calendar/connection-queries";
 import type { AppointmentStatus } from "@/features/calendar/contracts";
 
 export interface WeeklyPoint {
@@ -51,12 +52,16 @@ interface AppointmentMetricRow {
   status: string;
   origin?: string;
   summary_snapshot?: string | null;
+  google_color_id?: string | null;
+  cancelled_google_color_ids?: string[];
 }
 
 function isCountableMetricRow(row: AppointmentMetricRow): boolean {
   return isValidCountableSession({
     status: row.status as AppointmentStatus,
     summary_snapshot: row.summary_snapshot,
+    google_color_id: row.google_color_id,
+    cancelled_google_color_ids: row.cancelled_google_color_ids,
   });
 }
 
@@ -86,21 +91,25 @@ export async function getIndicatorSnapshot(
   const lookbackStart = addDaysIso(today, -56);
 
   const supabase = await createSupabaseServerClient();
-  const [{ data, error }, patients, access] = await Promise.all([
+  const [{ data, error }, patients, access, connection] = await Promise.all([
     supabase
       .from("appointments")
-      .select("starts_at, ends_at, status, origin, summary_snapshot")
+      .select("starts_at, ends_at, status, origin, summary_snapshot, google_color_id")
       .eq("organization_id", organizationId)
       .gte("starts_at", `${lookbackStart}T00:00:00.000Z`),
     listPatients(organizationId),
     getFinanceAccess(organizationId, role),
+    getConnection(organizationId).catch((): null => null),
   ]);
 
-  const appointments = (error ? [] : (data as AppointmentMetricRow[] | null) ?? []).map(
-    (row) => ({
-      ...row,
-      date: isoDateInTimeZone(row.starts_at, timezone),
-    }),
+  const appointments = applyOrgCancelledColorPolicy(
+    (error ? [] : (data as AppointmentMetricRow[] | null) ?? []).map(
+      (row) => ({
+        ...row,
+        date: isoDateInTimeZone(row.starts_at, timezone),
+      }),
+    ),
+    connection?.cancelled_google_color_ids,
   );
 
   const activePatients = patients.filter((patient) => patient.status === "active").length;

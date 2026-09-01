@@ -712,3 +712,104 @@ describe("Agenda V2 — RPCs de espelho GOOGLE_EXTERNAL", () => {
     }
   });
 });
+
+describe("Agenda V2.1 — cancelled_google_color_ids por organização", () => {
+  it("upsert_external_appointment atualiza google_color_id em evento já existente", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Color Backfill");
+    const session = await openSession({ userId: admin });
+    try {
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-color-1', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Isadora? não pode', 'scheduled', null
+         )`,
+        [organizationId],
+      );
+      const before = await session.query<{ google_color_id: string | null }>(
+        `select google_color_id from public.appointments
+         where organization_id = $1 and google_event_id = 'ext-color-1'`,
+        [organizationId],
+      );
+      expect(before[0].google_color_id).toBeNull();
+
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-color-1', 'etag-b',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Isadora? não pode', 'cancelled', '9'
+         )`,
+        [organizationId],
+      );
+      const after = await session.query<{
+        google_color_id: string | null;
+        status: string;
+      }>(
+        `select google_color_id, status from public.appointments
+         where organization_id = $1 and google_event_id = 'ext-color-1'`,
+        [organizationId],
+      );
+      expect(after[0]).toEqual({ google_color_id: "9", status: "cancelled" });
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("admin define cancelled_google_color_ids; secretária e outro tenant não", async () => {
+    const admin = await createAuthUser();
+    const secretary = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Color Map");
+    await addMember(admin, organizationId, secretary, "secretary");
+    await connectGoogle(admin, organizationId);
+
+    const adminSession = await openSession({ userId: admin });
+    try {
+      const saved = await adminSession.query<{ set_google_cancelled_color_ids: string[] }>(
+        `select public.set_google_cancelled_color_ids($1, array['9', 'abc', '9', '']) as set_google_cancelled_color_ids`,
+        [organizationId],
+      );
+      expect(saved[0].set_google_cancelled_color_ids).toEqual(["9"]);
+
+      const stored = await adminSession.query<{ cancelled_google_color_ids: string[] }>(
+        `select cancelled_google_color_ids from public.google_calendar_connections
+         where organization_id = $1`,
+        [organizationId],
+      );
+      expect(stored[0].cancelled_google_color_ids).toEqual(["9"]);
+    } finally {
+      await adminSession.close();
+    }
+
+    const secretarySession = await openSession({ userId: secretary });
+    try {
+      const rpcError = await secretarySession.expectError(
+        `select public.set_google_cancelled_color_ids($1, array['8'])`,
+        [organizationId],
+      );
+      expect(rpcError).toMatch(/only psychologist_admin/i);
+
+      const updateError = await secretarySession.expectError(
+        `update public.google_calendar_connections
+         set cancelled_google_color_ids = array['8']
+         where organization_id = $1`,
+        [organizationId],
+      );
+      expect(updateError).toMatch(/only psychologist_admin/i);
+    } finally {
+      await secretarySession.close();
+    }
+
+    const outsider = await createAuthUser();
+    const outsiderSession = await openSession({ userId: outsider });
+    try {
+      const error = await outsiderSession.expectError(
+        `select public.set_google_cancelled_color_ids($1, array['8'])`,
+        [organizationId],
+      );
+      expect(error).toMatch(/only psychologist_admin/i);
+    } finally {
+      await outsiderSession.close();
+    }
+  });
+});

@@ -15,17 +15,18 @@ function jsonResponse(body: unknown, status = 200) {
 
 describe("googleEventWriteBody", () => {
   it("envia summary, início e fim iguais nos dois lados", () => {
-    expect(
-      googleEventWriteBody({
-        summary: "Ana Cláudia-1(c)",
-        startsAt: "2026-09-02T12:00:00.000Z",
-        endsAt: "2026-09-02T13:00:00.000Z",
-      }),
-    ).toEqual({
+    const body = googleEventWriteBody({
+      summary: "Ana Cláudia-1(c)",
+      startsAt: "2026-09-02T12:00:00.000Z",
+      endsAt: "2026-09-02T13:00:00.000Z",
+    });
+    expect(body).toEqual({
       summary: "Ana Cláudia-1(c)",
       start: { dateTime: "2026-09-02T12:00:00.000Z" },
       end: { dateTime: "2026-09-02T13:00:00.000Z" },
     });
+    expect(body).not.toHaveProperty("colorId");
+    expect(JSON.stringify(body)).not.toMatch(/colorId/);
   });
 });
 
@@ -75,7 +76,9 @@ describe("CRUD Google Calendar via mock HTTP", () => {
     const [url, init] = fetchImpl.mock.calls[0];
     expect(url).toContain("/calendars/primary/events/evt-a");
     expect(init?.method).toBe("PATCH");
-    expect(JSON.parse(init?.body as string)).toEqual(body);
+    const sent = JSON.parse(init?.body as string);
+    expect(sent).toEqual(body);
+    expect(sent).not.toHaveProperty("colorId");
   });
 
   it("DELETE remove o evento no Google", async () => {
