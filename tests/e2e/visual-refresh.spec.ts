@@ -46,6 +46,32 @@ test.describe("Visual Refresh V2 — screenshots", () => {
     }
   });
 
+  test("logo no login light e dark", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "logo dark só no desktop");
+    await page.goto("/login");
+    await page.waitForLoadState("domcontentloaded");
+    await page.screenshot({
+      path: path.join(OUT, "login-light-1440x900.png"),
+      fullPage: false,
+    });
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await page.screenshot({
+      path: path.join(OUT, "login-dark-1440x900.png"),
+      fullPage: false,
+    });
+  });
+
+  test("meu dia dark mode", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "dark dashboard só no desktop");
+    test.setTimeout(60_000);
+    await loginViaUi(page);
+    await page.getByRole("button", { name: "Ativar tema escuro" }).click();
+    await page.screenshot({
+      path: path.join(OUT, "meu-dia-dark-1440x900.png"),
+      fullPage: true,
+    });
+  });
+
   test("tablet 768x1024 no dashboard", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "tablet só no projeto desktop");
     test.setTimeout(60_000);
