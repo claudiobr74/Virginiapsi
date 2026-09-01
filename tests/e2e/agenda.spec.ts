@@ -163,17 +163,19 @@ test.describe("Agenda — nova consulta", () => {
 });
 
 test.describe("Agenda — gestão de consulta existente", () => {
-  test("confirma e depois cancela uma consulta gerenciada", async ({ page }) => {
+  test("confirma e depois cancela uma consulta gerenciada", async ({ page }, testInfo) => {
     // Cria uma consulta isolada (sem paciente vinculado) em vez de usar o
     // seed global "Beatriz Lima • PAC-001": este teste roda em múltiplos
     // projetos (desktop/mobile) contra o mesmo servidor stub, e cancelar o
     // seed compartilhado quebraria outros testes que dependem dele.
+    const date = uniqueDateForTest(testInfo, 2028);
+    const title = `Consulta avulsa e2e ${testInfo.project.name} ${date}`;
     await loginViaUi(page);
-    await page.goto("/app/agenda?view=day&date=2026-06-08");
+    await page.goto(`/app/agenda?view=day&date=${date}`);
 
     await page.getByRole("button", { name: "Novo agendamento" }).click();
-    await page.getByLabel("Título").fill("Consulta avulsa e2e");
-    await page.getByLabel("Data").fill("2026-06-08");
+    await page.getByLabel("Título").fill(title);
+    await page.getByLabel("Data").fill(date);
     await page.getByLabel("Horário").fill("15:00");
     await page.getByLabel("Duração (minutos)").fill("50");
     await page.getByRole("button", { name: "Agendar" }).click();
@@ -181,7 +183,7 @@ test.describe("Agenda — gestão de consulta existente", () => {
       page.getByRole("heading", { name: "Novo agendamento" }),
     ).toHaveCount(0);
 
-    await page.getByText("Consulta avulsa e2e").click();
+    await page.getByText(title, { exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Detalhes do agendamento" }),
     ).toBeVisible();
@@ -199,7 +201,7 @@ test.describe("Agenda — gestão de consulta existente", () => {
       .click();
 
     await expect(
-      page.locator("[data-appointment-visual='cancelled']").filter({ hasText: "Consulta avulsa e2e" }),
+      page.locator("[data-appointment-visual='cancelled']").filter({ hasText: title }),
     ).toBeVisible();
   });
 });
