@@ -2,10 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { loginViaUi } from "./support/fixtures";
 
 async function fillRemainingPlaceholders(page: Page) {
-  const textareas = page.locator("textarea:not([disabled])");
-  const count = await textareas.count();
-  for (let index = 0; index < count; index += 1) {
-    const area = textareas.nth(index);
+  const areas = await page.locator("textarea:not([disabled])").all();
+  for (const area of areas) {
+    if (!(await area.isVisible().catch(() => false))) {
+      continue;
+    }
     const value = await area.inputValue();
     const next = value
       .replace(/\{\{[^}]+\}\}/g, "informação registrada pela profissional")
