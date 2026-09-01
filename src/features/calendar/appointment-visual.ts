@@ -2,131 +2,157 @@ import type {
   AppointmentOrigin,
   AppointmentStatus,
 } from "@/features/calendar/contracts";
+import { isAppointmentCancelled } from "@/features/calendar/google-event-status";
 
 export type AppointmentVisualTone = "active" | "completed" | "cancelled";
 
-/**
- * Full class names only — Tailwind must see these strings at build time.
- * Never interpolate `bg-${color}-100`.
- */
+export const APPOINTMENT_PRESENTATION_COLORS: Record<
+  AppointmentVisualTone,
+  { backgroundColor: string; textColor: string }
+> = {
+  active: { backgroundColor: "#34A853", textColor: "#ffffff" },
+  completed: { backgroundColor: "#1A73E8", textColor: "#ffffff" },
+  cancelled: { backgroundColor: "#D93025", textColor: "#ffffff" },
+};
+
+/** Static class names only — Tailwind must see these strings at build time. */
 export const APPOINTMENT_STATUS_STYLES: Record<
-  AppointmentStatus,
+  AppointmentVisualTone,
   { tone: AppointmentVisualTone; className: string }
 > = {
-  scheduled: {
+  active: {
     tone: "active",
-    className: "bg-green-100 border-green-500 text-green-900",
-  },
-  confirmed: {
-    tone: "active",
-    className: "bg-green-100 border-green-500 text-green-900",
+    className: "bg-[#34A853] text-white",
   },
   completed: {
     tone: "completed",
-    className: "bg-blue-100 border-blue-500 text-blue-900",
+    className: "bg-[#1A73E8] text-white",
   },
   cancelled: {
     tone: "cancelled",
-    className: "bg-red-100 border-red-400 text-red-800 opacity-75",
-  },
-  no_show: {
-    tone: "cancelled",
-    className: "bg-red-100 border-red-400 text-red-800 opacity-75",
+    className: "bg-[#D93025] text-white",
   },
 };
 
 export const APPOINTMENT_VISUAL_SURFACE: Record<AppointmentVisualTone, string> = {
-  active: APPOINTMENT_STATUS_STYLES.scheduled.className,
+  active: APPOINTMENT_STATUS_STYLES.active.className,
   completed: APPOINTMENT_STATUS_STYLES.completed.className,
   cancelled: APPOINTMENT_STATUS_STYLES.cancelled.className,
 };
 
 export const APPOINTMENT_VISUAL_DOT: Record<AppointmentVisualTone, string> = {
-  active: "bg-green-500",
-  completed: "bg-blue-500",
-  cancelled: "bg-red-400",
+  active: "bg-[#34A853]",
+  completed: "bg-[#1A73E8]",
+  cancelled: "bg-[#D93025]",
 };
 
-/**
- * Tailwind default palette hex. Applied as inline style so
- * `* { border-color }` in globals.css cannot hide the appointment color.
- */
-export const APPOINTMENT_VISUAL_INLINE: Record<
-  AppointmentVisualTone,
-  {
-    backgroundColor: string;
-    borderColor: string;
-    color: string;
-    opacity?: number;
-  }
-> = {
-  active: {
-    backgroundColor: "#dcfce7",
-    borderColor: "#22c55e",
-    color: "#14532d",
-  },
-  completed: {
-    backgroundColor: "#dbeafe",
-    borderColor: "#3b82f6",
-    color: "#1e3a8a",
-  },
-  cancelled: {
-    backgroundColor: "#fee2e2",
-    borderColor: "#f87171",
-    color: "#991b1b",
-    opacity: 0.75,
-  },
-};
-
-export interface AppointmentVisualInput {
+export interface AppointmentPresentationInput {
   status: AppointmentStatus;
-  origin: AppointmentOrigin;
-  patient_id: string | null;
+  origin?: AppointmentOrigin;
+  ends_at?: string;
+  endsAt?: string;
+  summary_snapshot?: string | null;
+  summarySnapshot?: string | null;
+  patient_id?: string | null;
+}
+
+export function myDayAppointmentToPresentationInput(appointment: {
+  status: AppointmentStatus;
+  origin?: AppointmentOrigin;
+  endsAt?: string;
+  summarySnapshot?: string | null;
+  patientId?: string | null;
+}): AppointmentPresentationInput {
+  return {
+    status: appointment.status,
+    origin: appointment.origin,
+    ends_at: appointment.endsAt,
+    summary_snapshot: appointment.summarySnapshot,
+    patient_id: appointment.patientId,
+  };
+}
+
+export interface AppointmentPresentation {
+  visualState: AppointmentVisualTone;
+  backgroundColor: string;
+  textColor: string;
+  badgeLabel: "Google" | null;
+  isPast: boolean;
+  isCancelled: boolean;
 }
 
 export interface AppointmentVisualStatus {
   tone: AppointmentVisualTone;
   className: string;
-  borderStyle: "solid" | "dashed";
-  badge: "Google externo" | null;
+  borderStyle: "solid";
+  badge: "Google" | null;
   titleClassName: string;
   dotClassName: string;
   style: {
     backgroundColor: string;
     borderColor: string;
     color: string;
-    opacity?: number;
     borderWidth: number;
-    borderStyle: "solid" | "dashed";
+    borderStyle: "solid";
   };
+}
+
+function endsAtOf(appointment: AppointmentPresentationInput): string {
+  return appointment.ends_at ?? appointment.endsAt ?? "";
 }
 
 /**
  * Single Agenda/Meu Dia presentation helper.
- * Color comes only from administrative `status`. Origin never picks the fill.
+ * Precedence: cancelled/desmarcou → red; ends_at <= now → blue; else green.
+ * Origin never picks the fill. Past time does not write clinical completed.
  */
-export function getAppointmentVisualStatus(
-  appointment: AppointmentVisualInput,
-): AppointmentVisualStatus {
-  const mapped = APPOINTMENT_STATUS_STYLES[appointment.status];
-  const palette = APPOINTMENT_VISUAL_INLINE[mapped.tone];
-  const isGoogleExternal = appointment.origin === "GOOGLE_EXTERNAL";
-  const borderStyle = isGoogleExternal ? "dashed" : "solid";
+export function getAppointmentPresentation(input: {
+  appointment: AppointmentPresentationInput;
+  now?: Date;
+}): AppointmentPresentation {
+  const appointment = input.appointment;
+  const now = input.now ?? new Date();
+  const cancelled = isAppointmentCancelled(appointment);
+  const endsMs = new Date(endsAtOf(appointment)).getTime();
+  const isPast = Number.isFinite(endsMs) && endsMs <= now.getTime();
 
+  let visualState: AppointmentVisualTone = "active";
+  if (cancelled) {
+    visualState = "cancelled";
+  } else if (isPast) {
+    visualState = "completed";
+  }
+
+  const palette = APPOINTMENT_PRESENTATION_COLORS[visualState];
   return {
-    tone: mapped.tone,
+    visualState,
+    backgroundColor: palette.backgroundColor,
+    textColor: palette.textColor,
+    badgeLabel: appointment.origin === "GOOGLE_EXTERNAL" ? "Google" : null,
+    isPast,
+    isCancelled: cancelled,
+  };
+}
+
+export function getAppointmentVisualStatus(
+  appointment: AppointmentPresentationInput,
+  now: Date = new Date(),
+): AppointmentVisualStatus {
+  const presentation = getAppointmentPresentation({ appointment, now });
+  const mapped = APPOINTMENT_STATUS_STYLES[presentation.visualState];
+  return {
+    tone: presentation.visualState,
     className: mapped.className,
-    borderStyle,
-    badge: isGoogleExternal ? "Google externo" : null,
-    titleClassName: mapped.tone === "cancelled" ? "line-through decoration-current" : "",
-    dotClassName: APPOINTMENT_VISUAL_DOT[mapped.tone],
+    borderStyle: "solid",
+    badge: presentation.badgeLabel,
+    titleClassName: "",
+    dotClassName: APPOINTMENT_VISUAL_DOT[presentation.visualState],
     style: {
-      backgroundColor: palette.backgroundColor,
-      borderColor: palette.borderColor,
-      color: palette.color,
-      ...(palette.opacity !== undefined ? { opacity: palette.opacity } : {}),
-      borderWidth: 2,
-      borderStyle,
+      backgroundColor: presentation.backgroundColor,
+      borderColor: presentation.backgroundColor,
+      color: presentation.textColor,
+      borderWidth: 0,
+      borderStyle: "solid",
     },
   };
 }
@@ -134,6 +160,19 @@ export function getAppointmentVisualStatus(
 export function offersClinicalAppointmentActions(appointment: {
   origin: AppointmentOrigin;
   patient_id: string | null;
+  status?: AppointmentStatus;
+  summary_snapshot?: string | null;
+  summarySnapshot?: string | null;
 }): boolean {
-  return appointment.origin === "TESSELI" && appointment.patient_id != null;
+  if (appointment.origin !== "TESSELI" || appointment.patient_id == null) {
+    return false;
+  }
+  if (isAppointmentCancelled({
+    status: appointment.status ?? "scheduled",
+    summary_snapshot: appointment.summary_snapshot,
+    summarySnapshot: appointment.summarySnapshot,
+  })) {
+    return false;
+  }
+  return true;
 }

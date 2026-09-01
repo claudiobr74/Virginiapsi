@@ -16,6 +16,8 @@ vi.mock("@/features/sessions/components/start-session-button", () => ({
 vi.mock("@/features/calendar/appointment-actions", () => ({
   cancelAppointmentAction: vi.fn(),
   updateAppointmentStatusAction: vi.fn(),
+  deleteAppointmentAction: vi.fn(),
+  retryGoogleSyncAction: vi.fn(),
 }));
 
 vi.mock("@/features/calendar/sync-actions", () => ({
@@ -29,7 +31,7 @@ vi.mock("@/features/dashboard/components/session-actions", () => ({
 
 const TIME_ZONE = "America/Sao_Paulo";
 const DAY = "2026-08-18";
-const START = "2026-08-18T12:00:00.000Z";
+const NOW = new Date("2026-08-18T12:00:00.000Z");
 
 function stub(
   extras: Partial<AppointmentRow> &
@@ -38,8 +40,8 @@ function stub(
   return {
     organization_id: "22222222-2222-4222-8222-222222222222",
     patient_id: extras.origin === "GOOGLE_EXTERNAL" ? null : "33333333-3333-4333-8333-333333333333",
-    starts_at: START,
-    ends_at: "2026-08-18T13:00:00.000Z",
+    starts_at: "2026-08-18T15:00:00.000Z",
+    ends_at: "2026-08-18T16:00:00.000Z",
     modality: extras.modality ?? "online",
     managed_by_tesseli: extras.origin === "TESSELI",
     google_calendar_id: extras.origin === "GOOGLE_EXTERNAL" ? "primary" : null,
@@ -51,59 +53,59 @@ function stub(
   };
 }
 
-const consultaA = stub({
+const anaClaudia = stub({
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   status: "scheduled",
   origin: "TESSELI",
-  summary_snapshot: "Consulta A",
-  modality: "online",
+  summary_snapshot: "Ana Cláudia-1(c)",
+  starts_at: "2026-08-18T15:00:00.000Z",
+  ends_at: "2026-08-18T16:00:00.000Z",
 });
-const consultaB = stub({
+const helio = stub({
   id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-  status: "completed",
+  status: "scheduled",
   origin: "TESSELI",
-  summary_snapshot: "Consulta B",
+  summary_snapshot: "Helio (c)",
   modality: "in_person",
-  starts_at: "2026-08-18T14:00:00.000Z",
-  ends_at: "2026-08-18T15:00:00.000Z",
+  starts_at: "2026-08-18T10:00:00.000Z",
+  ends_at: "2026-08-18T11:00:00.000Z",
 });
-const consultaC = stub({
+const cancelado = stub({
   id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
   status: "cancelled",
   origin: "TESSELI",
-  summary_snapshot: "Consulta C",
-  starts_at: "2026-08-18T16:00:00.000Z",
-  ends_at: "2026-08-18T17:00:00.000Z",
+  summary_snapshot: "Evento cancelado",
+  starts_at: "2026-08-18T08:00:00.000Z",
+  ends_at: "2026-08-18T09:00:00.000Z",
 });
-const eventoD = stub({
+const eventoGoogle = stub({
   id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
   status: "scheduled",
   origin: "GOOGLE_EXTERNAL",
   patient_id: null,
   managed_by_tesseli: false,
-  summary_snapshot: "Evento D",
-  starts_at: "2026-08-18T18:00:00.000Z",
-  ends_at: "2026-08-18T19:00:00.000Z",
+  summary_snapshot: "Livia-1(c) / Flávia-3",
+  starts_at: "2026-08-18T17:00:00.000Z",
+  ends_at: "2026-08-18T18:00:00.000Z",
 });
-
-const consultaNoShow = stub({
+const vinicius = stub({
   id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
-  status: "no_show",
-  origin: "TESSELI",
-  summary_snapshot: "Consulta E",
+  status: "scheduled",
+  origin: "GOOGLE_EXTERNAL",
+  summary_snapshot: "Vinicius-2(desmarcou)",
   starts_at: "2026-08-18T19:00:00.000Z",
   ends_at: "2026-08-18T20:00:00.000Z",
 });
-const consultaConfirmed = stub({
+const giovanna = stub({
   id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
-  status: "confirmed",
+  status: "scheduled",
   origin: "TESSELI",
-  summary_snapshot: "Consulta Confirmada",
-  starts_at: "2026-08-18T10:00:00.000Z",
-  ends_at: "2026-08-18T11:00:00.000Z",
+  summary_snapshot: "Giovanna (desmarcou)",
+  starts_at: "2026-08-18T14:00:00.000Z",
+  ends_at: "2026-08-18T15:00:00.000Z",
 });
 
-const appointments = [consultaA, consultaB, consultaC, eventoD, consultaNoShow, consultaConfirmed];
+const appointments = [anaClaudia, helio, cancelado, eventoGoogle, vinicius, giovanna];
 
 function byDay(rows: AppointmentRow[]) {
   const map = new Map<string, AppointmentRow[]>();
@@ -111,140 +113,116 @@ function byDay(rows: AppointmentRow[]) {
   return map;
 }
 
-const PAINT: Record<string, string> = {
-  active: "#dcfce7",
-  completed: "#dbeafe",
-  cancelled: "#fee2e2",
-};
+const PAINT = {
+  active: "#34A853",
+  completed: "#1A73E8",
+  cancelled: "#D93025",
+} as const;
 
-function expectTone(name: string, tone: string, classes: string[]) {
+function expectTone(name: string, tone: keyof typeof PAINT) {
   const matches = screen.getAllByText(name);
   expect(matches.length).toBeGreaterThan(0);
   for (const match of matches) {
     const node = match.closest("[data-appointment-visual]");
     expect(node).toHaveAttribute("data-appointment-visual", tone);
-    for (const className of classes) {
-      expect(node).toHaveClass(className);
-    }
-    expect(node).toHaveStyle({ backgroundColor: PAINT[tone] });
-    if (tone === "active" && name === "Evento D") {
-      expect(node).toHaveAttribute("data-appointment-origin", "GOOGLE_EXTERNAL");
-      expect(node).toHaveStyle({ borderStyle: "dashed" });
-    }
+    expect(node).toHaveStyle({ backgroundColor: PAINT[tone], color: "#ffffff" });
+    expect(node).not.toHaveStyle({ borderStyle: "dashed" });
   }
 }
 
-describe("Agenda — cores por status em dia/semana/mês", () => {
-  it("DayView pinta A verde, B azul, C vermelho suave, D verde tracejado", () => {
+describe("Agenda V2 — cores sólidas em dia/semana/mês", () => {
+  it("DayView pinta futuro verde, encerrado azul, desmarcou vermelho", () => {
     render(
       <DayView
         appointments={appointments}
         timeZone={TIME_ZONE}
+        now={NOW}
         onSelect={() => undefined}
       />,
     );
 
-    expectTone("Consulta A", "active", ["bg-green-100", "border-green-500", "text-green-900"]);
-    expectTone("Consulta Confirmada", "active", ["bg-green-100"]);
-    expectTone("Consulta B", "completed", ["bg-blue-100", "border-blue-500", "text-blue-900"]);
-    expectTone("Consulta C", "cancelled", ["bg-red-100", "border-red-400", "text-red-800"]);
-    expectTone("Consulta E", "cancelled", ["bg-red-100"]);
-    expectTone("Evento D", "active", ["bg-green-100", "border-green-500", "text-green-900"]);
-    expect(screen.getAllByText("Google externo").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Consulta A")[0].closest("[data-appointment-visual]")).not.toHaveClass(
-      "bg-card",
-    );
+    expectTone("Ana Cláudia-1(c)", "active");
+    expectTone("Helio (c)", "completed");
+    expectTone("Evento cancelado", "cancelled");
+    expectTone("Livia-1(c) / Flávia-3", "active");
+    expectTone("Vinicius-2(desmarcou)", "cancelled");
+    expectTone("Giovanna (desmarcou)", "cancelled");
+    expect(screen.getAllByText("Google").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Google externo")).not.toBeInTheDocument();
   });
 
-  it("WeekView (chip desktop e card mobile) usa a mesma paleta", () => {
+  it("WeekView usa a mesma paleta", () => {
     render(
       <WeekView
         days={[DAY]}
         appointmentsByDay={byDay(appointments)}
         timeZone={TIME_ZONE}
         today={DAY}
+        now={NOW}
         onSelect={() => undefined}
       />,
     );
 
-    expectTone("Consulta A", "active", ["bg-green-100"]);
-    expectTone("Consulta B", "completed", ["bg-blue-100"]);
-    expectTone("Consulta C", "cancelled", ["bg-red-100"]);
-    expectTone("Consulta E", "cancelled", ["bg-red-100"]);
-    expectTone("Evento D", "active", ["bg-green-100"]);
-    for (const node of screen.getAllByText("Consulta A")) {
-      expect(node.closest("[data-appointment-visual]")).not.toHaveClass("bg-sage-light/80");
-    }
-    for (const node of screen.getAllByText("Consulta B")) {
-      expect(node.closest("[data-appointment-visual]")).not.toHaveClass("bg-soft-amber");
-    }
+    expectTone("Ana Cláudia-1(c)", "active");
+    expectTone("Helio (c)", "completed");
+    expectTone("Evento cancelado", "cancelled");
+    expectTone("Vinicius-2(desmarcou)", "cancelled");
   });
 
-  it("MonthView mostra pills com a mesma paleta, não pontos de modalidade", () => {
+  it("MonthView mostra pills sólidas", () => {
     render(
       <MonthView
         days={[DAY]}
         appointmentsByDay={byDay(appointments)}
         today={DAY}
+        now={NOW}
         onSelectDay={() => undefined}
       />,
     );
 
-    expectTone("Consulta A", "active", ["bg-green-100", "border-green-500"]);
-    expectTone("Consulta B", "completed", ["bg-blue-100", "border-blue-500"]);
-    expectTone("Consulta C", "cancelled", ["bg-red-100", "border-red-400"]);
-    expectTone("Evento D", "active", ["bg-green-100", "border-green-500"]);
+    expectTone("Ana Cláudia-1(c)", "active");
+    expectTone("Helio (c)", "completed");
+    expectTone("Evento cancelado", "cancelled");
+    expectTone("Livia-1(c) / Flávia-3", "active");
   });
 
-  it("AppointmentCard scheduled online não fica verde só porque é Google/online", () => {
-    render(<AppointmentCard appointment={consultaA} timeZone={TIME_ZONE} />);
-    const card = screen.getByText("Consulta A").closest("[data-appointment-visual]");
-    expect(card).toHaveAttribute("data-appointment-visual", "active");
-    expect(card).toHaveClass("bg-green-100");
-    expect(card).toHaveStyle({ backgroundColor: "#dcfce7" });
-    expect(card).not.toHaveClass("bg-sage-light/80");
-    expect(card).not.toHaveClass("bg-card");
-  });
-
-  it("AppointmentCard Google externo scheduled é verde, tracejado, sem Atender", () => {
-    render(<AppointmentCard appointment={eventoD} timeZone={TIME_ZONE} isAdmin />);
-    const card = screen.getByText("Evento D").closest("[data-appointment-visual]");
+  it("AppointmentCard Google futuro é verde sólido, badge Google, sem Atender", () => {
+    render(
+      <AppointmentCard appointment={eventoGoogle} timeZone={TIME_ZONE} isAdmin now={NOW} />,
+    );
+    const card = screen.getByText("Livia-1(c) / Flávia-3").closest("[data-appointment-visual]");
     expect(card).toHaveAttribute("data-appointment-visual", "active");
     expect(card).toHaveAttribute("data-appointment-origin", "GOOGLE_EXTERNAL");
-    expect(card).toHaveStyle({ backgroundColor: "#dcfce7", borderStyle: "dashed" });
-    expect(screen.getByText("Google externo")).toBeInTheDocument();
+    expect(card).toHaveStyle({ backgroundColor: "#34A853" });
+    expect(screen.getByText("Google")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Atender" })).not.toBeInTheDocument();
   });
 
-  it("AppointmentDetailDrawer usa a mesma paleta por status", () => {
+  it("AppointmentDetailDrawer usa a mesma paleta e permite editar Google", () => {
     const noop = () => undefined;
-    for (const [row, tone, background] of [
-      [consultaA, "active", "#dcfce7"],
-      [consultaB, "completed", "#dbeafe"],
-      [consultaC, "cancelled", "#fee2e2"],
-      [eventoD, "active", "#dcfce7"],
-      [consultaNoShow, "cancelled", "#fee2e2"],
-    ] as const) {
-      const { unmount } = render(
-        <AppointmentDetailDrawer
-          appointment={row}
-          timeZone={TIME_ZONE}
-          googleConnected={false}
-          isAdmin
-          onClose={noop}
-          onEdit={noop}
-          onRefresh={noop}
-          onCancelled={noop}
-        />,
-      );
-      const strip = document.querySelector("[data-appointment-visual]");
-      expect(strip).toHaveAttribute("data-appointment-visual", tone);
-      expect(strip).toHaveStyle({ backgroundColor: background });
-      unmount();
-    }
+    const { unmount } = render(
+      <AppointmentDetailDrawer
+        appointment={eventoGoogle}
+        timeZone={TIME_ZONE}
+        googleConnected
+        isAdmin
+        now={NOW}
+        onClose={noop}
+        onEdit={noop}
+        onRefresh={noop}
+        onCancelled={noop}
+      />,
+    );
+    const strip = document.querySelector("[data-appointment-visual]");
+    expect(strip).toHaveAttribute("data-appointment-visual", "active");
+    expect(strip).toHaveStyle({ backgroundColor: "#34A853" });
+    expect(screen.queryByText(/somente leitura/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Editar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Excluir" })).toBeInTheDocument();
+    unmount();
   });
 
-  it("TodayTimeline (Agenda de Hoje) pinta A/B/C/D pela mesma função", () => {
+  it("TodayTimeline pinta pela mesma função", () => {
     function asDay(row: AppointmentRow): MyDayAppointment {
       return {
         id: row.id,
@@ -268,14 +246,13 @@ describe("Agenda — cores por status em dia/semana/mês", () => {
         appointments={appointments.map(asDay)}
         timeZone={TIME_ZONE}
         canStartSession={false}
+        now={NOW}
       />,
     );
 
-    expectTone("Consulta A", "active", ["bg-green-100"]);
-    expectTone("Consulta B", "completed", ["bg-blue-100"]);
-    expectTone("Consulta C", "cancelled", ["bg-red-100"]);
-    expectTone("Consulta E", "cancelled", ["bg-red-100"]);
-    expectTone("Evento D", "active", ["bg-green-100"]);
-    expect(screen.getAllByText("Google externo").length).toBeGreaterThan(0);
+    expectTone("Ana Cláudia-1(c)", "active");
+    expectTone("Helio (c)", "completed");
+    expectTone("Evento cancelado", "cancelled");
+    expectTone("Vinicius-2(desmarcou)", "cancelled");
   });
 });

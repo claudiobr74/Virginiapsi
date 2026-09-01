@@ -18,6 +18,8 @@ import { listPatients } from "@/features/patients/queries";
 import type { OrganizationRole } from "@/features/organizations/contracts";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addCents } from "@/lib/finance/money";
+import { isValidCountableSession } from "@/features/calendar/google-event-status";
+import type { AppointmentStatus } from "@/features/calendar/contracts";
 
 export interface WeeklyPoint {
   label: string;
@@ -47,6 +49,15 @@ interface AppointmentMetricRow {
   starts_at: string;
   ends_at: string;
   status: string;
+  origin?: string;
+  summary_snapshot?: string | null;
+}
+
+function isCountableMetricRow(row: AppointmentMetricRow): boolean {
+  return isValidCountableSession({
+    status: row.status as AppointmentStatus,
+    summary_snapshot: row.summary_snapshot,
+  });
 }
 
 function addDaysIso(dateStr: string, days: number): string {
@@ -78,9 +89,8 @@ export async function getIndicatorSnapshot(
   const [{ data, error }, patients, access] = await Promise.all([
     supabase
       .from("appointments")
-      .select("starts_at, ends_at, status")
+      .select("starts_at, ends_at, status, origin, summary_snapshot")
       .eq("organization_id", organizationId)
-      .eq("origin", "TESSELI")
       .gte("starts_at", `${lookbackStart}T00:00:00.000Z`),
     listPatients(organizationId),
     getFinanceAccess(organizationId, role),
@@ -100,7 +110,7 @@ export async function getIndicatorSnapshot(
   }).length;
 
   const monthAppointments = appointments.filter(
-    (row) => row.date >= month.start && row.date <= month.end && row.status !== "cancelled",
+    (row) => row.date >= month.start && row.date <= month.end && isCountableMetricRow(row),
   );
   const completed = appointments.filter(
     (row) => row.date >= month.start && row.date <= month.end && row.status === "completed",
@@ -117,7 +127,7 @@ export async function getIndicatorSnapshot(
     const start = addDaysIso(today, -index * 7);
     const end = addDaysIso(start, 6);
     const count = appointments.filter(
-      (row) => row.date >= start && row.date <= end && row.status !== "cancelled",
+      (row) => row.date >= start && row.date <= end && isCountableMetricRow(row),
     ).length;
     weeklySessions.push({ label: `S${8 - index}`, count });
   }
@@ -143,7 +153,7 @@ export async function getIndicatorSnapshot(
     (row) =>
       row.starts_at >= week.fromIso &&
       row.starts_at < week.toIso &&
-      row.status !== "cancelled",
+      isCountableMetricRow(row),
   );
   const filledHours =
     weekAppointments.reduce((sum, row) => {

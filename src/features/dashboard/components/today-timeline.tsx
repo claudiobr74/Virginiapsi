@@ -1,10 +1,13 @@
 import { Globe, Home } from "lucide-react";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import {
-  APPOINTMENT_STATUS_BADGE,
+  getAppointmentVisualStatus,
+  myDayAppointmentToPresentationInput,
+} from "@/features/calendar/appointment-visual";
+import { GoogleOriginMark } from "@/features/calendar/components/google-origin-mark";
+import {
   APPOINTMENT_STATUS_LABELS,
 } from "@/features/calendar/contracts";
+import { countValidAgendaSessions } from "@/features/calendar/google-event-status";
 import { DashboardWidget } from "@/features/dashboard/components/dashboard-widget";
 import { SessionActions } from "@/features/dashboard/components/session-actions";
 import {
@@ -21,19 +24,26 @@ export function TodayTimeline({
   timeZone,
   highlightedId,
   canStartSession,
+  now,
 }: {
   appointments: MyDayAppointment[];
   timeZone: string;
   highlightedId?: string | null;
   canStartSession: boolean;
+  now?: Date;
 }) {
+  const validCount = countValidAgendaSessions(
+    appointments.map((appointment) => ({
+      status: appointment.status,
+      summarySnapshot: appointment.summarySnapshot,
+    })),
+  );
+
   return (
     <DashboardWidget
       id="timeline-heading"
       title="Agenda de Hoje"
-      description={
-        appointments.length === 0 ? undefined : attendanceCountLabel(appointments.length)
-      }
+      description={appointments.length === 0 ? undefined : attendanceCountLabel(validCount)}
       empty={appointments.length === 0}
       emptyLabel="O dia está resolvido — ou ainda livre. Abra a Agenda para marcar a próxima sessão."
     >
@@ -41,11 +51,10 @@ export function TodayTimeline({
         {appointments.map((appointment) => {
           const isNext = appointment.id === highlightedId;
           const ModalityIcon = appointment.modality === "online" ? Globe : Home;
-          const visual = getAppointmentVisualStatus({
-            status: appointment.status,
-            origin: appointment.origin,
-            patient_id: appointment.patientId,
-          });
+          const visual = getAppointmentVisualStatus(
+            myDayAppointmentToPresentationInput(appointment),
+            now,
+          );
           return (
             <li
               key={appointment.id}
@@ -53,27 +62,25 @@ export function TodayTimeline({
               data-appointment-origin={appointment.origin}
               style={visual.style}
               className={cn(
-                "my-1 flex flex-col gap-2 rounded-xl border-2 px-3 py-3",
+                "my-1 flex flex-col gap-2 rounded-lg px-3 py-3",
                 visual.className,
-                visual.titleClassName,
-                visual.borderStyle === "dashed" && "border-dashed",
-                isNext && "ring-2 ring-sage-700",
+                isNext && "ring-2 ring-white/80",
               )}
             >
               <div className="flex min-w-0 items-center gap-3">
                 <div className="w-14 shrink-0">
-                  <p className="font-mono text-sm font-semibold tabular-nums">
+                  <p className="font-mono text-sm font-semibold tabular-nums text-white">
                     {formatInTimeZone(appointment.startsAt, timeZone)}
                   </p>
-                  <p className="font-mono text-[11px] tabular-nums opacity-80">
+                  <p className="font-mono text-[11px] tabular-nums text-white/80">
                     {formatInTimeZone(appointment.endsAt, timeZone)}
                   </p>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">
+                  <p className="break-words text-sm font-semibold text-white">
                     {patientDisplayLabel(appointment)}
                   </p>
-                  <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] opacity-80">
+                  <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-white/80">
                     {appointment.patientPublicCode ? (
                       <span className="font-mono">{appointment.patientPublicCode}</span>
                     ) : null}
@@ -85,13 +92,14 @@ export function TodayTimeline({
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  {visual.badge ? (
-                    <StatusBadge status="info" label={visual.badge} />
-                  ) : null}
-                  <StatusBadge
-                    status={APPOINTMENT_STATUS_BADGE[appointment.status]}
-                    label={APPOINTMENT_STATUS_LABELS[appointment.status]}
-                  />
+                  {visual.badge ? <GoogleOriginMark compact /> : null}
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-white/85">
+                    {visual.tone === "cancelled"
+                      ? "Cancelado"
+                      : visual.tone === "completed"
+                        ? "Encerrado"
+                        : APPOINTMENT_STATUS_LABELS[appointment.status]}
+                  </span>
                 </div>
               </div>
               <SessionActions

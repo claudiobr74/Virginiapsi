@@ -27,6 +27,7 @@ export function WeekView({
   timeZone,
   today,
   isAdmin = false,
+  now,
   onSelect,
 }: {
   days: string[];
@@ -34,6 +35,7 @@ export function WeekView({
   timeZone: string;
   today: string;
   isAdmin?: boolean;
+  now?: Date;
   onSelect: (appointment: AppointmentRow) => void;
 }) {
   const hours = weekHours();
@@ -82,6 +84,7 @@ export function WeekView({
               today={today}
               appointmentsByDay={appointmentsByDay}
               timeZone={timeZone}
+              now={now}
               onSelect={onSelect}
             />
           ))}
@@ -124,6 +127,7 @@ export function WeekView({
                       timeZone={timeZone}
                       isAdmin={isAdmin}
                       compact
+                      now={now}
                       onClick={() => onSelect(appointment)}
                     />
                   ))}
@@ -143,6 +147,7 @@ function HourRow({
   today,
   appointmentsByDay,
   timeZone,
+  now,
   onSelect,
 }: {
   hour: number;
@@ -150,6 +155,7 @@ function HourRow({
   today: string;
   appointmentsByDay: Map<string, AppointmentRow[]>;
   timeZone: string;
+  now?: Date;
   onSelect: (appointment: AppointmentRow) => void;
 }) {
   return (
@@ -175,6 +181,7 @@ function HourRow({
                   key={appointment.id}
                   appointment={appointment}
                   timeZone={timeZone}
+                  now={now}
                   onSelect={onSelect}
                 />
               ))}
@@ -189,13 +196,15 @@ function HourRow({
 function WeekAppointmentChip({
   appointment,
   timeZone,
+  now,
   onSelect,
 }: {
   appointment: AppointmentRow;
   timeZone: string;
+  now?: Date;
   onSelect: (appointment: AppointmentRow) => void;
 }) {
-  const visual = getAppointmentVisualStatus(appointment);
+  const visual = getAppointmentVisualStatus(appointment, now);
   const starts = formatInTimeZone(appointment.starts_at, timeZone);
   const ends = formatInTimeZone(appointment.ends_at, timeZone);
 
@@ -206,16 +215,12 @@ function WeekAppointmentChip({
       data-appointment-origin={appointment.origin}
       style={visual.style}
       onClick={() => onSelect(appointment)}
-      className={cn(
-        "w-full rounded-lg border-2 px-2 py-1.5 text-left",
-        visual.className,
-        visual.borderStyle === "dashed" && "border-dashed",
-      )}
+      className={cn("w-full min-w-0 rounded-md px-2 py-1.5 text-left", visual.className)}
     >
-      <p className="font-mono text-[10px] opacity-80">
+      <p className="font-mono text-[10px] text-white/85">
         {starts} – {ends}
       </p>
-      <p className={cn("truncate text-xs font-semibold", visual.titleClassName)}>
+      <p className="break-words text-xs font-semibold leading-snug text-white">
         {appointment.summary_snapshot ?? "Sem paciente"}
       </p>
     </button>

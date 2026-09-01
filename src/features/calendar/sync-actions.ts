@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getAppointment } from "@/features/calendar/appointment-queries";
 import { getConnection } from "@/features/calendar/connection-queries";
+import { deriveImportedAppointmentStatus } from "@/features/calendar/google-event-status";
 import {
   getCalendarClientForOrganization,
 } from "@/lib/integrations/google/connection";
@@ -176,6 +177,7 @@ export async function requestMeetForAppointmentAction(
 }
 
 const SYNC_WINDOW_DAYS = 30;
+const SYNC_LOOKBACK_DAYS = 7;
 
 function eventWindowIso(event: {
   start?: { dateTime?: string; date?: string };
@@ -202,7 +204,7 @@ export async function syncGoogleCalendarPull(
     return { error: "Conecte e selecione um calendário do Google primeiro." };
   }
 
-  const timeMin = new Date().toISOString();
+  const timeMin = new Date(Date.now() - SYNC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const timeMax = new Date(Date.now() + SYNC_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   const supabase = await createSupabaseServerClient();
@@ -217,17 +219,16 @@ export async function syncGoogleCalendarPull(
         timeMin,
         timeMax,
         pageToken,
+        showDeleted: true,
       });
 
       for (const event of page.items) {
-        if (event.status === "cancelled") {
-          continue;
-        }
         const window = eventWindowIso(event);
         if (!window) {
           continue;
         }
 
+        const status = deriveImportedAppointmentStatus(event);
         await supabase.rpc("upsert_external_appointment", {
           org_id: organizationId,
           p_google_calendar_id: connection.calendar_id,
@@ -235,7 +236,9 @@ export async function syncGoogleCalendarPull(
           p_google_etag: event.etag ?? null,
           p_starts_at: window.startIso,
           p_ends_at: window.endIso,
-          p_summary_snapshot: event.summary ?? "Evento externo do Google",
+          p_summary_snapshot: event.summary ?? "Evento do Google",
+          p_status: status,
+          p_google_color_id: event.colorId ?? null,
         });
         syncedCount += 1;
       }

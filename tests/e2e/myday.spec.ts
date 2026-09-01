@@ -115,9 +115,9 @@ test.describe("Meu Dia — dashboard operacional", () => {
         .getByRole("listitem")
         .filter({ hasText: "Reunião do conselho regional" });
       await expect(googleRow).toBeVisible();
-      await expect(googleRow.getByText("Google externo")).toBeVisible();
+      await expect(googleRow.getByText("Google")).toBeVisible();
       await expect(googleRow).toHaveAttribute("data-appointment-visual", "active");
-      await expect(googleRow).toHaveCSS("border-style", "dashed");
+      await expect(googleRow).toHaveCSS("background-color", "rgb(52, 168, 83)");
       await expect(googleRow.getByRole("button", { name: "Confirmar" })).toHaveCount(0);
       await expect(googleRow.getByRole("button", { name: "Atender" })).toHaveCount(0);
       await expect(googleRow.getByRole("button", { name: "Marcar Falta" })).toHaveCount(0);
@@ -129,7 +129,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
         .filter({ hasText: "Reunião do conselho regional" });
       await expect(agendaEvent.first()).toBeVisible();
       await expect(agendaEvent.first()).toHaveAttribute("data-appointment-visual", "active");
-      await expect(agendaEvent.first().getByText("Google externo")).toBeVisible();
+      await expect(agendaEvent.first().getByText("Google")).toBeVisible();
     } finally {
       await setStubGoogleConnection("disconnected");
     }

@@ -83,11 +83,23 @@ test.describe("Agenda — visão do dia", () => {
         .locator("[data-appointment-visual]")
         .filter({ hasText: "Consulta B" })
         .first();
+      const cancelled = page
+        .locator("[data-appointment-visual]")
+        .filter({ hasText: "Consulta C" })
+        .first();
+      const desmarcou = page
+        .locator("[data-appointment-visual]")
+        .filter({ hasText: "Vinicius-2(desmarcou)" })
+        .first();
 
       await expect(active).toHaveAttribute("data-appointment-visual", "active");
-      await expect(active).toHaveCSS("background-color", "rgb(220, 252, 231)");
+      await expect(active).toHaveCSS("background-color", "rgb(52, 168, 83)");
       await expect(completed).toHaveAttribute("data-appointment-visual", "completed");
-      await expect(completed).toHaveCSS("background-color", "rgb(219, 234, 254)");
+      await expect(completed).toHaveCSS("background-color", "rgb(26, 115, 232)");
+      await expect(cancelled).toHaveAttribute("data-appointment-visual", "cancelled");
+      await expect(cancelled).toHaveCSS("background-color", "rgb(217, 48, 37)");
+      await expect(desmarcou).toHaveAttribute("data-appointment-visual", "cancelled");
+      await expect(desmarcou).toHaveCSS("background-color", "rgb(217, 48, 37)");
     }
   });
 });
@@ -97,18 +109,19 @@ test.describe("Agenda — nova consulta", () => {
     await loginViaUi(page);
     await page.goto("/app/agenda");
 
-    await page.getByRole("button", { name: "Nova consulta" }).click();
+    await page.getByRole("button", { name: "Novo agendamento" }).click();
     await expect(
-      page.getByRole("heading", { name: "Nova consulta" }),
+      page.getByRole("heading", { name: "Novo agendamento" }),
     ).toBeVisible();
 
+    await page.getByLabel("Título").fill("Consulta avulsa livre");
     await page.getByLabel("Data").fill(uniqueDateForTest(testInfo));
     await page.getByLabel("Horário").fill("16:00");
     await page.getByLabel("Duração (minutos)").fill("50");
     await page.getByRole("button", { name: "Agendar" }).click();
 
     await expect(
-      page.getByRole("heading", { name: "Nova consulta" }),
+      page.getByRole("heading", { name: "Novo agendamento" }),
     ).toHaveCount(0);
   });
 
@@ -120,17 +133,19 @@ test.describe("Agenda — nova consulta", () => {
     const date = uniqueDateForTest(testInfo);
 
     // Primeira consulta às 11:00 de um dia livre.
-    await page.getByRole("button", { name: "Nova consulta" }).click();
+    await page.getByRole("button", { name: "Novo agendamento" }).click();
+    await page.getByLabel("Título").fill("Consulta conflito 1");
     await page.getByLabel("Data").fill(date);
     await page.getByLabel("Horário").fill("11:00");
     await page.getByLabel("Duração (minutos)").fill("50");
     await page.getByRole("button", { name: "Agendar" }).click();
     await expect(
-      page.getByRole("heading", { name: "Nova consulta" }),
+      page.getByRole("heading", { name: "Novo agendamento" }),
     ).toHaveCount(0);
 
     // Segunda consulta sobrepondo o mesmo horário.
-    await page.getByRole("button", { name: "Nova consulta" }).click();
+    await page.getByRole("button", { name: "Novo agendamento" }).click();
+    await page.getByLabel("Título").fill("Consulta conflito 2");
     await page.getByLabel("Data").fill(date);
     await page.getByLabel("Horário").fill("11:20");
     await page.getByLabel("Duração (minutos)").fill("30");
@@ -142,7 +157,7 @@ test.describe("Agenda — nova consulta", () => {
 
     await page.getByRole("button", { name: "Agendar mesmo assim" }).click();
     await expect(
-      page.getByRole("heading", { name: "Nova consulta" }),
+      page.getByRole("heading", { name: "Novo agendamento" }),
     ).toHaveCount(0);
   });
 });
@@ -156,33 +171,36 @@ test.describe("Agenda — gestão de consulta existente", () => {
     await loginViaUi(page);
     await page.goto("/app/agenda?view=day&date=2026-06-08");
 
-    await page.getByRole("button", { name: "Nova consulta" }).click();
+    await page.getByRole("button", { name: "Novo agendamento" }).click();
+    await page.getByLabel("Título").fill("Consulta avulsa e2e");
     await page.getByLabel("Data").fill("2026-06-08");
     await page.getByLabel("Horário").fill("15:00");
     await page.getByLabel("Duração (minutos)").fill("50");
     await page.getByRole("button", { name: "Agendar" }).click();
     await expect(
-      page.getByRole("heading", { name: "Nova consulta" }),
+      page.getByRole("heading", { name: "Novo agendamento" }),
     ).toHaveCount(0);
 
-    await page.getByText("Sem paciente vinculado").click();
+    await page.getByText("Consulta avulsa e2e").click();
     await expect(
-      page.getByRole("heading", { name: "Detalhes da consulta" }),
+      page.getByRole("heading", { name: "Detalhes do agendamento" }),
     ).toBeVisible();
 
     await page.getByRole("button", { name: "Confirmar" }).click();
     await expect(page.getByText("Confirmada").first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Cancelar consulta" }).click();
+    await page.getByRole("button", { name: "Cancelar/desmarcar" }).click();
     await expect(
-      page.getByRole("heading", { name: "Cancelar consulta?" }),
+      page.getByRole("heading", { name: "Cancelar/desmarcar este agendamento?" }),
     ).toBeVisible();
     await page
       .getByRole("alertdialog")
-      .getByRole("button", { name: "Cancelar consulta" })
+      .getByRole("button", { name: "Cancelar/desmarcar" })
       .click();
 
-    await expect(page.getByText("Sem paciente vinculado")).toHaveCount(0);
+    await expect(
+      page.locator("[data-appointment-visual='cancelled']").filter({ hasText: "Consulta avulsa e2e" }),
+    ).toBeVisible();
   });
 });
 

@@ -590,3 +590,125 @@ describe("calendar_sync_events — auditoria sem escrita direta", () => {
     }
   });
 });
+
+describe("Agenda V2 — RPCs de espelho GOOGLE_EXTERNAL", () => {
+  it("update_external_appointment_mirror atualiza o espelho e a escrita direta continua bloqueada", async () => {
+    const admin = await createAuthUser();
+    const outsider = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Mirror Update");
+
+    const session = await openSession({ userId: admin });
+    let externalId = "";
+    try {
+      const rows = await session.query<{ upsert_external_appointment: string }>(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-mirror-1', 'etag-1',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Vinicius-2(desmarcou)', 'cancelled', '11'
+         ) as upsert_external_appointment`,
+        [organizationId],
+      );
+      externalId = rows[0].upsert_external_appointment;
+
+      const stored = await session.query<{
+        status: string;
+        google_color_id: string | null;
+        summary_snapshot: string;
+      }>(
+        `select status, google_color_id, summary_snapshot
+         from public.appointments where id = $1`,
+        [externalId],
+      );
+      expect(stored[0]).toEqual({
+        status: "cancelled",
+        google_color_id: "11",
+        summary_snapshot: "Vinicius-2(desmarcou)",
+      });
+
+      const updated = await session.query<{ update_external_appointment_mirror: string }>(
+        `select public.update_external_appointment_mirror(
+           $1, $2,
+           now() + interval '2 day', now() + interval '2 day 1 hour',
+           'Livia-1(c) / Flávia-3', 'scheduled', 'etag-2', '7', null, 'online'
+         ) as update_external_appointment_mirror`,
+        [organizationId, externalId],
+      );
+      expect(updated[0].update_external_appointment_mirror).toBe(externalId);
+
+      const after = await session.query<{
+        status: string;
+        summary_snapshot: string;
+        google_color_id: string | null;
+        modality: string;
+      }>(
+        `select status, summary_snapshot, google_color_id, modality
+         from public.appointments where id = $1`,
+        [externalId],
+      );
+      expect(after[0]).toEqual({
+        status: "scheduled",
+        summary_snapshot: "Livia-1(c) / Flávia-3",
+        google_color_id: "7",
+        modality: "online",
+      });
+
+      const direct = await session.query(
+        "update public.appointments set summary_snapshot = 'hack' where id = $1 returning id",
+        [externalId],
+      );
+      expect(direct).toEqual([]);
+    } finally {
+      await session.close();
+    }
+
+    const outsiderSession = await openSession({ userId: outsider });
+    try {
+      const error = await outsiderSession.expectError(
+        `select public.update_external_appointment_mirror(
+           $1, $2, now(), now() + interval '1 hour', 'x', 'scheduled', null, null, null, null
+         )`,
+        [organizationId, externalId],
+      );
+      expect(error).toMatch(/active membership|42501/i);
+    } finally {
+      await outsiderSession.close();
+    }
+  });
+
+  it("delete_external_appointment_mirror remove o espelho e 404 lógico não deixa fantasma", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Mirror Delete");
+    const session = await openSession({ userId: admin });
+    try {
+      const rows = await session.query<{ upsert_external_appointment: string }>(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-del-1', 'etag-1',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Ana Cláudia-1(c)'
+         ) as upsert_external_appointment`,
+        [organizationId],
+      );
+      const externalId = rows[0].upsert_external_appointment;
+
+      const deleted = await session.query<{ delete_external_appointment_mirror: string }>(
+        `select public.delete_external_appointment_mirror($1, $2) as delete_external_appointment_mirror`,
+        [organizationId, externalId],
+      );
+      expect(deleted[0].delete_external_appointment_mirror).toBe(externalId);
+
+      const leftover = await session.query(
+        "select id from public.appointments where id = $1",
+        [externalId],
+      );
+      expect(leftover).toEqual([]);
+
+      const missing = await session.expectError(
+        `select public.delete_external_appointment_mirror($1, $2)`,
+        [organizationId, externalId],
+      );
+      expect(missing).toMatch(/not found|P0002/i);
+    } finally {
+      await session.close();
+    }
+  });
+});

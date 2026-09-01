@@ -1,5 +1,6 @@
 import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import type { AppointmentRow } from "@/features/calendar/contracts";
+import { monthCellStats } from "@/features/calendar/display";
 import { cn } from "@/lib/utils/cn";
 
 const WEEKDAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -36,11 +37,13 @@ export function MonthView({
   days,
   appointmentsByDay,
   today,
+  now,
   onSelectDay,
 }: {
   days: string[];
   appointmentsByDay: Map<string, AppointmentRow[]>;
   today: string;
+  now?: Date;
   onSelectDay: (day: string) => void;
 }) {
   const blanks = leadingBlankDays(days[0]);
@@ -67,6 +70,7 @@ export function MonthView({
           const isToday = day === today;
           const dayNumber = Number(day.split("-")[2]);
           const visiblePills = dayAppointments.slice(0, 4);
+          const validCount = monthCellStats(dayAppointments).count;
 
           return (
             <button
@@ -95,12 +99,14 @@ export function MonthView({
               </div>
               {dayAppointments.length > 0 ? (
                 <>
-                  <p className="text-[13px] text-muted-foreground">
-                    {sessionCountLabel(dayAppointments.length)}
-                  </p>
+                  {validCount > 0 ? (
+                    <p className="text-[13px] text-muted-foreground">
+                      {sessionCountLabel(validCount)}
+                    </p>
+                  ) : null}
                   <span className="flex w-full flex-col gap-1">
                     {visiblePills.map((appointment) => {
-                      const visual = getAppointmentVisualStatus(appointment);
+                      const visual = getAppointmentVisualStatus(appointment, now);
                       return (
                         <span
                           key={appointment.id}
@@ -108,10 +114,8 @@ export function MonthView({
                           data-appointment-origin={appointment.origin}
                           style={visual.style}
                           className={cn(
-                            "w-full truncate rounded-md border-2 px-1.5 py-0.5 text-[10px] font-semibold",
+                            "w-full break-words rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-white",
                             visual.className,
-                            visual.titleClassName,
-                            visual.borderStyle === "dashed" && "border-dashed",
                           )}
                         >
                           {appointment.summary_snapshot ?? "Consulta"}

@@ -1,91 +1,133 @@
 import { describe, expect, it } from "vitest";
 import {
+  getAppointmentPresentation,
   getAppointmentVisualStatus,
   offersClinicalAppointmentActions,
 } from "@/features/calendar/appointment-visual";
 import type { AppointmentStatus } from "@/features/calendar/contracts";
 
-describe("getAppointmentVisualStatus", () => {
-  it("scheduled e confirmed são verde (ativo)", () => {
-    for (const status of ["scheduled", "confirmed"] as const) {
-      const visual = getAppointmentVisualStatus({
-        status,
-        origin: "TESSELI",
-        patient_id: "33333333-3333-4333-8333-333333333333",
-      });
-      expect(visual.tone).toBe("active");
-      expect(visual.className).toBe("bg-green-100 border-green-500 text-green-900");
-      expect(visual.style.backgroundColor).toBe("#dcfce7");
-      expect(visual.style.borderColor).toBe("#22c55e");
-      expect(visual.style.color).toBe("#14532d");
-      expect(visual.borderStyle).toBe("solid");
-      expect(visual.badge).toBeNull();
-    }
-  });
+const NOW = new Date("2026-08-18T12:00:00.000Z");
 
-  it("completed é azul", () => {
-    const visual = getAppointmentVisualStatus({
-      status: "completed",
-      origin: "TESSELI",
-      patient_id: "33333333-3333-4333-8333-333333333333",
+function presentation(
+  extras: {
+    status?: AppointmentStatus;
+    origin?: "TESSELI" | "GOOGLE_EXTERNAL";
+    summary?: string;
+    endsAt: string;
+    patientId?: string | null;
+  },
+) {
+  return getAppointmentPresentation({
+    appointment: {
+      status: extras.status ?? "scheduled",
+      origin: extras.origin ?? "TESSELI",
+      ends_at: extras.endsAt,
+      summary_snapshot: extras.summary ?? null,
+      patient_id: extras.patientId ?? "33333333-3333-4333-8333-333333333333",
+    },
+    now: NOW,
+  });
+}
+
+describe("getAppointmentPresentation — fixtures reais", () => {
+  it("Ana Cláudia-1(c) futuro → VERDE", () => {
+    const result = presentation({
+      summary: "Ana Cláudia-1(c)",
+      endsAt: "2026-08-18T18:00:00.000Z",
     });
-    expect(visual.tone).toBe("completed");
-    expect(visual.className).toBe("bg-blue-100 border-blue-500 text-blue-900");
-    expect(visual.style.backgroundColor).toBe("#dbeafe");
+    expect(result.visualState).toBe("active");
+    expect(result.backgroundColor).toBe("#34A853");
+    expect(result.textColor).toBe("#ffffff");
+    expect(result.isCancelled).toBe(false);
   });
 
-  it("cancelled e no_show são vermelho suave", () => {
-    for (const status of ["cancelled", "no_show"] as const satisfies AppointmentStatus[]) {
-      const visual = getAppointmentVisualStatus({
-        status,
-        origin: "TESSELI",
-        patient_id: "33333333-3333-4333-8333-333333333333",
-      });
-      expect(visual.tone).toBe("cancelled");
-      expect(visual.className).toContain("bg-red-100");
-      expect(visual.className).toContain("border-red-400");
-      expect(visual.className).toContain("text-red-800");
-      expect(visual.style.backgroundColor).toBe("#fee2e2");
-      expect(visual.style.opacity).toBe(0.75);
-      expect(visual.titleClassName).toContain("line-through");
-    }
+  it("Livia-1(c) / Flávia-3 futuro → VERDE", () => {
+    const result = presentation({
+      summary: "Livia-1(c) / Flávia-3",
+      endsAt: "2026-08-18T19:00:00.000Z",
+    });
+    expect(result.visualState).toBe("active");
+    expect(result.backgroundColor).toBe("#34A853");
   });
 
-  it("GOOGLE_EXTERNAL scheduled é verde com borda tracejada e badge, não cinza", () => {
-    const visual = getAppointmentVisualStatus({
-      status: "scheduled",
+  it("Vinicius-2(desmarcou) futuro → VERMELHO", () => {
+    const result = presentation({
+      summary: "Vinicius-2(desmarcou)",
+      endsAt: "2026-08-18T18:00:00.000Z",
+    });
+    expect(result.visualState).toBe("cancelled");
+    expect(result.backgroundColor).toBe("#D93025");
+    expect(result.isCancelled).toBe(true);
+  });
+
+  it("Giovanna (desmarcou) futuro → VERMELHO", () => {
+    const result = presentation({
+      summary: "Giovanna (desmarcou)",
+      endsAt: "2026-08-18T18:00:00.000Z",
+    });
+    expect(result.visualState).toBe("cancelled");
+    expect(result.backgroundColor).toBe("#D93025");
+  });
+
+  it("Helio (c) com ends_at < now → AZUL", () => {
+    const result = presentation({
+      summary: "Helio (c)",
+      endsAt: "2026-08-18T11:00:00.000Z",
+    });
+    expect(result.visualState).toBe("completed");
+    expect(result.backgroundColor).toBe("#1A73E8");
+    expect(result.isPast).toBe(true);
+    expect(result.isCancelled).toBe(false);
+  });
+
+  it("cancelado com ends_at < now permanece VERMELHO", () => {
+    const result = presentation({
+      status: "cancelled",
+      summary: "Evento cancelado",
+      endsAt: "2026-08-18T08:00:00.000Z",
+    });
+    expect(result.visualState).toBe("cancelled");
+    expect(result.backgroundColor).toBe("#D93025");
+  });
+
+  it("GOOGLE_EXTERNAL futuro scheduled é verde, sem cinza", () => {
+    const result = presentation({
       origin: "GOOGLE_EXTERNAL",
-      patient_id: null,
+      summary: "Reunião do conselho regional",
+      endsAt: "2026-08-18T18:00:00.000Z",
+      patientId: null,
     });
-    expect(visual.tone).toBe("active");
-    expect(visual.className).toBe("bg-green-100 border-green-500 text-green-900");
-    expect(visual.style.backgroundColor).toBe("#dcfce7");
-    expect(visual.borderStyle).toBe("dashed");
-    expect(visual.style.borderStyle).toBe("dashed");
-    expect(visual.badge).toBe("Google externo");
-    expect(visual.className).not.toContain("bg-zinc-100");
+    expect(result.visualState).toBe("active");
+    expect(result.backgroundColor).toBe("#34A853");
+    expect(result.badgeLabel).toBe("Google");
   });
 
-  it("GOOGLE_EXTERNAL completed é azul com borda tracejada", () => {
-    const visual = getAppointmentVisualStatus({
-      status: "completed",
+  it("GOOGLE_EXTERNAL desmarcou é vermelho", () => {
+    const result = presentation({
       origin: "GOOGLE_EXTERNAL",
-      patient_id: "33333333-3333-4333-8333-333333333333",
+      summary: "Vinicius-2(desmarcou)",
+      endsAt: "2026-08-18T18:00:00.000Z",
+      patientId: null,
     });
-    expect(visual.tone).toBe("completed");
-    expect(visual.className).toContain("bg-blue-100");
-    expect(visual.borderStyle).toBe("dashed");
-    expect(visual.badge).toBe("Google externo");
+    expect(result.visualState).toBe("cancelled");
+    expect(result.backgroundColor).toBe("#D93025");
+    expect(result.badgeLabel).toBe("Google");
   });
 
-  it("não interpola classes Tailwind", () => {
-    const visual = getAppointmentVisualStatus({
-      status: "scheduled",
-      origin: "TESSELI",
-      patient_id: "33333333-3333-4333-8333-333333333333",
-    });
-    expect(visual.className).not.toMatch(/bg-\$\{/);
-    expect(visual.style.backgroundColor).toMatch(/^#/);
+  it("não usa colorId nem origem para o preenchimento", () => {
+    const visual = getAppointmentVisualStatus(
+      {
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        ends_at: "2026-08-18T18:00:00.000Z",
+        patient_id: null,
+      },
+      NOW,
+    );
+    expect(visual.borderStyle).toBe("solid");
+    expect(visual.style.borderStyle).toBe("solid");
+    expect(visual.badge).toBe("Google");
+    expect(visual.className).toBe("bg-[#34A853] text-white");
   });
 });
 

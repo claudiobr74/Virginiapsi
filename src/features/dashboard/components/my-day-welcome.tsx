@@ -25,7 +25,7 @@ function StatCard({
 }
 
 export function MyDayWelcome({ snapshot }: { snapshot: MyDaySnapshot }) {
-  const todayCount = snapshot.timeline.length;
+  const todayCount = snapshot.metrics.sessionsToday;
 
   return (
     <section className="flex flex-col gap-5">

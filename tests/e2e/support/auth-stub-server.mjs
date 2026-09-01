@@ -606,24 +606,24 @@ function todaySaoPauloDateStr() {
 
 {
   const today = todaySaoPauloDateStr();
-  const starts = new Date(`${today}T09:00:00-03:00`);
-  const ends = new Date(starts.getTime() + 50 * 60 * 1000);
   const [beatriz] = patientsByOrg.get(ADMIN_ORG_ID).values();
 
+  const futureStart = new Date(`${today}T23:00:00-03:00`);
+  const futureEnd = new Date(futureStart.getTime() + 50 * 60 * 1000);
   seedAppointment(ADMIN_ORG_ID, {
     patient_id: beatriz.id,
-    starts_at: starts.toISOString(),
-    ends_at: ends.toISOString(),
+    starts_at: futureStart.toISOString(),
+    ends_at: futureEnd.toISOString(),
     summary_snapshot: `${beatriz.full_name} • ${beatriz.public_code}`,
   });
 
-  const completedStart = new Date(`${today}T13:00:00-03:00`);
-  const completedEnd = new Date(completedStart.getTime() + 50 * 60 * 1000);
+  const pastStart = new Date(`${today}T00:05:00-03:00`);
+  const pastEnd = new Date(pastStart.getTime() + 50 * 60 * 1000);
   seedAppointment(ADMIN_ORG_ID, {
     patient_id: beatriz.id,
-    status: "completed",
-    starts_at: completedStart.toISOString(),
-    ends_at: completedEnd.toISOString(),
+    status: "scheduled",
+    starts_at: pastStart.toISOString(),
+    ends_at: pastEnd.toISOString(),
     summary_snapshot: "Consulta B — realizada",
   });
 
@@ -637,7 +637,15 @@ function todaySaoPauloDateStr() {
     summary_snapshot: "Consulta C — cancelada",
   });
 
-  const externalStart = new Date(`${today}T11:00:00-03:00`);
+  const desmarcouStart = new Date(`${today}T16:30:00-03:00`);
+  const desmarcouEnd = new Date(desmarcouStart.getTime() + 50 * 60 * 1000);
+  seedAppointment(ADMIN_ORG_ID, {
+    starts_at: desmarcouStart.toISOString(),
+    ends_at: desmarcouEnd.toISOString(),
+    summary_snapshot: "Vinicius-2(desmarcou)",
+  });
+
+  const externalStart = new Date(`${today}T22:00:00-03:00`);
   const externalEnd = new Date(externalStart.getTime() + 60 * 60 * 1000);
   seedAppointment(ADMIN_ORG_ID, {
     origin: "GOOGLE_EXTERNAL",
@@ -813,7 +821,12 @@ const server = createServer(async (req, res) => {
     const body = await readBody(req);
     const status = body.status === "connected" ? "connected" : "disconnected";
     const current = getConnection(ADMIN_ORG_ID);
-    connectionsByOrg.set(ADMIN_ORG_ID, { ...current, status });
+    connectionsByOrg.set(ADMIN_ORG_ID, {
+      ...current,
+      status,
+      calendar_id: status === "connected" ? current.calendar_id ?? "primary" : current.calendar_id,
+      calendar_summary: status === "connected" ? current.calendar_summary ?? "Agenda principal" : current.calendar_summary,
+    });
     json(res, 200, { organization_id: ADMIN_ORG_ID, status });
     return;
   }
@@ -1547,6 +1560,10 @@ const server = createServer(async (req, res) => {
       const table = appointmentsByOrg.get(orgId);
       if (table?.has(idFilter)) {
         const current = table.get(idFilter);
+        if (current.origin === "GOOGLE_EXTERNAL") {
+          json(res, 200, wantsSingleObject(req) ? { message: "not found" } : []);
+          return;
+        }
         updated = { ...current, ...body, id: current.id, updated_at: new Date().toISOString() };
         table.set(idFilter, updated);
         break;
@@ -1558,6 +1575,35 @@ const server = createServer(async (req, res) => {
       return;
     }
     json(res, 200, wantsSingleObject(req) ? updated : [updated]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/appointments" && req.method === "DELETE") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    let deleted = null;
+    for (const orgId of (memberships.get(user.id) ?? []).map((m) => m.organization_id)) {
+      const table = appointmentsByOrg.get(orgId);
+      if (table?.has(idFilter)) {
+        const current = table.get(idFilter);
+        if (current.origin === "GOOGLE_EXTERNAL") {
+          json(res, 200, wantsSingleObject(req) ? { message: "not found" } : []);
+          return;
+        }
+        deleted = current;
+        table.delete(idFilter);
+        break;
+      }
+    }
+    if (!deleted) {
+      json(res, wantsSingleObject(req) ? 406 : 200, wantsSingleObject(req) ? { message: "not found" } : []);
+      return;
+    }
+    json(res, 200, wantsSingleObject(req) ? deleted : [deleted]);
     return;
   }
 
@@ -1611,6 +1657,62 @@ const server = createServer(async (req, res) => {
       return;
     }
     json(res, 200, randomUUID());
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/update_external_appointment_mirror" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const organizationId = body.org_id;
+    const isMember = (memberships.get(user.id) ?? []).some(
+      (row) => row.active && row.organization_id === organizationId,
+    );
+    const table = appointmentsByOrg.get(organizationId);
+    const current = table?.get(body.p_appointment_id);
+    if (!isMember || !current || current.origin !== "GOOGLE_EXTERNAL") {
+      json(res, 400, { message: "external appointment mirror not found" });
+      return;
+    }
+    const updated = {
+      ...current,
+      starts_at: body.p_starts_at ?? current.starts_at,
+      ends_at: body.p_ends_at ?? current.ends_at,
+      summary_snapshot: body.p_summary_snapshot ?? current.summary_snapshot,
+      status: body.p_status ?? current.status,
+      google_etag: body.p_google_etag ?? current.google_etag,
+      google_color_id: body.p_google_color_id ?? current.google_color_id,
+      patient_id: body.p_patient_id ?? current.patient_id,
+      modality: body.p_modality ?? current.modality,
+      sync_status: "synced",
+    };
+    table.set(current.id, updated);
+    json(res, 200, current.id);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/delete_external_appointment_mirror" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const organizationId = body.org_id;
+    const isMember = (memberships.get(user.id) ?? []).some(
+      (row) => row.active && row.organization_id === organizationId,
+    );
+    const table = appointmentsByOrg.get(organizationId);
+    const current = table?.get(body.p_appointment_id);
+    if (!isMember || !current || current.origin !== "GOOGLE_EXTERNAL") {
+      json(res, 400, { message: "external appointment mirror not found" });
+      return;
+    }
+    table.delete(current.id);
+    json(res, 200, current.id);
     return;
   }
 

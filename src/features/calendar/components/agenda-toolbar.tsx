@@ -85,7 +85,7 @@ export function AgendaToolbar({
         ) : null}
         <Button type="button" size="sm" onClick={onNewAppointment}>
           <Plus className="size-4" aria-hidden />
-          Nova consulta
+          Novo agendamento
         </Button>
       </div>
     </div>

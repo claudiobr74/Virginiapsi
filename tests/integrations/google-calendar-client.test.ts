@@ -46,6 +46,21 @@ describe("GoogleCalendarClient", () => {
     expect(parsed.searchParams.get("orderBy")).toBe("startTime");
   });
 
+  it("listEvents com showDeleted não envia orderBy", async () => {
+    const fetchImpl = mockFetch(async () => jsonResponse({ items: [] }));
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+
+    await client.listEvents("primary", {
+      timeMin: "2026-01-01T00:00:00.000Z",
+      timeMax: "2026-01-31T00:00:00.000Z",
+      showDeleted: true,
+    });
+
+    const parsed = new URL(fetchImpl.mock.calls[0][0]);
+    expect(parsed.searchParams.get("showDeleted")).toBe("true");
+    expect(parsed.searchParams.get("orderBy")).toBeNull();
+  });
+
   it("insertEvent envia conferenceDataVersion=1 quando solicitado", async () => {
     const fetchImpl = mockFetch(async () =>
       jsonResponse({ id: "evt-1", summary: "Consulta" }),

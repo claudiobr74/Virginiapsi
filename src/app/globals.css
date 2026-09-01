@@ -1,25 +1,10 @@
 @import "tailwindcss";
 
-/* Agenda appointment surfaces — full names so the production build keeps them. */
-@source inline("bg-green-100");
-@source inline("border-green-500");
-@source inline("text-green-900");
-@source inline("bg-blue-100");
-@source inline("border-blue-500");
-@source inline("text-blue-900");
-@source inline("bg-red-100");
-@source inline("border-red-400");
-@source inline("text-red-800");
-@source inline("bg-zinc-100");
-@source inline("border-zinc-400");
-@source inline("text-zinc-900");
-@source inline("bg-green-500");
-@source inline("bg-blue-500");
-@source inline("bg-red-400");
-@source inline("bg-zinc-400");
-@source inline("border-2");
-@source inline("opacity-75");
-@source inline("border-dashed");
+/* Agenda appointment paint — unlayered so it wins over @layer utilities. */
+@source inline("bg-[#34A853]");
+@source inline("bg-[#1A73E8]");
+@source inline("bg-[#D93025]");
+@source inline("text-white");
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -178,28 +163,23 @@ body {
 }
 
 /*
- * Agenda appointment paint — unlayered so it wins over @layer utilities AND
- * over the previous unlayered `* { border-color }` if a build reorders layers.
- * Hex = Tailwind green/blue/red/zinc 100/500/400/900.
+ * Agenda V2 paint — solid Google Calendar-like fills, white text.
+ * Origin never changes the fill. Inline style on the card is the source of truth.
  */
 [data-appointment-visual="active"] {
-  background-color: #dcfce7;
-  border-color: #22c55e;
-  color: #14532d;
+  background-color: #34a853;
+  border-color: #34a853;
+  color: #ffffff;
 }
 [data-appointment-visual="completed"] {
-  background-color: #dbeafe;
-  border-color: #3b82f6;
-  color: #1e3a8a;
+  background-color: #1a73e8;
+  border-color: #1a73e8;
+  color: #ffffff;
 }
 [data-appointment-visual="cancelled"] {
-  background-color: #fee2e2;
-  border-color: #f87171;
-  color: #991b1b;
-  opacity: 0.75;
-}
-[data-appointment-origin="GOOGLE_EXTERNAL"] {
-  border-style: dashed;
+  background-color: #d93025;
+  border-color: #d93025;
+  color: #ffffff;
 }
 
 ::selection {

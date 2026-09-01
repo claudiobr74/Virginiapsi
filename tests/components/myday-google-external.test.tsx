@@ -19,12 +19,13 @@ vi.mock("@/features/sessions/components/start-session-button", () => ({
 }));
 
 const TIME_ZONE = "America/Sao_Paulo";
+const NOW = new Date("2026-08-18T12:00:00.000Z");
 
 function googleExternal(): MyDayAppointment {
   return {
     id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
-    startsAt: "2026-08-18T12:00:00.000Z",
-    endsAt: "2026-08-18T13:00:00.000Z",
+    startsAt: "2026-08-18T15:00:00.000Z",
+    endsAt: "2026-08-18T16:00:00.000Z",
     status: "scheduled",
     modality: "online",
     origin: "GOOGLE_EXTERNAL",
@@ -41,8 +42,8 @@ function googleExternal(): MyDayAppointment {
 function tesseliManaged(): MyDayAppointment {
   return {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-    startsAt: "2026-08-18T12:00:00.000Z",
-    endsAt: "2026-08-18T13:00:00.000Z",
+    startsAt: "2026-08-18T15:00:00.000Z",
+    endsAt: "2026-08-18T16:00:00.000Z",
     status: "scheduled",
     modality: "online",
     origin: "TESSELI",
@@ -57,19 +58,21 @@ function tesseliManaged(): MyDayAppointment {
 }
 
 describe("Meu Dia — Google externo sem paciente", () => {
-  it("aparece na timeline verde, com badge, sem ações clínicas", () => {
+  it("aparece na timeline verde sólida, com badge Google, sem ações clínicas", () => {
     render(
       <TodayTimeline
         appointments={[googleExternal()]}
         timeZone={TIME_ZONE}
         canStartSession
+        now={NOW}
       />,
     );
 
     const row = screen.getByText("Evento D").closest("[data-appointment-visual]");
     expect(row).toHaveAttribute("data-appointment-visual", "active");
-    expect(row).toHaveStyle({ backgroundColor: "#dcfce7", borderStyle: "dashed" });
-    expect(screen.getByText("Google externo")).toBeInTheDocument();
+    expect(row).toHaveStyle({ backgroundColor: "#34A853" });
+    expect(screen.getByText("Google")).toBeInTheDocument();
+    expect(screen.queryByText("Google externo")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Atender" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /WhatsApp/ })).not.toBeInTheDocument();
@@ -82,13 +85,14 @@ describe("Meu Dia — Google externo sem paciente", () => {
         timeZone={TIME_ZONE}
         canStartSession
         emptyDay={false}
+        now={NOW}
       />,
     );
 
     const card = screen.getByRole("heading", { name: "Evento D" }).closest("[data-appointment-visual]");
     expect(card).toHaveAttribute("data-appointment-origin", "GOOGLE_EXTERNAL");
-    expect(card).toHaveStyle({ backgroundColor: "#dcfce7", borderStyle: "dashed" });
-    expect(screen.getByText("Google externo")).toBeInTheDocument();
+    expect(card).toHaveStyle({ backgroundColor: "#34A853" });
+    expect(screen.getByText("Google")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Iniciar sessão|Atender/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /WhatsApp/ })).not.toBeInTheDocument();

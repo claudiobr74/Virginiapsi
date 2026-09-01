@@ -5,18 +5,20 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DrawerContent, Drawer } from "@/components/ui/drawer";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { cancelAppointmentAction, updateAppointmentStatusAction } from "@/features/calendar/appointment-actions";
+import {
+  cancelAppointmentAction,
+  deleteAppointmentAction,
+  retryGoogleSyncAction,
+  updateAppointmentStatusAction,
+} from "@/features/calendar/appointment-actions";
 import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
+import { GoogleOriginMark } from "@/features/calendar/components/google-origin-mark";
+import { requestMeetForAppointmentAction } from "@/features/calendar/sync-actions";
 import {
-  pushAppointmentToGoogleAction,
-  requestMeetForAppointmentAction,
-} from "@/features/calendar/sync-actions";
-import {
-  APPOINTMENT_STATUS_BADGE,
   APPOINTMENT_STATUS_LABELS,
   type AppointmentRow,
 } from "@/features/calendar/contracts";
+import { isAppointmentCancelled } from "@/features/calendar/google-event-status";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { StartSessionButton } from "@/features/sessions/components/start-session-button";
 import { formatInTimeZone } from "@/lib/utils/timezone";
@@ -28,11 +30,12 @@ export interface AppointmentDetailDrawerProps {
   googleConnected: boolean;
   /** Clinical session mode is psychologist_admin-only (.cursor/rules/10-clinical-domain.mdc). */
   isAdmin: boolean;
+  now?: Date;
   onClose: () => void;
   onEdit: () => void;
   /** Called after an in-place update (confirm/sync/Meet) — drawer stays open. */
   onRefresh: () => void;
-  /** Called after the appointment leaves the active agenda (cancel). */
+  /** Called after cancel or delete. */
   onCancelled: () => void;
 }
 
@@ -41,6 +44,7 @@ export function AppointmentDetailDrawer({
   timeZone,
   googleConnected,
   isAdmin,
+  now,
   onClose,
   onEdit,
   onRefresh,
@@ -49,24 +53,29 @@ export function AppointmentDetailDrawer({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [appointment, setAppointment] = useState(appointmentProp);
 
-  // Reset local (optimistically-updated) state whenever a different
-  // appointment is selected — adjusting state during render instead of an
-  // effect avoids the extra commit/render pass (see React docs: "Adjusting
-  // some state when a prop changes").
   const [trackedProp, setTrackedProp] = useState(appointmentProp);
   if (appointmentProp !== trackedProp) {
     setTrackedProp(appointmentProp);
     setAppointment(appointmentProp);
+    setError(null);
   }
 
   if (!appointment) {
     return null;
   }
 
-  const isExternal = appointment.origin === "GOOGLE_EXTERNAL";
-  const visual = getAppointmentVisualStatus(appointment);
+  const visual = getAppointmentVisualStatus(appointment, now);
+  const cancelled = isAppointmentCancelled(appointment);
+  const hasGoogleEvent = Boolean(appointment.google_event_id);
+  const canConfirm = !cancelled && appointment.status !== "confirmed";
+  const canStart =
+    isAdmin &&
+    appointment.origin === "TESSELI" &&
+    Boolean(appointment.patient_id) &&
+    !cancelled;
 
   const runInPlace = (
     action: () => Promise<{ error?: string }>,
@@ -99,10 +108,23 @@ export function AppointmentDetailDrawer({
     });
   };
 
+  const runDelete = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await deleteAppointmentAction(appointment.id);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setConfirmDelete(false);
+      onCancelled();
+    });
+  };
+
   return (
     <Drawer open={Boolean(appointmentProp)} onOpenChange={(next) => !next && onClose()}>
       <DrawerContent
-        title={isExternal ? "Evento externo do Google" : "Detalhes da consulta"}
+        title="Detalhes do agendamento"
         description={appointment.summary_snapshot ?? undefined}
       >
         <div className="flex flex-col gap-4">
@@ -119,17 +141,25 @@ export function AppointmentDetailDrawer({
             data-appointment-visual={visual.tone}
             data-appointment-origin={appointment.origin}
             style={visual.style}
-            className={cn(
-              "flex flex-wrap items-center gap-2 rounded-xl border-2 px-3 py-2",
-              visual.className,
-              visual.borderStyle === "dashed" && "border-dashed",
-            )}
+            className={cn("flex flex-col gap-1 rounded-lg px-3 py-2.5", visual.className)}
           >
-            {visual.badge ? <StatusBadge status="info" label={visual.badge} /> : null}
-            <StatusBadge
-              status={APPOINTMENT_STATUS_BADGE[appointment.status]}
-              label={APPOINTMENT_STATUS_LABELS[appointment.status]}
-            />
+            <p className="text-sm font-semibold leading-snug break-words text-white">
+              {appointment.summary_snapshot ?? "Sem paciente vinculado"}
+            </p>
+            <p className="font-mono text-xs text-white/90">
+              {formatInTimeZone(appointment.starts_at, timeZone)} –{" "}
+              {formatInTimeZone(appointment.ends_at, timeZone)}
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              {visual.badge ? <GoogleOriginMark /> : null}
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-white/85">
+                {cancelled
+                  ? "Cancelado"
+                  : visual.tone === "completed"
+                    ? "Encerrado"
+                    : APPOINTMENT_STATUS_LABELS[appointment.status]}
+              </span>
+            </div>
           </div>
 
           <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -161,115 +191,126 @@ export function AppointmentDetailDrawer({
             </div>
           </dl>
 
-          {isExternal ? (
-            <p className="text-sm text-muted-foreground">
-              Este evento vem do Google Calendar e é somente leitura no VirgíniaPsi.
-              Edite-o diretamente no Google.
-            </p>
-          ) : (
-            <>
-              {appointment.modality === "online" ? (
-                <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface/50 p-3">
-                  <span className="text-xs font-bold uppercase text-muted-foreground">
-                    Google Meet
-                  </span>
-                  {appointment.meet_status === "success" && appointment.meet_url ? (
-                    <a
-                      href={appointment.meet_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1.5 text-sm font-semibold text-sage-700 hover:text-primary"
-                    >
-                      {appointment.meet_url}
-                      <ExternalLink className="size-3.5" aria-hidden />
-                    </a>
-                  ) : appointment.meet_status === "pending" ? (
-                    <span className="text-sm text-pending">Meet em criação…</span>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      isLoading={isPending}
-                      disabled={!googleConnected || !appointment.google_event_id}
-                      onClick={() =>
-                        runInPlace(() => requestMeetForAppointmentAction(appointment.id))
-                      }
-                    >
-                      Criar Meet
-                    </Button>
-                  )}
-                  {!appointment.google_event_id ? (
-                    <p className="text-xs text-muted-foreground">
-                      Sincronize com o Google Calendar antes de criar o Meet.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {isAdmin && appointment.patient_id && appointment.status !== "cancelled" ? (
-                <StartSessionButton
-                  patientId={appointment.patient_id}
-                  appointmentId={appointment.id}
-                />
-              ) : null}
-
-              <div className="flex flex-wrap gap-2">
-                {!appointment.google_event_id ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    isLoading={isPending}
-                    disabled={!googleConnected}
-                    onClick={() => runInPlace(() => pushAppointmentToGoogleAction(appointment.id))}
-                  >
-                    Sincronizar com Google
-                  </Button>
-                ) : null}
-                {appointment.status !== "confirmed" && appointment.status !== "cancelled" ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    isLoading={isPending}
-                    onClick={() =>
-                      runInPlace(
-                        () => updateAppointmentStatusAction(appointment.id, "confirmed"),
-                        "confirmed",
-                      )
-                    }
-                  >
-                    Confirmar
-                  </Button>
-                ) : null}
-                <Button type="button" size="sm" variant="secondary" onClick={onEdit}>
-                  Remarcar
+          {appointment.origin === "TESSELI" && appointment.modality === "online" ? (
+            <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface/50 p-3">
+              <span className="text-xs font-bold uppercase text-muted-foreground">
+                Google Meet
+              </span>
+              {appointment.meet_status === "success" && appointment.meet_url ? (
+                <a
+                  href={appointment.meet_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-sm font-semibold text-sage-700 hover:text-primary"
+                >
+                  {appointment.meet_url}
+                  <ExternalLink className="size-3.5" aria-hidden />
+                </a>
+              ) : appointment.meet_status === "pending" ? (
+                <span className="text-sm text-pending">Meet em criação…</span>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  isLoading={isPending}
+                  disabled={!googleConnected || !appointment.google_event_id}
+                  onClick={() =>
+                    runInPlace(() => requestMeetForAppointmentAction(appointment.id))
+                  }
+                >
+                  Criar Meet
                 </Button>
-                {appointment.status !== "cancelled" ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setConfirmCancel(true)}
-                  >
-                    Cancelar consulta
-                  </Button>
-                ) : null}
-              </div>
-            </>
-          )}
+              )}
+            </div>
+          ) : null}
+
+          {canStart && appointment.patient_id ? (
+            <StartSessionButton
+              patientId={appointment.patient_id}
+              appointmentId={appointment.id}
+            />
+          ) : null}
+
+          {appointment.sync_status === "error" ? (
+            <div className="flex flex-col gap-2 rounded-xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed">
+              <p>Não foi possível sincronizar com Google.</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                isLoading={isPending}
+                onClick={() => runInPlace(() => retryGoogleSyncAction(appointment.id))}
+              >
+                Tentar novamente
+              </Button>
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap gap-2">
+            {canConfirm ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                isLoading={isPending}
+                onClick={() =>
+                  runInPlace(
+                    () => updateAppointmentStatusAction(appointment.id, "confirmed"),
+                    "confirmed",
+                  )
+                }
+              >
+                Confirmar
+              </Button>
+            ) : null}
+            <Button type="button" size="sm" variant="secondary" onClick={onEdit}>
+              Editar
+            </Button>
+            {!cancelled ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => setConfirmCancel(true)}
+              >
+                Cancelar/desmarcar
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={() => setConfirmDelete(true)}
+            >
+              Excluir
+            </Button>
+          </div>
         </div>
       </DrawerContent>
 
       <ConfirmDialog
         open={confirmCancel}
         onOpenChange={setConfirmCancel}
-        title="Cancelar consulta?"
-        description="O paciente e o horário ficam registrados, mas a consulta some da agenda ativa."
-        confirmLabel="Cancelar consulta"
+        title="Cancelar/desmarcar este agendamento?"
+        description="O agendamento permanece visível na Agenda em vermelho. Isso não exclui o evento."
+        confirmLabel="Cancelar/desmarcar"
         isLoading={isPending}
         onConfirm={runCancel}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Excluir este agendamento?"
+        description={
+          hasGoogleEvent
+            ? "Ele também será removido do Google Calendar."
+            : "Esta ação remove o agendamento da agenda."
+        }
+        confirmLabel="Excluir agendamento"
+        isLoading={isPending}
+        onConfirm={runDelete}
       />
     </Drawer>
   );

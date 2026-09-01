@@ -24,6 +24,7 @@ import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { computeAgendaWindow, todayInTimeZone } from "@/features/calendar/date-window";
 import { getConnection } from "@/features/calendar/connection-queries";
 import { googleConnectionIsLive, visibleAppointments } from "@/features/calendar/display";
+import { countValidAgendaSessions } from "@/features/calendar/google-event-status";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface AppointmentJoinRow {
@@ -88,7 +89,6 @@ async function listTodayAppointments(
       "id, starts_at, ends_at, status, modality, origin, summary_snapshot, meet_url, meet_status, patient_id, patients(preferred_name, public_code, phone)",
     )
     .eq("organization_id", organizationId)
-    .neq("status", "cancelled")
     .lt("starts_at", window.toIso)
     .gt("ends_at", window.fromIso);
 
@@ -177,19 +177,39 @@ async function countWeekSessions(
   const today = todayInTimeZone(timezone);
   const window = computeAgendaWindow("week", today, timezone);
   const supabase = await createSupabaseServerClient();
-  const { count, error } = await supabase
+  const connection = await getConnection(organizationId).catch((): null => null);
+  const managedOnly = !googleConnectionIsLive(connection);
+
+  let query = supabase
     .from("appointments")
-    .select("id", { count: "exact", head: true })
+    .select("id, status, origin, summary_snapshot, starts_at")
     .eq("organization_id", organizationId)
-    .eq("origin", "TESSELI")
-    .neq("status", "cancelled")
     .gte("starts_at", window.fromIso)
     .lt("starts_at", window.toIso);
 
+  if (managedOnly) {
+    query = query.eq("origin", "TESSELI");
+  }
+
+  const { data, error } = await query;
   if (error) {
     return 0;
   }
-  return count ?? 0;
+
+  const visible = visibleAppointments(
+    (data as Array<{
+      status: string;
+      origin: "TESSELI" | "GOOGLE_EXTERNAL";
+      summary_snapshot: string | null;
+    }> | null) ?? [],
+    connection,
+  );
+  return countValidAgendaSessions(
+    visible.map((row) => ({
+      status: row.status as "scheduled" | "confirmed" | "cancelled" | "completed" | "no_show",
+      summary_snapshot: row.summary_snapshot,
+    })),
+  );
 }
 
 export async function getMyDaySnapshot(input: {
@@ -260,6 +280,7 @@ export async function getMyDaySnapshot(input: {
     phases: PHASE_AVAILABILITY,
     metrics: {
       sessionsThisWeek,
+      sessionsToday: countValidAgendaSessions(timeline),
       activePatients: patients.filter((patient) => patient.status === "active").length,
       clinicalPendencies: sessionsToFinalize.length + tasks.length,
       monthReceiptsCents: monthReceiptsCentsValue,

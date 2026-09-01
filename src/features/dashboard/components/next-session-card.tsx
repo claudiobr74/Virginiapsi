@@ -1,8 +1,11 @@
 import { CalendarClock, Globe, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
+import {
+  getAppointmentVisualStatus,
+  myDayAppointmentToPresentationInput,
+} from "@/features/calendar/appointment-visual";
+import { GoogleOriginMark } from "@/features/calendar/components/google-origin-mark";
 import { SessionActions } from "@/features/dashboard/components/session-actions";
 import type { MyDayAppointment } from "@/features/dashboard/contracts";
 import { heroPatientName, meetHostLabel, startsInLabel } from "@/features/dashboard/stats";
@@ -15,11 +18,13 @@ export function NextSessionCard({
   timeZone,
   canStartSession,
   emptyDay,
+  now,
 }: {
   appointment: MyDayAppointment | null;
   timeZone: string;
   canStartSession: boolean;
   emptyDay: boolean;
+  now?: Date;
 }) {
   if (emptyDay) {
     return (
@@ -64,11 +69,10 @@ export function NextSessionCard({
   const isOnline = appointment.modality === "online";
   const untilLabel = startsInLabel(appointment.startsAt);
   const meetHost = meetHostLabel(appointment.meetUrl);
-  const visual = getAppointmentVisualStatus({
-    status: appointment.status,
-    origin: appointment.origin,
-    patient_id: appointment.patientId,
-  });
+  const visual = getAppointmentVisualStatus(
+    myDayAppointmentToPresentationInput(appointment),
+    now,
+  );
 
   return (
     <section
@@ -76,29 +80,23 @@ export function NextSessionCard({
       data-appointment-visual={visual.tone}
       data-appointment-origin={appointment.origin}
       style={visual.style}
-      className={cn(
-        "flex flex-col gap-5 rounded-[20px] border-2 p-6",
-        visual.className,
-        visual.borderStyle === "dashed" && "border-dashed",
-      )}
+      className={cn("flex flex-col gap-5 rounded-[20px] p-6 text-white", visual.className)}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="rounded-md bg-surface px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-sage-700">
+          <p className="rounded-md bg-black/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
             Próxima sessão
           </p>
-          {untilLabel ? (
-            <span className="text-[13px] text-muted-foreground">{untilLabel}</span>
-          ) : null}
+          {untilLabel ? <span className="text-[13px] text-white/85">{untilLabel}</span> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {visual.badge ? <StatusBadge status="info" label={visual.badge} /> : null}
+          {visual.badge ? <GoogleOriginMark /> : null}
           {isOnline ? (
-            <span className="rounded-md bg-white/50 px-2 py-1 text-[11px] font-semibold uppercase">
+            <span className="rounded-md bg-black/20 px-2 py-1 text-[11px] font-semibold uppercase text-white">
               Online
             </span>
           ) : (
-            <span className="rounded-md bg-white/50 px-2 py-1 text-[11px] font-semibold uppercase opacity-80">
+            <span className="rounded-md bg-black/20 px-2 py-1 text-[11px] font-semibold uppercase text-white/90">
               {modalityLabel}
             </span>
           )}
@@ -106,10 +104,10 @@ export function NextSessionCard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <h2 id="next-session-heading" className="font-serif text-[28px] font-bold leading-tight text-foreground">
+        <h2 id="next-session-heading" className="font-serif text-[28px] font-bold leading-tight text-white">
           {heroPatientName(appointment)}
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-white/85">
           {appointment.patientPublicCode
             ? `Código de Registro: ${appointment.patientPublicCode} • ${starts}`
             : starts}
@@ -117,7 +115,7 @@ export function NextSessionCard({
       </div>
 
       {appointment.meetUrl && appointment.meetStatus === "success" && meetHost ? (
-        <p className="flex items-center gap-2 rounded-lg bg-sage-light px-3 py-2.5 font-mono text-xs text-sage-700">
+        <p className="flex items-center gap-2 rounded-lg bg-black/15 px-3 py-2.5 font-mono text-xs text-white">
           <Globe className="size-4 shrink-0" aria-hidden />
           <span className="min-w-0 truncate">Google Meet: {meetHost}</span>
         </p>

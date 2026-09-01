@@ -92,6 +92,7 @@ export interface RecentDocumentItem {
 
 export interface MyDayMetrics {
   sessionsThisWeek: number;
+  sessionsToday: number;
   activePatients: number;
   clinicalPendencies: number;
   monthReceiptsCents: number;
@@ -135,14 +136,19 @@ export function patientDisplayLabel(appointment: MyDayAppointment): string {
   return appointment.summarySnapshot ?? "Sem paciente vinculado";
 }
 
-/** The next session is the first that has not yet ended; otherwise null. */
+import { isAppointmentCancelled } from "@/features/calendar/google-event-status";
+
+/** The next session is the first valid one that has not yet ended; otherwise null. */
 export function selectNextSession(
   timeline: MyDayAppointment[],
   nowMs: number = Date.now(),
 ): MyDayAppointment | null {
   return (
-    timeline.find((appointment) => new Date(appointment.endsAt).getTime() > nowMs) ??
-    null
+    timeline.find(
+      (appointment) =>
+        !isAppointmentCancelled(appointment) &&
+        new Date(appointment.endsAt).getTime() > nowMs,
+    ) ?? null
   );
 }
 

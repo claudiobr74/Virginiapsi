@@ -111,6 +111,23 @@ describe("selectNextSession", () => {
     const now = Date.parse("2026-08-20T18:00:00.000Z");
     expect(selectNextSession([past], now)).toBeNull();
   });
+
+  it("pula desmarcou mesmo com horário futuro", () => {
+    const cancelled = appointment({
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      status: "scheduled",
+      summarySnapshot: "Vinicius-2(desmarcou)",
+      startsAt: "2026-08-20T14:00:00.000Z",
+      endsAt: "2026-08-20T14:50:00.000Z",
+    });
+    const next = appointment({
+      id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      startsAt: "2026-08-20T15:00:00.000Z",
+      endsAt: "2026-08-20T15:50:00.000Z",
+    });
+    const now = Date.parse("2026-08-20T12:00:00.000Z");
+    expect(selectNextSession([cancelled, next], now)?.id).toBe(next.id);
+  });
 });
 
 describe("buildWhatsAppReminderUrl", () => {

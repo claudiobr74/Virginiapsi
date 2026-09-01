@@ -73,23 +73,37 @@ export const appointmentRowSchema = z.object({
   meet_url: z.string().nullable(),
   meet_status: z.enum(MEET_STATUS_VALUES),
   summary_snapshot: z.string().nullable(),
+  google_etag: z.string().nullable().optional(),
+  google_color_id: z.string().nullable().optional(),
+  last_synced_at: z.string().nullable().optional(),
   sync_status: z.string(),
 });
 export type AppointmentRow = z.infer<typeof appointmentRowSchema>;
 
-export const appointmentFormSchema = z.object({
-  patientId: z.string().uuid().optional().or(z.literal("")),
-  date: z.string().min(1, "Informe a data."),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Informe um horário válido."),
-  durationMinutes: z
-    .string()
-    .min(1, "Informe a duração.")
-    .refine((value) => {
-      const parsed = Number(value);
-      return Number.isFinite(parsed) && parsed >= 10 && parsed <= 480;
-    }, "Duração deve ser entre 10 e 480 minutos."),
-  modality: z.enum(APPOINTMENT_MODALITY_VALUES),
-  createMeet: z.boolean(),
-});
+export const appointmentFormSchema = z
+  .object({
+    title: z.string().max(300, "Título muito longo."),
+    patientId: z.string().uuid().optional().or(z.literal("")),
+    date: z.string().min(1, "Informe a data."),
+    startTime: z.string().regex(/^\d{2}:\d{2}$/, "Informe um horário válido."),
+    durationMinutes: z
+      .string()
+      .min(1, "Informe a duração.")
+      .refine((value) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) && parsed >= 10 && parsed <= 480;
+      }, "Duração deve ser entre 10 e 480 minutos."),
+    modality: z.enum(APPOINTMENT_MODALITY_VALUES),
+    createMeet: z.boolean(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.patientId && !value.title.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Informe o título.",
+        path: ["title"],
+      });
+    }
+  });
 
 export type AppointmentFormValues = z.infer<typeof appointmentFormSchema>;

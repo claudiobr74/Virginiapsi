@@ -96,6 +96,24 @@ describe("summarizeDayAppointments", () => {
     ]);
     expect(summary).toEqual({ total: 3, confirmed: 1, scheduled: 2, external: 1 });
   });
+
+  it("não conta desmarcou mesmo com status scheduled", () => {
+    const summary = summarizeDayAppointments([
+      stubAppointment({
+        starts_at: "2026-08-18T12:00:00.000Z",
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Vinicius-2(desmarcou)",
+      }),
+      stubAppointment({
+        starts_at: "2026-08-18T13:00:00.000Z",
+        status: "scheduled",
+        origin: "TESSELI",
+        summary_snapshot: "Ana Cláudia-1(c)",
+      }),
+    ]);
+    expect(summary.total).toBe(1);
+  });
 });
 
 describe("monthCellStats", () => {

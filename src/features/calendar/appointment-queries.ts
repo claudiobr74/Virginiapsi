@@ -24,7 +24,6 @@ export async function listAppointments(
     .from("appointments")
     .select("*")
     .eq("organization_id", organizationId)
-    .neq("status", "cancelled")
     .lt("starts_at", window.toIso)
     .gt("ends_at", window.fromIso);
 
@@ -85,7 +84,7 @@ export async function findOverlappingManagedAppointment(
     .select("*")
     .eq("organization_id", organizationId)
     .eq("origin", "TESSELI")
-    .not("status", "in", "(cancelled)")
+    .not("status", "in", "(cancelled,no_show)")
     .lt("starts_at", endsAtIso)
     .gt("ends_at", startsAtIso)
     .limit(1);

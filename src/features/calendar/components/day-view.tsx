@@ -11,11 +11,13 @@ export function DayView({
   appointments,
   timeZone,
   isAdmin = false,
+  now,
   onSelect,
 }: {
   appointments: AppointmentRow[];
   timeZone: string;
   isAdmin?: boolean;
+  now?: Date;
   onSelect: (appointment: AppointmentRow) => void;
 }) {
   const summary = summarizeDayAppointments(appointments);
@@ -34,7 +36,7 @@ export function DayView({
         <SummaryCard
           label="Consultas do dia"
           value={`${summary.total} ${summary.total === 1 ? "consulta" : "consultas"}`}
-          hint="VirgíniaPsi e eventos externos visíveis"
+          hint="Válidas — canceladas aparecem na timeline, mas não entram na conta"
         />
         <SummaryCard
           label="Confirmadas"
@@ -48,8 +50,8 @@ export function DayView({
         />
         <SummaryCard
           label="Eventos Google"
-          value={`${summary.external} ${summary.external === 1 ? "externo" : "externos"}`}
-          hint="Somente leitura no VirgíniaPsi"
+          value={`${summary.external} ${summary.external === 1 ? "evento" : "eventos"}`}
+          hint="Calendário conectado"
         />
       </div>
 
@@ -74,6 +76,7 @@ export function DayView({
                       appointment={appointment}
                       timeZone={timeZone}
                       isAdmin={isAdmin}
+                      now={now}
                       onClick={() => onSelect(appointment)}
                     />
                   ))

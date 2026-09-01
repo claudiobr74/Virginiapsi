@@ -51,6 +51,8 @@ export function SessionActions({
     offersClinicalAppointmentActions({
       origin: appointment.origin,
       patient_id: appointment.patientId,
+      status: appointment.status,
+      summarySnapshot: appointment.summarySnapshot,
     });
   const canConfirm =
     appointment.origin === "TESSELI" &&
