@@ -155,9 +155,9 @@ describe("StudioEditor simplificado", () => {
     renderEditor();
     await user.click(screen.getByRole("button", { name: "Ajustes" }));
     expect(await screen.findByRole("heading", { name: "Ajustes do documento" })).toBeInTheDocument();
-    expect(screen.getByText("Dados")).toBeInTheDocument();
-    expect(screen.getByText("Aparência")).toBeInTheDocument();
-    expect(screen.getByText("Texto")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Dados" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Aparência" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Texto" })).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Perfil visual"), "premium");
     await user.selectOptions(screen.getByLabelText("Logo"), "none");
     await user.selectOptions(screen.getByLabelText("Tom"), "formal");

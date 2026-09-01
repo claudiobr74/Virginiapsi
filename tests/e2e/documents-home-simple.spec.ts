@@ -19,10 +19,10 @@ test.describe("Documentos home simplificada", () => {
   test("atalhos, busca e catálogo sob demanda", async ({ page }) => {
     await loginViaUi(page);
     await page.goto("/app/documents");
-    await expect(page.getByRole("heading", { name: "Documentos" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Documentos", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "O que você quer criar?" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Declaração/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Relatório/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Declaração Comparecimento/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Relatório Comunicação/ })).toBeVisible();
     await expect(page.getByPlaceholder("Buscar um modelo...")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Declarações" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Administrativos" })).toHaveCount(0);

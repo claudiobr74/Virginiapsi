@@ -49,8 +49,8 @@ test.describe("Estúdio de documentos", () => {
   test("declaração: gerar, preview, emitir PDF e registrar entrega", async ({ page }) => {
     await loginViaUi(page);
     await page.goto("/app/documents");
-    await expect(page.getByRole("heading", { name: "Documentos" })).toBeVisible();
-    await page.getByRole("link", { name: /Declaração/ }).first().click();
+    await expect(page.getByRole("heading", { name: "Documentos", exact: true })).toBeVisible();
+    await page.getByRole("link", { name: /Declaração Comparecimento/ }).click();
     await page.getByRole("button", { name: /Declaração de comparecimento/ }).click();
     await expect(page.getByText("modelo selecionado")).toBeVisible();
     await page.getByLabel(/Paciente/).selectOption({ label: "Documentos Dois — Documentos Dois Paciente" });

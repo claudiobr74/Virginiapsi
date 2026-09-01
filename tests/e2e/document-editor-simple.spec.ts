@@ -34,9 +34,9 @@ test.describe("Editor simplificado", () => {
 
     await page.getByRole("button", { name: "Ajustes" }).click();
     await expect(page.getByRole("heading", { name: "Ajustes do documento" })).toBeVisible();
-    await expect(page.getByText("Dados")).toBeVisible();
-    await expect(page.getByText("Aparência")).toBeVisible();
-    await expect(page.getByText("Texto")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Dados" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Aparência" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Texto" })).toBeVisible();
     await shot(page, "editor-ajustes");
     await page.getByRole("button", { name: "Fechar" }).click();
 
@@ -50,7 +50,7 @@ test.describe("Editor simplificado", () => {
     await shot(page, "editor-finalizar");
     await page.getByRole("button", { name: "Fechar" }).click();
 
-    await page.getByRole("button", { name: "Mais" }).click();
+    await page.getByRole("button", { name: "Mais", exact: true }).and(page.locator('[aria-label="Mais"]')).click();
     await expect(page.getByRole("button", { name: "Histórico de versões" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Cancelar documento" })).toBeVisible();
   });

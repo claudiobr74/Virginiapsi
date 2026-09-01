@@ -21,7 +21,7 @@ test.describe("Novo documento simplificado", () => {
   test("categoria com vários modelos abre o picker", async ({ page }) => {
     await loginViaUi(page);
     await page.goto("/app/documents");
-    await page.getByRole("link", { name: /Relatório/ }).first().click();
+    await page.getByRole("link", { name: /Relatório Comunicação/ }).click();
     await expect(page).toHaveURL(/category=relatorios/);
     await expect(page.getByRole("heading", { name: "Que documento você quer criar?" })).toBeVisible();
     await page.getByRole("button", { name: /Relatório psicológico completo/ }).click();
