@@ -1,9 +1,9 @@
 -- VirgíniaPsi — selective security hardening recovered from superseded PRs #25/#30.
 --
 -- This migration intentionally DOES NOT reintroduce the old incremental-sync
--- architecture, global function revokes, or Google cancellation semantics.
--- It only carries forward security invariants that are still valid on the
--- canonical staging schema.
+-- architecture, global function revokes, invitation semantics that still need
+-- GoTrue revalidation, or legacy Google cancellation behavior. It only carries
+-- forward invariants that remain compatible with the canonical staging schema.
 
 -- ---------------------------------------------------------------------------
 -- 1. Inbound WhatsApp patient matching is service-role only, even if a future
@@ -45,75 +45,7 @@ grant execute on function public.match_patients_by_whatsapp_e164(text)
   to service_role;
 
 -- ---------------------------------------------------------------------------
--- 2. Pending invitations may only be accepted by the authenticated account
--- after its e-mail has been confirmed by the auth provider.
--- ---------------------------------------------------------------------------
-
-create or replace function public.accept_pending_invitations()
-returns integer
-language plpgsql
-volatile
-security definer
-set search_path = ''
-as $$
-declare
-  actor uuid := auth.uid();
-  actor_email text;
-  accepted integer := 0;
-  invitation record;
-begin
-  if actor is null then
-    raise exception 'accept invitations requires an authenticated user'
-      using errcode = '42501';
-  end if;
-
-  select lower(u.email) into actor_email
-  from auth.users u
-  where u.id = actor
-    and u.email_confirmed_at is not null;
-
-  if actor_email is null then
-    return 0;
-  end if;
-
-  for invitation in
-    select i.id, i.organization_id, i.role
-    from public.organization_invitations i
-    where i.status = 'pending'
-      and lower(i.email) = actor_email
-      and i.expires_at > now()
-  loop
-    insert into public.organization_members (
-      organization_id, user_id, role, active
-    )
-    values (invitation.organization_id, actor, invitation.role, true)
-    on conflict (organization_id, user_id) do update
-      set role = excluded.role,
-          active = true;
-
-    update public.organization_invitations
-    set status = 'accepted',
-        accepted_at = now()
-    where id = invitation.id;
-
-    accepted := accepted + 1;
-  end loop;
-
-  update public.organization_invitations
-  set status = 'expired'
-  where status = 'pending'
-    and lower(email) = actor_email
-    and expires_at <= now();
-
-  return accepted;
-end;
-$$;
-
-revoke all on function public.accept_pending_invitations() from public, anon;
-grant execute on function public.accept_pending_invitations() to authenticated;
-
--- ---------------------------------------------------------------------------
--- 3. Tenant identifiers on Google connection rows and appointments are
+-- 2. Tenant identifiers on Google connection rows and appointments are
 -- immutable. Non-admin members may still select calendar_id/summary, matching
 -- the current product contract, but cannot rewrite connection metadata.
 -- ---------------------------------------------------------------------------
@@ -179,9 +111,14 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 4. Google credential refresh: first connection remains admin-only; an
--- active org member may refresh an existing connection. Refresh-token
--- ciphertext cannot be replayed into a different tenant.
+-- 3. Google credential refresh: the first connection remains admin-only; an
+-- active member may refresh an already-existing connection. The credential
+-- table itself remains unavailable through the Data API.
+--
+-- The historic cross-tenant equality check for encrypted refresh-token bytes
+-- is intentionally not carried forward: AES-GCM ciphertext is randomized, so
+-- ciphertext equality is not a dependable tenant boundary. Tenant isolation is
+-- enforced by authorization, immutable organization_id and the closed table.
 -- ---------------------------------------------------------------------------
 
 revoke all on table public.google_calendar_credentials
@@ -205,11 +142,6 @@ declare
   already_connected boolean;
   effective_refresh_token text;
 begin
-  if not public.is_org_member(org_id) then
-    raise exception 'google calendar credentials require an active membership'
-      using errcode = '42501';
-  end if;
-
   select exists (
     select 1
     from public.google_calendar_credentials c
@@ -221,15 +153,8 @@ begin
       using errcode = '42501';
   end if;
 
-  if nullif(p_refresh_token_encrypted, '') is not null
-     and exists (
-       select 1
-       from public.google_calendar_credentials c
-       where c.organization_id is distinct from org_id
-         and c.refresh_token_encrypted = p_refresh_token_encrypted
-     )
-  then
-    raise exception 'cannot copy google credentials between organizations'
+  if already_connected and not public.is_org_member(org_id) then
+    raise exception 'google calendar credentials require an active membership'
       using errcode = '42501';
   end if;
 
