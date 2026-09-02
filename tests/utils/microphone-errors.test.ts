@@ -12,6 +12,6 @@ describe("mapGetUserMediaError", () => {
 
 describe("MEDIA_RECORDER_UNSUPPORTED_MESSAGE", () => {
   it("oferece importação quando não há MediaRecorder", () => {
-    expect(MEDIA_RECORDER_UNSUPPORTED_MESSAGE).toMatch(/importar uma gravação/i);
+    expect(MEDIA_RECORDER_UNSUPPORTED_MESSAGE).toMatch(/importe uma gravação/i);
   });
 });

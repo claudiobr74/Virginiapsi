@@ -154,8 +154,8 @@ export function ActiveSessionView({
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
               {isFinalized
-                ? "O DPEP abaixo é o registro estruturado desta sessão."
-                : "O DPEP é o registro estruturado da sessão. Nada entra no prontuário sem revisão humana."}
+                ? "Registro estruturado desta sessão."
+                : "Nada entra no prontuário sem revisão."}
             </p>
             {isFinalized ? (
               <div className="mt-4 flex flex-wrap gap-2">
@@ -199,7 +199,7 @@ export function ActiveSessionView({
         <aside className="flex w-full flex-col gap-6 border-t border-border bg-card px-4 py-6 sm:px-8 lg:w-[480px] lg:shrink-0 lg:border-l lg:border-t-0">
           <section className="flex flex-col gap-3">
             <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Transcrição em tempo real
+              Transcrição
             </h2>
             <TranscriptPanel
               sessionId={session.id}

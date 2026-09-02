@@ -57,8 +57,8 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
     await recordAllCaptureConsents(page);
     const sessionId = await startSession(page, patientId);
 
-    await expect(page.getByRole("heading", { name: "Transcrição em tempo real" })).toBeVisible();
-    await expect(page.getByText("Nenhum trecho transcrito ainda nesta sessão.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Transcrição" })).toBeVisible();
+    await expect(page.getByText("Nenhum trecho ainda.")).toBeVisible();
 
     const grantResponse = await page.request.post("/api/session-capture/grant", {
       data: { patientId, sessionId },
@@ -89,7 +89,7 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
 
     await page.reload();
     await expect(page.getByText("Trecho transcrito no stub Groq.")).toBeVisible();
-    await expect(page.getByText("Nenhum trecho transcrito ainda nesta sessão.")).toHaveCount(0);
+    await expect(page.getByText("Nenhum trecho ainda.")).toHaveCount(0);
   });
 
   test("transcribe-chunk via Groq stub persiste e o replay não duplica", async ({

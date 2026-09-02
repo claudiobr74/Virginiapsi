@@ -10,9 +10,9 @@ import { SESSION_AI_LIVE_USER_ERROR } from "@/features/sessions/ai/messages";
 import { sessionLiveOutputSchema, type SessionLiveOutput } from "@/lib/ai/validators/session";
 
 const SAFETY_LABEL: Record<string, { label: string; status: "info" | "attention" | "failed" }> = {
-  none: { label: "Sem sinal explícito no material analisado", status: "info" },
+  none: { label: "Sem sinal explícito", status: "info" },
   attention: { label: "Atenção — explorar com a paciente", status: "attention" },
-  urgent_review: { label: "Revisão imediata recomendada", status: "failed" },
+  urgent_review: { label: "Revisão imediata", status: "failed" },
 };
 
 export function SessionAiPanel({ sessionId }: { sessionId: string }) {

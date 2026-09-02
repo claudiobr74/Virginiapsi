@@ -52,7 +52,7 @@ export function FinalizeSessionWizard({ sessionId }: { sessionId: string }) {
       </ModalTrigger>
       <ModalContent
         title="Finalizar atendimento"
-        description="Confirme antes de encerrar — esta ação não executa múltiplas operações silenciosamente."
+        description="Confirme o encerramento."
         footer={
           <>
             <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
@@ -79,9 +79,7 @@ export function FinalizeSessionWizard({ sessionId }: { sessionId: string }) {
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Agendar o próximo encontro continua na Agenda. Finalizar gera a cobrança
-            da sessão de forma idempotente (ou consome o pacote ativo) quando houver
-            valor padrão ou plano.
+            Próximo encontro na Agenda. Finalizar lança a cobrança, se houver.
           </p>
         )}
       </ModalContent>

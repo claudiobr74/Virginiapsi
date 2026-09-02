@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_TRANSCRIPTION_CHUNK_MS,
+  BACKGROUND_CAPTURE_WARNING,
+  LOW_STORAGE_WARNING,
   SECURE_SPOOLING_MESSAGE,
   SECURE_SPOOL_UNAVAILABLE_MESSAGE,
   UNPRESERVED_STOP_MESSAGE,
@@ -167,9 +169,7 @@ export function useSessionTranscription({
         return;
       }
       setLowStorageWarning(true);
-      setStatusDetail(
-        "Pouco espaço disponível no dispositivo. A gravação local de segurança pode não conseguir preservar toda a sessão.",
-      );
+      setStatusDetail(LOW_STORAGE_WARNING);
       setCaptureState("local_backup");
       return;
     }
@@ -179,7 +179,7 @@ export function useSessionTranscription({
       return;
     }
     if (level === "degraded") {
-      setStatusDetail("Conexão instável. Alguns trechos aguardam transcrição.");
+      setStatusDetail("Conexão instável. Trechos aguardam transcrição.");
       setCaptureState("connection_degraded");
       return;
     }
@@ -263,9 +263,7 @@ export function useSessionTranscription({
         );
       },
       () => {
-        setBackgroundWarning(
-          "A sessão precisa permanecer visível durante a transcrição. O navegador pode suspender a captura em segundo plano.",
-        );
+        setBackgroundWarning(BACKGROUND_CAPTURE_WARNING);
       },
     );
 
