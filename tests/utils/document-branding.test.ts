@@ -163,6 +163,21 @@ describe("criação de documento e renderer", () => {
     expect(resolved.typography).toBe("editorial");
   });
 
+  it("o PDF/renderer reutiliza o subtítulo do consultório como título profissional", () => {
+    const resolved = resolveBranding(
+      null,
+      {
+        professionalName: "Ana Serena",
+        professionalTitle: "Psicóloga clínica",
+        crp: "09/00000",
+      },
+      "clinica",
+    );
+    const header = buildLetterheadHeaderLines(resolved);
+    expect(header.some((line) => line.text === "Psicóloga clínica")).toBe(true);
+    expect(header.some((line) => line.text.includes("Ana Serena"))).toBe(true);
+  });
+
   it("desmarcar CRP remove o rótulo do cabeçalho compartilhado", () => {
     const form = brandingFormFromRow(null);
     form.headerCrp = false;

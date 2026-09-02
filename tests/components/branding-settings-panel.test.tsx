@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -145,6 +145,39 @@ describe("BrandingSettingsPanel", () => {
     );
     const heading = screen.getByTestId("branding-a4-page").querySelector("header p");
     expect(heading).toHaveStyle({ color: "#2a1c18" });
+  });
+
+  it("logo aparece na folha A4 sem salvar a identidade", async () => {
+    requestLogoPreviewUrlAction.mockResolvedValue({ url: "https://signed.example/logo.png" });
+    render(
+      <BrandingSettingsPanel
+        branding={null}
+        logos={[
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            organization_id: "11111111-1111-4111-8111-111111111111",
+            variant: "principal",
+            label: "marca",
+            storage_path: "org/logos/a.png",
+            print_storage_path: "org/logos/a.png",
+            mime_type: "image/png",
+            byte_size: 12,
+            sha256: "ab",
+            width_px: null,
+            height_px: null,
+            is_default: true,
+            created_at: "2026-09-02T00:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("img", { name: "Logo da identidade visual" })).toHaveAttribute(
+        "src",
+        "https://signed.example/logo.png",
+      );
+    });
+    expect(upsertDocumentBrandingAction).not.toHaveBeenCalled();
   });
 
   it("opções avançadas continuam acessíveis", async () => {

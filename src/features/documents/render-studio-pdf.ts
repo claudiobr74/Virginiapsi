@@ -32,8 +32,8 @@ export async function renderDocumentStudioPdf(input: {
     {
       organizationName: shell?.organization_name,
       professionalName: practice?.professional_name,
+      professionalTitle: practice?.subtitle,
       crp: practice?.crp,
-      crpState: brandingRow?.crp_state,
       clinicName: practice?.clinic_name,
     },
     profile,
