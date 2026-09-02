@@ -31,7 +31,6 @@ import { BrandingLogoField } from "@/features/documents/components/branding-logo
 import { BrandingPalettePicker } from "@/features/documents/components/branding-palette-picker";
 import { BrandingStylePicker } from "@/features/documents/components/branding-style-picker";
 import { BrandingVisibleInfo } from "@/features/documents/components/branding-visible-info";
-import { letterheadToProfile } from "@/features/documents/branding-presets";
 import { profileLetterhead, resolveBranding } from "@/features/documents/branding-resolve";
 import type { VisualProfile } from "@/features/documents/contracts";
 import { cn } from "@/lib/utils/cn";
@@ -79,6 +78,7 @@ export function BrandingSettingsPanel({
   const [form, setForm] = useState<BrandingFormState>(() => brandingFormFromRow(branding));
   const [baseline, setBaseline] = useState<BrandingFormState>(() => brandingFormFromRow(branding));
   const [savePhase, setSavePhase] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [logoError, setLogoError] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customColorsOpen, setCustomColorsOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -136,6 +136,7 @@ export function BrandingSettingsPanel({
 
   function save() {
     setSavePhase("saving");
+    setLogoError(false);
     startTransition(async () => {
       const result = await upsertDocumentBrandingAction(brandingFormToUpdateInput(form));
       if (result.error) {
@@ -155,6 +156,7 @@ export function BrandingSettingsPanel({
   ) {
     const objectUrl = URL.createObjectURL(file);
     setLocalLogoUrl(objectUrl);
+    setLogoError(false);
     const extension = file.name.split(".").pop()?.toLowerCase();
     const mime =
       file.type === "image/jpg"
@@ -169,13 +171,13 @@ export function BrandingSettingsPanel({
                 : "image/jpeg");
     const prepared = await requestLogoUploadUrlAction({ filename: file.name, mimeType: mime });
     if (prepared.error || !prepared.path || !prepared.token) {
-      setSavePhase("error");
+      setLogoError(true);
       return;
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!supabaseUrl) {
-      setSavePhase("error");
+      setLogoError(true);
       return;
     }
     const response = await fetch(
@@ -187,7 +189,7 @@ export function BrandingSettingsPanel({
       },
     );
     if (!response.ok) {
-      setSavePhase("error");
+      setLogoError(true);
       return;
     }
     const result = await registerLogoAction({
@@ -201,7 +203,7 @@ export function BrandingSettingsPanel({
       isDefault: makeDefault,
     });
     if (result.error) {
-      setSavePhase("error");
+      setLogoError(true);
       return;
     }
     router.refresh();
@@ -320,17 +322,7 @@ export function BrandingSettingsPanel({
             open={advancedOpen}
             onOpenChange={setAdvancedOpen}
             onChange={(next) => {
-              setForm((current) => {
-                if (next.letterheadPreset) {
-                  const mapped = letterheadToProfile(next.letterheadPreset);
-                  return {
-                    ...current,
-                    ...next,
-                    defaultVisualProfile: mapped ?? current.defaultVisualProfile,
-                  };
-                }
-                return { ...current, ...next };
-              });
+              setForm((current) => ({ ...current, ...next }));
             }}
             onUploadVariant={(file, variant) => void uploadLogo(file, variant, false)}
             onPreviewLogo={(id) =>
@@ -369,6 +361,11 @@ export function BrandingSettingsPanel({
                     Tentar novamente
                   </button>
                 ) : null}
+              </p>
+            ) : null}
+            {logoError ? (
+              <p role="alert" className="text-sm text-failed">
+                Não foi possível atualizar a logo. Tente novamente.
               </p>
             ) : null}
           </div>

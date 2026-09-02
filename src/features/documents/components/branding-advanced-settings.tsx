@@ -16,6 +16,7 @@ import {
   LOGO_VARIANT_LABELS,
   TYPOGRAPHY_PRESET_LABELS,
 } from "@/features/documents/branding-presets";
+import { brandingFontFamily } from "@/features/documents/branding-layout";
 import { profileLetterhead } from "@/features/documents/branding-resolve";
 import { cn } from "@/lib/utils/cn";
 
@@ -105,34 +106,44 @@ export function BrandingAdvancedSettings({
       {open ? (
         <div id="branding-advanced-panel" className="flex flex-col gap-5 border-t border-border px-4 py-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              Tipografia
-              <select
+            <div>
+              <p className="text-xs text-muted-foreground">Tipografia</p>
+              <div
+                role="radiogroup"
                 aria-label="Tipografia"
-                className="h-11 rounded-xl border border-border bg-input px-3 text-sm text-foreground"
-                value={form.typographyPreset}
-                onChange={(event) =>
-                  onChange({ typographyPreset: event.target.value as BrandingFormState["typographyPreset"] })
-                }
+                className="mt-1 grid grid-cols-2 gap-2"
               >
-                {TYPOGRAPHY_PRESET_VALUES.map((value) => (
-                  <option key={value} value={value} style={{ fontFamily: value === "moderna" ? "sans-serif" : "serif" }}>
-                    {TYPOGRAPHY_PRESET_LABELS[value]}
-                  </option>
-                ))}
-              </select>
-              <span
-                className="text-[13px] text-foreground"
-                style={{
-                  fontFamily:
-                    form.typographyPreset === "moderna"
-                      ? "system-ui, sans-serif"
-                      : 'Georgia, "Times New Roman", serif',
-                }}
-              >
-                Psicologia com presença
-              </span>
-            </label>
+                {TYPOGRAPHY_PRESET_VALUES.map((value) => {
+                  const selected = form.typographyPreset === value;
+                  const fonts = brandingFontFamily(value);
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={cn(
+                        "min-h-11 rounded-xl border px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        selected
+                          ? "border-sage-700 bg-sage-light/70"
+                          : "border-border bg-input",
+                      )}
+                      onClick={() => onChange({ typographyPreset: value })}
+                    >
+                      <span className="block text-xs font-semibold text-foreground">
+                        {TYPOGRAPHY_PRESET_LABELS[value]}
+                      </span>
+                      <span
+                        className="mt-0.5 block text-[13px] text-foreground"
+                        style={{ fontFamily: fonts.heading }}
+                      >
+                        Psicologia
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <label className="flex flex-col gap-1 text-xs text-muted-foreground">
               Papel timbrado
               {letterheadCustom ? (

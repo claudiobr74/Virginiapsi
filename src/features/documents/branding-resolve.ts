@@ -41,6 +41,10 @@ export interface ResolvedBranding {
   professionalName: string;
   professionalTitle: string;
   crpLabel: string;
+  qualifications: string;
+  tradeName: string;
+  legalName: string;
+  taxId: string;
   addressLine: string;
   cityState: string;
   phone: string;
@@ -205,6 +209,8 @@ export function resolveBranding(
     clinicName?: string | null;
     phone?: string | null;
     email?: string | null;
+    legalName?: string | null;
+    taxId?: string | null;
   } = {},
   visualProfile?: VisualProfile,
 ): ResolvedBranding {
@@ -221,12 +227,23 @@ export function resolveBranding(
   const crpLabel = [crp, crpState].filter(Boolean).join("/");
   const cityState = [branding.city, branding.state].filter(Boolean).join("/");
   const letterhead = resolveLetterheadForDocument(branding, visualProfile);
+  const tradeName = branding.show_trade_name ? branding.trade_name?.trim() || "" : "";
+  const legalName = branding.show_legal_name
+    ? branding.legal_name?.trim() || fallback.legalName?.trim() || ""
+    : "";
+  const taxId = branding.show_tax_id
+    ? branding.tax_id?.trim() || fallback.taxId?.trim() || ""
+    : "";
 
   return {
     clinicName: clinic,
     professionalName: professional,
     professionalTitle: branding.professional_title || fallback.professionalTitle || "Psicóloga",
     crpLabel: crpLabel ? `CRP ${crpLabel}` : "",
+    qualifications: branding.qualifications?.trim() || "",
+    tradeName,
+    legalName,
+    taxId,
     addressLine: branding.show_address ? branding.address_line || "" : "",
     cityState: branding.show_city ? cityState : "",
     phone: branding.show_phone

@@ -94,6 +94,9 @@ export function buildLetterheadHeaderLines(branding: ResolvedBranding): Letterhe
   if (branding.header.crp && branding.crpLabel.trim()) {
     lines.push({ text: branding.crpLabel.trim(), weight: "regular", size: 9 });
   }
+  if (branding.qualifications.trim()) {
+    lines.push({ text: branding.qualifications.trim(), weight: "regular", size: 8 });
+  }
   const contact: string[] = [];
   if (branding.header.phone && branding.phone.trim()) contact.push(branding.phone.trim());
   if (branding.header.email && branding.email.trim()) contact.push(branding.email.trim());
@@ -137,6 +140,16 @@ export function buildLetterheadFooterLines(
   if (identity.length > 0) lines.push(identity.join(" • "));
   if (professionalBits.length > 0) lines.push(professionalBits.join(" • "));
   if (contact.length > 0) lines.push(contact.join("  ·  "));
+  const commercial: string[] = [];
+  if (branding.tradeName.trim() && branding.tradeName.trim() !== branding.clinicName.trim()) {
+    commercial.push(branding.tradeName.trim());
+  }
+  if (branding.legalName.trim()) commercial.push(branding.legalName.trim());
+  if (branding.taxId.trim()) {
+    const tax = branding.taxId.trim();
+    commercial.push(/^cnpj/i.test(tax) ? tax : `CNPJ ${tax}`);
+  }
+  if (commercial.length > 0) lines.push(commercial.join("  ·  "));
   const pageIndex = meta.pageIndex ?? 0;
   const pageCount = meta.pageCount ?? 1;
   const technical: string[] = [];

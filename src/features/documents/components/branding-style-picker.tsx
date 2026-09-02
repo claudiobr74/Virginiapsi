@@ -43,7 +43,7 @@ export function BrandingStylePicker({
     <div>
       <h3 className="text-sm font-semibold text-foreground">Escolha um estilo</h3>
       <p className="mt-0.5 text-xs text-muted-foreground">
-        O modelo define a hierarquia visual dos documentos.
+        Padrão dos documentos. O modelo define a hierarquia visual.
         {customized ? " Papel timbrado personalizado nas opções avançadas." : null}
       </p>
       <div

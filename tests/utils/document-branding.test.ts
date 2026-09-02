@@ -200,6 +200,48 @@ describe("criação de documento e renderer", () => {
     expect(header.some((line) => line.text.includes("Ana"))).toBe(true);
   });
 
+  it("opções avançadas de CNPJ, razão social e qualificações entram no layout compartilhado", () => {
+    const form = brandingFormFromRow(null);
+    form.showTaxId = true;
+    form.showLegalName = true;
+    form.legalName = "Clínica Recriar LTDA";
+    form.taxId = "12.345.678/0001-90";
+    form.qualifications = "Especialista em psicologia clínica";
+    const resolved = resolveBranding(
+      brandingFormToRow(form),
+      { taxId: "00.000.000/0000-00", legalName: "Fallback LTDA" },
+      "clinica",
+    );
+    const header = buildLetterheadHeaderLines(resolved);
+    const footer = buildLetterheadFooterLines(resolved);
+    expect(header.some((line) => line.text.includes("Especialista em psicologia clínica"))).toBe(true);
+    expect(footer.some((line) => line.includes("Clínica Recriar LTDA"))).toBe(true);
+    expect(footer.some((line) => line.includes("CNPJ 12.345.678/0001-90"))).toBe(true);
+  });
+
+  it("CNPJ e razão social usam fallback do consultório quando a flag avançada está ligada", () => {
+    const form = brandingFormFromRow(null);
+    form.showTaxId = true;
+    form.showLegalName = true;
+    const resolved = resolveBranding(brandingFormToRow(form), {
+      legalName: "Associação Recriar",
+      taxId: "11.222.333/0001-44",
+    });
+    const footer = buildLetterheadFooterLines(resolved);
+    expect(footer.some((line) => line.includes("Associação Recriar"))).toBe(true);
+    expect(footer.some((line) => line.includes("11.222.333/0001-44"))).toBe(true);
+  });
+
+  it("sem a flag avançada, CNPJ e razão social não aparecem mesmo com fallback", () => {
+    const resolved = resolveBranding(null, {
+      legalName: "Associação Recriar",
+      taxId: "11.222.333/0001-44",
+    });
+    const footer = buildLetterheadFooterLines(resolved);
+    expect(footer.some((line) => line.includes("Associação Recriar"))).toBe(false);
+    expect(footer.some((line) => line.includes("11.222.333"))).toBe(false);
+  });
+
   it("rodapé recomendado inclui contato e paginação, sem identificadores técnicos", () => {
     const resolved = resolveBranding(null, {
       phone: "(62) 99999-0000",

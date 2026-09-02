@@ -13,6 +13,7 @@ import {
   type DocumentRow,
 } from "@/features/documents/contracts";
 import type { SystemTemplateDefinition } from "@/features/documents/system-templates";
+import { LOGO_VARIANT_LABELS } from "@/features/documents/branding-presets";
 
 export function DocumentSettingsDrawer({
   open,
@@ -144,7 +145,11 @@ export function DocumentSettingsDrawer({
               >
                 {LOGO_MODE_VALUES.map((value) => (
                   <option key={value} value={value}>
-                    {value === "clinic_default" ? "Padrão da clínica" : value === "none" ? "Sem logo" : value}
+                    {value === "clinic_default"
+                      ? "Padrão da clínica"
+                      : value === "none"
+                        ? "Sem logo"
+                        : (LOGO_VARIANT_LABELS[value] ?? value)}
                   </option>
                 ))}
               </select>

@@ -180,6 +180,17 @@ describe("BrandingSettingsPanel", () => {
     expect(upsertDocumentBrandingAction).not.toHaveBeenCalled();
   });
 
+  it("papel timbrado avançado não troca o modelo e marca Personalizado", async () => {
+    const user = userEvent.setup();
+    render(<BrandingSettingsPanel branding={null} logos={[]} />);
+    expect(screen.getByText(/Padrão dos documentos/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Opções avançadas/ }));
+    await user.selectOptions(screen.getByLabelText("Papel timbrado"), "premium");
+    expect(screen.getByRole("radio", { name: /Clínico/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("Personalizado")).toBeInTheDocument();
+    expect(upsertDocumentBrandingAction).not.toHaveBeenCalled();
+  });
+
   it("opções avançadas continuam acessíveis", async () => {
     const user = userEvent.setup();
     render(<BrandingSettingsPanel branding={null} logos={[]} />);
@@ -188,7 +199,8 @@ describe("BrandingSettingsPanel", () => {
       "aria-expanded",
       "true",
     );
-    expect(screen.getByLabelText("Tipografia")).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Tipografia" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Clássica/ })).toBeInTheDocument();
     expect(screen.getByLabelText("Variante da logo")).toBeInTheDocument();
     expect(screen.getByText("Antecedência de cancelamento (horas)")).toBeInTheDocument();
     expect(screen.getByText(/cláusula informativa de IA/i)).toBeInTheDocument();

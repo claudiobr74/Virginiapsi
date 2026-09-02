@@ -4,7 +4,7 @@ import type { DocumentRow, DocumentSection, DocumentVersionRow } from "@/feature
 import { getDocumentBranding, getDocumentLogo, listDocumentLogos } from "@/features/documents/branding-queries";
 import { resolveBranding, recommendedProfileForKind } from "@/features/documents/branding-resolve";
 import { getPracticeSettings } from "@/features/settings/queries";
-import { getShellSettings } from "@/features/organizations/queries";
+import { getShellSettings, listAssignablePsychologists } from "@/features/organizations/queries";
 import { getPatient } from "@/features/patients/queries";
 import { DOCUMENT_KIND_LABELS } from "@/features/documents/contracts";
 import { generateStudioPdf, type StudioCoverSpec } from "@/lib/documents/studio-pdf";
@@ -19,14 +19,19 @@ export async function renderDocumentStudioPdf(input: {
   signatureLines?: string[];
   includeManualSignature?: boolean;
 }): Promise<Uint8Array> {
-  const [brandingRow, logos, practice, shell] = await Promise.all([
+  const [brandingRow, logos, practice, shell, psychologists] = await Promise.all([
     getDocumentBranding(input.organizationId),
     listDocumentLogos(input.organizationId),
     getPracticeSettings(input.organizationId),
     getShellSettings(input.organizationId),
+    listAssignablePsychologists(input.organizationId),
   ]);
 
   const profile = input.document.visual_profile ?? recommendedProfileForKind(input.document.document_kind);
+  const professionalEmail =
+    psychologists.find((person) => person.role === "psychologist_admin")?.email ??
+    psychologists[0]?.email ??
+    null;
   const branding = resolveBranding(
     brandingRow,
     {
@@ -35,6 +40,9 @@ export async function renderDocumentStudioPdf(input: {
       professionalTitle: practice?.subtitle,
       crp: practice?.crp,
       clinicName: practice?.clinic_name,
+      email: professionalEmail,
+      legalName: practice?.company_name,
+      taxId: practice?.company_cnpj,
     },
     profile,
   );

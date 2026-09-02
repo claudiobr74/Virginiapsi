@@ -158,7 +158,7 @@ export function BrandingLivePreview({
               >
                 {SAMPLE_NOTE}
               </p>
-                  {branding.cityState ? (
+              {branding.cityState ? (
                 <p
                   style={{
                     fontSize: 10,
