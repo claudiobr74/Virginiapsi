@@ -213,7 +213,9 @@ export function buildLetterheadHeaderLines(branding: ResolvedBranding): Letterhe
     const professionalMeta = [
       branding.header.professional ? branding.professionalTitle.trim() : "",
       branding.header.crp ? branding.crpLabel.trim() : "",
-    ].filter(Boolean).join(" · ");
+    ]
+      .filter(Boolean)
+      .join(" · ");
     if (professionalMeta) lines.push({ text: professionalMeta, weight: "regular", size: 8.5 });
   } else {
     if (branding.header.clinic && branding.clinicName.trim()) {
@@ -291,10 +293,12 @@ export function buildLetterheadFooterLines(
   const lines: string[] = [];
   if (layout.footerStyle === "minimal") {
     if (contact.length > 0) lines.push(contact.join(" · "));
+    if (commercial.length > 0) lines.push(commercial.join(" · "));
     if (technical.length > 0) lines.push(technical.join(" · "));
   } else if (layout.footerStyle === "elegant") {
     if (professionalBits.length > 0) lines.push(professionalBits.join(" · "));
     if (contact.length > 0) lines.push(contact.join(" · "));
+    if (commercial.length > 0) lines.push(commercial.join(" · "));
     if (technical.length > 0) lines.push(technical.join(" · "));
   } else if (layout.footerStyle === "institutional") {
     if (identity.length > 0) lines.push(identity.join(" • "));
@@ -304,6 +308,7 @@ export function buildLetterheadFooterLines(
   } else {
     if (contact.length > 0) lines.push(contact.join(" · "));
     if (identity.length > 0) lines.push(identity.join(" • "));
+    if (commercial.length > 0) lines.push(commercial.join(" · "));
     if (technical.length > 0) lines.push(technical.join(" · "));
   }
   if (meta.footerNote?.trim()) lines.push(meta.footerNote.trim());
