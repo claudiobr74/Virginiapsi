@@ -179,6 +179,15 @@ export function SettingsConsole({
           <BrandingSettingsPanel
             branding={snapshot.documentBranding ?? null}
             logos={snapshot.documentLogos ?? []}
+            fallback={{
+              organizationName: snapshot.organization.name,
+              professionalName: snapshot.practice.professional_name || snapshot.profile.fullName,
+              crp: snapshot.practice.crp,
+              clinicName: snapshot.practice.clinic_name,
+              email: snapshot.profile.email,
+              legalName: snapshot.practice.company_name,
+              taxId: snapshot.practice.company_cnpj,
+            }}
           />
         ) : null}
         {tab === "appearance" ? <AppearanceSection snapshot={snapshot} /> : null}

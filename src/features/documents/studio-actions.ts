@@ -24,6 +24,7 @@ import { sectionsToBody } from "@/features/documents/sections";
 import { buildDocumentVariables } from "@/features/documents/variables";
 import { renderTemplate, hasUnresolvedPlaceholders, withDocumentScopedVariables } from "@/lib/documents/render-template";
 import { getDocumentBranding } from "@/features/documents/branding-queries";
+import { resolveCreatedDocumentVisualProfile } from "@/features/documents/branding-resolve";
 import {
   cancelDocumentAction,
   issueDocumentAction as issueClassicDocumentAction,
@@ -168,7 +169,10 @@ export async function createStudioDocumentAction(input: unknown): Promise<Docume
       document_kind: template.documentKind,
       sensitivity,
       system_template_key: template.key,
-      visual_profile: template.defaultVisualProfile,
+      visual_profile: resolveCreatedDocumentVisualProfile(
+        branding,
+        template.defaultVisualProfile,
+      ),
       recipient_name: parsed.data.recipientName || null,
       purpose: parsed.data.purpose || null,
       structured_data: { templateVersion: template.version },

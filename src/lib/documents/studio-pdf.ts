@@ -1,10 +1,19 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import type { DocumentSection, LayoutFormat, LogoAlign, LogoSize } from "@/features/documents/contracts";
 import type { ResolvedBranding } from "@/features/documents/branding-resolve";
+import {
+  A4_HEIGHT_PT,
+  A4_WIDTH_PT,
+  buildLetterheadFooterLines,
+  buildLetterheadHeaderLines,
+  letterheadDividerThickness,
+  letterheadMargins,
+  usesSerifTypography,
+} from "@/features/documents/branding-layout";
 import { defaultBranding, logoMaxHeightPt, resolveBranding } from "@/features/documents/branding-resolve";
 
-export const PAGE_WIDTH = 595.28;
-export const PAGE_HEIGHT = 841.89;
+export const PAGE_WIDTH = A4_WIDTH_PT;
+export const PAGE_HEIGHT = A4_HEIGHT_PT;
 
 export interface StudioCoverSpec {
   documentType: string;
@@ -83,22 +92,11 @@ export function wrapText(text: string, font: PDFFont, size: number, maxWidth: nu
 }
 
 function usesSerif(preset: ResolvedBranding["typography"]): boolean {
-  return preset === "classica" || preset === "editorial";
+  return usesSerifTypography(preset);
 }
 
 function margins(layout: LayoutFormat, letterhead: ResolvedBranding["letterhead"], classic: boolean) {
-  if (classic) {
-    return { top: 56, bottom: 56, left: 56, right: 56, header: 0, footer: 42 };
-  }
-  const premium = letterhead === "premium" || layout === "livreto";
-  return {
-    top: premium ? 72 : 58,
-    bottom: 64,
-    left: premium ? 64 : 54,
-    right: premium ? 64 : 54,
-    header: layout === "livreto" ? 96 : 78,
-    footer: 48,
-  };
+  return letterheadMargins(layout === "livreto" ? "livreto" : "tradicional", letterhead, classic);
 }
 
 type Run =
@@ -265,37 +263,14 @@ function fitLogo(image: PDFImage, maxH: number, maxW: number): { width: number; 
 }
 
 function footerParts(input: StudioPdfInput, pageIndex: number, pageCount: number): string[] {
-  const { branding } = input;
-  const identity: string[] = [];
-  if (branding.footer.clinic && branding.clinicName) identity.push(branding.clinicName);
-  if (branding.cityState && branding.footer.address) identity.push(branding.cityState);
-  const professionalBits: string[] = [];
-  if (branding.footer.professional && branding.professionalName) {
-    professionalBits.push(branding.professionalName);
-  }
-  if (branding.footer.professional && branding.professionalTitle) {
-    professionalBits.push(branding.professionalTitle);
-  }
-  if (branding.footer.crp && branding.crpLabel) professionalBits.push(branding.crpLabel);
-  const lines: string[] = [];
-  if (identity.length > 0) {
-    lines.push(identity.join(" • "));
-  }
-  if (professionalBits.length > 0) {
-    lines.push(professionalBits.join(" • "));
-  }
-  const meta: string[] = [];
-  if (branding.footer.pageNumbers) meta.push(`Página ${pageIndex + 1} de ${pageCount}`);
-  if (branding.footer.documentId && input.documentId && input.documentId !== "local") {
-    meta.push(`ID ${input.documentId.slice(0, 8)}`);
-  }
-  if (branding.footer.version) meta.push(`v${input.version}`);
-  if (branding.footer.hash && input.contentSha256) {
-    meta.push(input.contentSha256.slice(0, 12));
-  }
-  if (meta.length > 0) lines.push(meta.join("  ·  "));
-  if (input.footerNote) lines.push(input.footerNote);
-  return lines.slice(0, 4);
+  return buildLetterheadFooterLines(input.branding, {
+    pageIndex,
+    pageCount,
+    documentId: input.documentId,
+    version: input.version,
+    contentSha256: input.contentSha256,
+    footerNote: input.footerNote,
+  });
 }
 
 /**
@@ -389,43 +364,12 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
       cursorY -= fitted.height + 8;
     }
 
-    const headerLines: { text: string; font: PDFFont; size: number }[] = [];
     const letterhead = input.branding.letterhead;
-    if (input.branding.header.clinic && input.branding.clinicName) {
-      headerLines.push({
-        text: input.branding.clinicName,
-        font: fonts.bold,
-        size: letterhead === "institucional" ? 13 : 11,
-      });
-    }
-    if (letterhead === "profissional" || letterhead === "premium") {
-      if (input.branding.header.professional && input.branding.professionalName) {
-        headerLines.push({
-          text: input.branding.professionalName,
-          font: fonts.bold,
-          size: 12,
-        });
-      }
-    } else if (input.branding.header.professional && input.branding.professionalName) {
-      headerLines.push({
-        text: input.branding.professionalName,
-        font: fonts.regular,
-        size: 10,
-      });
-    }
-    if (input.branding.header.crp && input.branding.crpLabel) {
-      headerLines.push({ text: input.branding.crpLabel, font: fonts.regular, size: 9 });
-    }
-    const contact: string[] = [];
-    if (input.branding.header.phone && input.branding.phone) contact.push(input.branding.phone);
-    if (input.branding.header.email && input.branding.email) contact.push(input.branding.email);
-    if (input.branding.header.website && input.branding.website) contact.push(input.branding.website);
-    if (input.branding.header.address && (input.branding.addressLine || input.branding.cityState)) {
-      contact.push([input.branding.addressLine, input.branding.cityState].filter(Boolean).join(" — "));
-    }
-    if (contact.length > 0) {
-      headerLines.push({ text: contact.join("  ·  "), font: fonts.regular, size: 8 });
-    }
+    const headerLines = buildLetterheadHeaderLines(input.branding).map((line) => ({
+      text: line.text,
+      font: line.weight === "bold" ? fonts.bold : fonts.regular,
+      size: line.size,
+    }));
 
     let textX = box.left;
     if (logo && (input.logoAlign ?? "left") === "left" && input.branding.header.logo) {
@@ -456,7 +400,7 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
     page.drawLine({
       start: { x: box.left, y: dividerY },
       end: { x: PAGE_WIDTH - box.right, y: dividerY },
-      thickness: letterhead === "minimalista" ? 0.6 : 1,
+      thickness: letterheadDividerThickness(letterhead),
       color: dividers,
     });
   };

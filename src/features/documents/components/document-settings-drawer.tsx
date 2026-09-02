@@ -8,6 +8,7 @@ import {
   LOGO_ALIGN_VALUES,
   LOGO_MODE_VALUES,
   LOGO_SIZE_VALUES,
+  VISUAL_PROFILE_LABELS,
   VISUAL_PROFILE_VALUES,
   type DocumentRow,
 } from "@/features/documents/contracts";
@@ -127,7 +128,7 @@ export function DocumentSettingsDrawer({
               >
                 {VISUAL_PROFILE_VALUES.map((value) => (
                   <option key={value} value={value}>
-                    {value}
+                    {VISUAL_PROFILE_LABELS[value]}
                   </option>
                 ))}
               </select>
