@@ -2,12 +2,21 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const upsertDocumentBrandingAction = vi.fn(async () => ({ id: "org" }));
-const requestLogoPreviewUrlAction = vi.fn(async () => ({ url: null }));
-const requestLogoUploadUrlAction = vi.fn(async () => ({ error: "skip" }));
-const registerLogoAction = vi.fn(async () => ({}));
-const setDefaultLogoAction = vi.fn(async () => ({}));
-const refresh = vi.fn();
+const {
+  upsertDocumentBrandingAction,
+  requestLogoPreviewUrlAction,
+  requestLogoUploadUrlAction,
+  registerLogoAction,
+  setDefaultLogoAction,
+  refresh,
+} = vi.hoisted(() => ({
+  upsertDocumentBrandingAction: vi.fn(async () => ({ id: "org" })),
+  requestLogoPreviewUrlAction: vi.fn(async () => ({ url: null })),
+  requestLogoUploadUrlAction: vi.fn(async () => ({ error: "skip" })),
+  registerLogoAction: vi.fn(async () => ({})),
+  setDefaultLogoAction: vi.fn(async () => ({})),
+  refresh: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh, push: vi.fn() }),

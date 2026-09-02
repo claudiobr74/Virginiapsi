@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const requireOrgContext = vi.fn();
-const getDocumentBranding = vi.fn();
-const createSupabaseServerClient = vi.fn();
-const revalidatePath = vi.fn();
+const { requireOrgContext, getDocumentBranding, createSupabaseServerClient, revalidatePath } = vi.hoisted(() => ({
+  requireOrgContext: vi.fn(),
+  getDocumentBranding: vi.fn(),
+  createSupabaseServerClient: vi.fn(),
+  revalidatePath: vi.fn(),
+}));
 
 vi.mock("@/lib/auth/require-org-context", () => ({
   requireOrgContext,
