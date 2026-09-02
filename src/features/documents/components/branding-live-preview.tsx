@@ -68,6 +68,7 @@ export function BrandingLivePreview({
   const headerCentered = layout.headerAlignment === "center";
   const logoCentered = layout.logoAlignment === "center";
   const titleCentered = layout.titleAlignment === "center";
+  const signatureCrp = branding.header.crp ? branding.crpLabel || "CRP 00/00000" : "";
 
   return (
     <div ref={wrapRef} className={cn("w-full", className)}>
@@ -228,7 +229,7 @@ export function BrandingLivePreview({
                   </p>
                   <p style={{ margin: "2px 0 0", fontSize: 9, color: branding.colors.secondary }}>
                     {branding.professionalTitle || "Psicóloga"}
-                    {branding.crpLabel ? ` · ${branding.crpLabel}` : " · CRP 00/00000"}
+                    {signatureCrp ? ` · ${signatureCrp}` : ""}
                   </p>
                 </div>
               </div>
