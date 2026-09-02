@@ -11,7 +11,7 @@ const {
   refresh,
 } = vi.hoisted(() => ({
   upsertDocumentBrandingAction: vi.fn(async () => ({ id: "org" })),
-  requestLogoPreviewUrlAction: vi.fn(async () => ({ url: null })),
+  requestLogoPreviewUrlAction: vi.fn(async (): Promise<{ url: string | null }> => ({ url: null })),
   requestLogoUploadUrlAction: vi.fn(async () => ({ error: "skip" })),
   registerLogoAction: vi.fn(async () => ({})),
   setDefaultLogoAction: vi.fn(async () => ({})),
