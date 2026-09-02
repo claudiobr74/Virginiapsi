@@ -1,23 +1,29 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
+import { completeAuthCallback } from "@/features/auth/oauth-callback";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/app";
-  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/app";
-
-  if (code) {
-    const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      const supabaseAfter = await createSupabaseServerClient();
-      await supabaseAfter.rpc("accept_pending_invitations");
-      return NextResponse.redirect(`${origin}${safeNext}`);
-    }
-  }
-
-  const errorUrl = new URL("/login", origin);
-  errorUrl.searchParams.set("error", "auth_callback_failed");
-  return NextResponse.redirect(errorUrl);
+  return completeAuthCallback(request, {
+    async exchange({ code, flowId }) {
+      const supabase = await createSupabaseServerClient();
+      const { error } = await supabase.auth.exchangeCodeForSession(
+        code,
+        flowId ? { flowId } : undefined,
+      );
+      if (!error) {
+        return { error: null };
+      }
+      return {
+        error: {
+          name: error.name,
+          code: typeof error.code === "string" ? error.code : undefined,
+          status: error.status,
+        },
+      };
+    },
+    async acceptInvitations() {
+      const supabase = await createSupabaseServerClient();
+      await supabase.rpc("accept_pending_invitations");
+    },
+  });
 }

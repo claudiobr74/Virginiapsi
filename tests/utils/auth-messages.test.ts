@@ -35,10 +35,20 @@ describe("toGoogleAuthErrorMessage", () => {
 });
 
 describe("toAuthQueryErrorMessage", () => {
-  it("explica falha do callback OAuth", () => {
+  it("explica falha do callback OAuth sem culpar o Google Cloud", () => {
     expect(toAuthQueryErrorMessage("auth_callback_failed")).toBe(
       AUTH_CALLBACK_FAILED,
     );
+    expect(toAuthQueryErrorMessage("auth_callback_failed")).not.toMatch(/Google Cloud/i);
+    expect(
+      toAuthQueryErrorMessage("auth_callback_failed", "abcde123-diag-01"),
+    ).toBe(`${AUTH_CALLBACK_FAILED} Código de diagnóstico: abcde123-diag-01`);
+  });
+
+  it("ignora diagnóstico inseguro na query", () => {
+    expect(
+      toAuthQueryErrorMessage("auth_callback_failed", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.aa.bb"),
+    ).toBe(AUTH_CALLBACK_FAILED);
   });
 
   it("ignora ausência de código", () => {
