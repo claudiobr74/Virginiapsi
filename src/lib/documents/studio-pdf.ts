@@ -6,6 +6,7 @@ import {
   A4_WIDTH_PT,
   buildLetterheadFooterLines,
   buildLetterheadHeaderLines,
+  getVisualProfileLayout,
   letterheadDividerThickness,
   letterheadMargins,
   usesSerifTypography,
@@ -234,10 +235,7 @@ async function embedLogo(
 ): Promise<PDFImage | null> {
   try {
     const header = bytes.slice(0, 8);
-    const isPng =
-      header[0] === 0x89 &&
-      header[1] === 0x50 &&
-      mime !== "image/jpeg";
+    const isPng = header[0] === 0x89 && header[1] === 0x50 && mime !== "image/jpeg";
     const isJpeg = header[0] === 0xff && header[1] === 0xd8;
     if (isJpeg || mime === "image/jpeg") {
       return await pdf.embedJpg(bytes);
@@ -280,15 +278,17 @@ function footerParts(input: StudioPdfInput, pageIndex: number, pageCount: number
 export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const serif = usesSerif(input.branding.typography);
+  const visualLayout = getVisualProfileLayout(input.branding.visualProfile);
   const fonts: Fonts = {
     regular: await pdf.embedFont(serif ? StandardFonts.TimesRoman : StandardFonts.Helvetica),
     bold: await pdf.embedFont(serif ? StandardFonts.TimesRomanBold : StandardFonts.HelveticaBold),
-    italic: await pdf.embedFont(
-      serif ? StandardFonts.TimesRomanItalic : StandardFonts.HelveticaOblique,
-    ),
+    italic: await pdf.embedFont(serif ? StandardFonts.TimesRomanItalic : StandardFonts.HelveticaOblique),
   };
   const box = margins(input.layout, input.branding.letterhead, Boolean(input.classicMode));
   const contentWidth = PAGE_WIDTH - box.left - box.right;
+  const flowRatio = input.classicMode || input.layout === "livreto" ? 1 : visualLayout.bodyMaxWidthRatio;
+  const flowWidth = contentWidth * flowRatio;
+  const flowLeft = box.left + (contentWidth - flowWidth) / 2;
   const primary = hexToRgb(input.branding.colors.primary);
   const headings = hexToRgb(input.branding.colors.headings);
   const dividers = hexToRgb(input.branding.colors.dividers);
@@ -300,9 +300,21 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
     logo = await embedLogo(pdf, input.logoBytes, input.logoMime);
   }
 
-  const bodySize = input.layout === "livreto" ? 11.5 : 11;
-  const lineHeight = input.layout === "livreto" ? 17 : 16;
-  const headingSize = input.classicMode ? 16 : 13;
+  const bodySize = input.classicMode
+    ? input.layout === "livreto"
+      ? 11.5
+      : 11
+    : input.layout === "livreto"
+      ? 11.5
+      : visualLayout.bodySizePt;
+  const lineHeight = input.classicMode
+    ? input.layout === "livreto"
+      ? 17
+      : 16
+    : input.layout === "livreto"
+      ? 17
+      : visualLayout.bodyLineHeightPt;
+  const headingSize = input.classicMode ? 16 : visualLayout.titleSizePt;
 
   type PageState = { page: PDFPage; y: number; skipHeader: boolean };
   const states: PageState[] = [];
@@ -345,7 +357,7 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
     const page = state.page;
     const maxH = logoMaxHeightPt(input.logoSize ?? "medium", input.logoCustomMaxPt);
     let cursorY = PAGE_HEIGHT - box.top;
-    const align = input.logoAlign ?? "left";
+    const align = input.logoAlign ?? visualLayout.logoAlignment;
 
     if (logo && input.branding.header.logo) {
       const fitted = fitLogo(logo, maxH, Math.min(220, contentWidth * 0.45));
@@ -358,9 +370,6 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
         width: fitted.width,
         height: fitted.height,
       });
-      if (align === "left") {
-        // text column to the right of the logo
-      }
       cursorY -= fitted.height + 8;
     }
 
@@ -372,18 +381,18 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
     }));
 
     let textX = box.left;
-    if (logo && (input.logoAlign ?? "left") === "left" && input.branding.header.logo) {
+    if (logo && align === "left" && input.branding.header.logo) {
       const fitted = fitLogo(logo, maxH, Math.min(220, contentWidth * 0.45));
       textX = box.left + fitted.width + 12;
     }
-    let textY = PAGE_HEIGHT - box.top - (logo && (input.logoAlign ?? "left") === "left" ? 4 : 0);
-    if (logo && (input.logoAlign ?? "left") !== "left") {
+    let textY = PAGE_HEIGHT - box.top - (logo && align === "left" ? 4 : 0);
+    if (logo && align !== "left") {
       textY = cursorY;
     }
     for (const line of headerLines) {
       const width = line.font.widthOfTextAtSize(line.text, line.size);
       let x = textX;
-      if ((input.logoAlign ?? "left") === "center") {
+      if (visualLayout.headerAlignment === "center" || align === "center") {
         x = (PAGE_WIDTH - width) / 2;
       }
       page.drawText(line.text, {
@@ -396,13 +405,17 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
       textY -= line.size + 3;
     }
 
-    const dividerY = Math.min(textY, cursorY) - 6;
-    page.drawLine({
-      start: { x: box.left, y: dividerY },
-      end: { x: PAGE_WIDTH - box.right, y: dividerY },
-      thickness: letterheadDividerThickness(letterhead),
-      color: dividers,
-    });
+    if (visualLayout.divider !== "none") {
+      const dividerY = Math.min(textY, cursorY) - 6;
+      const dividerWidth = visualLayout.dividerWidth === "short" ? contentWidth * 0.4 : contentWidth;
+      const dividerX = box.left + (contentWidth - dividerWidth) / 2;
+      page.drawLine({
+        start: { x: dividerX, y: dividerY },
+        end: { x: dividerX + dividerWidth, y: dividerY },
+        thickness: letterheadDividerThickness(letterhead),
+        color: dividers,
+      });
+    }
   };
 
   const drawCover = () => {
@@ -431,9 +444,7 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
       });
       y -= size + 10;
     };
-    if (input.branding.clinicName) {
-      center(input.branding.clinicName, fonts.bold, 16);
-    }
+    if (input.branding.clinicName) center(input.branding.clinicName, fonts.bold, 16);
     center("Psicologia", fonts.italic, 12, muted);
     y -= 12;
     center(cover.documentType.toUpperCase(), fonts.bold, 14, primary);
@@ -446,9 +457,7 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
       }
     }
     y -= 24;
-    if (input.branding.professionalName) {
-      center(input.branding.professionalName, fonts.bold, 11);
-    }
+    if (input.branding.professionalName) center(input.branding.professionalName, fonts.bold, 11);
     if (input.branding.crpLabel) center(input.branding.crpLabel, fonts.regular, 10);
     y -= 8;
     if (cover.city || cover.dateLabel) {
@@ -494,9 +503,7 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
       input.branding.email,
       input.branding.website,
     ].filter(Boolean);
-    for (const line of details) {
-      center(line, fonts.regular, 10);
-    }
+    for (const line of details) center(line, fonts.regular, 10);
     state.y = box.bottom;
   }
 
@@ -516,22 +523,33 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
     }
     state.y -= 8;
   } else if (input.title) {
-    state = needSpace(state, 28);
-    state.page.drawText(input.title, {
-      x: box.left,
-      y: state.y,
-      size: 14,
-      font: fonts.bold,
-      color: primary,
-    });
-    state.y -= 20;
-    state.page.drawLine({
-      start: { x: box.left, y: state.y },
-      end: { x: PAGE_WIDTH - box.right, y: state.y },
-      thickness: 0.8,
-      color: dividers,
-    });
-    state.y -= 16;
+    const titleLines = wrapText(input.title, fonts.bold, headingSize, flowWidth);
+    state = needSpace(state, titleLines.length * (headingSize + 4) + 18);
+    for (const line of titleLines) {
+      const width = fonts.bold.widthOfTextAtSize(line, headingSize);
+      const x = visualLayout.titleAlignment === "center" ? flowLeft + (flowWidth - width) / 2 : flowLeft;
+      state.page.drawText(line, {
+        x,
+        y: state.y,
+        size: headingSize,
+        font: fonts.bold,
+        color: primary,
+      });
+      state.y -= headingSize + 6;
+    }
+    if (visualLayout.divider !== "none") {
+      const dividerWidth = visualLayout.dividerWidth === "short" ? flowWidth * 0.4 : flowWidth;
+      const dividerX = flowLeft + (flowWidth - dividerWidth) / 2;
+      state.page.drawLine({
+        start: { x: dividerX, y: state.y },
+        end: { x: dividerX + dividerWidth, y: state.y },
+        thickness: visualLayout.divider === "strong" ? 1.2 : visualLayout.divider === "hairline" ? 0.45 : 0.8,
+        color: dividers,
+      });
+      state.y -= 16;
+    } else {
+      state.y -= 12;
+    }
   }
 
   const drawParagraph = (
@@ -542,13 +560,13 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
     const size = opts.size ?? bodySize;
     const align = opts.align ?? "left";
     const color = opts.color ?? bodyColor;
-    const lines = wrapText(text, font, size, contentWidth);
+    const lines = wrapText(text, font, size, flowWidth);
     for (const line of lines) {
       state = needSpace(state, lineHeight);
       const width = font.widthOfTextAtSize(line, size);
-      let x = box.left;
-      if (align === "center") x = box.left + (contentWidth - width) / 2;
-      if (align === "right") x = PAGE_WIDTH - box.right - width;
+      let x = flowLeft;
+      if (align === "center") x = flowLeft + (flowWidth - width) / 2;
+      if (align === "right") x = flowLeft + flowWidth - width;
       state.page.drawText(line, { x, y: state.y, size, font, color });
       state.y -= lineHeight;
     }
@@ -556,9 +574,7 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
 
   const runs: Run[] = [];
   const enabled = [...input.sections].filter((section) => section.enabled).sort((a, b) => a.order - b.order);
-  for (const section of enabled) {
-    runs.push(...sectionRuns(section));
-  }
+  for (const section of enabled) runs.push(...sectionRuns(section));
 
   for (const run of runs) {
     if (run.kind === "page-break") {
@@ -572,15 +588,9 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
     if (run.kind === "heading") {
       const size = run.level === 1 ? 12.5 : 11;
       const block = size + lineHeight * 2;
-      if (state.y - block < box.bottom + 8) {
-        state = beginContentPage();
-      }
+      if (state.y - block < box.bottom + 8) state = beginContentPage();
       state.y -= 6;
-      drawParagraph(run.text, {
-        font: fonts.bold,
-        size,
-        color: headings,
-      });
+      drawParagraph(run.text, { font: fonts.bold, size, color: headings });
       state.y -= 4;
       continue;
     }
@@ -592,12 +602,12 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
     if (run.kind === "list") {
       run.items.forEach((item, index) => {
         const bullet = run.ordered ? `${index + 1}. ` : "• ";
-        const lines = wrapText(item, fonts.regular, bodySize, contentWidth - 18);
+        const lines = wrapText(item, fonts.regular, bodySize, flowWidth - 18);
         lines.forEach((line, lineIndex) => {
           state = needSpace(state, lineHeight);
           const prefix = lineIndex === 0 ? bullet : "   ";
           state.page.drawText(`${prefix}${line}`, {
-            x: box.left + 6,
+            x: flowLeft + 6,
             y: state.y,
             size: bodySize,
             font: fonts.regular,
@@ -611,14 +621,14 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
     }
     if (run.kind === "table") {
       const cols = Math.max(...run.rows.map((row) => row.length), 1);
-      const colW = contentWidth / cols;
+      const colW = flowWidth / cols;
       const rowH = lineHeight + 6;
       for (const row of run.rows) {
         state = needSpace(state, rowH);
         for (let i = 0; i < cols; i += 1) {
           const cell = row[i] ?? "";
           state.page.drawRectangle({
-            x: box.left + i * colW,
+            x: flowLeft + i * colW,
             y: state.y - 4,
             width: colW,
             height: rowH,
@@ -627,7 +637,7 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
           });
           const cellLines = wrapText(cell, fonts.regular, 9, colW - 8);
           state.page.drawText(cellLines[0] ?? "", {
-            x: box.left + i * colW + 4,
+            x: flowLeft + i * colW + 4,
             y: state.y + 4,
             size: 9,
             font: fonts.regular,
@@ -643,14 +653,17 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
   if (input.signatureLines && input.signatureLines.length > 0) {
     state.y -= 12;
     for (const line of input.signatureLines) {
-      drawParagraph(line, { font: fonts.regular, size: 9, color: muted });
+      drawParagraph(line, {
+        font: fonts.regular,
+        size: 9,
+        color: muted,
+        align: input.classicMode ? "left" : visualLayout.signatureAlignment,
+      });
     }
   }
 
   if (input.manualSignatureBlock) {
-    if (state.y < box.bottom + 140) {
-      state = beginContentPage();
-    }
+    if (state.y < box.bottom + 140) state = beginContentPage();
     state.y -= 24;
     const colW = (contentWidth - 24) / 2;
     const drawSig = (x: number, lines: string[]) => {
@@ -662,13 +675,7 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
       });
       let y = state.y - 14;
       for (const line of lines) {
-        state.page.drawText(line, {
-          x,
-          y,
-          size: 9,
-          font: fonts.regular,
-          color: bodyColor,
-        });
+        state.page.drawText(line, { x, y, size: 9, font: fonts.regular, color: bodyColor });
         y -= 12;
       }
     };
@@ -676,26 +683,31 @@ export async function generateStudioPdf(input: StudioPdfInput): Promise<Uint8Arr
     drawSig(box.left + colW + 24, input.manualSignatureBlock.clientLines);
     state.y -= 70;
     if (input.manualSignatureBlock.extraLines) {
-      for (const line of input.manualSignatureBlock.extraLines) {
-        drawParagraph(line, { size: 9, color: muted });
-      }
+      for (const line of input.manualSignatureBlock.extraLines) drawParagraph(line, { size: 9, color: muted });
     }
   }
 
   const pages = pdf.getPages();
   pages.forEach((page, index) => {
-    const skip = states[index]?.skipHeader;
-    if (!input.classicMode && !skip) {
-      // headers already drawn during layout
-    }
     const parts = footerParts(input, index, pages.length);
     let fy = box.bottom - 6;
-    page.drawLine({
-      start: { x: box.left, y: box.bottom + 10 },
-      end: { x: PAGE_WIDTH - box.right, y: box.bottom + 10 },
-      thickness: 0.4,
-      color: dividers,
-    });
+    if (!input.classicMode && visualLayout.footerStyle !== "minimal") {
+      const footerDividerWidth = visualLayout.footerStyle === "elegant" ? contentWidth * 0.4 : contentWidth;
+      const footerDividerX = box.left + (contentWidth - footerDividerWidth) / 2;
+      page.drawLine({
+        start: { x: footerDividerX, y: box.bottom + 10 },
+        end: { x: footerDividerX + footerDividerWidth, y: box.bottom + 10 },
+        thickness: visualLayout.footerStyle === "institutional" ? 0.8 : 0.4,
+        color: dividers,
+      });
+    } else if (input.classicMode) {
+      page.drawLine({
+        start: { x: box.left, y: box.bottom + 10 },
+        end: { x: PAGE_WIDTH - box.right, y: box.bottom + 10 },
+        thickness: 0.4,
+        color: dividers,
+      });
+    }
     for (const part of parts.reverse()) {
       const size = 8;
       const width = fonts.regular.widthOfTextAtSize(part, size);
