@@ -4,6 +4,7 @@ import {
   parseGoogleCalendarEnv,
   parseGroqTranscriptionEnv,
   parseServerEnv,
+  parseSessionAiEnv,
   parseSessionCaptureEnv,
   parseSupabaseAdminEnv,
 } from "@/lib/env/server-schema";
@@ -11,6 +12,7 @@ import type {
   GoogleCalendarEnv,
   GroqTranscriptionEnv,
   ServerEnv,
+  SessionAiEnv,
   SessionCaptureEnv,
   SupabaseAdminEnv,
 } from "@/lib/env/server-schema";
@@ -35,4 +37,8 @@ export function getSessionCaptureEnv(): SessionCaptureEnv {
 
 export function getGroqTranscriptionEnv(): GroqTranscriptionEnv {
   return parseGroqTranscriptionEnv();
+}
+
+export function getSessionAiEnv(): SessionAiEnv {
+  return parseSessionAiEnv();
 }

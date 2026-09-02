@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GeminiApiError, GeminiClient } from "@/lib/integrations/gemini/client";
+import { GeminiApiError, GeminiClient, GeminiTimeoutError } from "@/lib/integrations/gemini/client";
 import { mockFetch } from "./support/mock-fetch";
 
 const SCHEMA = { type: "object", properties: { text: { type: "string" } } };
@@ -63,6 +63,36 @@ describe("GeminiClient.generateStructured", () => {
     ).rejects.toBeInstanceOf(GeminiApiError);
   });
 
+  it("preserva HTTP 404 e NOT_FOUND sem anexar o corpo do provider", async () => {
+    const fetchImpl = mockFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 404,
+              message: "models/unknown-model is not found for API version v1beta",
+              status: "NOT_FOUND",
+            },
+          }),
+          { status: 404 },
+        ),
+    );
+    const client = new GeminiClient({ apiKey: "k", fetchImpl });
+    await expect(
+      client.generateStructured({
+        model: "unknown-model",
+        systemInstruction: "s",
+        userContent: "u",
+        responseJsonSchema: SCHEMA,
+      }),
+    ).rejects.toMatchObject({
+      name: "GeminiApiError",
+      status: 404,
+      providerCode: "NOT_FOUND",
+      message: "Gemini request failed: 404",
+    });
+  });
+
   it("falha fechado quando não há texto nos candidates", async () => {
     const fetchImpl = mockFetch(
       async () => new Response(JSON.stringify({ candidates: [] }), { status: 200 }),
@@ -89,5 +119,43 @@ describe("GeminiClient.generateStructured", () => {
         responseJsonSchema: SCHEMA,
       }),
     ).rejects.toBeInstanceOf(GeminiApiError);
+  });
+
+  it("aceita JSON envolto em cerca markdown", async () => {
+    const fetchImpl = mockFetch(
+      async () => successResponse("```json\n{\"ok\":true}\n```"),
+    );
+    const client = new GeminiClient({ apiKey: "k", fetchImpl });
+    await expect(
+      client.generateStructured({
+        model: "m",
+        systemInstruction: "s",
+        userContent: "u",
+        responseJsonSchema: SCHEMA,
+      }),
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it("estoura GeminiTimeoutError quando o provider não responde", async () => {
+    const fetchImpl = mockFetch(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            const error = new Error("Aborted");
+            error.name = "AbortError";
+            reject(error);
+          });
+        }),
+    );
+    const client = new GeminiClient({ apiKey: "k", fetchImpl });
+    await expect(
+      client.generateStructured({
+        model: "m",
+        systemInstruction: "s",
+        userContent: "u",
+        responseJsonSchema: SCHEMA,
+        timeoutMs: 30,
+      }),
+    ).rejects.toBeInstanceOf(GeminiTimeoutError);
   });
 });
