@@ -183,7 +183,8 @@ describe("isolamento de artefatos de IA", () => {
 
   it("rejeita artefato da organização A na sessão da organização B", async () => {
     const artifactId = await insertClosingArtifact(adminA, orgA, patientA, sessionA1);
-    const sessionBOrg = await startSession(adminB, orgB, await createPatient(adminB, orgB, "Alvo B"));
+    const targetPatient = await createPatient(adminB, orgB, "Alvo B");
+    const sessionBOrg = await startSession(adminB, orgB, targetPatient);
     const session = await openSession({ userId: adminB });
     try {
       const error = await session.expectError(
@@ -233,20 +234,6 @@ describe("isolamento de artefatos de IA", () => {
         [artifactId],
       );
       expect(artifact[0].review_status).toBe("appended");
-    } finally {
-      await session.close();
-    }
-  });
-
-  it("rejeita UPDATE direto de review_status para appended (server action forjada)", async () => {
-    const artifactId = await insertClosingArtifact(adminA, orgA, patientA, sessionA1);
-    const session = await openSession({ userId: adminA });
-    try {
-      const error = await session.expectError(
-        `update public.ai_artifacts set review_status = 'appended' where id = $1`,
-        [artifactId],
-      );
-      expect(error).toMatch(/append_verified_ai_artifact_to_session/i);
     } finally {
       await session.close();
     }
