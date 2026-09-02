@@ -37,6 +37,7 @@ export const RECOMMENDED_BRANDING_VISIBILITY = {
 } as const;
 
 export interface ResolvedBranding {
+  visualProfile: VisualProfile;
   clinicName: string;
   professionalName: string;
   professionalTitle: string;
@@ -215,18 +216,18 @@ export function resolveBranding(
   visualProfile?: VisualProfile,
 ): ResolvedBranding {
   const branding = toDocumentBrandingRow(row ?? {});
+  const effectiveVisualProfile = visualProfile ?? branding.default_visual_profile;
   const clinic =
     (branding.show_clinic_name ? branding.clinic_name : null) ||
     fallback.clinicName ||
     fallback.organizationName ||
     "";
-  const professional =
-    branding.professional_name || fallback.professionalName || "";
+  const professional = branding.professional_name || fallback.professionalName || "";
   const crp = branding.crp || fallback.crp || "";
   const crpState = branding.crp_state || fallback.crpState || "";
   const crpLabel = [crp, crpState].filter(Boolean).join("/");
   const cityState = [branding.city, branding.state].filter(Boolean).join("/");
-  const letterhead = resolveLetterheadForDocument(branding, visualProfile);
+  const letterhead = resolveLetterheadForDocument(branding, effectiveVisualProfile);
   const tradeName = branding.show_trade_name ? branding.trade_name?.trim() || "" : "";
   const legalName = branding.show_legal_name
     ? branding.legal_name?.trim() || fallback.legalName?.trim() || ""
@@ -236,6 +237,7 @@ export function resolveBranding(
     : "";
 
   return {
+    visualProfile: effectiveVisualProfile,
     clinicName: clinic,
     professionalName: professional,
     professionalTitle: branding.professional_title || fallback.professionalTitle || "Psicóloga",

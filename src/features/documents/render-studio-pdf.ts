@@ -2,6 +2,7 @@ import "server-only";
 
 import type { DocumentRow, DocumentSection, DocumentVersionRow } from "@/features/documents/contracts";
 import { getDocumentBranding, getDocumentLogo, listDocumentLogos } from "@/features/documents/branding-queries";
+import { getVisualProfileLayout } from "@/features/documents/branding-layout";
 import { resolveBranding, recommendedProfileForKind } from "@/features/documents/branding-resolve";
 import { getPracticeSettings } from "@/features/settings/queries";
 import { getShellSettings, listAssignablePsychologists } from "@/features/organizations/queries";
@@ -28,6 +29,7 @@ export async function renderDocumentStudioPdf(input: {
   ]);
 
   const profile = input.document.visual_profile ?? recommendedProfileForKind(input.document.document_kind);
+  const profileLayout = getVisualProfileLayout(profile);
   const professionalEmail =
     psychologists.find((person) => person.role === "psychologist_admin")?.email ??
     psychologists[0]?.email ??
@@ -101,6 +103,10 @@ export async function renderDocumentStudioPdf(input: {
     branding.crpLabel,
   ].filter(Boolean);
   const clientLines = ["Pessoa atendida / responsável"];
+  const effectiveLogoAlign =
+    profile === "premium" && input.document.logo_align === "left"
+      ? profileLayout.logoAlignment
+      : input.document.logo_align;
 
   return generateStudioPdf({
     title: input.document.title,
@@ -109,7 +115,7 @@ export async function renderDocumentStudioPdf(input: {
     branding,
     logoBytes,
     logoMime,
-    logoAlign: input.document.logo_align,
+    logoAlign: effectiveLogoAlign,
     logoSize: input.document.logo_size,
     logoCustomMaxPt: input.document.logo_custom_max_pt,
     documentId: input.document.id,
