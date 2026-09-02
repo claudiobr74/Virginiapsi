@@ -11,19 +11,19 @@ export const VISUAL_STYLE_COPY: Record<
   clinica: {
     label: VISUAL_PROFILE_LABELS.clinica,
     kicker: "Recomendado",
-    description: "Recomendado para uso profissional cotidiano",
+    description: "Equilibrado para o uso profissional diário",
   },
   essencial: {
     label: VISUAL_PROFILE_LABELS.essencial,
-    description: "Limpo e discreto",
+    description: "Limpo, leve e discreto",
   },
   premium: {
     label: VISUAL_PROFILE_LABELS.premium,
-    description: "Mais refinado para documentos formais",
+    description: "Refinado para documentos formais",
   },
   institucional: {
     label: VISUAL_PROFILE_LABELS.institucional,
-    description: "Estrutura mais tradicional",
+    description: "Estrutura tradicional para clínica e instituição",
   },
 };
 
