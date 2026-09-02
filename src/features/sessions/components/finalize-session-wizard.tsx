@@ -79,7 +79,7 @@ export function FinalizeSessionWizard({ sessionId }: { sessionId: string }) {
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Próximo encontro na Agenda. Finalizar lança a cobrança, se houver.
+            Próximo encontro: agende na Agenda. Finalizar lança a cobrança, se houver.
           </p>
         )}
       </ModalContent>

@@ -21,16 +21,19 @@ export const TRANSCRIPTION_BACKPRESSURE = [
 export type TranscriptionBackpressure = (typeof TRANSCRIPTION_BACKPRESSURE)[number];
 
 export const LIVE_TRANSCRIPTION_HINT =
-  "Áudio enviado com segurança. Sem conexão, o pendente fica criptografado neste dispositivo.";
+  "Áudio enviado com segurança. Sem conexão, trechos pendentes podem ficar neste dispositivo.";
 
 export const SECURE_SPOOL_UNAVAILABLE_MESSAGE =
-  "Não foi possível ativar a gravação local de segurança. A transcrição segue com conexão.";
+  "Não foi possível ativar a gravação local de segurança. A transcrição segue enquanto houver conexão.";
 
 export const SECURE_SPOOLING_MESSAGE =
   "Sem conexão. Trechos pendentes ficam criptografados neste dispositivo.";
 
 export const UNPRESERVED_STOP_MESSAGE =
   "Sessão encerrada. Alguns trechos não enviados não puderam ser preservados.";
+
+export const STOP_WITH_SPOOL_MESSAGE =
+  "Sessão encerrada. Trechos neste dispositivo serão transcritos quando houver conexão.";
 
 export const LOW_STORAGE_WARNING =
   "Pouco espaço neste dispositivo. A cópia local pode falhar.";
