@@ -9,6 +9,7 @@ import { DpepForm } from "@/features/sessions/components/dpep-form";
 import { FinalizeSessionWizard } from "@/features/sessions/components/finalize-session-wizard";
 import { SessionAiPanel } from "@/features/sessions/components/session-ai-panel";
 import { SessionElapsedTimer } from "@/features/sessions/components/session-elapsed-timer";
+import { SessionFeatureErrorBoundary } from "@/features/sessions/components/session-feature-error-boundary";
 import { TranscriptPanel } from "@/features/sessions/components/transcript-panel";
 import { WorkingNotesForm } from "@/features/sessions/components/working-notes-form";
 import {
@@ -153,8 +154,8 @@ export function ActiveSessionView({
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
               {isFinalized
-                ? "O DPEP abaixo é o registro estruturado desta sessão. Nada entra no prontuário sem revisão humana."
-                : "Área de trabalho clínico em tempo real. O DPEP abaixo permanece o registro estruturado — nada entra no prontuário sem revisão humana."}
+                ? "O DPEP abaixo é o registro estruturado desta sessão."
+                : "O DPEP é o registro estruturado da sessão. Nada entra no prontuário sem revisão humana."}
             </p>
             {isFinalized ? (
               <div className="mt-4 flex flex-wrap gap-2">
@@ -183,13 +184,15 @@ export function ActiveSessionView({
 
           <section className="rounded-2xl border border-border bg-card p-6">
             <h2 className="mb-4 font-serif text-lg font-bold text-foreground">DPEP</h2>
-            <DpepForm
-              sessionId={session.id}
-              dpep={dpep}
-              version={session.version}
-              disabled={isFinalized}
-              onSaved={refreshAfterSave}
-            />
+            <SessionFeatureErrorBoundary>
+              <DpepForm
+                sessionId={session.id}
+                dpep={dpep}
+                version={session.version}
+                disabled={isFinalized}
+                onSaved={refreshAfterSave}
+              />
+            </SessionFeatureErrorBoundary>
           </section>
         </div>
 
@@ -221,12 +224,10 @@ export function ActiveSessionView({
           ) : null}
 
           <section className="rounded-2xl border border-border bg-background p-5">
-            <h2 className="mb-4 font-serif text-lg font-bold text-foreground">Session AI</h2>
-            <SessionAiPanel
-              sessionId={session.id}
-              version={session.version}
-              onDpepAppended={refreshAfterSave}
-            />
+            <h2 className="mb-4 font-serif text-lg font-bold text-foreground">Apoio de IA</h2>
+            <SessionFeatureErrorBoundary>
+              <SessionAiPanel sessionId={session.id} />
+            </SessionFeatureErrorBoundary>
           </section>
         </aside>
       </div>

@@ -5,8 +5,13 @@ import type { ConsentState } from "@/features/consents/contracts";
 import { hasPatientClinicalAccess } from "@/features/patients/clinical-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
+import {
+  sessionAiRequiresTranscriptionConsent,
+  type SessionAiPurpose,
+} from "@/features/sessions/ai/purpose";
 
-export type SessionAiPurpose = "session_live" | "session_preparation" | "session_closing";
+export type { SessionAiPurpose } from "@/features/sessions/ai/purpose";
+export { sessionAiRequiresTranscriptionConsent } from "@/features/sessions/ai/purpose";
 
 export interface SessionAiGrant {
   allowed: true;
@@ -31,12 +36,13 @@ const MESSAGES: Record<SessionAiDenial["reason"], string> = {
 
 /**
  * Consent is backend property, not a model decision
- * (docs/14-runtime-ai-architecture.md §3). `session_live` and
- * `session_closing` additionally require transcription consent because
- * their DTO carries transcript content (docs/16-runtime-ai-data-contracts.md
- * §ConsentState: "Session Live/transcrição exigem os estados aplicáveis
- * como true"); `session_preparation` only summarizes already-recorded DPEP
- * content, so it needs `aiProcessingAllowed` alone.
+ * (docs/14-runtime-ai-architecture.md §3). `session_live` requires
+ * transcription consent because its DTO carries transcript content
+ * (docs/16-runtime-ai-data-contracts.md §ConsentState).
+ * `session_closing` always requires `aiProcessingAllowed`; transcript text
+ * is attached only when transcription is allowed. Working notes alone may
+ * be enough to draft DPEP. `session_preparation` only summarizes already-
+ * recorded DPEP content, so it needs `aiProcessingAllowed` alone.
  */
 export async function authorizeSessionAi(
   patientId: string,
@@ -73,8 +79,7 @@ export async function authorizeSessionAi(
     };
   }
 
-  const usesTranscript = purpose === "session_live" || purpose === "session_closing";
-  if (usesTranscript && !state.transcriptionAllowed) {
+  if (sessionAiRequiresTranscriptionConsent(purpose) && !state.transcriptionAllowed) {
     await logAuditEvent({
       organizationId,
       action: "session_ai.denied",

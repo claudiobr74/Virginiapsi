@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GeminiApiError, GeminiClient } from "@/lib/integrations/gemini/client";
+import { GeminiApiError, GeminiClient, GeminiTimeoutError } from "@/lib/integrations/gemini/client";
 import { mockFetch } from "./support/mock-fetch";
 
 const SCHEMA = { type: "object", properties: { text: { type: "string" } } };
@@ -89,5 +89,43 @@ describe("GeminiClient.generateStructured", () => {
         responseJsonSchema: SCHEMA,
       }),
     ).rejects.toBeInstanceOf(GeminiApiError);
+  });
+
+  it("aceita JSON envolto em cerca markdown", async () => {
+    const fetchImpl = mockFetch(
+      async () => successResponse("```json\n{\"ok\":true}\n```"),
+    );
+    const client = new GeminiClient({ apiKey: "k", fetchImpl });
+    await expect(
+      client.generateStructured({
+        model: "m",
+        systemInstruction: "s",
+        userContent: "u",
+        responseJsonSchema: SCHEMA,
+      }),
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it("estoura GeminiTimeoutError quando o provider não responde", async () => {
+    const fetchImpl = mockFetch(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            const error = new Error("Aborted");
+            error.name = "AbortError";
+            reject(error);
+          });
+        }),
+    );
+    const client = new GeminiClient({ apiKey: "k", fetchImpl });
+    await expect(
+      client.generateStructured({
+        model: "m",
+        systemInstruction: "s",
+        userContent: "u",
+        responseJsonSchema: SCHEMA,
+        timeoutMs: 30,
+      }),
+    ).rejects.toBeInstanceOf(GeminiTimeoutError);
   });
 });

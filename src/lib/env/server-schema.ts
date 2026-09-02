@@ -80,6 +80,14 @@ export const groqTranscriptionEnvSchema = z.object({
 
 export type GroqTranscriptionEnv = z.infer<typeof groqTranscriptionEnvSchema>;
 
+/** Session AI (DPEP/live/preparation) — independent from Twilio, Calendar, Groq and Cron. */
+export const sessionAiEnvSchema = z.object({
+  GEMINI_API_KEY: nonEmpty,
+  GEMINI_MODEL_SESSION: nonEmpty,
+});
+
+export type SessionAiEnv = z.infer<typeof sessionAiEnvSchema>;
+
 export const SERVER_ONLY_ENV_KEYS = [
   "SUPABASE_SECRET_KEY",
   "GOOGLE_CLIENT_ID",
@@ -204,6 +212,19 @@ export function parseGroqTranscriptionEnv(
     GROQ_API_KEY: source.GROQ_API_KEY,
     GROQ_TRANSCRIPTION_MODEL: source.GROQ_TRANSCRIPTION_MODEL,
     GROQ_TRANSCRIPTION_TIMEOUT_MS: source.GROQ_TRANSCRIPTION_TIMEOUT_MS,
+  });
+  if (!parsed.success) {
+    throw new Error(formatEnvIssues(parsed.error));
+  }
+  return parsed.data;
+}
+
+export function parseSessionAiEnv(
+  source: EnvSource = readServerEnvFromProcess(),
+): SessionAiEnv {
+  const parsed = sessionAiEnvSchema.safeParse({
+    GEMINI_API_KEY: source.GEMINI_API_KEY,
+    GEMINI_MODEL_SESSION: source.GEMINI_MODEL_SESSION,
   });
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));

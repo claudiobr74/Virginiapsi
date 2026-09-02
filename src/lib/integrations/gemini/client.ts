@@ -10,6 +10,8 @@
 // param, which would leak into access logs).
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
+export const DEFAULT_GEMINI_TIMEOUT_MS = 45_000;
+
 export class GeminiApiError extends Error {
   constructor(
     message: string,
@@ -20,11 +22,19 @@ export class GeminiApiError extends Error {
   }
 }
 
+export class GeminiTimeoutError extends GeminiApiError {
+  constructor() {
+    super("Gemini request timed out", 408);
+    this.name = "GeminiTimeoutError";
+  }
+}
+
 export interface GeminiStructuredRequest {
   model: string;
   systemInstruction: string;
   userContent: string;
   responseJsonSchema: unknown;
+  timeoutMs?: number;
 }
 
 export interface GeminiClientOptions {
@@ -36,6 +46,22 @@ export interface GeminiTextRequest {
   model: string;
   systemInstruction: string;
   userContent: string;
+}
+
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const name = "name" in error ? String((error as { name?: unknown }).name) : "";
+  return name === "AbortError" || name === "TimeoutError";
+}
+
+/** Accepts raw JSON or a markdown-fenced JSON payload from the model. */
+export function parseGeminiJsonText(text: string): unknown {
+  const trimmed = text.trim();
+  const fence = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const payload = (fence ? fence[1] : trimmed).trim();
+  return JSON.parse(payload);
 }
 
 export class GeminiClient {
@@ -54,41 +80,58 @@ export class GeminiClient {
    * "Resposta malformada falha fechada").
    */
   async generateStructured(request: GeminiStructuredRequest): Promise<unknown> {
-    const response = await this.fetchImpl(
-      `${GEMINI_BASE_URL}/models/${request.model}:generateContent`,
-      {
-        method: "POST",
-        headers: {
-          "x-goog-api-key": this.apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: request.systemInstruction }] },
-          contents: [{ role: "user", parts: [{ text: request.userContent }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseJsonSchema: request.responseJsonSchema,
-          },
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      throw new GeminiApiError(`Gemini request failed: ${response.status}`, response.status);
-    }
-
-    const body = (await response.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      throw new GeminiApiError("Gemini response had no text part", response.status);
-    }
+    const timeoutMs = request.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      return JSON.parse(text);
-    } catch {
-      throw new GeminiApiError("Gemini response was not valid JSON", response.status);
+      const response = await this.fetchImpl(
+        `${GEMINI_BASE_URL}/models/${request.model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "x-goog-api-key": this.apiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: request.systemInstruction }] },
+            contents: [{ role: "user", parts: [{ text: request.userContent }] }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseJsonSchema: request.responseJsonSchema,
+            },
+          }),
+          signal: controller.signal,
+        },
+      );
+
+      if (!response.ok) {
+        throw new GeminiApiError(`Gemini request failed: ${response.status}`, response.status);
+      }
+
+      const body = (await response.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new GeminiApiError("Gemini response had no text part", response.status);
+      }
+
+      try {
+        return parseGeminiJsonText(text);
+      } catch {
+        throw new GeminiApiError("Gemini response was not valid JSON", response.status);
+      }
+    } catch (error) {
+      if (error instanceof GeminiApiError) {
+        throw error;
+      }
+      if (isAbortError(error)) {
+        throw new GeminiTimeoutError();
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
