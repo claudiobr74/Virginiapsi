@@ -17,12 +17,19 @@ test.describe("Identidade visual dos documentos", () => {
     await loginViaUi(page);
     await openDocumentsTab(page);
 
-    await expect(page.getByRole("radio", { name: /Clínico/ })).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByRole("radiogroup", { name: "Estilo visual dos documentos" })).toBeVisible();
     await expect(page.getByRole("button", { name: /Opções avançadas/ })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
     await expect(page.getByText("defaultVisualProfile")).toHaveCount(0);
+
+    await page.getByRole("radio", { name: /Clínico/ }).click();
+    await page.getByRole("button", { name: "Salvar identidade visual" }).click();
+    await expect(page.getByText(/Identidade visual salva/)).toBeVisible();
+    await page.reload();
+    await page.getByRole("tab", { name: "Documentos" }).click();
+    await expect(page.getByRole("radio", { name: /Clínico/ })).toHaveAttribute("aria-checked", "true");
 
     if (testInfo.project.name === "desktop-chromium") {
       await page.screenshot({
@@ -38,7 +45,7 @@ test.describe("Identidade visual dos documentos", () => {
     }
     if (testInfo.project.name === "mobile-chromium") {
       await page.getByRole("button", { name: "Ver prévia" }).click();
-      await expect(page.getByTestId("branding-a4-page")).toBeVisible();
+      await expect(page.getByRole("dialog").getByTestId("branding-a4-page")).toBeVisible();
       await page.screenshot({
         path: path.join(ARTIFACTS, "mobile-390-preview.png"),
         fullPage: true,
@@ -98,7 +105,7 @@ test.describe("Identidade visual dos documentos", () => {
   test("documento novo herda o modelo salvo", async ({ page }) => {
     await loginViaUi(page);
     await openDocumentsTab(page);
-    await page.getByRole("radio", { name: /Minimalista/ }).click();
+    await page.getByRole("radio", { name: /Elegante/ }).click();
     await page.getByRole("button", { name: "Salvar identidade visual" }).click();
     await expect(page.getByText(/Identidade visual salva/)).toBeVisible();
 
@@ -112,6 +119,6 @@ test.describe("Identidade visual dos documentos", () => {
     await page.getByRole("button", { name: "Criar documento" }).click();
     await page.waitForURL(/\/app\/documents\/[0-9a-f-]{36}$/);
     await page.getByRole("button", { name: "Ajustes" }).click();
-    await expect(page.getByLabel("Perfil visual")).toHaveValue("essencial");
+    await expect(page.getByLabel("Perfil visual")).toHaveValue("premium");
   });
 });

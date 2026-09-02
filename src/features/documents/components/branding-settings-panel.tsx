@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
@@ -45,16 +46,20 @@ async function sha256HexOfBytes(bytes: Uint8Array): Promise<string> {
 function PreviewPane({
   branding,
   logoUrl,
+  showChrome = true,
 }: {
   branding: ReturnType<typeof resolveBranding>;
   logoUrl: string | null;
+  showChrome?: boolean;
 }) {
   return (
     <section className="rounded-[20px] border border-border bg-surface/70 p-4 sm:p-5">
-      <div className="mb-3 flex items-baseline justify-between gap-2">
-        <h3 className="font-serif text-lg italic font-semibold text-foreground">Prévia</h3>
-        <p className="text-xs text-muted-foreground">A4 · exemplo de documento</p>
-      </div>
+      {showChrome ? (
+        <div className="mb-3 flex items-baseline justify-between gap-2">
+          <h3 className="font-serif text-lg italic font-semibold text-foreground">Prévia</h3>
+          <p className="text-xs text-muted-foreground">A4 · exemplo de documento</p>
+        </div>
+      ) : null}
       <BrandingLivePreview branding={branding} logoUrl={logoUrl} />
     </section>
   );
@@ -214,6 +219,9 @@ export function BrandingSettingsPanel({
             : null;
 
   const preview = <PreviewPane branding={resolved} logoUrl={previewLogo} />;
+  const sheetPreview = (
+    <PreviewPane branding={resolved} logoUrl={previewLogo} showChrome={false} />
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -234,6 +242,7 @@ export function BrandingSettingsPanel({
       </button>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:items-start">
+        <Card tone="documents" className="min-w-0">
         <div className="flex min-w-0 flex-col gap-6">
           <BrandingStylePicker
             value={form.defaultVisualProfile}
@@ -364,13 +373,14 @@ export function BrandingSettingsPanel({
             ) : null}
           </div>
         </div>
+        </Card>
 
         <div className="hidden min-w-0 lg:block">
           <div className="lg:sticky lg:top-6">{preview}</div>
         </div>
       </div>
 
-      <section className="rounded-[20px] border border-border bg-card p-5 shadow-card">
+      <Card tone="documents">
         <h3 className="font-serif text-lg italic font-semibold">Configurações dos documentos</h3>
         <p className="mt-1 text-sm text-muted-foreground">
           Regras de conteúdo que não alteram a aparência do papel.
@@ -395,7 +405,7 @@ export function BrandingSettingsPanel({
           />
           Incluir cláusula informativa de IA nos contratos (consentimento específico continua separado)
         </label>
-      </section>
+      </Card>
 
       <Drawer open={previewOpen} onOpenChange={setPreviewOpen}>
         <DrawerContent
@@ -403,7 +413,7 @@ export function BrandingSettingsPanel({
           description="A4 · exemplo de documento"
           className="inset-x-0 bottom-0 top-auto h-[min(94vh,920px)] w-full max-w-none rounded-t-3xl border-l-0 border-t sm:max-w-none"
         >
-          {preview}
+          {sheetPreview}
         </DrawerContent>
       </Drawer>
 
