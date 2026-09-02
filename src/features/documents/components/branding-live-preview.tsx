@@ -158,7 +158,7 @@ export function BrandingLivePreview({
               >
                 {SAMPLE_NOTE}
               </p>
-              {branding.cityState ? (
+                  {branding.cityState ? (
                 <p
                   style={{
                     fontSize: 10,
@@ -166,7 +166,7 @@ export function BrandingLivePreview({
                     color: "#1f1f1d",
                   }}
                 >
-                  {branding.cityState}, 02 de setembro de 2026
+                  {branding.cityState}
                 </p>
               ) : null}
             </div>

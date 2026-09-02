@@ -171,6 +171,18 @@ export function profileLetterhead(profile: VisualProfile): LetterheadPreset {
   return "clinico";
 }
 
+export function resolveLetterheadForDocument(
+  branding: Pick<DocumentBrandingRow, "default_visual_profile" | "letterhead_preset">,
+  visualProfile?: VisualProfile,
+): LetterheadPreset {
+  const orgCustom = branding.letterhead_preset !== profileLetterhead(branding.default_visual_profile);
+  if (!visualProfile) return branding.letterhead_preset;
+  if (orgCustom && visualProfile === branding.default_visual_profile) {
+    return branding.letterhead_preset;
+  }
+  return profileLetterhead(visualProfile);
+}
+
 export function recommendedProfileForKind(kind: DocumentKind): VisualProfile {
   return DEFAULT_CATEGORY_PROFILE[kind] ?? "clinica";
 }
@@ -208,9 +220,7 @@ export function resolveBranding(
   const crpState = branding.crp_state || fallback.crpState || "";
   const crpLabel = [crp, crpState].filter(Boolean).join("/");
   const cityState = [branding.city, branding.state].filter(Boolean).join("/");
-  const letterhead = visualProfile
-    ? profileLetterhead(visualProfile)
-    : branding.letterhead_preset;
+  const letterhead = resolveLetterheadForDocument(branding, visualProfile);
 
   return {
     clinicName: clinic,

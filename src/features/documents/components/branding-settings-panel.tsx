@@ -113,11 +113,10 @@ export function BrandingSettingsPanel({
   }, [defaultLogoId, localLogoUrl]);
 
   const resolved = useMemo(() => {
-    const letterheadCustom = form.letterheadPreset !== profileLetterhead(form.defaultVisualProfile);
     return resolveBranding(
       brandingFormToRow(form, branding?.organization_id),
       fallback,
-      letterheadCustom ? undefined : form.defaultVisualProfile,
+      form.defaultVisualProfile,
     );
   }, [form, fallback, branding?.organization_id]);
 
@@ -384,7 +383,8 @@ export function BrandingSettingsPanel({
       <Card tone="documents">
         <h3 className="font-serif text-lg italic font-semibold">Configurações dos documentos</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Regras de conteúdo que não alteram a aparência do papel.
+          Regras de conteúdo que não alteram a aparência do papel. São salvas junto com a
+          identidade visual.
         </p>
         <label className="mt-4 flex flex-col gap-1 text-xs text-muted-foreground">
           Antecedência de cancelamento (horas)

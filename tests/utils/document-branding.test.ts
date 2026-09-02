@@ -163,6 +163,15 @@ describe("criação de documento e renderer", () => {
     expect(resolved.typography).toBe("editorial");
   });
 
+  it("o PDF honra letterhead personalizado da org quando o documento usa o perfil padrão", () => {
+    const saved = defaultBranding();
+    saved.default_visual_profile = "clinica";
+    saved.letterhead_preset = "profissional";
+    expect(resolveBranding(saved, {}, "clinica").letterhead).toBe("profissional");
+    expect(resolveBranding(saved, {}, "premium").letterhead).toBe("premium");
+    expect(resolveBranding(saved, {}).letterhead).toBe("profissional");
+  });
+
   it("o PDF/renderer reutiliza o subtítulo do consultório como título profissional", () => {
     const resolved = resolveBranding(
       null,
