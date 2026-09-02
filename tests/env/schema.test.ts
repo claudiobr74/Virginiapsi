@@ -13,9 +13,11 @@ import {
   parseGoogleCalendarEnv,
   parseGroqTranscriptionEnv,
   parseServerEnv,
+  parseSessionAiEnv,
   parseSessionCaptureEnv,
   parseSupabaseAdminEnv,
   readIntegrationEnvFlags,
+  readSessionAiEnv,
   SERVER_ONLY_ENV_KEYS,
 } from "../../src/lib/env/server-schema";
 
@@ -361,6 +363,54 @@ describe("contrato de ambiente", () => {
     );
     expect(source).not.toContain("getServerEnv");
     expect(source).toContain("createGroqTranscriptionClient");
+  });
+
+  it("getSessionAiEnv existe como wrapper server-only isolado", () => {
+    const source = readFileSync(path.join(ROOT, "src/lib/env/server.ts"), "utf8");
+    expect(source).toContain("export function getSessionAiEnv");
+    expect(source).toContain("parseSessionAiEnv");
+  });
+
+  it("o parser de Session AI exige só Gemini de sessão", () => {
+    const parsed = parseSessionAiEnv({
+      GEMINI_API_KEY: "gemini-key",
+      GEMINI_MODEL_SESSION: "gemini-session-model",
+    });
+    expect(parsed.GEMINI_API_KEY).toBe("gemini-key");
+    expect(parsed.GEMINI_MODEL_SESSION).toBe("gemini-session-model");
+    expect("TWILIO_ACCOUNT_SID" in parsed).toBe(false);
+    expect("GROQ_API_KEY" in parsed).toBe(false);
+    expect("CRON_SECRET" in parsed).toBe(false);
+    expect("GOOGLE_CLIENT_ID" in parsed).toBe(false);
+    expect(() => parseSessionAiEnv({})).toThrow(/GEMINI_API_KEY/);
+  });
+
+  it("readSessionAiEnv classifica chaves ausentes sem lançar nem vazar valores", () => {
+    const missing = readSessionAiEnv({});
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) {
+      expect(missing.missingKeys).toEqual(["GEMINI_API_KEY", "GEMINI_MODEL_SESSION"]);
+    }
+
+    const secret = "AIzaSy-must-not-appear";
+    const onlyKey = readSessionAiEnv({
+      GEMINI_API_KEY: secret,
+      GEMINI_MODEL_SESSION: "",
+    });
+    expect(onlyKey.ok).toBe(false);
+    if (!onlyKey.ok) {
+      expect(onlyKey.missingKeys).toEqual(["GEMINI_MODEL_SESSION"]);
+      expect(JSON.stringify(onlyKey)).not.toContain(secret);
+    }
+  });
+
+  it("Session AI não usa getServerEnv", () => {
+    const source = readFileSync(
+      path.join(ROOT, "src/features/sessions/ai/actions.ts"),
+      "utf8",
+    );
+    expect(source).not.toContain("getServerEnv");
+    expect(source).toContain("getSessionAiEnv");
   });
 
   it("aceita o contrato servidor sem GROQ_API_KEY", () => {

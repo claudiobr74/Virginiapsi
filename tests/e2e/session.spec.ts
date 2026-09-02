@@ -29,7 +29,7 @@ test.describe("Sessão clínica ativa", () => {
       page.getByRole("heading", { name: "Área de Trabalho Clínico" }),
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Transcrição" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Session AI" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Apoio de IA" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Finalizar atendimento" })).toBeVisible();
   });
 

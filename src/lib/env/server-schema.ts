@@ -6,6 +6,7 @@
 import { z } from "zod";
 import {
   coalesceAppUrl,
+  envIssueKeyNames,
   formatEnvIssues,
   googleCalendarRedirectUri,
   publicEnvSchema,
@@ -79,6 +80,14 @@ export const groqTranscriptionEnvSchema = z.object({
 });
 
 export type GroqTranscriptionEnv = z.infer<typeof groqTranscriptionEnvSchema>;
+
+/** Session AI (DPEP/live/preparation) — independent from Twilio, Calendar, Groq and Cron. */
+export const sessionAiEnvSchema = z.object({
+  GEMINI_API_KEY: nonEmpty,
+  GEMINI_MODEL_SESSION: nonEmpty,
+});
+
+export type SessionAiEnv = z.infer<typeof sessionAiEnvSchema>;
 
 export const SERVER_ONLY_ENV_KEYS = [
   "SUPABASE_SECRET_KEY",
@@ -209,6 +218,38 @@ export function parseGroqTranscriptionEnv(
     throw new Error(formatEnvIssues(parsed.error));
   }
   return parsed.data;
+}
+
+export function parseSessionAiEnv(
+  source: EnvSource = readServerEnvFromProcess(),
+): SessionAiEnv {
+  const parsed = sessionAiEnvSchema.safeParse({
+    GEMINI_API_KEY: source.GEMINI_API_KEY,
+    GEMINI_MODEL_SESSION: source.GEMINI_MODEL_SESSION,
+  });
+  if (!parsed.success) {
+    throw new Error(formatEnvIssues(parsed.error));
+  }
+  return parsed.data;
+}
+
+/** Classified Session AI env read — key names only, never values. */
+export function readSessionAiEnv(
+  source: EnvSource = readServerEnvFromProcess(),
+):
+  | { ok: true; env: SessionAiEnv }
+  | { ok: false; missingKeys: string[] } {
+  const parsed = sessionAiEnvSchema.safeParse({
+    GEMINI_API_KEY: source.GEMINI_API_KEY,
+    GEMINI_MODEL_SESSION: source.GEMINI_MODEL_SESSION,
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      missingKeys: envIssueKeyNames(new Error(formatEnvIssues(parsed.error))),
+    };
+  }
+  return { ok: true, env: parsed.data };
 }
 
 function presentEnvValue(value: string | undefined): boolean {
