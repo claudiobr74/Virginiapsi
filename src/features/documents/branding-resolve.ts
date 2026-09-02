@@ -187,6 +187,7 @@ export function resolveBranding(
   fallback: {
     organizationName?: string | null;
     professionalName?: string | null;
+    professionalTitle?: string | null;
     crp?: string | null;
     crpState?: string | null;
     clinicName?: string | null;
@@ -214,7 +215,7 @@ export function resolveBranding(
   return {
     clinicName: clinic,
     professionalName: professional,
-    professionalTitle: branding.professional_title || "Psicóloga",
+    professionalTitle: branding.professional_title || fallback.professionalTitle || "Psicóloga",
     crpLabel: crpLabel ? `CRP ${crpLabel}` : "",
     addressLine: branding.show_address ? branding.address_line || "" : "",
     cityState: branding.show_city ? cityState : "",

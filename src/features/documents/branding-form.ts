@@ -11,6 +11,7 @@ import type { VisualProfile } from "@/features/documents/contracts";
 export interface BrandingIdentityFallback {
   organizationName?: string | null;
   professionalName?: string | null;
+  professionalTitle?: string | null;
   crp?: string | null;
   crpState?: string | null;
   clinicName?: string | null;

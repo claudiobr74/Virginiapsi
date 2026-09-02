@@ -51,7 +51,7 @@ export function BrandingStylePicker({
         aria-label="Estilo visual dos documentos"
         className="mt-3 grid grid-cols-2 gap-2"
       >
-        {VISUAL_STYLE_ORDER.map((profile) => {
+        {VISUAL_STYLE_ORDER.map((profile, index) => {
           const copy = VISUAL_STYLE_COPY[profile];
           const selected = value === profile;
           return (
@@ -60,6 +60,7 @@ export function BrandingStylePicker({
               type="button"
               role="radio"
               aria-checked={selected}
+              tabIndex={selected ? 0 : -1}
               data-testid={`branding-style-${profile}`}
               className={cn(
                 "flex min-h-11 flex-col gap-2 rounded-2xl border px-3 py-3 text-left transition-colors",
@@ -69,6 +70,29 @@ export function BrandingStylePicker({
                   : "border-border bg-card hover:bg-surface",
               )}
               onClick={() => onChange(profile)}
+              onKeyDown={(event) => {
+                const last = VISUAL_STYLE_ORDER.length - 1;
+                let nextIndex = index;
+                if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+                  nextIndex = index === last ? 0 : index + 1;
+                } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+                  nextIndex = index === 0 ? last : index - 1;
+                } else if (event.key === "Home") {
+                  nextIndex = 0;
+                } else if (event.key === "End") {
+                  nextIndex = last;
+                } else {
+                  return;
+                }
+                event.preventDefault();
+                const next = VISUAL_STYLE_ORDER[nextIndex];
+                onChange(next);
+                queueMicrotask(() => {
+                  document
+                    .querySelector<HTMLButtonElement>(`[data-testid="branding-style-${next}"]`)
+                    ?.focus();
+                });
+              }}
             >
               <MiniSheet profile={profile} />
               <span className="flex flex-col gap-0.5">

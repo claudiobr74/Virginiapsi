@@ -147,6 +147,7 @@ describe("criação de documento e renderer", () => {
       brandingFormToRow(applyVisualStyleToForm(brandingFormFromRow(null), "premium")),
       {
         professionalName: "Virgínia Macedo",
+        professionalTitle: "Psicóloga clínica",
         crp: "09/12345",
         clinicName: "Clínica Recriar",
         email: "virginia@example.com",
@@ -155,6 +156,7 @@ describe("criação de documento e renderer", () => {
     );
     expect(resolved.letterhead).toBe("premium");
     expect(resolved.professionalName).toBe("Virgínia Macedo");
+    expect(resolved.professionalTitle).toBe("Psicóloga clínica");
     expect(resolved.crpLabel).toContain("09/12345");
     expect(resolved.clinicName).toBe("Clínica Recriar");
     expect(resolved.email).toBe("virginia@example.com");

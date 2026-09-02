@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +82,7 @@ export function BrandingAdvancedSettings({
   onSetDefaultLogo: (logoId: string) => void;
 }) {
   const letterheadCustom = form.letterheadPreset !== profileLetterhead(form.defaultVisualProfile);
+  const [logoVariant, setLogoVariant] = useState<(typeof LOGO_VARIANT_VALUES)[number]>("horizontal");
 
   return (
     <div className="rounded-2xl border border-border bg-card">
@@ -227,13 +229,30 @@ export function BrandingAdvancedSettings({
               ))}
             </div>
             <label className="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">
+              Variante
+              <select
+                aria-label="Variante da logo"
+                className="h-11 rounded-xl border border-border bg-input px-3 text-sm text-foreground"
+                value={logoVariant}
+                onChange={(event) =>
+                  setLogoVariant(event.target.value as (typeof LOGO_VARIANT_VALUES)[number])
+                }
+              >
+                {LOGO_VARIANT_VALUES.map((value) => (
+                  <option key={value} value={value}>
+                    {LOGO_VARIANT_LABELS[value] ?? value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">
               Enviar variante
               <input
                 type="file"
                 accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
-                  if (file) onUploadVariant(file, "principal");
+                  if (file) onUploadVariant(file, logoVariant);
                   event.target.value = "";
                 }}
               />

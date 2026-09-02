@@ -52,6 +52,8 @@ describe("BrandingSettingsPanel", () => {
       "aria-expanded",
       "false",
     );
+    expect(screen.getByRole("checkbox", { name: "CRP" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Cidade/UF" })).toBeInTheDocument();
   });
 
   it("preserva branding existente na seleção do modelo", () => {
@@ -79,6 +81,7 @@ describe("BrandingSettingsPanel", () => {
     expect(upsertDocumentBrandingAction).not.toHaveBeenCalled();
     expect(screen.getByRole("radio", { name: /Minimalista/ })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByText("Alterações não salvas")).toBeInTheDocument();
+    expect(screen.getByTestId("branding-a4-page")).toHaveTextContent("Ana Serena");
   });
 
   it("desmarcar CRP remove o dado da prévia", async () => {
@@ -108,11 +111,40 @@ describe("BrandingSettingsPanel", () => {
     );
   });
 
-  it("trocar paleta atualiza as cores da prévia", async () => {
+  it("navega os estilos pelo teclado e não chama o servidor", async () => {
     const user = userEvent.setup();
     render(<BrandingSettingsPanel branding={null} logos={[]} />);
+    screen.getByRole("radio", { name: /Clínico/ }).focus();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: /Minimalista/ })).toHaveAttribute("aria-checked", "true");
+    expect(upsertDocumentBrandingAction).not.toHaveBeenCalled();
+  });
+
+  it("folha A4 permanece clara em dark mode", () => {
+    render(
+      <div className="dark bg-zinc-950">
+        <BrandingSettingsPanel branding={null} logos={[]} />
+      </div>,
+    );
+    expect(screen.getByTestId("branding-a4-page").className).toMatch(/bg-white/);
+  });
+
+  it("trocar paleta atualiza as cores da prévia", async () => {
+    const user = userEvent.setup();
+    render(
+      <BrandingSettingsPanel
+        branding={null}
+        logos={[]}
+        fallback={{ professionalName: "Ana Serena" }}
+      />,
+    );
     await user.click(screen.getByRole("radio", { name: "Terracota suave" }));
-    expect(screen.getByRole("radio", { name: "Terracota suave" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Terracota suave" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    const heading = screen.getByTestId("branding-a4-page").querySelector("header p");
+    expect(heading).toHaveStyle({ color: "#2a1c18" });
   });
 
   it("opções avançadas continuam acessíveis", async () => {
@@ -124,6 +156,7 @@ describe("BrandingSettingsPanel", () => {
       "true",
     );
     expect(screen.getByLabelText("Tipografia")).toBeInTheDocument();
+    expect(screen.getByLabelText("Variante da logo")).toBeInTheDocument();
     expect(screen.getByText("Antecedência de cancelamento (horas)")).toBeInTheDocument();
     expect(screen.getByText(/cláusula informativa de IA/i)).toBeInTheDocument();
   });

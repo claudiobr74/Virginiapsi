@@ -42,6 +42,14 @@ test.describe("Identidade visual dos documentos", () => {
         fullPage: true,
       });
       await page.setViewportSize({ width: 1440, height: 900 });
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.evaluate(() => document.documentElement.classList.add("dark"));
+      await page.screenshot({
+        path: path.join(ARTIFACTS, "desktop-1440-clinico-dark.png"),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.remove("dark"));
+      await page.emulateMedia({ colorScheme: "light" });
     }
     if (testInfo.project.name === "mobile-chromium") {
       await page.getByRole("button", { name: "Ver prévia" }).click();

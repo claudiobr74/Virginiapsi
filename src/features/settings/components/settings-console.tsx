@@ -182,6 +182,7 @@ export function SettingsConsole({
             fallback={{
               organizationName: snapshot.organization.name,
               professionalName: snapshot.practice.professional_name || snapshot.profile.fullName,
+              professionalTitle: snapshot.practice.subtitle,
               crp: snapshot.practice.crp,
               clinicName: snapshot.practice.clinic_name,
               email: snapshot.profile.email,

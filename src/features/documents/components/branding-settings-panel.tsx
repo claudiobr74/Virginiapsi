@@ -126,7 +126,8 @@ export function BrandingSettingsPanel({
     form.professionalName.trim() || fallback.professionalName?.trim() || "Profissional";
   const displayedCrp = form.crp.trim() || fallback.crp?.trim();
   const displayedClinic = form.clinicName.trim() || fallback.clinicName?.trim() || fallback.organizationName?.trim();
-  const displayedTitle = form.professionalTitle.trim() || "Psicóloga";
+  const displayedTitle =
+    form.professionalTitle.trim() || fallback.professionalTitle?.trim() || "Psicóloga";
   const displayedPhone = form.phone.trim() || form.professionalPhone.trim() || fallback.phone?.trim();
   const displayedEmail = form.email.trim() || form.professionalEmail.trim() || fallback.email?.trim();
 
