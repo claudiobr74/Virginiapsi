@@ -73,7 +73,7 @@ export function BrandingSettingsPanel({
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState<BrandingFormState>(() => brandingFormFromRow(branding));
   const [baseline, setBaseline] = useState<BrandingFormState>(() => brandingFormFromRow(branding));
-  const [status, setStatus] = useState<"idle" | "dirty" | "saving" | "saved" | "error">("idle");
+  const [savePhase, setSavePhase] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customColorsOpen, setCustomColorsOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -81,31 +81,31 @@ export function BrandingSettingsPanel({
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [localLogoUrl, setLocalLogoUrl] = useState<string | null>(null);
-
-  const dirty = !brandingFormsEqual(form, baseline);
-
-  useEffect(() => {
+  const brandingKey = JSON.stringify(branding);
+  const [seenBrandingKey, setSeenBrandingKey] = useState(brandingKey);
+  if (seenBrandingKey !== brandingKey) {
+    setSeenBrandingKey(brandingKey);
     const next = brandingFormFromRow(branding);
     setForm(next);
     setBaseline(next);
-    setStatus("idle");
-  }, [branding]);
+    setSavePhase("idle");
+  }
 
-  useEffect(() => {
-    if (dirty) setStatus("dirty");
-  }, [dirty]);
+  const dirty = !brandingFormsEqual(form, baseline);
+  const status: "idle" | "dirty" | "saving" | "saved" | "error" =
+    savePhase === "saving" || savePhase === "error" ? savePhase : dirty ? "dirty" : savePhase;
 
-  const defaultLogo = logos.find((logo) => logo.is_default) ?? logos[0];
+  const defaultLogoId = logos.find((logo) => logo.is_default)?.id ?? logos[0]?.id;
   useEffect(() => {
-    if (!defaultLogo || localLogoUrl) return;
+    if (!defaultLogoId || localLogoUrl) return;
     let cancelled = false;
-    void requestLogoPreviewUrlAction(defaultLogo.id).then((result) => {
+    void requestLogoPreviewUrlAction(defaultLogoId).then((result) => {
       if (!cancelled && result.url) setLogoUrl(result.url);
     });
     return () => {
       cancelled = true;
     };
-  }, [defaultLogo, localLogoUrl]);
+  }, [defaultLogoId, localLogoUrl]);
 
   const resolved = useMemo(() => {
     const letterheadCustom = form.letterheadPreset !== profileLetterhead(form.defaultVisualProfile);
@@ -127,19 +127,18 @@ export function BrandingSettingsPanel({
 
   function patch(next: Partial<BrandingFormState>) {
     setForm((current) => ({ ...current, ...next }));
-    setStatus("dirty");
   }
 
   function save() {
-    setStatus("saving");
+    setSavePhase("saving");
     startTransition(async () => {
       const result = await upsertDocumentBrandingAction(brandingFormToUpdateInput(form));
       if (result.error) {
-        setStatus("error");
+        setSavePhase("error");
         return;
       }
       setBaseline(form);
-      setStatus("saved");
+      setSavePhase("saved");
       router.refresh();
     });
   }
@@ -165,13 +164,13 @@ export function BrandingSettingsPanel({
                 : "image/jpeg");
     const prepared = await requestLogoUploadUrlAction({ filename: file.name, mimeType: mime });
     if (prepared.error || !prepared.path || !prepared.token) {
-      setStatus("error");
+      setSavePhase("error");
       return;
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!supabaseUrl) {
-      setStatus("error");
+      setSavePhase("error");
       return;
     }
     const response = await fetch(
@@ -183,7 +182,7 @@ export function BrandingSettingsPanel({
       },
     );
     if (!response.ok) {
-      setStatus("error");
+      setSavePhase("error");
       return;
     }
     const result = await registerLogoAction({
@@ -197,7 +196,7 @@ export function BrandingSettingsPanel({
       isDefault: makeDefault,
     });
     if (result.error) {
-      setStatus("error");
+      setSavePhase("error");
       return;
     }
     router.refresh();
@@ -241,7 +240,6 @@ export function BrandingSettingsPanel({
             customized={form.letterheadPreset !== profileLetterhead(form.defaultVisualProfile)}
             onChange={(profile: VisualProfile) => {
               setForm((current) => applyVisualStyleToForm(current, profile));
-              setStatus("dirty");
             }}
           />
 
@@ -324,7 +322,6 @@ export function BrandingSettingsPanel({
                 }
                 return { ...current, ...next };
               });
-              setStatus("dirty");
             }}
             onUploadVariant={(file, variant) => void uploadLogo(file, variant, false)}
             onPreviewLogo={(id) =>
@@ -456,7 +453,6 @@ export function BrandingSettingsPanel({
         destructive={false}
         onConfirm={() => {
           setForm((current) => restoreRecommendedVisual(current));
-          setStatus("dirty");
           setRestoreOpen(false);
         }}
       />
