@@ -90,6 +90,13 @@ export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
 export const VISUAL_PROFILE_VALUES = ["essencial", "clinica", "institucional", "premium"] as const;
 export type VisualProfile = (typeof VISUAL_PROFILE_VALUES)[number];
 
+export const VISUAL_PROFILE_LABELS: Record<VisualProfile, string> = {
+  clinica: "Clínico",
+  essencial: "Minimalista",
+  institucional: "Institucional",
+  premium: "Elegante",
+};
+
 export const LOGO_MODE_VALUES = [
   "clinic_default",
   "principal",

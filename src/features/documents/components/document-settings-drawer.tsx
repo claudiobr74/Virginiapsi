@@ -8,10 +8,12 @@ import {
   LOGO_ALIGN_VALUES,
   LOGO_MODE_VALUES,
   LOGO_SIZE_VALUES,
+  VISUAL_PROFILE_LABELS,
   VISUAL_PROFILE_VALUES,
   type DocumentRow,
 } from "@/features/documents/contracts";
 import type { SystemTemplateDefinition } from "@/features/documents/system-templates";
+import { LOGO_VARIANT_LABELS } from "@/features/documents/branding-presets";
 
 export function DocumentSettingsDrawer({
   open,
@@ -127,7 +129,7 @@ export function DocumentSettingsDrawer({
               >
                 {VISUAL_PROFILE_VALUES.map((value) => (
                   <option key={value} value={value}>
-                    {value}
+                    {VISUAL_PROFILE_LABELS[value]}
                   </option>
                 ))}
               </select>
@@ -143,7 +145,11 @@ export function DocumentSettingsDrawer({
               >
                 {LOGO_MODE_VALUES.map((value) => (
                   <option key={value} value={value}>
-                    {value === "clinic_default" ? "Padrão da clínica" : value === "none" ? "Sem logo" : value}
+                    {value === "clinic_default"
+                      ? "Padrão da clínica"
+                      : value === "none"
+                        ? "Sem logo"
+                        : (LOGO_VARIANT_LABELS[value] ?? value)}
                   </option>
                 ))}
               </select>
