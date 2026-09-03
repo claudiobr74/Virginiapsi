@@ -67,5 +67,10 @@ as $$
     and public.is_org_member(org_id);
 $$;
 
+-- Recreating the function resets its ACL. Preserve the established shell
+-- contract: no anonymous/PUBLIC execution; authenticated app users and the
+-- service role may execute it.
 revoke all on function public.organization_shell_settings(uuid) from public;
+revoke execute on function public.organization_shell_settings(uuid) from anon;
 grant execute on function public.organization_shell_settings(uuid) to authenticated;
+grant execute on function public.organization_shell_settings(uuid) to service_role;
