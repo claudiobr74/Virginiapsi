@@ -8,7 +8,10 @@ import {
   type PatientRow,
   type PatientStatus,
 } from "@/features/patients/contracts";
-import { foldDirectorySessionBounds } from "@/features/patients/session-bounds";
+import {
+  foldDirectorySessionBounds,
+  foldFinalizedClinicalSessionLast,
+} from "@/features/patients/session-bounds";
 import { DOCUMENT_BUCKETS, createSignedDownloadUrl } from "@/lib/documents/storage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -73,7 +76,7 @@ export async function listPatientDirectory(
   );
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  const { data: appointmentRows, error: appointmentError } = await supabase
     .from("appointments")
     .select("patient_id, starts_at, status, google_deleted_at")
     .eq("organization_id", organizationId)
@@ -81,15 +84,19 @@ export async function listPatientDirectory(
     .neq("status", "cancelled")
     .is("google_deleted_at", null);
 
-  if (error) {
-    logAppointmentsBoundsError("list_patient_directory_appointments", error);
-    return patients.map((patient, index) => ({
-      patient,
-      photoUrl: photoUrls[index] ?? null,
-      lastSessionAt: null,
-      nextSessionAt: null,
-      pendingClinical: 0,
-    }));
+  if (appointmentError) {
+    logAppointmentsBoundsError("list_patient_directory_appointments", appointmentError);
+  }
+
+  const { data: finalizedSessionRows, error: finalizedSessionError } = await supabase
+    .from("clinical_sessions")
+    .select("patient_id, started_at, ended_at, status")
+    .eq("organization_id", organizationId)
+    .eq("status", "finalized")
+    .not("patient_id", "is", null);
+
+  if (finalizedSessionError) {
+    logAppointmentsBoundsError("list_patient_directory_finalized_sessions", finalizedSessionError);
   }
 
   const pendingCount = new Map<string, number>();
@@ -106,12 +113,21 @@ export async function listPatientDirectory(
     pendingCount.set(patientId, (pendingCount.get(patientId) ?? 0) + 1);
   }
 
-  const { lastByPatient, nextByPatient } = foldDirectorySessionBounds(data ?? [], Date.now());
+  const nowMs = Date.now();
+  const { lastByPatient: appointmentLastByPatient, nextByPatient } =
+    foldDirectorySessionBounds(appointmentError ? [] : (appointmentRows ?? []), nowMs);
+  const finalizedLastByPatient = foldFinalizedClinicalSessionLast(
+    finalizedSessionError ? [] : (finalizedSessionRows ?? []),
+    nowMs,
+  );
 
   return patients.map((patient, index) => ({
     patient,
     photoUrl: photoUrls[index] ?? null,
-    lastSessionAt: lastByPatient.get(patient.id) ?? null,
+    // A finalized clinical session is authoritative. Past appointments remain
+    // a compatibility fallback for historical rows that were never sessionized.
+    lastSessionAt:
+      finalizedLastByPatient.get(patient.id) ?? appointmentLastByPatient.get(patient.id) ?? null,
     nextSessionAt: nextByPatient.get(patient.id) ?? null,
     pendingClinical: pendingCount.get(patient.id) ?? 0,
   }));
@@ -174,7 +190,7 @@ export async function getPatientScheduleBounds(
   patientId: string,
 ): Promise<{ lastSessionAt: string | null; nextSessionAt: string | null }> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  const { data: appointmentRows, error: appointmentError } = await supabase
     .from("appointments")
     .select("patient_id, starts_at, status, google_deleted_at")
     .eq("organization_id", organizationId)
@@ -183,14 +199,32 @@ export async function getPatientScheduleBounds(
     .is("google_deleted_at", null)
     .order("starts_at", { ascending: true });
 
-  if (error || !data) {
-    logAppointmentsBoundsError("get_patient_schedule_bounds", error);
-    return { lastSessionAt: null, nextSessionAt: null };
+  if (appointmentError) {
+    logAppointmentsBoundsError("get_patient_schedule_bounds_appointments", appointmentError);
   }
 
-  const { lastByPatient, nextByPatient } = foldDirectorySessionBounds(data, Date.now());
+  const { data: finalizedSessionRows, error: finalizedSessionError } = await supabase
+    .from("clinical_sessions")
+    .select("patient_id, started_at, ended_at, status")
+    .eq("organization_id", organizationId)
+    .eq("patient_id", patientId)
+    .eq("status", "finalized");
+
+  if (finalizedSessionError) {
+    logAppointmentsBoundsError("get_patient_schedule_bounds_finalized_sessions", finalizedSessionError);
+  }
+
+  const nowMs = Date.now();
+  const { lastByPatient: appointmentLastByPatient, nextByPatient } =
+    foldDirectorySessionBounds(appointmentError ? [] : (appointmentRows ?? []), nowMs);
+  const finalizedLastByPatient = foldFinalizedClinicalSessionLast(
+    finalizedSessionError ? [] : (finalizedSessionRows ?? []),
+    nowMs,
+  );
+
   return {
-    lastSessionAt: lastByPatient.get(patientId) ?? null,
+    lastSessionAt:
+      finalizedLastByPatient.get(patientId) ?? appointmentLastByPatient.get(patientId) ?? null,
     nextSessionAt: nextByPatient.get(patientId) ?? null,
   };
 }
