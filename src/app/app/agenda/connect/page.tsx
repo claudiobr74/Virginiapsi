@@ -5,6 +5,7 @@ import { ConnectionPanel } from "@/features/calendar/components/connection-panel
 import { getConnection } from "@/features/calendar/connection-queries";
 import { ensureGoogleCalendarReady } from "@/features/calendar/ensure-calendar";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
+import { readCanonicalGoogleCalendarRedirectUri } from "@/lib/env/server";
 
 export const metadata: Metadata = { title: "Conexão Google Calendar — VirgíniaPsi" };
 
@@ -36,6 +37,7 @@ export default async function GoogleConnectionPage() {
       <ConnectionPanel
         connection={connection}
         canManage={role === "psychologist_admin"}
+        calendarRedirectUri={readCanonicalGoogleCalendarRedirectUri()}
       />
     </PageContainer>
   );

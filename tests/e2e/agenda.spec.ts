@@ -170,7 +170,8 @@ test.describe("Agenda — conexão Google Calendar", () => {
     await expect(
       page.getByRole("button", { name: "Conectar Google Agenda" }),
     ).toBeVisible();
-    await expect(page.getByText(/cadastre este endereço/i)).toHaveCount(0);
+    await expect(page.getByText(/cadastre esta URI/i)).toBeVisible();
+    await expect(page.getByText(/api\/integrations\/google\/callback/)).toBeVisible();
 
     // A troca de código/OAuth real com accounts.google.com não é testável
     // neste ambiente sem credenciais reais (EXTERNAL_BLOCKED) — cobrimos até

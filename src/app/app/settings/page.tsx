@@ -7,6 +7,7 @@ import { SettingsConsole } from "@/features/settings/components/settings-console
 import { getSettingsSnapshot } from "@/features/settings/queries";
 import { RestrictedAccess } from "@/features/shell/restricted-access";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
+import { readCanonicalGoogleCalendarRedirectUri } from "@/lib/env/server";
 
 export const metadata = { title: "Configurações — VirgíniaPsi" };
 
@@ -88,6 +89,7 @@ export default async function SettingsPage({
       <SettingsConsole
         snapshot={snapshot}
         googleConnection={googleConnection}
+        calendarRedirectUri={readCanonicalGoogleCalendarRedirectUri()}
         initialTab={initialTab}
       />
     </PageContainer>

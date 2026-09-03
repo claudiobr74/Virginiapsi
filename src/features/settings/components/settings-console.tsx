@@ -110,10 +110,12 @@ function healthBadge(health: IntegrationHealth): {
 export function SettingsConsole({
   snapshot,
   googleConnection = null,
+  calendarRedirectUri,
   initialTab,
 }: {
   snapshot: SettingsSnapshot;
   googleConnection?: ConnectionRow | null;
+  calendarRedirectUri?: string;
   initialTab?: string;
 }) {
   const [tab, setTab] = useState<TabId>(
@@ -162,6 +164,7 @@ export function SettingsConsole({
           <IntegrationsSection
             snapshot={snapshot}
             googleConnection={googleConnection}
+            calendarRedirectUri={calendarRedirectUri}
           />
         ) : null}
         {tab === "backup" ? <BackupSection snapshot={snapshot} /> : null}
@@ -513,9 +516,11 @@ function TeamSection({ snapshot }: { snapshot: SettingsSnapshot }) {
 function IntegrationsSection({
   snapshot,
   googleConnection,
+  calendarRedirectUri,
 }: {
   snapshot: SettingsSnapshot;
   googleConnection: ConnectionRow | null;
+  calendarRedirectUri?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -546,6 +551,7 @@ function IntegrationsSection({
         <ConnectionPanel
           connection={connection}
           canManage
+          calendarRedirectUri={calendarRedirectUri}
           oauthReturnTo="settings"
           framed={false}
         />

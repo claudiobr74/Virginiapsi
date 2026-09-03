@@ -27,11 +27,13 @@ const STATUS_LABELS = {
 export function ConnectionPanel({
   connection,
   canManage,
+  calendarRedirectUri,
   oauthReturnTo = "agenda",
   framed = true,
 }: {
   connection: ConnectionRow | null;
   canManage: boolean;
+  calendarRedirectUri?: string;
   oauthReturnTo?: GoogleOAuthReturnTo;
   framed?: boolean;
 }) {
@@ -155,6 +157,18 @@ export function ConnectionPanel({
             </Button>
           ) : null}
         </div>
+      ) : null}
+
+      {calendarRedirectUri && status !== "connected" ? (
+        <p className="text-sm text-muted-foreground">
+          Se o Google mostrar erro 400{" "}
+          <span className="font-medium text-foreground">redirect_uri_mismatch</span>,
+          cadastre esta URI no Google Cloud, em URIs de redirecionamento autorizados.
+          É o retorno da Agenda — diferente do login:{" "}
+          <code className="break-all rounded-md bg-muted px-1.5 py-0.5 text-xs text-foreground">
+            {calendarRedirectUri}
+          </code>
+        </p>
       ) : null}
 
       {showConnectionDetails ? (

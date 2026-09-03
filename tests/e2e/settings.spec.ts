@@ -48,8 +48,9 @@ test.describe("Configurações", () => {
     ).toBeVisible();
     await expect(page.getByText("Conta Google:")).toHaveCount(0);
     await expect(page.getByText(/última sincronização/i)).toHaveCount(0);
-    await expect(page.getByText(/cadastre este endereço/i)).toHaveCount(0);
-    await expect(page.getByText(/api\/integrations\/google\/callback/)).toHaveCount(0);
+    await expect(page.getByText(/cadastre este endereço|cadastre esta URI/i)).toBeVisible();
+    await expect(page.getByText(/api\/integrations\/google\/callback/)).toBeVisible();
+    await expect(page.getByText(/tesseli/i)).toHaveCount(0);
     await expect(page.getByText("Twilio WhatsApp")).toBeVisible();
     await expect(page.getByText("Transcrição")).toBeVisible();
     await expect(page.getByText("Gemini")).toBeVisible();

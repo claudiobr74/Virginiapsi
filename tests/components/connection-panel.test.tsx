@@ -48,10 +48,28 @@ describe("ConnectionPanel — desconectado", () => {
     expect(screen.queryByText("virginiamacedorecriar@gmail.com")).not.toBeInTheDocument();
     expect(screen.queryByText(/última sincronização/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/21\/08\/2026/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/cadastre este endereço/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/cadastre esta URI/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/callback/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/tesseli/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/GOOGLE_OAUTH/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/vercel\.app/i)).not.toBeInTheDocument();
+  });
+
+  it("mostra só o callback canônico quando a página informa o URI derivado", () => {
+    render(
+      <ConnectionPanel
+        connection={disconnectedWithStaleMetadata}
+        canManage
+        calendarRedirectUri="https://serena-psi-beta.vercel.app/api/integrations/google/callback"
+      />,
+    );
+
+    expect(screen.getByText(/cadastre esta URI/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("https://serena-psi-beta.vercel.app/api/integrations/google/callback"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/tesseli/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/GOOGLE_OAUTH/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("virginiamacedorecriar@gmail.com")).not.toBeInTheDocument();
   });
 });

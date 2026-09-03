@@ -158,6 +158,21 @@ function googleCalendarRedirectReady(source: EnvSource): boolean {
   }
 }
 
+/** Canonical Agenda callback — never logs, never throws. Used in operator UI. */
+export function readCanonicalGoogleCalendarRedirectUri(
+  source: EnvSource = readServerEnvFromProcess(),
+): string | undefined {
+  const appUrl = canonicalCalendarAppUrl(source);
+  if (!appUrl) {
+    return undefined;
+  }
+  try {
+    return googleCalendarRedirectUri(appUrl);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Presence flags for Settings diagnostics — never throws, never logs values. */
 export function readIntegrationEnvFlags(
   source: EnvSource = readServerEnvFromProcess(),

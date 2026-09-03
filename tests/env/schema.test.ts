@@ -12,6 +12,7 @@ import {
 import {
   parseGoogleCalendarEnv,
   parseServerEnv,
+  readCanonicalGoogleCalendarRedirectUri,
   readIntegrationEnvFlags,
   SERVER_ONLY_ENV_KEYS,
 } from "../../src/lib/env/server-schema";
@@ -230,6 +231,19 @@ describe("contrato de ambiente", () => {
         GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key",
       }).googleOAuth,
     ).toBe(true);
+  });
+
+  it("expõe o callback canônico da Agenda para o operador cadastrar no Google Cloud", () => {
+    expect(
+      readCanonicalGoogleCalendarRedirectUri({
+        NEXT_PUBLIC_APP_URL: "https://serena-psi-beta.vercel.app",
+      }),
+    ).toBe("https://serena-psi-beta.vercel.app/api/integrations/google/callback");
+    expect(
+      readCanonicalGoogleCalendarRedirectUri({
+        NEXT_PUBLIC_APP_URL: "https://tesseli-preview.vercel.app",
+      }),
+    ).toBeUndefined();
   });
 
   it("diagnósticos de Configurações não exigem Twilio, Gemini nem CRON_SECRET", () => {
