@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { MeetActionButton } from "@/features/calendar/components/meet-action-button";
+import {
+  MeetActionButton,
+  type MeetRequestAction,
+} from "@/features/calendar/components/meet-action-button";
 import type {
   AppointmentModality,
   AppointmentOrigin,
@@ -25,8 +28,8 @@ import {
   type SessionWorkingNotesRow,
   type TranscriptSegmentRow,
 } from "@/features/sessions/contracts";
-import { formatInTimeZone } from "@/lib/utils/timezone";
 import { elapsedSecondsBetween, formatElapsedHms } from "@/lib/utils/elapsed";
+import { formatInTimeZone } from "@/lib/utils/timezone";
 
 export type SessionAppointmentContext = {
   id: string;
@@ -47,6 +50,7 @@ export function ActiveSessionView({
   workingNotes,
   transcriptSegments,
   appointment,
+  requestMeetAction,
   initialElapsedSeconds,
 }: {
   session: ClinicalSessionRow;
@@ -58,6 +62,7 @@ export function ActiveSessionView({
   workingNotes: SessionWorkingNotesRow | null;
   transcriptSegments: TranscriptSegmentRow[];
   appointment: SessionAppointmentContext | null;
+  requestMeetAction?: MeetRequestAction;
   initialElapsedSeconds: number;
 }) {
   const router = useRouter();
@@ -147,6 +152,7 @@ export function ActiveSessionView({
                 origin={appointment.origin}
                 meetUrl={appointment.meetUrl}
                 meetStatus={appointment.meetStatus}
+                requestMeetAction={requestMeetAction}
                 size="sm"
                 variant="secondary"
               />
