@@ -1,10 +1,16 @@
 "use client";
 
-import { ArrowLeft, ChevronDown, ExternalLink } from "lucide-react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { MeetActionButton } from "@/features/calendar/components/meet-action-button";
+import type {
+  AppointmentModality,
+  AppointmentOrigin,
+  MeetStatus,
+} from "@/features/calendar/contracts";
 import { DpepForm } from "@/features/sessions/components/dpep-form";
 import { FinalizeSessionWizard } from "@/features/sessions/components/finalize-session-wizard";
 import { SessionAiPanel } from "@/features/sessions/components/session-ai-panel";
@@ -23,8 +29,12 @@ import { formatInTimeZone } from "@/lib/utils/timezone";
 import { elapsedSecondsBetween, formatElapsedHms } from "@/lib/utils/elapsed";
 
 export type SessionAppointmentContext = {
+  id: string;
+  modality: AppointmentModality;
   modalityLabel: string;
+  origin: AppointmentOrigin;
   meetUrl: string | null;
+  meetStatus: MeetStatus;
 };
 
 export function ActiveSessionView({
@@ -130,16 +140,16 @@ export function ActiveSessionView({
               initialElapsedSeconds={initialElapsedSeconds}
               className="text-base text-attention"
             />
-            {appointment?.meetUrl ? (
-              <a
-                href={appointment.meetUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground hover:bg-sage-light/40"
-              >
-                Meet
-                <ExternalLink className="size-3.5" aria-hidden />
-              </a>
+            {appointment ? (
+              <MeetActionButton
+                appointmentId={appointment.id}
+                modality={appointment.modality}
+                origin={appointment.origin}
+                meetUrl={appointment.meetUrl}
+                meetStatus={appointment.meetStatus}
+                size="sm"
+                variant="secondary"
+              />
             ) : null}
             {!isFinalized ? <FinalizeSessionWizard sessionId={session.id} /> : null}
           </div>
