@@ -1,7 +1,10 @@
 "use client";
 
 import { Video } from "lucide-react";
-import { MeetActionButton } from "@/features/calendar/components/meet-action-button";
+import {
+  MeetActionButton,
+  type MeetRequestAction,
+} from "@/features/calendar/components/meet-action-button";
 import { DashboardWidget } from "@/features/dashboard/components/dashboard-widget";
 import {
   patientDisplayLabel,
@@ -32,10 +35,12 @@ export function GoogleMeetPanel({
   appointments,
   timeZone,
   now,
+  requestMeetAction,
 }: {
   appointments: MyDayAppointment[];
   timeZone: string;
   now: Date;
+  requestMeetAction?: MeetRequestAction;
 }) {
   const rooms = appointments.filter((appointment) =>
     isRelevantMeetAppointment(appointment, now),
@@ -75,6 +80,7 @@ export function GoogleMeetPanel({
               origin={appointment.origin}
               meetUrl={appointment.meetUrl}
               meetStatus={appointment.meetStatus}
+              requestMeetAction={requestMeetAction}
               size="sm"
               variant="secondary"
               className="shrink-0"
