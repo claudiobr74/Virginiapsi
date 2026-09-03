@@ -17,7 +17,7 @@ describe("MeetActionButton", () => {
         modality="in_person"
         origin="TESSELI"
         meetUrl={null}
-        meetStatus="not_requested"
+        meetStatus="none"
         requestMeetAction={vi.fn()}
       />,
     );
@@ -51,7 +51,7 @@ describe("MeetActionButton", () => {
         modality="online"
         origin="TESSELI"
         meetUrl={null}
-        meetStatus="not_requested"
+        meetStatus="none"
         requestMeetAction={requestMeetAction}
       />,
     );
@@ -72,7 +72,7 @@ describe("MeetActionButton", () => {
         modality="online"
         origin="GOOGLE_EXTERNAL"
         meetUrl={null}
-        meetStatus="not_requested"
+        meetStatus="none"
         requestMeetAction={vi.fn()}
       />,
     );
