@@ -1,6 +1,9 @@
 import { Settings } from "lucide-react";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
+import { AppearancePresetSettings } from "@/features/appearance/appearance-preset-settings";
+import { parseAppearancePreset } from "@/features/appearance/appearance-presets";
+import { getShellSettings } from "@/features/organizations/queries";
 import { SettingsConsole } from "@/features/settings/components/settings-console";
 import { getSettingsSnapshot } from "@/features/settings/queries";
 import { RestrictedAccess } from "@/features/shell/restricted-access";
@@ -26,13 +29,16 @@ export default async function SettingsPage({
       ? user.user_metadata.full_name.trim()
       : "";
 
-  const snapshot = await getSettingsSnapshot({
-    organizationId,
-    organizationName,
-    timezone,
-    email: user.email ?? "",
-    fullName: metadataName || organizationName,
-  });
+  const [snapshot, shellSettings] = await Promise.all([
+    getSettingsSnapshot({
+      organizationId,
+      organizationName,
+      timezone,
+      email: user.email ?? "",
+      fullName: metadataName || organizationName,
+    }),
+    getShellSettings(organizationId),
+  ]);
 
   return (
     <PageContainer>
@@ -46,7 +52,12 @@ export default async function SettingsPage({
           </span>
         }
       />
-      <SettingsConsole snapshot={snapshot} initialTab={initialTab} />
+      <AppearancePresetSettings
+        initialPreset={parseAppearancePreset(shellSettings?.appearance_preset)}
+        initialTab={initialTab}
+      >
+        <SettingsConsole snapshot={snapshot} initialTab={initialTab} />
+      </AppearancePresetSettings>
     </PageContainer>
   );
 }
