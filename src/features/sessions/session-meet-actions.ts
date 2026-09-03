@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { getConnection } from "@/features/calendar/connection-queries";
 import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { getClinicalSession } from "@/features/sessions/queries";
-import type { SessionMeetActionResult } from "@/features/sessions/session-meet-contracts";
+import type {
+  SessionMeetActionResult,
+  SessionMeetTranscriptSyncResult,
+} from "@/features/sessions/session-meet-contracts";
 import { getSessionMeetBinding } from "@/features/sessions/session-meet-queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
@@ -13,15 +16,24 @@ import {
   GoogleMeetApiError,
   GoogleMeetClient,
   type GoogleMeetSpace,
+  type GoogleMeetTranscript,
 } from "@/lib/integrations/google/meet-client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const CREATING_STALE_AFTER_MS = 45_000;
+const ACTIVE_CONFERENCE_POLL_MS = 120_000;
+const TRANSCRIPT_ARTIFACT_POLL_MS = 30_000;
+const TRANSCRIPT_ARTIFACT_TIMEOUT_MS = 30 * 60_000;
 const FORBIDDEN_ROLE_MESSAGE = "Somente a psicóloga responsável conduz sessão clínica.";
 
 function isFreshCreating(updatedAt: string): boolean {
   const updated = new Date(updatedAt).getTime();
   return Number.isFinite(updated) && Date.now() - updated < CREATING_STALE_AFTER_MS;
+}
+
+function isOlderThan(iso: string, ageMs: number): boolean {
+  const time = new Date(iso).getTime();
+  return Number.isFinite(time) && Date.now() - time > ageMs;
 }
 
 async function createMeetSpaceWithBestEffortTranscription(
@@ -65,6 +77,30 @@ async function auditReadyMeet(input: {
     // confirmed. An audit sink failure must never downgrade a usable Meet or
     // cause a second room to be created on retry.
     console.error("failed to audit clinical_session.meet.create");
+  }
+}
+
+async function auditMeetTranscriptImport(input: {
+  organizationId: string;
+  sessionId: string;
+  conferenceRecordName: string;
+  transcriptCount: number;
+  entryCount: number;
+}): Promise<void> {
+  try {
+    await logAuditEvent({
+      organizationId: input.organizationId,
+      action: "clinical_session.meet_transcript.import",
+      resourceType: "clinical_session",
+      resourceId: input.sessionId,
+      metadata: {
+        conferenceRecordName: input.conferenceRecordName,
+        transcriptCount: input.transcriptCount,
+        entryCount: input.entryCount,
+      },
+    });
+  } catch {
+    console.error("failed to audit clinical_session.meet_transcript.import");
   }
 }
 
@@ -162,7 +198,9 @@ export async function requestMeetForSessionAction(
         meeting_code: space.meetingCode,
         meet_url: space.meetingUri,
         auto_transcription_enabled: autoTranscriptionEnabled,
-        transcript_status: autoTranscriptionEnabled ? "awaiting_artifact" : "unavailable",
+        // Even when automatic transcription is unavailable, keep watching:
+        // the clinician may start Meet transcription manually in the call.
+        transcript_status: "awaiting_artifact",
         last_error: null,
       })
       .eq("session_id", sessionId)
@@ -207,6 +245,165 @@ export async function requestMeetForSessionAction(
     return {
       status: "failed",
       error: "Não foi possível criar o Google Meet agora. Tente novamente.",
+    };
+  }
+}
+
+export async function syncMeetTranscriptForSessionAction(
+  sessionId: string,
+): Promise<SessionMeetTranscriptSyncResult> {
+  const { organizationId, role } = await requireOrgContext();
+  if (!isClinicalPractitioner(role)) {
+    return { status: "failed", error: FORBIDDEN_ROLE_MESSAGE };
+  }
+
+  const [session, binding] = await Promise.all([
+    getClinicalSession(organizationId, sessionId),
+    getSessionMeetBinding(organizationId, sessionId),
+  ]);
+
+  if (!session || !binding || binding.status !== "ready" || !binding.meet_space_name) {
+    return { status: "not_started" };
+  }
+  if (binding.transcript_status === "imported") {
+    return { status: "imported" };
+  }
+  if (binding.transcript_status === "unavailable") {
+    return { status: "unavailable" };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    const accessToken = await getValidAccessToken(organizationId);
+    const client = new GoogleMeetClient({ accessToken });
+    const records = await client.listConferenceRecordsForSpace(binding.meet_space_name);
+    const conference = records[0];
+
+    if (!conference) {
+      return {
+        status: "awaiting_artifact",
+        nextPollMs: ACTIVE_CONFERENCE_POLL_MS,
+      };
+    }
+
+    if (!conference.endTime) {
+      await supabase
+        .from("session_meet_bindings")
+        .update({ conference_record_id: conference.name, transcript_status: "awaiting_artifact" })
+        .eq("session_id", sessionId)
+        .eq("organization_id", organizationId);
+
+      return {
+        status: "awaiting_artifact",
+        nextPollMs: ACTIVE_CONFERENCE_POLL_MS,
+      };
+    }
+
+    const transcripts = await client.listTranscripts(conference.name);
+    const generated = transcripts.filter(
+      (transcript): transcript is GoogleMeetTranscript => transcript.state === "FILE_GENERATED",
+    );
+
+    if (generated.length === 0) {
+      const timedOut = isOlderThan(conference.endTime, TRANSCRIPT_ARTIFACT_TIMEOUT_MS);
+      const nextStatus = timedOut ? "unavailable" : "awaiting_artifact";
+      await supabase
+        .from("session_meet_bindings")
+        .update({
+          conference_record_id: conference.name,
+          transcript_status: nextStatus,
+        })
+        .eq("session_id", sessionId)
+        .eq("organization_id", organizationId);
+
+      return {
+        status: nextStatus,
+        nextPollMs: timedOut ? undefined : TRANSCRIPT_ARTIFACT_POLL_MS,
+      };
+    }
+
+    const entryGroups = await Promise.all(
+      generated.map(async (transcript) => ({
+        transcript,
+        entries: await client.listTranscriptEntries(transcript.name),
+      })),
+    );
+    const rows = entryGroups.flatMap(({ transcript, entries }) =>
+      entries
+        .filter((entry) => entry.name && entry.text && entry.startTime && entry.endTime)
+        .map((entry) => ({
+          session_id: sessionId,
+          organization_id: organizationId,
+          conference_record_name: conference.name,
+          transcript_name: transcript.name,
+          google_entry_name: entry.name,
+          participant_resource: entry.participant ?? null,
+          text: entry.text,
+          language_code: entry.languageCode ?? null,
+          start_time: entry.startTime,
+          end_time: entry.endTime,
+        })),
+    );
+
+    if (rows.length > 0) {
+      const { error: insertError } = await supabase
+        .from("session_meet_transcript_entries")
+        .upsert(rows, {
+          onConflict: "google_entry_name",
+          ignoreDuplicates: true,
+        });
+      if (insertError) {
+        throw new Error(`failed to persist Meet transcript entries: ${insertError.message}`);
+      }
+    }
+
+    const lastTranscript = generated[generated.length - 1];
+    const { error: bindingUpdateError } = await supabase
+      .from("session_meet_bindings")
+      .update({
+        conference_record_id: conference.name,
+        transcript_id: lastTranscript?.name ?? null,
+        transcript_status: "imported",
+        last_error: null,
+      })
+      .eq("session_id", sessionId)
+      .eq("organization_id", organizationId);
+
+    if (bindingUpdateError) {
+      throw new Error(`failed to mark Meet transcript imported: ${bindingUpdateError.message}`);
+    }
+
+    await auditMeetTranscriptImport({
+      organizationId,
+      sessionId,
+      conferenceRecordName: conference.name,
+      transcriptCount: generated.length,
+      entryCount: rows.length,
+    });
+
+    revalidatePath(`/session/${sessionId}`);
+    return { status: "imported", importedCount: rows.length };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    await supabase
+      .from("session_meet_bindings")
+      .update({ last_error: message })
+      .eq("session_id", sessionId)
+      .eq("organization_id", organizationId);
+
+    if (error instanceof GoogleMeetApiError && error.status === 403) {
+      return {
+        status: "failed",
+        error:
+          "A conexão Google precisa ser reconectada para permitir a leitura da transcrição do Meet.",
+      };
+    }
+
+    return {
+      status: "awaiting_artifact",
+      nextPollMs: TRANSCRIPT_ARTIFACT_POLL_MS,
+      error: "A transcrição do Meet ainda não pôde ser consultada.",
     };
   }
 }
