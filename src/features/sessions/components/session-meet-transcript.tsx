@@ -34,7 +34,7 @@ export function SessionMeetTranscript({
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!syncAction || ["imported", "unavailable", "failed"].includes(status)) {
+    if (!syncAction || ["imported", "failed"].includes(status)) {
       return;
     }
 
@@ -46,7 +46,7 @@ export function SessionMeetTranscript({
         const result = await syncAction(sessionId);
         if (cancelled) return;
 
-        if (result.status === "imported" || result.status === "unavailable") {
+        if (result.status === "imported") {
           setSyncMessage(null);
           router.refresh();
           return;
@@ -151,13 +151,15 @@ export function SessionMeetTranscript({
         )
       ) : status === "unavailable" ? (
         <p className="mt-4 text-sm text-muted-foreground">
-          Nenhuma transcrição do Google Meet ficou disponível para esta chamada.
+          A transcrição ainda não ficou disponível. O VirgíniaPsi voltará a consultar o Google
+          enquanto esta sessão estiver aberta ou quando ela for reaberta.
         </p>
       ) : (
         <div className="mt-4 space-y-2 text-sm text-muted-foreground">
           <p>
-            A sessão permanecerá vinculada à sala e o VirgíniaPsi importará a transcrição
-            automaticamente quando o Google concluir o processamento.
+            Enquanto esta sessão estiver aberta, o VirgíniaPsi consulta periodicamente o Google e
+            importa a transcrição quando ela estiver disponível. Ao reabrir a sessão, a consulta é
+            retomada.
           </p>
           {!autoTranscriptionEnabled ? (
             <p>
