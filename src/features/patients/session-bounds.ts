@@ -5,6 +5,13 @@ export type DirectoryAppointmentRow = {
   google_deleted_at?: string | null;
 };
 
+export type DirectoryClinicalSessionRow = {
+  patient_id: string | null;
+  started_at: string | null;
+  ended_at?: string | null;
+  status: string;
+};
+
 export function isCountableDirectoryAppointment(row: DirectoryAppointmentRow): boolean {
   if (!row.patient_id) {
     return false;
@@ -47,4 +54,39 @@ export function foldDirectorySessionBounds(
   }
 
   return { lastByPatient, nextByPatient };
+}
+
+/**
+ * "Última sessão" is a clinical fact, not merely a past calendar slot.
+ * Prefer the completion timestamp of a finalized clinical session and fall
+ * back to its start when legacy/faulty rows have no ended_at.
+ */
+export function foldFinalizedClinicalSessionLast(
+  rows: DirectoryClinicalSessionRow[],
+  nowMs: number,
+): Map<string, string> {
+  const lastByPatient = new Map<string, string>();
+
+  for (const row of rows) {
+    if (!row.patient_id || row.status !== "finalized") {
+      continue;
+    }
+
+    const occurredAt = row.ended_at ?? row.started_at;
+    if (!occurredAt) {
+      continue;
+    }
+
+    const time = new Date(occurredAt).getTime();
+    if (Number.isNaN(time) || time > nowMs) {
+      continue;
+    }
+
+    const current = lastByPatient.get(row.patient_id);
+    if (!current || new Date(current).getTime() < time) {
+      lastByPatient.set(row.patient_id, occurredAt);
+    }
+  }
+
+  return lastByPatient;
 }
