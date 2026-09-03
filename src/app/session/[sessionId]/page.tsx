@@ -10,8 +10,14 @@ import {
   getSessionWorkingNotes,
   listTranscriptSegments,
 } from "@/features/sessions/queries";
-import { requestMeetForSessionAction } from "@/features/sessions/session-meet-actions";
-import { getSessionMeetBinding } from "@/features/sessions/session-meet-queries";
+import {
+  requestMeetForSessionAction,
+  syncMeetTranscriptForSessionAction,
+} from "@/features/sessions/session-meet-actions";
+import {
+  getSessionMeetBinding,
+  listSessionMeetTranscriptEntries,
+} from "@/features/sessions/session-meet-queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { elapsedSecondsBetween } from "@/lib/utils/elapsed";
 
@@ -53,17 +59,25 @@ export default async function ActiveSessionPage({
     notFound();
   }
 
-  const [dpep, workingNotes, transcriptSegments, appointment, clinicalProfile, meetBinding] =
-    await Promise.all([
-      getSessionDpep(session.id),
-      getSessionWorkingNotes(session.id),
-      listTranscriptSegments(session.id),
-      session.appointment_id
-        ? getAppointment(organizationId, session.appointment_id).catch(() => null)
-        : Promise.resolve(null),
-      getPatientClinicalProfile(patient.id),
-      getSessionMeetBinding(organizationId, session.id),
-    ]);
+  const [
+    dpep,
+    workingNotes,
+    transcriptSegments,
+    appointment,
+    clinicalProfile,
+    meetBinding,
+    meetTranscriptEntries,
+  ] = await Promise.all([
+    getSessionDpep(session.id),
+    getSessionWorkingNotes(session.id),
+    listTranscriptSegments(session.id),
+    session.appointment_id
+      ? getAppointment(organizationId, session.appointment_id).catch(() => null)
+      : Promise.resolve(null),
+    getPatientClinicalProfile(patient.id),
+    getSessionMeetBinding(organizationId, session.id),
+    listSessionMeetTranscriptEntries(organizationId, session.id),
+  ]);
 
   return (
     <ActiveSessionView
@@ -83,7 +97,9 @@ export default async function ActiveSessionPage({
           : null
       }
       meetBinding={meetBinding}
+      meetTranscriptEntries={meetTranscriptEntries}
       requestMeetAction={requestMeetForSessionAction}
+      syncMeetTranscriptAction={syncMeetTranscriptForSessionAction}
       initialElapsedSeconds={
         session.started_at
           ? elapsedSecondsBetween(
