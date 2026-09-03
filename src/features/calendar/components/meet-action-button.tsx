@@ -67,12 +67,13 @@ export function MeetActionButton({
     return null;
   }
 
+  const meetAction = requestMeetAction;
   const label = meetStatus === "pending" ? "Verificar Google Meet" : "Criar Google Meet";
 
   function resolveMeet() {
     setError(null);
     startTransition(async () => {
-      const result = await requestMeetAction(appointmentId);
+      const result = await meetAction(appointmentId);
       if (result.error) {
         setError(result.error);
         return;
