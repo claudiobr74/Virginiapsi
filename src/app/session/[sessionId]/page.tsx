@@ -1,5 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getAppointment } from "@/features/calendar/appointment-queries";
+import { requestMeetForAppointmentAction } from "@/features/calendar/sync-actions";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { getPatient, getPatientClinicalProfile } from "@/features/patients/queries";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { ActiveSessionView } from "@/features/sessions/components/active-session-view";
@@ -9,7 +11,6 @@ import {
   getSessionWorkingNotes,
   listTranscriptSegments,
 } from "@/features/sessions/queries";
-import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { elapsedSecondsBetween } from "@/lib/utils/elapsed";
 
@@ -86,6 +87,7 @@ export default async function ActiveSessionPage({
             }
           : null
       }
+      requestMeetAction={requestMeetForAppointmentAction}
       initialElapsedSeconds={
         session.started_at
           ? elapsedSecondsBetween(
