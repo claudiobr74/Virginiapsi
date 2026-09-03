@@ -31,9 +31,35 @@ export const sessionMeetBindingRowSchema = z.object({
 
 export type SessionMeetBindingRow = z.infer<typeof sessionMeetBindingRowSchema>;
 
+export const sessionMeetTranscriptEntryRowSchema = z.object({
+  id: z.string().uuid(),
+  session_id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  conference_record_name: z.string(),
+  transcript_name: z.string(),
+  google_entry_name: z.string(),
+  participant_resource: z.string().nullable(),
+  text: z.string(),
+  language_code: z.string().nullable(),
+  start_time: z.string(),
+  end_time: z.string(),
+  created_at: z.string(),
+});
+
+export type SessionMeetTranscriptEntryRow = z.infer<
+  typeof sessionMeetTranscriptEntryRowSchema
+>;
+
 export interface SessionMeetActionResult {
   error?: string;
   meetUrl?: string;
   status?: SessionMeetStatus;
   autoTranscriptionEnabled?: boolean;
+}
+
+export interface SessionMeetTranscriptSyncResult {
+  status: SessionMeetTranscriptStatus;
+  importedCount?: number;
+  nextPollMs?: number;
+  error?: string;
 }
