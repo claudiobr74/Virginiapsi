@@ -46,18 +46,13 @@ export function AppearancePresetSettings({
 }) {
   const [appearanceActive, setAppearanceActive] = useState(initialTab === "appearance");
   const [selected, setSelected] = useState<AppearancePreset>(initialPreset);
-  const savedPreset = useRef(initialPreset);
+  const [savedPreset, setSavedPreset] = useState<AppearancePreset>(initialPreset);
+  const savedPresetRef = useRef(initialPreset);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    savedPreset.current = initialPreset;
-    setSelected(initialPreset);
-    applyAppearancePreset(initialPreset);
-  }, [initialPreset]);
-
-  useEffect(() => {
-    return () => applyAppearancePreset(savedPreset.current);
+    return () => applyAppearancePreset(savedPresetRef.current);
   }, []);
 
   function choose(preset: AppearancePreset) {
@@ -133,7 +128,7 @@ export function AppearancePresetSettings({
               <Button
                 type="button"
                 isLoading={isPending}
-                disabled={selected === savedPreset.current}
+                disabled={selected === savedPreset}
                 onClick={() => {
                   setMessage(null);
                   startTransition(async () => {
@@ -142,7 +137,8 @@ export function AppearancePresetSettings({
                       setMessage(result.error);
                       return;
                     }
-                    savedPreset.current = selected;
+                    savedPresetRef.current = selected;
+                    setSavedPreset(selected);
                     setMessage("Estilo visual salvo.");
                   });
                 }}
