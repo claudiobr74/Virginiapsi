@@ -9,7 +9,10 @@ import type {
   AppointmentOrigin,
   MeetStatus,
 } from "@/features/calendar/contracts";
-import { requestMeetForAppointmentAction } from "@/features/calendar/sync-actions";
+
+export type MeetRequestAction = (
+  appointmentId: string,
+) => Promise<{ error?: string; syncedCount?: number }>;
 
 export function MeetActionButton({
   appointmentId,
@@ -17,6 +20,7 @@ export function MeetActionButton({
   origin,
   meetUrl,
   meetStatus,
+  requestMeetAction,
   size = "sm",
   variant = "secondary",
   className,
@@ -26,6 +30,7 @@ export function MeetActionButton({
   origin: AppointmentOrigin;
   meetUrl: string | null;
   meetStatus: MeetStatus;
+  requestMeetAction?: MeetRequestAction;
   size?: ButtonProps["size"];
   variant?: ButtonProps["variant"];
   className?: string;
@@ -54,9 +59,11 @@ export function MeetActionButton({
     );
   }
 
-  // Imported Google events remain read-only. We never try to create or mutate
-  // their conference from a VirgíniaPsi surface.
-  if (origin !== "TESSELI") {
+  // Imported Google events remain read-only. Managed appointments need a
+  // server-action reference supplied by the Server Component boundary. This
+  // keeps the client component free of server-only transitive imports while
+  // preserving the existing Calendar/Meet implementation.
+  if (origin !== "TESSELI" || !requestMeetAction) {
     return null;
   }
 
@@ -65,7 +72,7 @@ export function MeetActionButton({
   function resolveMeet() {
     setError(null);
     startTransition(async () => {
-      const result = await requestMeetForAppointmentAction(appointmentId);
+      const result = await requestMeetAction(appointmentId);
       if (result.error) {
         setError(result.error);
         return;
