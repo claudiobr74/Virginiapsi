@@ -74,11 +74,15 @@ export default async function ActiveSessionPage({
       appointment={
         appointment
           ? {
+              id: appointment.id,
+              modality: appointment.modality,
               modalityLabel: MODALITY_LABELS[appointment.modality],
+              origin: appointment.origin,
               meetUrl:
                 appointment.meet_status === "success" && appointment.meet_url
                   ? appointment.meet_url
                   : null,
+              meetStatus: appointment.meet_status,
             }
           : null
       }
