@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getConnection } from "@/features/calendar/connection-queries";
-import { isClinicalPractitioner } from "@/features/organizations/roles";
+import { isPsychologistAdmin } from "@/features/organizations/roles";
 import { getClinicalSession } from "@/features/sessions/queries";
 import type {
   SessionMeetActionResult,
@@ -23,17 +23,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 const CREATING_STALE_AFTER_MS = 45_000;
 const ACTIVE_CONFERENCE_POLL_MS = 120_000;
 const TRANSCRIPT_ARTIFACT_POLL_MS = 30_000;
-const TRANSCRIPT_ARTIFACT_TIMEOUT_MS = 30 * 60_000;
-const FORBIDDEN_ROLE_MESSAGE = "Somente a psicóloga responsável conduz sessão clínica.";
+const FORBIDDEN_ROLE_MESSAGE = "Somente a psicóloga administradora conduz esta sessão clínica.";
 
 function isFreshCreating(updatedAt: string): boolean {
   const updated = new Date(updatedAt).getTime();
   return Number.isFinite(updated) && Date.now() - updated < CREATING_STALE_AFTER_MS;
-}
-
-function isOlderThan(iso: string, ageMs: number): boolean {
-  const time = new Date(iso).getTime();
-  return Number.isFinite(time) && Date.now() - time > ageMs;
 }
 
 async function createMeetSpaceWithBestEffortTranscription(
@@ -43,9 +37,9 @@ async function createMeetSpaceWithBestEffortTranscription(
     const space = await client.createSpace({ autoTranscription: true });
     return { space, autoTranscriptionEnabled: true };
   } catch (error) {
-    // Some Workspace editions/admin policies can allow Meet creation while
-    // refusing auto-transcription. Do not make the consultation fail because
-    // of that optional artifact; retry room creation without the setting.
+    // Workspace edition/admin policy can still refuse automatic transcription
+    // even when the OAuth token has the settings scope. Keep Meet usable and
+    // continue watching for a transcription started manually by the clinician.
     if (!(error instanceof GoogleMeetApiError) || ![400, 403].includes(error.status)) {
       throw error;
     }
@@ -108,7 +102,7 @@ export async function requestMeetForSessionAction(
   sessionId: string,
 ): Promise<SessionMeetActionResult> {
   const { organizationId, role } = await requireOrgContext();
-  if (!isClinicalPractitioner(role)) {
+  if (!isPsychologistAdmin(role)) {
     return { error: FORBIDDEN_ROLE_MESSAGE };
   }
 
@@ -119,6 +113,9 @@ export async function requestMeetForSessionAction(
 
   if (!session) {
     return { error: "Sessão clínica não encontrada." };
+  }
+  if (session.status === "finalized" || session.status === "canceled") {
+    return { error: "Não é possível criar uma nova sala Meet para uma sessão encerrada." };
   }
   if (!connection || connection.status !== "connected") {
     return { error: "Conecte sua conta Google nas configurações para criar o Meet." };
@@ -253,7 +250,7 @@ export async function syncMeetTranscriptForSessionAction(
   sessionId: string,
 ): Promise<SessionMeetTranscriptSyncResult> {
   const { organizationId, role } = await requireOrgContext();
-  if (!isClinicalPractitioner(role)) {
+  if (!isPsychologistAdmin(role)) {
     return { status: "failed", error: FORBIDDEN_ROLE_MESSAGE };
   }
 
@@ -268,83 +265,90 @@ export async function syncMeetTranscriptForSessionAction(
   if (binding.transcript_status === "imported") {
     return { status: "imported" };
   }
-  if (binding.transcript_status === "unavailable") {
-    return { status: "unavailable" };
-  }
 
   const supabase = await createSupabaseServerClient();
 
   try {
     const accessToken = await getValidAccessToken(organizationId);
     const client = new GoogleMeetClient({ accessToken });
-    const records = await client.listConferenceRecordsForSpace(binding.meet_space_name);
-    const conference = records[0];
+    const records = (await client.listConferenceRecordsForSpace(binding.meet_space_name)).sort(
+      (left, right) => new Date(left.startTime).getTime() - new Date(right.startTime).getTime(),
+    );
 
-    if (!conference) {
+    if (records.length === 0) {
       return {
         status: "awaiting_artifact",
         nextPollMs: ACTIVE_CONFERENCE_POLL_MS,
       };
     }
 
-    if (!conference.endTime) {
-      await supabase
-        .from("session_meet_bindings")
-        .update({ conference_record_id: conference.name, transcript_status: "awaiting_artifact" })
-        .eq("session_id", sessionId)
-        .eq("organization_id", organizationId);
+    let hasActiveConference = false;
+    let hasPendingArtifact = false;
+    let generatedTranscriptCount = 0;
+    let latestTranscriptName: string | null = null;
+    const rows: Array<{
+      session_id: string;
+      organization_id: string;
+      conference_record_name: string;
+      transcript_name: string;
+      google_entry_name: string;
+      participant_resource: string | null;
+      text: string;
+      language_code: string | null;
+      start_time: string;
+      end_time: string;
+    }> = [];
 
-      return {
-        status: "awaiting_artifact",
-        nextPollMs: ACTIVE_CONFERENCE_POLL_MS,
-      };
+    for (const conference of records) {
+      if (!conference.endTime) {
+        hasActiveConference = true;
+        continue;
+      }
+
+      const transcripts = await client.listTranscripts(conference.name);
+      const generated = transcripts.filter(
+        (transcript): transcript is GoogleMeetTranscript => transcript.state === "FILE_GENERATED",
+      );
+
+      if (generated.length === 0) {
+        hasPendingArtifact = true;
+        continue;
+      }
+
+      generatedTranscriptCount += generated.length;
+      let conferenceHasEntries = false;
+
+      for (const transcript of generated) {
+        const entries = await client.listTranscriptEntries(transcript.name);
+        latestTranscriptName = transcript.name;
+
+        const validRows = entries
+          .filter((entry) => entry.name && entry.text && entry.startTime && entry.endTime)
+          .map((entry) => ({
+            session_id: sessionId,
+            organization_id: organizationId,
+            conference_record_name: conference.name,
+            transcript_name: transcript.name,
+            google_entry_name: entry.name,
+            participant_resource: entry.participant ?? null,
+            text: entry.text,
+            language_code: entry.languageCode ?? null,
+            start_time: entry.startTime,
+            end_time: entry.endTime,
+          }));
+
+        if (validRows.length > 0) {
+          conferenceHasEntries = true;
+          rows.push(...validRows);
+        }
+      }
+
+      // FILE_GENERATED can precede the entries endpoint becoming populated.
+      // Never mark the clinical artifact imported until actual speech exists.
+      if (!conferenceHasEntries) {
+        hasPendingArtifact = true;
+      }
     }
-
-    const transcripts = await client.listTranscripts(conference.name);
-    const generated = transcripts.filter(
-      (transcript): transcript is GoogleMeetTranscript => transcript.state === "FILE_GENERATED",
-    );
-
-    if (generated.length === 0) {
-      const timedOut = isOlderThan(conference.endTime, TRANSCRIPT_ARTIFACT_TIMEOUT_MS);
-      const nextStatus = timedOut ? "unavailable" : "awaiting_artifact";
-      await supabase
-        .from("session_meet_bindings")
-        .update({
-          conference_record_id: conference.name,
-          transcript_status: nextStatus,
-        })
-        .eq("session_id", sessionId)
-        .eq("organization_id", organizationId);
-
-      return {
-        status: nextStatus,
-        nextPollMs: timedOut ? undefined : TRANSCRIPT_ARTIFACT_POLL_MS,
-      };
-    }
-
-    const entryGroups = await Promise.all(
-      generated.map(async (transcript) => ({
-        transcript,
-        entries: await client.listTranscriptEntries(transcript.name),
-      })),
-    );
-    const rows = entryGroups.flatMap(({ transcript, entries }) =>
-      entries
-        .filter((entry) => entry.name && entry.text && entry.startTime && entry.endTime)
-        .map((entry) => ({
-          session_id: sessionId,
-          organization_id: organizationId,
-          conference_record_name: conference.name,
-          transcript_name: transcript.name,
-          google_entry_name: entry.name,
-          participant_resource: entry.participant ?? null,
-          text: entry.text,
-          language_code: entry.languageCode ?? null,
-          start_time: entry.startTime,
-          end_time: entry.endTime,
-        })),
-    );
 
     if (rows.length > 0) {
       const { error: insertError } = await supabase
@@ -358,27 +362,38 @@ export async function syncMeetTranscriptForSessionAction(
       }
     }
 
-    const lastTranscript = generated[generated.length - 1];
+    const latestConference = records[records.length - 1];
+    const shouldKeepWatching = hasActiveConference || hasPendingArtifact || rows.length === 0;
+    const nextStatus = shouldKeepWatching ? "awaiting_artifact" : "imported";
     const { error: bindingUpdateError } = await supabase
       .from("session_meet_bindings")
       .update({
-        conference_record_id: conference.name,
-        transcript_id: lastTranscript?.name ?? null,
-        transcript_status: "imported",
+        conference_record_id: latestConference?.name ?? binding.conference_record_id,
+        transcript_id: latestTranscriptName ?? binding.transcript_id,
+        transcript_status: nextStatus,
         last_error: null,
       })
       .eq("session_id", sessionId)
       .eq("organization_id", organizationId);
 
     if (bindingUpdateError) {
-      throw new Error(`failed to mark Meet transcript imported: ${bindingUpdateError.message}`);
+      throw new Error(`failed to update Meet transcript state: ${bindingUpdateError.message}`);
+    }
+
+    if (shouldKeepWatching) {
+      return {
+        status: "awaiting_artifact",
+        nextPollMs: hasActiveConference
+          ? ACTIVE_CONFERENCE_POLL_MS
+          : TRANSCRIPT_ARTIFACT_POLL_MS,
+      };
     }
 
     await auditMeetTranscriptImport({
       organizationId,
       sessionId,
-      conferenceRecordName: conference.name,
-      transcriptCount: generated.length,
+      conferenceRecordName: latestConference!.name,
+      transcriptCount: generatedTranscriptCount,
       entryCount: rows.length,
     });
 
