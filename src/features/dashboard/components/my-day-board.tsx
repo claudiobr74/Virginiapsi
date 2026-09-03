@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { GoogleMeetPanel } from "@/features/dashboard/components/google-meet-panel";
 import { NextSessionCard } from "@/features/dashboard/components/next-session-card";
 import { RecentDocumentsPanel } from "@/features/dashboard/components/recent-documents-panel";
 import { SessionsToFinalizePanel } from "@/features/dashboard/components/sessions-to-finalize-panel";
@@ -45,6 +46,11 @@ export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
         data-myday-region="secondary"
         className="flex min-w-0 flex-col gap-6"
       >
+        <GoogleMeetPanel
+          appointments={snapshot.timeline}
+          timeZone={snapshot.timezone}
+          now={now}
+        />
         <SessionsToFinalizePanel
           sessions={snapshot.sessionsToFinalize}
           timeZone={snapshot.timezone}
