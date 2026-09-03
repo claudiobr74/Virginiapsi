@@ -5,20 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  MeetActionButton,
-  type MeetRequestAction,
-} from "@/features/calendar/components/meet-action-button";
-import type {
-  AppointmentModality,
-  AppointmentOrigin,
-  MeetStatus,
-} from "@/features/calendar/contracts";
 import { DpepForm } from "@/features/sessions/components/dpep-form";
 import { FinalizeSessionWizard } from "@/features/sessions/components/finalize-session-wizard";
 import { SessionAiPanel } from "@/features/sessions/components/session-ai-panel";
 import { SessionElapsedTimer } from "@/features/sessions/components/session-elapsed-timer";
 import { SessionFeatureErrorBoundary } from "@/features/sessions/components/session-feature-error-boundary";
+import {
+  SessionMeetAction,
+  type SessionMeetRequestAction,
+} from "@/features/sessions/components/session-meet-action";
 import { TranscriptPanel } from "@/features/sessions/components/transcript-panel";
 import { WorkingNotesForm } from "@/features/sessions/components/working-notes-form";
 import {
@@ -28,16 +23,12 @@ import {
   type SessionWorkingNotesRow,
   type TranscriptSegmentRow,
 } from "@/features/sessions/contracts";
+import type { SessionMeetBindingRow } from "@/features/sessions/session-meet-contracts";
 import { elapsedSecondsBetween, formatElapsedHms } from "@/lib/utils/elapsed";
 import { formatInTimeZone } from "@/lib/utils/timezone";
 
 export type SessionAppointmentContext = {
-  id: string;
-  modality: AppointmentModality;
   modalityLabel: string;
-  origin: AppointmentOrigin;
-  meetUrl: string | null;
-  meetStatus: MeetStatus;
 };
 
 export function ActiveSessionView({
@@ -50,6 +41,7 @@ export function ActiveSessionView({
   workingNotes,
   transcriptSegments,
   appointment,
+  meetBinding,
   requestMeetAction,
   initialElapsedSeconds,
 }: {
@@ -62,7 +54,8 @@ export function ActiveSessionView({
   workingNotes: SessionWorkingNotesRow | null;
   transcriptSegments: TranscriptSegmentRow[];
   appointment: SessionAppointmentContext | null;
-  requestMeetAction?: MeetRequestAction;
+  meetBinding: SessionMeetBindingRow | null;
+  requestMeetAction?: SessionMeetRequestAction;
   initialElapsedSeconds: number;
 }) {
   const router = useRouter();
@@ -145,18 +138,13 @@ export function ActiveSessionView({
               initialElapsedSeconds={initialElapsedSeconds}
               className="text-base text-attention"
             />
-            {appointment ? (
-              <MeetActionButton
-                appointmentId={appointment.id}
-                modality={appointment.modality}
-                origin={appointment.origin}
-                meetUrl={appointment.meetUrl}
-                meetStatus={appointment.meetStatus}
-                requestMeetAction={requestMeetAction}
-                size="sm"
-                variant="secondary"
-              />
-            ) : null}
+            <SessionMeetAction
+              sessionId={session.id}
+              meetUrl={meetBinding?.status === "ready" ? meetBinding.meet_url : null}
+              status={meetBinding?.status ?? null}
+              canCreate={!isFinalized}
+              requestMeetAction={requestMeetAction}
+            />
             {!isFinalized ? <FinalizeSessionWizard sessionId={session.id} /> : null}
           </div>
         </div>
