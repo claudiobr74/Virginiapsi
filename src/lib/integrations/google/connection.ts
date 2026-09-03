@@ -37,7 +37,7 @@ async function loadCredentials(
 
 async function persistCredentials(
   organizationId: string,
-  tokens: { accessToken: string; expiresAt: Date; refreshToken?: string; email?: string },
+  tokens: { accessToken: string; expiresAt: Date; refreshToken: string; email?: string },
 ): Promise<void> {
   const env = getGoogleCalendarEnv();
   const supabase = await createSupabaseServerClient();
@@ -46,11 +46,7 @@ async function persistCredentials(
     org_id: organizationId,
     p_access_token_encrypted: encryptToken(tokens.accessToken, env.GOOGLE_TOKEN_ENCRYPTION_KEY),
     p_access_token_expires_at: tokens.expiresAt.toISOString(),
-    p_refresh_token_encrypted: tokens.refreshToken
-      ? encryptToken(tokens.refreshToken, env.GOOGLE_TOKEN_ENCRYPTION_KEY)
-      : // upsert_google_credentials() keeps the existing refresh token when
-        // this is null — Google only reissues one on first consent.
-        (null as unknown as string),
+    p_refresh_token_encrypted: encryptToken(tokens.refreshToken, env.GOOGLE_TOKEN_ENCRYPTION_KEY),
     p_google_account_email: tokens.email ?? null,
     p_scopes: null,
   });
@@ -96,10 +92,14 @@ export async function getValidAccessToken(organizationId: string): Promise<strin
     clientSecret: env.GOOGLE_CLIENT_SECRET,
   });
 
+  // Google normally does NOT return a new refresh_token when refreshing an
+  // access token. Persist the existing refresh token unless Google explicitly
+  // rotates it. Passing null here violates the hosted NOT NULL constraint
+  // before PostgreSQL can reach the RPC's ON CONFLICT/COALESCE path.
   await persistCredentials(organizationId, {
     accessToken: refreshed.access_token,
     expiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
-    refreshToken: refreshed.refresh_token,
+    refreshToken: refreshed.refresh_token ?? refreshToken,
   });
 
   return refreshed.access_token;
@@ -132,7 +132,7 @@ export async function completeGoogleConnection(
 
   if (!tokens.refresh_token) {
     // Should not happen with access_type=offline + prompt=consent, but never
-    // silently store a connection Tesseli cannot actually use in the
+    // silently store a connection that cannot actually be used in the
     // background (no refresh token means no offline sync).
     throw new Error("google_no_refresh_token");
   }
