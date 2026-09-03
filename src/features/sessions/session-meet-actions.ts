@@ -43,6 +43,31 @@ async function createMeetSpaceWithBestEffortTranscription(
   }
 }
 
+async function auditReadyMeet(input: {
+  organizationId: string;
+  sessionId: string;
+  meetSpaceName: string;
+  autoTranscriptionEnabled: boolean;
+}): Promise<void> {
+  try {
+    await logAuditEvent({
+      organizationId: input.organizationId,
+      action: "clinical_session.meet.create",
+      resourceType: "clinical_session",
+      resourceId: input.sessionId,
+      metadata: {
+        meetSpaceName: input.meetSpaceName,
+        autoTranscriptionEnabled: input.autoTranscriptionEnabled,
+      },
+    });
+  } catch {
+    // The external room and its deterministic local binding are already
+    // confirmed. An audit sink failure must never downgrade a usable Meet or
+    // cause a second room to be created on retry.
+    console.error("failed to audit clinical_session.meet.create");
+  }
+}
+
 export async function requestMeetForSessionAction(
   sessionId: string,
 ): Promise<SessionMeetActionResult> {
@@ -150,15 +175,11 @@ export async function requestMeetForSessionAction(
       };
     }
 
-    await logAuditEvent({
+    await auditReadyMeet({
       organizationId,
-      action: "clinical_session.meet.create",
-      resourceType: "clinical_session",
-      resourceId: sessionId,
-      metadata: {
-        meetSpaceName: space.name,
-        autoTranscriptionEnabled,
-      },
+      sessionId,
+      meetSpaceName: space.name,
+      autoTranscriptionEnabled,
     });
 
     revalidatePath(`/session/${sessionId}`);
