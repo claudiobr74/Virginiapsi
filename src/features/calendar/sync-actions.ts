@@ -9,7 +9,10 @@ import { runGoogleCalendarPull } from "@/features/calendar/google-calendar-pull"
 import {
   getCalendarClientForOrganization,
 } from "@/lib/integrations/google/connection";
-import { requestMeetForEvent } from "@/lib/integrations/google/meet";
+import {
+  inspectExistingMeet,
+  requestMeetForEvent,
+} from "@/lib/integrations/google/meet";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -40,6 +43,11 @@ async function logSyncEvent(input: {
   if (error) {
     return;
   }
+}
+
+function revalidateCalendarSurfaces() {
+  revalidatePath("/app/agenda");
+  revalidatePath("/app");
 }
 
 /**
@@ -171,21 +179,23 @@ export async function pushAppointmentToGoogleAction(
     return { error: "Não foi possível sincronizar com o Google Calendar agora." };
   }
 
-  revalidatePath("/app/agenda");
+  revalidateCalendarSurfaces();
   return {};
 }
 
 /**
- * Requests a Meet link for an already-pushed appointment. Never fabricates a
- * URL: `pending`/`failure` leave `meet_url` untouched, only a resolved
- * `success` (with a real entry point) persists one.
+ * Resolves a Meet link for a managed online appointment.
+ *
+ * The Google event is always inspected first. Existing conferences are reused,
+ * pending create requests are respected, and a new createRequest is issued
+ * only when the event truly has no usable/pending Meet conference.
  */
 export async function requestMeetForAppointmentAction(
   appointmentId: string,
 ): Promise<SyncActionResult> {
   const { organizationId } = await requireOrgContext();
 
-  const [appointment, connection] = await Promise.all([
+  let [appointment, connection] = await Promise.all([
     getAppointment(organizationId, appointmentId),
     getConnection(organizationId),
   ]);
@@ -193,17 +203,94 @@ export async function requestMeetForAppointmentAction(
   if (!appointment || appointment.origin !== "TESSELI") {
     return { error: "Consulta não encontrada ou não gerenciada pelo VirgíniaPsi." };
   }
-  if (!appointment.google_event_id || !connection?.calendar_id) {
-    return { error: "Sincronize a consulta com o Google Calendar antes de criar o Meet." };
+  if (appointment.modality !== "online") {
+    return { error: "Google Meet está disponível apenas para atendimentos online." };
+  }
+  if (!connection || connection.status !== "connected" || !connection.calendar_id) {
+    return { error: "Conecte e selecione um calendário do Google primeiro." };
   }
 
+  // A managed appointment may not have reached Google yet. Reuse the existing
+  // idempotent push path instead of creating a parallel event or fake URL.
+  if (!appointment.google_event_id) {
+    const pushed = await pushAppointmentToGoogleAction(appointmentId);
+    if (pushed.error) {
+      return { error: pushed.error };
+    }
+    appointment = await getAppointment(organizationId, appointmentId);
+    connection = await getConnection(organizationId);
+  }
+
+  if (!appointment?.google_event_id || !connection?.calendar_id) {
+    return { error: "Não foi possível localizar o evento no Google Calendar." };
+  }
+
+  const calendarId = appointment.google_calendar_id ?? connection.calendar_id;
+  const eventId = appointment.google_event_id;
   const supabase = await createSupabaseServerClient();
 
   try {
     const client = await getCalendarClientForOrganization(organizationId);
+
+    // Idempotency/recovery boundary: never ask Google for a second conference
+    // before checking the source-of-truth event itself.
+    const googleEvent = await client.getEvent(calendarId, eventId);
+    const existing = inspectExistingMeet(googleEvent);
+
+    if (existing.status === "success" && existing.meetUrl) {
+      const { error: recoverWriteError } = await supabase
+        .from("appointments")
+        .update({
+          meet_status: "success",
+          meet_request_id: existing.requestId,
+          meet_url: existing.meetUrl,
+        })
+        .eq("id", appointmentId);
+
+      if (recoverWriteError) {
+        return { error: "Não foi possível salvar o link do Google Meet." };
+      }
+
+      await logSyncEvent({
+        organizationId,
+        direction: "pull",
+        action: "recover_meet",
+        appointmentId,
+        requestPayload: { google_event_id: eventId },
+        responseStatus: "success",
+      });
+      revalidateCalendarSurfaces();
+      return {};
+    }
+
+    if (existing.status === "pending") {
+      const { error: pendingWriteError } = await supabase
+        .from("appointments")
+        .update({
+          meet_status: "pending",
+          meet_request_id: existing.requestId,
+        })
+        .eq("id", appointmentId);
+
+      if (pendingWriteError) {
+        return { error: "Não foi possível salvar o status do Google Meet." };
+      }
+
+      await logSyncEvent({
+        organizationId,
+        direction: "pull",
+        action: "recover_meet",
+        appointmentId,
+        requestPayload: { google_event_id: eventId },
+        responseStatus: "pending",
+      });
+      revalidateCalendarSurfaces();
+      return {};
+    }
+
     const outcome = await requestMeetForEvent({
-      calendarId: connection.calendar_id,
-      eventId: appointment.google_event_id,
+      calendarId,
+      eventId,
       client,
     });
 
@@ -231,6 +318,9 @@ export async function requestMeetForAppointmentAction(
     if (outcome.status === "failure") {
       return { error: "O Google não conseguiu criar o Meet. Tente novamente." };
     }
+
+    revalidateCalendarSurfaces();
+    return {};
   } catch (error) {
     await logSyncEvent({
       organizationId,
@@ -239,11 +329,8 @@ export async function requestMeetForAppointmentAction(
       appointmentId,
       errorMessage: error instanceof Error ? error.message : "unknown_error",
     });
-    return { error: "Não foi possível criar o Meet agora." };
+    return { error: "Não foi possível criar ou recuperar o Meet agora." };
   }
-
-  revalidatePath("/app/agenda");
-  return {};
 }
 
 const SYNC_WINDOW_DAYS = 30;
