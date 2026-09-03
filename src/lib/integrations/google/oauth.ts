@@ -7,10 +7,13 @@ const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v2/userinfo";
 
-// Calendar scopes only — Calendar connection is intentionally independent
-// from Supabase login/Google social sign-in (MASTER_PROMPT.md #9).
+// Workspace scopes used by the explicit Calendar/Meet connection. This is
+// intentionally independent from Supabase login/Google social sign-in
+// (MASTER_PROMPT.md #9). The Meet scope lets the app create persistent Meet
+// spaces directly from a clinical session, without creating a Calendar event.
 export const GOOGLE_CALENDAR_SCOPES = [
   "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/meetings.space.created",
   "https://www.googleapis.com/auth/userinfo.email",
 ] as const;
 
