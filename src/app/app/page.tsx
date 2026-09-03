@@ -1,4 +1,5 @@
 import { PageContainer } from "@/components/ui/page-container";
+import { requestMeetForAppointmentAction } from "@/features/calendar/sync-actions";
 import { MyDayBoard } from "@/features/dashboard/components/my-day-board";
 import { MyDayWelcome } from "@/features/dashboard/components/my-day-welcome";
 import { getMyDaySnapshot } from "@/features/dashboard/queries";
@@ -42,7 +43,10 @@ export default async function MyDayPage() {
   return (
     <PageContainer>
       <MyDayWelcome snapshot={snapshot} />
-      <MyDayBoard snapshot={snapshot} />
+      <MyDayBoard
+        snapshot={snapshot}
+        requestMeetAction={requestMeetForAppointmentAction}
+      />
     </PageContainer>
   );
 }
