@@ -16,19 +16,24 @@ import {
 import { meetHostLabel } from "@/features/dashboard/stats";
 import { offersClinicalAppointmentActions } from "@/features/calendar/appointment-visual";
 import { AttendAppointmentButton } from "@/features/calendar/components/attend-appointment-button";
-import { MeetActionButton } from "@/features/calendar/components/meet-action-button";
+import {
+  MeetActionButton,
+  type MeetRequestAction,
+} from "@/features/calendar/components/meet-action-button";
 import { cn } from "@/lib/utils/cn";
 
 export function SessionActions({
   appointment,
   timeZone,
   canStartSession,
+  requestMeetAction,
   tone = "default",
   layout = "full",
 }: {
   appointment: MyDayAppointment;
   timeZone: string;
   canStartSession?: boolean;
+  requestMeetAction?: MeetRequestAction;
   tone?: "default" | "onPrimary";
   layout?: "full" | "hero" | "timeline";
 }) {
@@ -250,6 +255,7 @@ export function SessionActions({
             origin={appointment.origin}
             meetUrl={appointment.meetUrl}
             meetStatus={appointment.meetStatus}
+            requestMeetAction={requestMeetAction}
             size="sm"
           />
         ) : null}
