@@ -16,6 +16,7 @@ import {
 import { meetHostLabel } from "@/features/dashboard/stats";
 import { offersClinicalAppointmentActions } from "@/features/calendar/appointment-visual";
 import { AttendAppointmentButton } from "@/features/calendar/components/attend-appointment-button";
+import { MeetActionButton } from "@/features/calendar/components/meet-action-button";
 import { cn } from "@/lib/utils/cn";
 
 export function SessionActions({
@@ -242,15 +243,15 @@ export function SessionActions({
           </Button>
         ) : null}
 
-        {layout !== "hero" && meetReady ? (
-          <Button asChild size="sm">
-            <a href={appointment.meetUrl ?? "#"} target="_blank" rel="noreferrer">
-              <Video className="size-3.5" aria-hidden />
-              Entrar no Meet
-            </a>
-          </Button>
-        ) : appointment.meetStatus === "pending" && layout !== "hero" ? (
-          <span className="self-center text-xs font-semibold text-pending">Meet em criação…</span>
+        {layout !== "hero" ? (
+          <MeetActionButton
+            appointmentId={appointment.id}
+            modality={appointment.modality}
+            origin={appointment.origin}
+            meetUrl={appointment.meetUrl}
+            meetStatus={appointment.meetStatus}
+            size="sm"
+          />
         ) : null}
       </div>
 
