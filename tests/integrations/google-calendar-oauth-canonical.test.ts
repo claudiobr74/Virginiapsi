@@ -63,7 +63,7 @@ describe("Google Calendar OAuth — callback canônico", () => {
     ).toThrow(/NEXT_PUBLIC_APP_URL/);
   });
 
-  it("Preview efêmero não vira callback; usa só o domínio oficial", () => {
+  it("Preview efêmero entrega o state ao start canônico, nunca a uma página protegida", () => {
     const env = parseGoogleCalendarEnv({
       ...calendarEnvBase,
       NEXT_PUBLIC_APP_URL: "https://dominio-oficial.vercel.app",
@@ -76,8 +76,13 @@ describe("Google Calendar OAuth — callback canônico", () => {
 
     expect(decision).toEqual({
       type: "redirect_to_canonical",
-      url: "https://dominio-oficial.vercel.app/app/settings?tab=integrations",
+      url: "https://dominio-oficial.vercel.app/api/integrations/google/start",
     });
+
+    if (decision.type === "redirect_to_canonical") {
+      expect(decision.url).not.toContain("/app/settings");
+      expect(decision.url).not.toContain("/login");
+    }
 
     const tesseliPreview = resolveGoogleCalendarOAuthStart({
       canonicalAppUrl: env.NEXT_PUBLIC_APP_URL,
@@ -87,6 +92,7 @@ describe("Google Calendar OAuth — callback canônico", () => {
     if (tesseliPreview.type === "redirect_to_canonical") {
       expect(tesseliPreview.url).not.toMatch(/tesseli/i);
       expect(tesseliPreview.url).not.toContain("virginiapsi-preview-123");
+      expect(tesseliPreview.url).toContain("/api/integrations/google/start");
     }
 
     const onCanonical = resolveGoogleCalendarOAuthStart({

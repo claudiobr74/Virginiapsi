@@ -5,6 +5,7 @@ import type {
 } from "@/lib/integrations/google/calendar-client";
 import {
   buildConferenceCreateRequest,
+  inspectExistingMeet,
   requestMeetForEvent,
 } from "@/lib/integrations/google/meet";
 
@@ -29,6 +30,64 @@ describe("buildConferenceCreateRequest", () => {
     expect(first.conferenceData.createRequest.requestId).not.toBe(
       second.conferenceData.createRequest.requestId,
     );
+  });
+});
+
+describe("inspectExistingMeet", () => {
+  it("recupera a URL real de um entryPoint de vídeo já existente", () => {
+    const event: GoogleCalendarEvent = {
+      id: "evt-existing",
+      conferenceData: {
+        entryPoints: [
+          { entryPointType: "video", uri: "https://meet.google.com/existing-room" },
+        ],
+      },
+    };
+
+    expect(inspectExistingMeet(event)).toEqual({
+      status: "success",
+      requestId: null,
+      meetUrl: "https://meet.google.com/existing-room",
+    });
+  });
+
+  it("aceita hangoutLink retornado pelo Google quando não há entryPoint", () => {
+    const event: GoogleCalendarEvent = {
+      id: "evt-hangout",
+      hangoutLink: "https://meet.google.com/from-hangout-link",
+    };
+
+    expect(inspectExistingMeet(event)).toEqual({
+      status: "success",
+      requestId: null,
+      meetUrl: "https://meet.google.com/from-hangout-link",
+    });
+  });
+
+  it("reconhece criação pendente para impedir uma segunda createRequest", () => {
+    const event: GoogleCalendarEvent = {
+      id: "evt-pending",
+      conferenceData: {
+        createRequest: {
+          requestId: "req-pending",
+          status: { statusCode: "pending" },
+        },
+      },
+    };
+
+    expect(inspectExistingMeet(event)).toEqual({
+      status: "pending",
+      requestId: "req-pending",
+      meetUrl: null,
+    });
+  });
+
+  it("retorna none quando o evento ainda não possui conferência", () => {
+    expect(inspectExistingMeet({ id: "evt-none" })).toEqual({
+      status: "none",
+      requestId: null,
+      meetUrl: null,
+    });
   });
 });
 

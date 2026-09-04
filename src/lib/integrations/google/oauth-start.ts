@@ -29,7 +29,10 @@ export function requestOriginFromHeaders(headerList: {
 
 /**
  * Calendar OAuth always uses the canonical NEXT_PUBLIC_APP_URL callback.
- * Preview/ephemeral hosts never become the authorized redirect_uri.
+ * Preview/ephemeral hosts never become the Google redirect_uri. When a flow
+ * starts on another host, hand it to the canonical *start route* so the
+ * signed OAuth state is preserved; never bounce to a protected app page,
+ * because Supabase session cookies are host-scoped.
  */
 export function resolveGoogleCalendarOAuthStart(input: {
   canonicalAppUrl: string;
@@ -50,7 +53,7 @@ export function resolveGoogleCalendarOAuthStart(input: {
   if (requestOrigin && canonicalOrigin !== requestOrigin) {
     return {
       type: "redirect_to_canonical",
-      url: `${canonicalOrigin}/app/settings?tab=integrations`,
+      url: `${canonicalOrigin}/api/integrations/google/start`,
     };
   }
 

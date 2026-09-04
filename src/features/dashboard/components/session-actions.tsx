@@ -16,18 +16,24 @@ import {
 import { meetHostLabel } from "@/features/dashboard/stats";
 import { offersClinicalAppointmentActions } from "@/features/calendar/appointment-visual";
 import { AttendAppointmentButton } from "@/features/calendar/components/attend-appointment-button";
+import {
+  MeetActionButton,
+  type MeetRequestAction,
+} from "@/features/calendar/components/meet-action-button";
 import { cn } from "@/lib/utils/cn";
 
 export function SessionActions({
   appointment,
   timeZone,
   canStartSession,
+  requestMeetAction,
   tone = "default",
   layout = "full",
 }: {
   appointment: MyDayAppointment;
   timeZone: string;
   canStartSession?: boolean;
+  requestMeetAction?: MeetRequestAction;
   tone?: "default" | "onPrimary";
   layout?: "full" | "hero" | "timeline";
 }) {
@@ -242,15 +248,16 @@ export function SessionActions({
           </Button>
         ) : null}
 
-        {layout !== "hero" && meetReady ? (
-          <Button asChild size="sm">
-            <a href={appointment.meetUrl ?? "#"} target="_blank" rel="noreferrer">
-              <Video className="size-3.5" aria-hidden />
-              Entrar no Meet
-            </a>
-          </Button>
-        ) : appointment.meetStatus === "pending" && layout !== "hero" ? (
-          <span className="self-center text-xs font-semibold text-pending">Meet em criação…</span>
+        {layout !== "hero" ? (
+          <MeetActionButton
+            appointmentId={appointment.id}
+            modality={appointment.modality}
+            origin={appointment.origin}
+            meetUrl={appointment.meetUrl}
+            meetStatus={appointment.meetStatus}
+            requestMeetAction={requestMeetAction}
+            size="sm"
+          />
         ) : null}
       </div>
 

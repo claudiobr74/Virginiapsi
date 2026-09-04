@@ -129,6 +129,34 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
     }
   });
 
+  it("preserva o refresh token quando a renovação do Google não envia outro", async () => {
+    const admin = await createAuthUser();
+    const organizationId = await bootstrapOrganization(admin, "Consultório Token Preservado");
+    await connectGoogle(admin, organizationId, { refreshToken: "enc-refresh-original" });
+
+    const session = await openSession({ userId: admin });
+    try {
+      await session.query(
+        `select public.upsert_google_credentials(
+           $1, 'enc-access-renovado', now() + interval '1 hour', null
+         )`,
+        [organizationId],
+      );
+
+      const rows = await session.query<{
+        access_token_encrypted: string;
+        refresh_token_encrypted: string;
+      }>("select * from public.get_google_credentials($1)", [organizationId]);
+
+      expect(rows[0]).toMatchObject({
+        access_token_encrypted: "enc-access-renovado",
+        refresh_token_encrypted: "enc-refresh-original",
+      });
+    } finally {
+      await session.close();
+    }
+  });
+
   it("disconnect limpa metadados da conexão, credenciais e espelho GOOGLE_EXTERNAL", async () => {
     const admin = await createAuthUser();
     const organizationId = await bootstrapOrganization(admin, "Consultório Disconnect");
@@ -1265,4 +1293,3 @@ describe("Agenda V2.4 — vincular paciente no espelho Google", () => {
     }
   });
 });
-

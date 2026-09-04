@@ -2612,6 +2612,29 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === "/rest/v1/session_meet_bindings" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    // The active-session smoke test starts without a Meet binding. Mutations
+    // are covered by component/integration tests and RLS by the real-Postgres
+    // security suite rather than by this non-security stub.
+    json(res, 200, []);
+    return;
+  }
+
+  if (pathname === "/rest/v1/session_meet_transcript_entries" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    json(res, 200, []);
+    return;
+  }
+
   if (pathname === "/rest/v1/session_transcript_segments" && req.method === "GET") {
     const user = bearerUser(req);
     if (!user) {

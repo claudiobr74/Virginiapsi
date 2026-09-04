@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getAppointment } from "@/features/calendar/appointment-queries";
+import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { getPatient, getPatientClinicalProfile } from "@/features/patients/queries";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import { ActiveSessionView } from "@/features/sessions/components/active-session-view";
@@ -9,7 +10,14 @@ import {
   getSessionWorkingNotes,
   listTranscriptSegments,
 } from "@/features/sessions/queries";
-import { isClinicalPractitioner } from "@/features/organizations/roles";
+import {
+  requestMeetForSessionAction,
+  syncMeetTranscriptForSessionAction,
+} from "@/features/sessions/session-meet-actions";
+import {
+  getSessionMeetBinding,
+  listSessionMeetTranscriptEntries,
+} from "@/features/sessions/session-meet-queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { elapsedSecondsBetween } from "@/lib/utils/elapsed";
 
@@ -51,7 +59,15 @@ export default async function ActiveSessionPage({
     notFound();
   }
 
-  const [dpep, workingNotes, transcriptSegments, appointment, clinicalProfile] = await Promise.all([
+  const [
+    dpep,
+    workingNotes,
+    transcriptSegments,
+    appointment,
+    clinicalProfile,
+    meetBinding,
+    meetTranscriptEntries,
+  ] = await Promise.all([
     getSessionDpep(session.id),
     getSessionWorkingNotes(session.id),
     listTranscriptSegments(session.id),
@@ -59,6 +75,8 @@ export default async function ActiveSessionPage({
       ? getAppointment(organizationId, session.appointment_id).catch(() => null)
       : Promise.resolve(null),
     getPatientClinicalProfile(patient.id),
+    getSessionMeetBinding(organizationId, session.id),
+    listSessionMeetTranscriptEntries(organizationId, session.id),
   ]);
 
   return (
@@ -75,13 +93,13 @@ export default async function ActiveSessionPage({
         appointment
           ? {
               modalityLabel: MODALITY_LABELS[appointment.modality],
-              meetUrl:
-                appointment.meet_status === "success" && appointment.meet_url
-                  ? appointment.meet_url
-                  : null,
             }
           : null
       }
+      meetBinding={meetBinding}
+      meetTranscriptEntries={meetTranscriptEntries}
+      requestMeetAction={requestMeetForSessionAction}
+      syncMeetTranscriptAction={syncMeetTranscriptForSessionAction}
       initialElapsedSeconds={
         session.started_at
           ? elapsedSecondsBetween(

@@ -1,16 +1,24 @@
 "use client";
 
 import { useMemo } from "react";
+import type { MeetRequestAction } from "@/features/calendar/components/meet-action-button";
+import { useAgendaClock } from "@/features/calendar/use-agenda-clock";
+import { GoogleMeetPanel } from "@/features/dashboard/components/google-meet-panel";
 import { NextSessionCard } from "@/features/dashboard/components/next-session-card";
 import { RecentDocumentsPanel } from "@/features/dashboard/components/recent-documents-panel";
 import { SessionsToFinalizePanel } from "@/features/dashboard/components/sessions-to-finalize-panel";
 import { TasksPanel } from "@/features/dashboard/components/tasks-panel";
 import { TodayTimeline } from "@/features/dashboard/components/today-timeline";
-import { FinancialPendingPanel } from "@/features/finance/components/financial-pending-panel";
 import type { MyDaySnapshot } from "@/features/dashboard/contracts";
-import { useAgendaClock } from "@/features/calendar/use-agenda-clock";
+import { FinancialPendingPanel } from "@/features/finance/components/financial-pending-panel";
 
-export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
+export function MyDayBoard({
+  snapshot,
+  requestMeetAction,
+}: {
+  snapshot: MyDaySnapshot;
+  requestMeetAction?: MeetRequestAction;
+}) {
   const emptyDay = snapshot.timeline.length === 0;
   const endsAtList = useMemo(
     () => snapshot.timeline.map((appointment) => appointment.endsAt),
@@ -28,6 +36,7 @@ export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
           appointment={snapshot.nextSession}
           timeZone={snapshot.timezone}
           canStartSession={snapshot.canStartSession}
+          requestMeetAction={requestMeetAction}
           emptyDay={emptyDay}
           now={now}
         />
@@ -45,6 +54,12 @@ export function MyDayBoard({ snapshot }: { snapshot: MyDaySnapshot }) {
         data-myday-region="secondary"
         className="flex min-w-0 flex-col gap-6"
       >
+        <GoogleMeetPanel
+          appointments={snapshot.timeline}
+          timeZone={snapshot.timezone}
+          now={now}
+          requestMeetAction={requestMeetAction}
+        />
         <SessionsToFinalizePanel
           sessions={snapshot.sessionsToFinalize}
           timeZone={snapshot.timezone}

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ChevronDown, ExternalLink } from "lucide-react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,14 @@ import { FinalizeSessionWizard } from "@/features/sessions/components/finalize-s
 import { SessionAiPanel } from "@/features/sessions/components/session-ai-panel";
 import { SessionElapsedTimer } from "@/features/sessions/components/session-elapsed-timer";
 import { SessionFeatureErrorBoundary } from "@/features/sessions/components/session-feature-error-boundary";
+import {
+  SessionMeetAction,
+  type SessionMeetRequestAction,
+} from "@/features/sessions/components/session-meet-action";
+import {
+  SessionMeetTranscript,
+  type SessionMeetTranscriptSyncAction,
+} from "@/features/sessions/components/session-meet-transcript";
 import { TranscriptPanel } from "@/features/sessions/components/transcript-panel";
 import { WorkingNotesForm } from "@/features/sessions/components/working-notes-form";
 import {
@@ -19,12 +27,15 @@ import {
   type SessionWorkingNotesRow,
   type TranscriptSegmentRow,
 } from "@/features/sessions/contracts";
-import { formatInTimeZone } from "@/lib/utils/timezone";
+import type {
+  SessionMeetBindingRow,
+  SessionMeetTranscriptEntryRow,
+} from "@/features/sessions/session-meet-contracts";
 import { elapsedSecondsBetween, formatElapsedHms } from "@/lib/utils/elapsed";
+import { formatInTimeZone } from "@/lib/utils/timezone";
 
 export type SessionAppointmentContext = {
   modalityLabel: string;
-  meetUrl: string | null;
 };
 
 export function ActiveSessionView({
@@ -37,6 +48,10 @@ export function ActiveSessionView({
   workingNotes,
   transcriptSegments,
   appointment,
+  meetBinding,
+  meetTranscriptEntries,
+  requestMeetAction,
+  syncMeetTranscriptAction,
   initialElapsedSeconds,
 }: {
   session: ClinicalSessionRow;
@@ -48,6 +63,10 @@ export function ActiveSessionView({
   workingNotes: SessionWorkingNotesRow | null;
   transcriptSegments: TranscriptSegmentRow[];
   appointment: SessionAppointmentContext | null;
+  meetBinding: SessionMeetBindingRow | null;
+  meetTranscriptEntries: SessionMeetTranscriptEntryRow[];
+  requestMeetAction?: SessionMeetRequestAction;
+  syncMeetTranscriptAction?: SessionMeetTranscriptSyncAction;
   initialElapsedSeconds: number;
 }) {
   const router = useRouter();
@@ -130,17 +149,13 @@ export function ActiveSessionView({
               initialElapsedSeconds={initialElapsedSeconds}
               className="text-base text-attention"
             />
-            {appointment?.meetUrl ? (
-              <a
-                href={appointment.meetUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground hover:bg-sage-light/40"
-              >
-                Meet
-                <ExternalLink className="size-3.5" aria-hidden />
-              </a>
-            ) : null}
+            <SessionMeetAction
+              sessionId={session.id}
+              meetUrl={meetBinding?.status === "ready" ? meetBinding.meet_url : null}
+              status={meetBinding?.status ?? null}
+              canCreate={!isFinalized}
+              requestMeetAction={requestMeetAction}
+            />
             {!isFinalized ? <FinalizeSessionWizard sessionId={session.id} /> : null}
           </div>
         </div>
@@ -210,6 +225,17 @@ export function ActiveSessionView({
               feedClassName="max-h-72 lg:max-h-[min(28rem,calc(100dvh-22rem))]"
             />
           </section>
+
+          {meetBinding?.status === "ready" ? (
+            <SessionMeetTranscript
+              sessionId={session.id}
+              status={meetBinding.transcript_status}
+              autoTranscriptionEnabled={meetBinding.auto_transcription_enabled}
+              entries={meetTranscriptEntries}
+              timezone={timezone}
+              syncAction={syncMeetTranscriptAction}
+            />
+          ) : null}
 
           {therapyGoals?.trim() ? (
             <details className="rounded-lg border border-border p-4">

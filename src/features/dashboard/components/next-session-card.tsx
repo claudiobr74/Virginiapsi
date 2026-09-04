@@ -6,6 +6,7 @@ import {
   myDayAppointmentToPresentationInput,
 } from "@/features/calendar/appointment-visual";
 import { GoogleOriginMark } from "@/features/calendar/components/google-origin-mark";
+import type { MeetRequestAction } from "@/features/calendar/components/meet-action-button";
 import { SessionActions } from "@/features/dashboard/components/session-actions";
 import type { MyDayAppointment } from "@/features/dashboard/contracts";
 import { heroPatientName, meetHostLabel, startsInLabel } from "@/features/dashboard/stats";
@@ -17,12 +18,14 @@ export function NextSessionCard({
   appointment,
   timeZone,
   canStartSession,
+  requestMeetAction,
   emptyDay,
   now,
 }: {
   appointment: MyDayAppointment | null;
   timeZone: string;
   canStartSession: boolean;
+  requestMeetAction?: MeetRequestAction;
   emptyDay: boolean;
   now?: Date;
 }) {
@@ -132,6 +135,7 @@ export function NextSessionCard({
           appointment={appointment}
           timeZone={timeZone}
           canStartSession={canStartSession}
+          requestMeetAction={requestMeetAction}
           layout="full"
         />
       </div>

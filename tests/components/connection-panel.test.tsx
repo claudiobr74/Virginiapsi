@@ -4,6 +4,7 @@ import { ConnectionPanel } from "@/features/calendar/components/connection-panel
 import type { ConnectionRow } from "@/features/calendar/contracts";
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/app/agenda",
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 

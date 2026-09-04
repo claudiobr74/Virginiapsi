@@ -49,6 +49,7 @@ export interface GoogleCalendarEvent {
   start?: { dateTime?: string; date?: string; timeZone?: string };
   end?: { dateTime?: string; date?: string; timeZone?: string };
   conferenceData?: ConferenceData;
+  hangoutLink?: string;
   htmlLink?: string;
 }
 

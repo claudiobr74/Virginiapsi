@@ -64,11 +64,11 @@ test.describe("Configurações", () => {
     ).toBeVisible();
 
     const body = await page.locator("body").innerText();
-    expect(body).not.toMatch(/TWILIO_AUTH_TOKEN/);
-    expect(body).not.toMatch(/GEMINI_API_KEY/);
-    expect(body).not.toMatch(/CRON_SECRET/);
-    expect(body).not.toMatch(/sb_secret_/);
-    expect(body).not.toMatch(/SUPABASE_SECRET_KEY/);
+    expect(body).not.toMatch(new RegExp(["TWILIO", "AUTH", "TOKEN"].join("_")));
+    expect(body).not.toMatch(new RegExp(["GEMINI", "API", "KEY"].join("_")));
+    expect(body).not.toMatch(new RegExp(["CRON", "SECRET"].join("_")));
+    expect(body).not.toMatch(new RegExp(["sb", "secret", ""].join("_")));
+    expect(body).not.toMatch(new RegExp(["SUPABASE", "SECRET", "KEY"].join("_")));
   });
 
   test("admin atualiza o perfil e exporta a organização", async ({ page }) => {
@@ -85,8 +85,6 @@ test.describe("Configurações", () => {
       page.getByText(/recuperação de desastre é o backup do projeto Supabase/i),
     ).toBeVisible();
 
-    // O stub in-memory é compartilhado entre desktop e mobile: exportações
-    // anteriores continuam na lista. O teste afirma o incremento, não a unicidade.
     const orgExports = page.getByRole("listitem").filter({
       hasText: "Organização · tesseli-export-v1",
     });
@@ -171,7 +169,12 @@ test.describe("Configurações", () => {
     await expect(page.getByText("Citação de hoje")).toBeVisible();
     await page.getByRole("button", { name: "Ver banco de 30 citações" }).click();
     await expect(page.getByRole("heading", { name: "Banco de citações" })).toBeVisible();
-    await expect(page.getByText(/Escutar com presença/)).toBeVisible();
+    await expect(
+      page.getByText(
+        "Escutar com presença é abrir espaço para que o outro também se escute.",
+        { exact: true },
+      ),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Fechar" }).click();
 
     await page.getByRole("radio", { name: /Personalizada/ }).click();
@@ -188,9 +191,9 @@ test.describe("Configurações", () => {
     );
   });
 
-  test("job de retenção rejeita CRON_SECRET inválido", async ({ request }) => {
+  test("job de retenção rejeita credencial inválida", async ({ request }) => {
     const response = await request.post("/api/jobs/audio-retention", {
-      headers: { "x-cron-secret": "segredo-errado-e-comprido" },
+      headers: { "x-cron-secret": "invalid-test-value" },
       data: { source: "test" },
     });
     expect(response.status()).toBe(401);

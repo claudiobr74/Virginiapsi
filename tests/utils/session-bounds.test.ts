@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { foldDirectorySessionBounds } from "@/features/patients/session-bounds";
+import {
+  foldDirectorySessionBounds,
+  foldFinalizedClinicalSessionLast,
+} from "@/features/patients/session-bounds";
 
 const PATIENT = "22222222-2222-4222-8222-222222222222";
 const OTHER = "33333333-3333-4333-8333-333333333333";
@@ -135,8 +138,70 @@ describe("foldDirectorySessionBounds", () => {
   });
 });
 
+describe("foldFinalizedClinicalSessionLast", () => {
+  it("usa a sessão clínica finalizada mais recente e prefere ended_at", () => {
+    const lastByPatient = foldFinalizedClinicalSessionLast(
+      [
+        {
+          patient_id: PATIENT,
+          started_at: "2026-08-20T10:00:00.000Z",
+          ended_at: "2026-08-20T11:00:00.000Z",
+          status: "finalized",
+        },
+        {
+          patient_id: PATIENT,
+          started_at: "2026-09-01T12:00:00.000Z",
+          ended_at: "2026-09-01T13:00:00.000Z",
+          status: "finalized",
+        },
+      ],
+      NOW,
+    );
+
+    expect(lastByPatient.get(PATIENT)).toBe("2026-09-01T13:00:00.000Z");
+  });
+
+  it("ignora sessão não finalizada e sessão no futuro", () => {
+    const lastByPatient = foldFinalizedClinicalSessionLast(
+      [
+        {
+          patient_id: PATIENT,
+          started_at: "2026-09-01T12:00:00.000Z",
+          ended_at: "2026-09-01T13:00:00.000Z",
+          status: "in_progress",
+        },
+        {
+          patient_id: PATIENT,
+          started_at: "2026-09-02T12:00:00.000Z",
+          ended_at: "2026-09-02T13:00:00.000Z",
+          status: "finalized",
+        },
+      ],
+      NOW,
+    );
+
+    expect(lastByPatient.has(PATIENT)).toBe(false);
+  });
+
+  it("usa started_at quando ended_at não existe", () => {
+    const lastByPatient = foldFinalizedClinicalSessionLast(
+      [
+        {
+          patient_id: PATIENT,
+          started_at: "2026-08-30T12:00:00.000Z",
+          ended_at: null,
+          status: "finalized",
+        },
+      ],
+      NOW,
+    );
+
+    expect(lastByPatient.get(PATIENT)).toBe("2026-08-30T12:00:00.000Z");
+  });
+});
+
 describe("listPatientDirectory query contract", () => {
-  it("gera URL assinada e não restringe última/próxima a origin TESSELI", () => {
+  it("usa sessão finalizada para Última e appointment válido para Próxima", () => {
     const source = readFileSync(
       path.resolve(__dirname, "../../src/features/patients/queries.ts"),
       "utf8",
@@ -148,6 +213,11 @@ describe("listPatientDirectory query contract", () => {
     expect(block).toContain("google_deleted_at");
     expect(block).not.toContain('origin", "TESSELI"');
     expect(block).toContain("photoUrl");
+    expect(block).toContain('from("clinical_sessions")');
+    expect(block).toContain('.eq("status", "finalized")');
+    expect(block).toContain("foldFinalizedClinicalSessionLast");
+    expect(block).toContain("appointmentLastByPatient");
     expect(source).toContain("list_patient_directory_appointments");
+    expect(source).toContain("list_patient_directory_finalized_sessions");
   });
 });
