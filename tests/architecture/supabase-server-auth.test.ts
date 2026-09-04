@@ -25,10 +25,11 @@ describe("Supabase server auth initialization", () => {
     },
   );
 
-  it("usa cliente de login isolado para não renovar sessão velha durante o novo PKCE", () => {
+  it("usa cliente de login isolado e não altera o redirect com sb_flow_id", () => {
     const contents = source("src/lib/supabase/browser.ts");
     expect(contents).toContain("createSupabaseLoginBrowserClient");
     expect(contents).toContain("isSingleton: false");
     expect(contents).toContain("skipAutoInitialize: true");
+    expect(contents).toContain("appendPkceFlowIdToRedirects: false");
   });
 });
