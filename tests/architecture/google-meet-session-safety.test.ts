@@ -10,7 +10,7 @@ function source(relativePath: string): string {
 }
 
 describe("Google Meet session safety invariants", () => {
-  it("solicita os escopos necessários para criar a sala e configurar transcrição automática", () => {
+  it("mantém os escopos Meet opcionais para compatibilidade com integrações Workspace antigas", () => {
     expect(GOOGLE_CALENDAR_SCOPES).toContain(
       "https://www.googleapis.com/auth/meetings.space.created",
     );
@@ -29,13 +29,24 @@ describe("Google Meet session safety invariants", () => {
     expect(contents).toContain("shouldKeepWatching");
   });
 
-  it("mantém criação do Meet alinhada à RLS clínica e bloqueia sessão encerrada no servidor", () => {
+  it("cria a sala da sessão via Calendar, preserva RLS e bloqueia sessão encerrada", () => {
     const contents = source("src/features/sessions/session-meet-actions.ts");
 
     expect(contents).toContain("isPsychologistAdmin(role)");
     expect(contents).toContain('session.status === "finalized"');
     expect(contents).toContain('session.status === "canceled"');
-    expect(contents).toContain("hasGoogleMeetSpaceScopes(connection.scopes)");
+    expect(contents).toContain("requestMeetForEvent");
+    expect(contents).toContain("google_calendar_id");
+    expect(contents).toContain("google_event_id");
+    expect(contents).not.toContain("hasGoogleMeetSpaceScopes(connection.scopes)");
+  });
+
+  it("mantém evento técnico sem identificação do paciente para sessões sem evento gerenciado", () => {
+    const contents = source("src/features/sessions/session-meet-actions.ts");
+
+    expect(contents).toContain('summary: "Sessão VirgíniaPsi"');
+    expect(contents).not.toContain("patient.name");
+    expect(contents).not.toContain("patientDisplayLabel");
   });
 
   it("preserva o refresh token quando o Google não o rotaciona", () => {
