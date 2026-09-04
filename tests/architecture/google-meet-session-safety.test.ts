@@ -35,6 +35,14 @@ describe("Google Meet session safety invariants", () => {
     expect(contents).toContain("isPsychologistAdmin(role)");
     expect(contents).toContain('session.status === "finalized"');
     expect(contents).toContain('session.status === "canceled"');
+    expect(contents).toContain("hasGoogleMeetSpaceScopes(connection.scopes)");
+  });
+
+  it("preserva o refresh token quando o Google não o rotaciona", () => {
+    const contents = source("src/lib/integrations/google/connection.ts");
+
+    expect(contents).toContain("refreshed.refresh_token ?? refreshToken");
+    expect(contents).not.toContain("null as unknown as string");
   });
 
   it("explica que a reconciliação continua com a sessão aberta e recomeça ao reabrir", () => {

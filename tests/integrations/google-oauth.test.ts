@@ -4,6 +4,8 @@ import {
   exchangeCodeForTokens,
   fetchGoogleUserInfo,
   GOOGLE_CALENDAR_SCOPES,
+  hasGoogleMeetSpaceScopes,
+  parseGrantedGoogleScopes,
   refreshAccessToken,
   signOAuthState,
   verifyOAuthState,
@@ -90,6 +92,20 @@ describe("buildAuthorizationUrl", () => {
     expect(url.searchParams.get("redirect_uri")).toBe(
       "https://app.example.com/api/integrations/google/callback",
     );
+  });
+});
+
+describe("Google Meet OAuth grants", () => {
+  it("normaliza a resposta scope e reconhece os dois grants obrigatórios", () => {
+    const scopes = parseGrantedGoogleScopes(GOOGLE_CALENDAR_SCOPES.join(" ")) ?? [];
+
+    expect(hasGoogleMeetSpaceScopes(scopes)).toBe(true);
+    expect(hasGoogleMeetSpaceScopes(["https://www.googleapis.com/auth/calendar"])).toBe(false);
+  });
+
+  it("não apaga scopes armazenados quando o refresh omite scope", () => {
+    expect(parseGrantedGoogleScopes(undefined)).toBeUndefined();
+    expect(parseGrantedGoogleScopes("   ")).toBeUndefined();
   });
 });
 

@@ -12,6 +12,7 @@ import { getSessionMeetBinding } from "@/features/sessions/session-meet-queries"
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { getValidAccessToken } from "@/lib/integrations/google/connection";
+import { hasGoogleMeetSpaceScopes } from "@/lib/integrations/google/oauth";
 import {
   GoogleMeetApiError,
   GoogleMeetClient,
@@ -119,6 +120,12 @@ export async function requestMeetForSessionAction(
   }
   if (!connection || connection.status !== "connected") {
     return { error: "Conecte sua conta Google nas configurações para criar o Meet." };
+  }
+  if (!hasGoogleMeetSpaceScopes(connection.scopes)) {
+    return {
+      error:
+        "A conexão Google precisa autorizar o Google Meet. Reconecte o Google nas configurações e tente novamente.",
+    };
   }
 
   const supabase = await createSupabaseServerClient();

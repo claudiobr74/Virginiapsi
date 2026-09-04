@@ -12,12 +12,27 @@ const GOOGLE_USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v2/userinfo"
 // (MASTER_PROMPT.md #9). The Meet scopes let the app create persistent spaces
 // owned by a clinical session and configure automatic transcription when the
 // user's Workspace edition/admin policy allows it.
-export const GOOGLE_CALENDAR_SCOPES = [
-  "https://www.googleapis.com/auth/calendar",
+export const GOOGLE_MEET_SPACE_SCOPES = [
   "https://www.googleapis.com/auth/meetings.space.created",
   "https://www.googleapis.com/auth/meetings.space.settings",
+] as const;
+
+export const GOOGLE_CALENDAR_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  ...GOOGLE_MEET_SPACE_SCOPES,
   "https://www.googleapis.com/auth/userinfo.email",
 ] as const;
+
+export function parseGrantedGoogleScopes(scope: string | undefined): string[] | undefined {
+  if (!scope?.trim()) {
+    return undefined;
+  }
+  return scope.trim().split(/\s+/);
+}
+
+export function hasGoogleMeetSpaceScopes(scopes: readonly string[]): boolean {
+  return GOOGLE_MEET_SPACE_SCOPES.every((scope) => scopes.includes(scope));
+}
 
 export interface OAuthStatePayload {
   organizationId: string;
@@ -114,7 +129,7 @@ export interface TokenResponse {
   access_token: string;
   expires_in: number;
   refresh_token?: string;
-  scope: string;
+  scope?: string;
   token_type: string;
 }
 
