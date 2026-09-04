@@ -164,8 +164,8 @@ describe("completeAuthCallback", () => {
 });
 
 describe("browser PKCE options", () => {
-  it("habilita appendPkceFlowIdToRedirects na versão instalada", () => {
-    expect(BROWSER_PKCE_AUTH_OPTIONS.experimental.appendPkceFlowIdToRedirects).toBe(true);
+  it("mantém callback estável sem appendPkceFlowIdToRedirects", () => {
+    expect(BROWSER_PKCE_AUTH_OPTIONS.experimental.appendPkceFlowIdToRedirects).toBe(false);
     const source = readFileSync("src/lib/supabase/browser.ts", "utf8");
     expect(source).toContain("BROWSER_PKCE_AUTH_OPTIONS");
   });
