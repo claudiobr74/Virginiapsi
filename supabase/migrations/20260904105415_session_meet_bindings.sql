@@ -73,28 +73,45 @@ create trigger session_meet_bindings_assert_consistency
   before insert or update on public.session_meet_bindings
   for each row execute function public.assert_session_meet_binding_consistency();
 
+-- Hosted default ACLs may grant broad table privileges to API roles. Reset
+-- them before granting the exact operations used by the application.
+revoke all on table public.session_meet_bindings from public, anon, authenticated;
 grant select, insert, update on public.session_meet_bindings to authenticated;
+revoke all on function public.assert_session_meet_binding_consistency()
+  from public, anon, authenticated;
 
 alter table public.session_meet_bindings enable row level security;
 
-create policy session_meet_bindings_admin_select
+create policy session_meet_bindings_responsible_admin_select
   on public.session_meet_bindings
   for select
   to authenticated
-  using (public.is_psychologist_admin(organization_id));
+  using (
+    public.is_psychologist_admin(organization_id)
+    and public.can_access_clinical_session(organization_id, session_id)
+  );
 
-create policy session_meet_bindings_admin_insert
+create policy session_meet_bindings_responsible_admin_insert
   on public.session_meet_bindings
   for insert
   to authenticated
-  with check (public.is_psychologist_admin(organization_id));
+  with check (
+    public.is_psychologist_admin(organization_id)
+    and public.can_access_clinical_session(organization_id, session_id)
+  );
 
-create policy session_meet_bindings_admin_update
+create policy session_meet_bindings_responsible_admin_update
   on public.session_meet_bindings
   for update
   to authenticated
-  using (public.is_psychologist_admin(organization_id))
-  with check (public.is_psychologist_admin(organization_id));
+  using (
+    public.is_psychologist_admin(organization_id)
+    and public.can_access_clinical_session(organization_id, session_id)
+  )
+  with check (
+    public.is_psychologist_admin(organization_id)
+    and public.can_access_clinical_session(organization_id, session_id)
+  );
 
 -- Final Google Meet transcript is kept separate from the live capture stream.
 -- The existing live transcript is append-only evidence and may come from Groq
@@ -151,21 +168,31 @@ create trigger session_meet_transcript_entries_assert_consistency
 
 -- Imported Meet entries are append-only. Repeated synchronizations use
 -- ON CONFLICT DO NOTHING through the unique google_entry_name idempotency key.
+revoke all on table public.session_meet_transcript_entries
+  from public, anon, authenticated;
 grant select, insert on public.session_meet_transcript_entries to authenticated;
+revoke all on function public.assert_session_meet_transcript_entry_consistency()
+  from public, anon, authenticated;
 
 alter table public.session_meet_transcript_entries enable row level security;
 
-create policy session_meet_transcript_entries_admin_select
+create policy session_meet_transcript_entries_responsible_admin_select
   on public.session_meet_transcript_entries
   for select
   to authenticated
-  using (public.is_psychologist_admin(organization_id));
+  using (
+    public.is_psychologist_admin(organization_id)
+    and public.can_access_clinical_session(organization_id, session_id)
+  );
 
-create policy session_meet_transcript_entries_admin_insert
+create policy session_meet_transcript_entries_responsible_admin_insert
   on public.session_meet_transcript_entries
   for insert
   to authenticated
-  with check (public.is_psychologist_admin(organization_id));
+  with check (
+    public.is_psychologist_admin(organization_id)
+    and public.can_access_clinical_session(organization_id, session_id)
+  );
 
 -- No DELETE policies: both binding and imported transcript are part of the
 -- clinical session's durable audit trail.
