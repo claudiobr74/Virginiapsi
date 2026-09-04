@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { fontMono, fontSans, fontSerif } from "@/lib/fonts";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
+import "./appearance-presets.css";
+import "./appearance-preset-previews.css";
 
 export const metadata: Metadata = {
   title: "VirgíniaPsi",

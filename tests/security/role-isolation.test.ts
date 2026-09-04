@@ -66,6 +66,7 @@ describe("isolamento por papel", () => {
       expect(rows).toHaveLength(1);
       expect(Object.keys(rows[0]).sort()).toEqual(
         [
+          "appearance_preset",
           "clinic_name",
           "greeting_prefix",
           "inactivity_timeout_minutes",
