@@ -39,6 +39,15 @@ export interface OAuthStatePayload {
   userId: string;
   nonce: string;
   issuedAt: number;
+  /** Whitelisted return surface after Google redirects back. */
+  returnTo?: "agenda" | "settings";
+  /**
+   * Origin where the authenticated VirgíniaPsi session started the flow.
+   * It is signed together with the user/org and validated again before use.
+   * This lets a canonical Google callback hand the single-use code back to a
+   * Vercel preview without trying to share host-scoped Supabase cookies.
+   */
+  returnOrigin?: string;
 }
 
 /**
@@ -95,7 +104,17 @@ export function verifyOAuthState(
     return { valid: false, reason: "malformed" };
   }
 
-  if (now - payload.issuedAt > STATE_MAX_AGE_MS) {
+  if (
+    typeof payload.organizationId !== "string" ||
+    typeof payload.userId !== "string" ||
+    typeof payload.nonce !== "string" ||
+    typeof payload.issuedAt !== "number" ||
+    !Number.isFinite(payload.issuedAt)
+  ) {
+    return { valid: false, reason: "malformed" };
+  }
+
+  if (now - payload.issuedAt > STATE_MAX_AGE_MS || payload.issuedAt > now + 60_000) {
     return { valid: false, reason: "expired" };
   }
 
