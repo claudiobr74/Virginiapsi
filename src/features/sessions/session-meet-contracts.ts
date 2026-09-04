@@ -17,6 +17,8 @@ export const sessionMeetBindingRowSchema = z.object({
   session_id: z.string().uuid(),
   organization_id: z.string().uuid(),
   status: z.enum(SESSION_MEET_STATUS_VALUES),
+  google_calendar_id: z.string().nullable(),
+  google_event_id: z.string().nullable(),
   meet_space_name: z.string().nullable(),
   meeting_code: z.string().nullable(),
   meet_url: z.string().url().nullable(),
