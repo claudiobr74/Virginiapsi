@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarCheck2, RefreshCw } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -31,6 +31,7 @@ export function ConnectionPanel({
   canManage: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
@@ -39,6 +40,7 @@ export function ConnectionPanel({
 
   const status = connection?.status ?? "disconnected";
   const showConnectionDetails = status === "connected" || status === "error";
+  const oauthReturnTo = pathname.startsWith("/app/settings") ? "settings" : "agenda";
 
   function openCalendarModal() {
     setCalendarModalOpen(true);
@@ -132,7 +134,7 @@ export function ConnectionPanel({
               isLoading={isPending}
               onClick={() =>
                 startTransition(async () => {
-                  const result = await startGoogleConnectionAction();
+                  const result = await startGoogleConnectionAction(oauthReturnTo);
                   if (result?.error) {
                     setError(result.error);
                   }
