@@ -70,7 +70,12 @@ function snapshot(): MyDaySnapshot {
 
 describe("MyDayBoard — hierarquia visual", () => {
   it("coloca Agenda de Hoje na coluna principal, após Próxima sessão, e os painéis na lateral", () => {
-    render(<MyDayBoard snapshot={snapshot()} />);
+    render(
+      <MyDayBoard
+        snapshot={snapshot()}
+        requestStandaloneMeetAction={vi.fn(async () => ({ meetUrl: "https://meet.google.com/abc-defg-hij" }))}
+      />,
+    );
 
     const primary = document.querySelector("[data-myday-region='primary']");
     const secondary = document.querySelector("[data-myday-region='secondary']");
@@ -82,6 +87,9 @@ describe("MyDayBoard — hierarquia visual", () => {
     expect(secondary).not.toContainElement(
       screen.getByRole("heading", { name: "Agenda de Hoje" }),
     );
+    expect(
+      screen.getByRole("button", { name: "Criar sala Google Meet" }),
+    ).toBeEnabled();
 
     const secondaryHeadings = Array.from(
       secondary!.querySelectorAll("h2"),
