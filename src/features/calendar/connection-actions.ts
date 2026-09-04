@@ -4,6 +4,11 @@ import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { syncGoogleCalendarPull } from "@/features/calendar/sync-actions";
+import {
+  parseGoogleOAuthReturnOrigin,
+  parseGoogleOAuthReturnTo,
+  type GoogleOAuthReturnTo,
+} from "@/features/calendar/oauth-callback";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { envIssueKeyNames } from "@/lib/env/schema";
@@ -59,7 +64,9 @@ function toGoogleCalendarStartError(error: unknown): string {
   return "Faltam configurações do servidor na Vercel para conectar o Google Calendar. Confira se as variáveis do .env existem em Preview e Production.";
 }
 
-export async function startGoogleConnectionAction(): Promise<CalendarActionResult> {
+export async function startGoogleConnectionAction(
+  returnTo: GoogleOAuthReturnTo = "agenda",
+): Promise<CalendarActionResult> {
   const { organizationId, role, user } = await requireOrgContext();
 
   if (role !== "psychologist_admin") {
@@ -76,6 +83,11 @@ export async function startGoogleConnectionAction(): Promise<CalendarActionResul
   const headerList = await headers();
   const requestOrigin =
     requestOriginFromHeaders(headerList) ?? env.NEXT_PUBLIC_APP_URL;
+  const safeReturnTo = parseGoogleOAuthReturnTo(returnTo);
+  const safeReturnOrigin = parseGoogleOAuthReturnOrigin(
+    requestOrigin,
+    env.NEXT_PUBLIC_APP_URL,
+  );
 
   let decision;
   try {
@@ -87,18 +99,27 @@ export async function startGoogleConnectionAction(): Promise<CalendarActionResul
     return { error: toGoogleCalendarStartError(error) };
   }
 
-  if (decision.type === "redirect_to_canonical") {
-    redirect(decision.url);
-  }
-
   if (decision.type === "reject_loopback") {
     return { error: GOOGLE_CALENDAR_LOCALHOST_ERROR };
   }
 
   const state = signOAuthState(
-    { organizationId, userId: user.id, nonce: randomUUID(), issuedAt: Date.now() },
+    {
+      organizationId,
+      userId: user.id,
+      nonce: randomUUID(),
+      issuedAt: Date.now(),
+      returnTo: safeReturnTo,
+      returnOrigin: safeReturnOrigin,
+    },
     env.GOOGLE_TOKEN_ENCRYPTION_KEY,
   );
+
+  if (decision.type === "redirect_to_canonical") {
+    const canonicalStart = new URL(decision.url);
+    canonicalStart.searchParams.set("state", state);
+    redirect(canonicalStart.toString());
+  }
 
   redirect(`/api/integrations/google/start?state=${encodeURIComponent(state)}`);
 }
