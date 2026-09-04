@@ -51,6 +51,24 @@ interface TranscriptEntriesListResponse {
   nextPageToken?: string;
 }
 
+function googleApiErrorMessage(body: unknown): string | undefined {
+  if (!body || typeof body !== "object") {
+    return undefined;
+  }
+
+  const googleError = (body as { error?: unknown }).error;
+  if (!googleError || typeof googleError !== "object") {
+    return undefined;
+  }
+
+  const message = (googleError as { message?: unknown }).message;
+  if (typeof message !== "string" || !message.trim()) {
+    return undefined;
+  }
+
+  return message.trim().slice(0, 600);
+}
+
 export class GoogleMeetApiError extends Error {
   constructor(
     message: string,
@@ -111,8 +129,12 @@ export class GoogleMeetClient {
       } catch {
         body = undefined;
       }
+
+      const googleMessage = googleApiErrorMessage(body);
       throw new GoogleMeetApiError(
-        `Google Meet API request failed: ${response.status}`,
+        googleMessage
+          ? `Google Meet API request failed: ${response.status} — ${googleMessage}`
+          : `Google Meet API request failed: ${response.status}`,
         response.status,
         body,
       );
