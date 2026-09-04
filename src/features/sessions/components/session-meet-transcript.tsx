@@ -34,7 +34,7 @@ export function SessionMeetTranscript({
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!syncAction || ["imported", "failed"].includes(status)) {
+    if (!syncAction || ["imported", "failed", "unavailable"].includes(status)) {
       return;
     }
 
@@ -150,10 +150,16 @@ export function SessionMeetTranscript({
           </p>
         )
       ) : status === "unavailable" ? (
-        <p className="mt-4 text-sm text-muted-foreground">
-          A transcrição ainda não ficou disponível. O VirgíniaPsi voltará a consultar o Google
-          enquanto esta sessão estiver aberta ou quando ela for reaberta.
-        </p>
+        <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+          <p>
+            Esta sala foi criada pelo Google Calendar usando uma conta Gmail pessoal. A transcrição
+            nativa do Meet não é importada neste modo.
+          </p>
+          <p>
+            A transcrição própria da sessão no VirgíniaPsi continua funcionando normalmente e não
+            depende deste recurso do Google Meet.
+          </p>
+        </div>
       ) : (
         <div className="mt-4 space-y-2 text-sm text-muted-foreground">
           <p>
