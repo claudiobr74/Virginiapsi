@@ -138,7 +138,7 @@ describe("MyDayBoard — hierarquia visual", () => {
     fireEvent.click(copy);
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith("https://meet.google.com/abc-defg-hij");
+      expect(copy).toHaveTextContent("Copiado");
     });
-    expect(screen.getByText("Copiado")).toBeVisible();
   });
 });
