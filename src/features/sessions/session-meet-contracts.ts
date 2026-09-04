@@ -17,8 +17,12 @@ export const sessionMeetBindingRowSchema = z.object({
   session_id: z.string().uuid(),
   organization_id: z.string().uuid(),
   status: z.enum(SESSION_MEET_STATUS_VALUES),
-  google_calendar_id: z.string().nullable(),
-  google_event_id: z.string().nullable(),
+  // Keep session rendering backward-compatible while a preview is briefly
+  // ahead of the shared Supabase schema. Once the migration is present these
+  // fields are returned normally; before it, absent fields resolve to null
+  // instead of crashing /session/[sessionId].
+  google_calendar_id: z.string().nullable().optional().default(null),
+  google_event_id: z.string().nullable().optional().default(null),
   meet_space_name: z.string().nullable(),
   meeting_code: z.string().nullable(),
   meet_url: z.string().url().nullable(),
