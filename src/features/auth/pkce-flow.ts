@@ -1,4 +1,4 @@
-/** Query param appended when `auth.experimental.appendPkceFlowIdToRedirects` is on. */
+/** Query param used only when experimental per-flow redirect IDs are enabled. */
 export const PKCE_FLOW_ID_QUERY = "sb_flow_id";
 
 /** Supabase auth-js accepts 8-64 URL-safe flow-id characters. */
@@ -8,13 +8,20 @@ const PKCE_FLOW_MARKER = "-flow-";
 const PKCE_VERIFIER_SUFFIX = "-code-verifier";
 
 /**
- * Installed `@supabase/auth-js` supports per-flow PKCE verifier slots.
- * Appending the flow id lets the callback choose the verifier that created
- * the code instead of falling back to the most recent legacy verifier.
+ * Keep the browser OAuth callback URL stable and queryless.
+ *
+ * The project already has a proven login flow based on an exact
+ * `/auth/callback` redirect. Appending `?sb_flow_id=...` can make that URL stop
+ * matching Supabase Redirect URLs and make Auth fall back to the Site URL,
+ * changing Vercel hosts and losing the host-scoped PKCE verifier cookie.
+ *
+ * Server-side `skipAutoInitialize` remains the protection against the original
+ * first-attempt exchange race. Do not re-enable this experimental redirect
+ * mutation without also changing the hosted Supabase redirect configuration.
  */
 export const BROWSER_PKCE_AUTH_OPTIONS = {
   experimental: {
-    appendPkceFlowIdToRedirects: true,
+    appendPkceFlowIdToRedirects: false,
   },
 } as const;
 
@@ -40,9 +47,9 @@ export function cookieListHasPkceVerifier(cookies: { name: string }[]): boolean 
 }
 
 /**
- * Recovers a per-flow id from the verifier cookie itself. This is a safe
- * fallback only when exactly one flow is present. It covers Vercel/Supabase
- * redirect allow-list fallbacks that can drop the `sb_flow_id` query param.
+ * Backward-compatible recovery for an older per-flow callback that may still
+ * be open in a browser tab. New Google login attempts no longer append a flow
+ * id to the redirect URL.
  */
 export function readPkceFlowIdFromCookies(
   cookies: { name: string }[],
