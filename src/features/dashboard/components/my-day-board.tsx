@@ -3,7 +3,10 @@
 import { useMemo } from "react";
 import type { MeetRequestAction } from "@/features/calendar/components/meet-action-button";
 import { useAgendaClock } from "@/features/calendar/use-agenda-clock";
-import { GoogleMeetPanel } from "@/features/dashboard/components/google-meet-panel";
+import {
+  GoogleMeetPanel,
+  type StandaloneMeetRequestAction,
+} from "@/features/dashboard/components/google-meet-panel";
 import { NextSessionCard } from "@/features/dashboard/components/next-session-card";
 import { RecentDocumentsPanel } from "@/features/dashboard/components/recent-documents-panel";
 import { SessionsToFinalizePanel } from "@/features/dashboard/components/sessions-to-finalize-panel";
@@ -15,9 +18,11 @@ import { FinancialPendingPanel } from "@/features/finance/components/financial-p
 export function MyDayBoard({
   snapshot,
   requestMeetAction,
+  requestStandaloneMeetAction,
 }: {
   snapshot: MyDaySnapshot;
   requestMeetAction?: MeetRequestAction;
+  requestStandaloneMeetAction?: StandaloneMeetRequestAction;
 }) {
   const emptyDay = snapshot.timeline.length === 0;
   const endsAtList = useMemo(
@@ -59,6 +64,7 @@ export function MyDayBoard({
           timeZone={snapshot.timezone}
           now={now}
           requestMeetAction={requestMeetAction}
+          requestStandaloneMeetAction={requestStandaloneMeetAction}
         />
         <SessionsToFinalizePanel
           sessions={snapshot.sessionsToFinalize}
