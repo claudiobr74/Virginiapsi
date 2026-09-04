@@ -20,14 +20,30 @@ export const TRANSCRIPTION_BACKPRESSURE = [
 ] as const;
 export type TranscriptionBackpressure = (typeof TRANSCRIPTION_BACKPRESSURE)[number];
 
+export const LIVE_TRANSCRIPTION_HINT =
+  "Áudio enviado com segurança. Sem conexão, trechos pendentes podem ficar neste dispositivo.";
+
 export const SECURE_SPOOL_UNAVAILABLE_MESSAGE =
-  "Não foi possível ativar a gravação local de segurança neste navegador. A transcrição pode continuar enquanto houver conexão.";
+  "Não foi possível ativar a gravação local de segurança. A transcrição segue enquanto houver conexão.";
 
 export const SECURE_SPOOLING_MESSAGE =
-  "A conexão com a transcrição está indisponível. Os trechos ainda não processados estão sendo preservados de forma criptografada neste dispositivo.";
+  "Sem conexão. Trechos pendentes ficam criptografados neste dispositivo.";
 
 export const UNPRESERVED_STOP_MESSAGE =
-  "Sessão encerrada. Trechos já transcritos permanecem no prontuário. Alguns trechos ainda não enviados não puderam ser preservados com segurança neste dispositivo.";
+  "Sessão encerrada. Alguns trechos não enviados não puderam ser preservados.";
+
+export const STOP_WITH_SPOOL_MESSAGE =
+  "Sessão encerrada. Trechos neste dispositivo serão transcritos quando houver conexão.";
+
+export const LOW_STORAGE_WARNING =
+  "Pouco espaço neste dispositivo. A cópia local pode falhar.";
+
+export const BACKGROUND_CAPTURE_WARNING =
+  "Mantenha esta aba visível durante a transcrição.";
+
+export const EMPTY_TRANSCRIPT_HINT = "Nenhum trecho ainda.";
+
+export const PENDING_RECOVERY_HINT = "Há trechos pendentes de transcrição.";
 
 export const SESSION_CAPTURE_STATES = [
   "idle",

@@ -1,6 +1,6 @@
 "use client";
 
-import { Video } from "lucide-react";
+import { Check, Copy, Video } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +55,7 @@ export function GoogleMeetPanel({
   const [isCreatingStandalone, startStandaloneTransition] = useTransition();
   const [standaloneMeetUrl, setStandaloneMeetUrl] = useState<string | null>(null);
   const [standaloneError, setStandaloneError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   function createStandaloneRoom() {
     if (!requestStandaloneMeetAction) {
@@ -62,6 +63,7 @@ export function GoogleMeetPanel({
     }
 
     setStandaloneError(null);
+    setCopied(false);
     startStandaloneTransition(async () => {
       const result = await requestStandaloneMeetAction();
       if (result.error) {
@@ -72,6 +74,19 @@ export function GoogleMeetPanel({
         setStandaloneMeetUrl(result.meetUrl);
       }
     });
+  }
+
+  async function copyStandaloneMeetUrl() {
+    if (!standaloneMeetUrl) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(standaloneMeetUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setStandaloneError("Não foi possível copiar o link automaticamente.");
+    }
   }
 
   return (
@@ -91,17 +106,33 @@ export function GoogleMeetPanel({
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             {standaloneMeetUrl ? (
-              <Button asChild size="sm" variant="secondary">
-                <a
-                  href={standaloneMeetUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Abrir sala Google Meet criada em uma nova aba"
+              <>
+                <Button asChild size="sm" variant="secondary">
+                  <a
+                    href={standaloneMeetUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Abrir sala Google Meet criada em uma nova aba"
+                  >
+                    <Video className="size-3.5" aria-hidden />
+                    Abrir sala criada
+                  </a>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void copyStandaloneMeetUrl()}
+                  aria-label="Copiar link da sala Google Meet criada"
                 >
-                  <Video className="size-3.5" aria-hidden />
-                  Abrir sala criada
-                </a>
-              </Button>
+                  {copied ? (
+                    <Check className="size-3.5" aria-hidden />
+                  ) : (
+                    <Copy className="size-3.5" aria-hidden />
+                  )}
+                  {copied ? "Copiado" : "Copiar link"}
+                </Button>
+              </>
             ) : null}
             <Button
               type="button"

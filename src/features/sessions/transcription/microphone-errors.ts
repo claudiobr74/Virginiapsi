@@ -4,8 +4,7 @@ export function mapGetUserMediaError(error: unknown): { code: string; message: s
   if (name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError") {
     return {
       code: "permission_denied",
-      message:
-        "O VirgíniaPsi não conseguiu acessar o microfone. Verifique a permissão do navegador e tente novamente.",
+      message: "Sem acesso ao microfone. Verifique a permissão do navegador.",
     };
   }
   if (name === "NotFoundError" || name === "DevicesNotFoundError") {
@@ -27,4 +26,4 @@ export function mapGetUserMediaError(error: unknown): { code: string; message: s
 }
 
 export const MEDIA_RECORDER_UNSUPPORTED_MESSAGE =
-  "Este navegador não oferece os recursos necessários para a transcrição em tempo real. Você ainda pode importar uma gravação da sessão.";
+  "Este navegador não transcreve ao vivo. Importe uma gravação.";

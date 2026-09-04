@@ -56,12 +56,13 @@ describe("Google Meet session safety invariants", () => {
     expect(contents).not.toContain("null as unknown as string");
   });
 
-  it("explica que a reconciliação continua com a sessão aberta e recomeça ao reabrir", () => {
-    const contents = source(
-      "src/features/sessions/components/session-meet-transcript.tsx",
-    );
+  it("não renderiza um quadro separado de transcrição do Google Meet na sessão", () => {
+    const view = source("src/features/sessions/components/active-session-view.tsx");
+    const page = source("src/app/session/[sessionId]/page.tsx");
 
-    expect(contents).toContain("Enquanto esta sessão estiver aberta");
-    expect(contents).toContain("Ao reabrir a sessão");
+    expect(view).not.toContain("SessionMeetTranscript");
+    expect(view).not.toContain("Transcrição do Google Meet");
+    expect(page).not.toContain("listSessionMeetTranscriptEntries");
+    expect(page).not.toContain("syncMeetTranscriptForSessionAction");
   });
 });

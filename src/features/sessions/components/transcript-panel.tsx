@@ -11,6 +11,12 @@ import {
   type TranscriptSegmentResult,
 } from "@/features/sessions/transcription/use-session-transcription";
 import { nextTranscriptSequence } from "@/features/sessions/transcription/audio-chunk";
+import {
+  EMPTY_TRANSCRIPT_HINT,
+  LIVE_TRANSCRIPTION_HINT,
+  LOW_STORAGE_WARNING,
+  PENDING_RECOVERY_HINT,
+} from "@/features/sessions/transcription/constants";
 import type { TranscriptSegmentRow } from "@/features/sessions/contracts";
 
 const STATE_LABEL: Record<string, { label: string; status: StatusBadgeStatus }> = {
@@ -19,7 +25,7 @@ const STATE_LABEL: Record<string, { label: string; status: StatusBadgeStatus }> 
   requesting_microphone: { label: "Preparando…", status: "pending" },
   recording: { label: "Gravando", status: "active" },
   connection_degraded: { label: "Conexão instável", status: "attention" },
-  local_backup: { label: "Gravação local de segurança", status: "attention" },
+  local_backup: { label: "Cópia local", status: "attention" },
   recovering: { label: "Recuperando transcrição…", status: "pending" },
   stopping: { label: "Parando…", status: "pending" },
   completed: { label: "Transcrição finalizada", status: "completed" },
@@ -123,12 +129,7 @@ export function TranscriptPanel({
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Transcrição em tempo real. Durante a sessão, pequenos trechos de áudio são enviados com
-        segurança para gerar a transcrição. Se houver uma interrupção de conexão e este navegador
-        permitir a gravação local de segurança, os trechos ainda não processados podem ser
-        preservados de forma criptografada neste dispositivo até que a transcrição possa continuar.
-      </p>
+      <p className="text-xs text-muted-foreground">{LIVE_TRANSCRIPTION_HINT}</p>
 
       {statusDetail ? (
         <p
@@ -142,8 +143,7 @@ export function TranscriptPanel({
 
       {lowStorageWarning ? (
         <p role="status" className="text-sm text-attention">
-          Pouco espaço disponível no dispositivo. A gravação local de segurança pode não conseguir
-          preservar toda a sessão.
+          {LOW_STORAGE_WARNING}
         </p>
       ) : null}
 
@@ -155,9 +155,7 @@ export function TranscriptPanel({
 
       {pendingRecoveryCount > 0 && state !== "recovering" ? (
         <div className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3">
-          <p className="text-sm text-foreground">
-            Encontramos trechos de uma sessão que ainda precisam ser transcritos.
-          </p>
+          <p className="text-sm text-foreground">{PENDING_RECOVERY_HINT}</p>
           <Button type="button" size="md" className="min-h-11 w-fit min-w-44" onClick={() => void recoverPending()}>
             Continuar processamento
           </Button>
@@ -187,9 +185,7 @@ export function TranscriptPanel({
         )}
       >
         {segments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhum trecho transcrito ainda nesta sessão.
-          </p>
+          <p className="text-sm text-muted-foreground">{EMPTY_TRANSCRIPT_HINT}</p>
         ) : (
           segments
             .slice()

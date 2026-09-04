@@ -210,7 +210,7 @@ describe("erros de Session AI", () => {
   });
 
   it("mensagem de contexto vazio é local e estável", () => {
-    expect(SESSION_AI_EMPTY_CONTEXT_MESSAGE).toMatch(/conteúdo suficiente/i);
+    expect(SESSION_AI_EMPTY_CONTEXT_MESSAGE).toMatch(/insuficiente/i);
     expect(SESSION_AI_USER_ERROR).not.toMatch(/Gemini|Zod|Supabase|HTTP|429|API key/i);
   });
 });

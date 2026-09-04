@@ -26,11 +26,11 @@ test.describe("DPEP com IA — isolamento da sessão", () => {
 
     await page.getByRole("button", { name: "Gerar rascunho com IA" }).click();
     await expect(
-      productAlert(page, /conteúdo suficiente|Consentimento de apoio de IA|Não foi possível gerar/),
+      productAlert(page, /insuficiente|Consentimento de apoio de IA|Não foi possível gerar/),
     ).toBeVisible();
     await expect(page.getByText("Não foi possível carregar esta página")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "DPEP" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Transcrição em tempo real" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Transcrição" })).toBeVisible();
 
     await page.getByLabel("Demanda").fill("Preenchimento manual após recusa da IA");
     await page.getByRole("button", { name: "Salvar DPEP" }).click();
