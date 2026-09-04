@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   cookieListHasPkceVerifier,
   PKCE_FLOW_ID_QUERY,
-  readPkceFlowId,
+  resolvePkceFlowId,
 } from "@/features/auth/pkce-flow";
 import { resolvePublicAuthOrigin } from "@/features/auth/public-origin";
 
@@ -96,9 +96,14 @@ export async function completeAuthCallback(
   const next = searchParams.get("next") ?? "/app";
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/app";
   const publicOrigin = resolvePublicAuthOrigin(request);
-  const flowId = readPkceFlowId(searchParams.get(PKCE_FLOW_ID_QUERY));
+  const requestCookies = request.cookies.getAll();
+
+  // Supabase normally appends sb_flow_id. If an allow-list/Site URL fallback
+  // strips that query parameter, recover the id only when the browser carries
+  // exactly one per-flow verifier cookie. Never guess between multiple flows.
+  const flowId = resolvePkceFlowId(searchParams.get(PKCE_FLOW_ID_QUERY), requestCookies);
   const hasFlowId = Boolean(flowId);
-  const hasPkceCookie = cookieListHasPkceVerifier(request.cookies.getAll());
+  const hasPkceCookie = cookieListHasPkceVerifier(requestCookies);
   const code = searchParams.get("code")?.trim() ?? "";
 
   const baseLog = {
