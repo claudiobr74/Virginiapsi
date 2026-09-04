@@ -52,6 +52,9 @@ test.describe("Meu Dia — dashboard operacional", () => {
     await expect(page.getByText("Sessões esta semana")).toBeVisible();
 
     await expect(
+      page.getByRole("heading", { name: "Salas Google Meet" }),
+    ).toBeVisible();
+    await expect(
       page.getByRole("heading", { name: "Sessões a Finalizar" }),
     ).toBeVisible();
     await expect(page.getByText("Sessões a finalizar chegam na Fase 6")).toHaveCount(0);
@@ -162,6 +165,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
 
     const nextSession = page.getByText("Próxima sessão").first();
     const agenda = page.getByRole("heading", { name: "Agenda de Hoje" });
+    const meet = page.getByRole("heading", { name: "Salas Google Meet" });
     const finalize = page.getByRole("heading", { name: "Sessões a Finalizar" });
     const finance = page.getByRole("heading", { name: "Pendências Financeiras" });
     const tasks = page.getByRole("heading", { name: "Minhas Tarefas" });
@@ -169,6 +173,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
 
     await expect(nextSession).toBeVisible();
     await expect(agenda).toBeVisible();
+    await expect(meet).toBeVisible();
 
     const primaryColumn = page.locator("[data-myday-region='primary']");
     const nextCard = primaryColumn.locator(":scope > *").nth(0);
@@ -177,6 +182,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
     const boxes = {
       next: await nextCard.boundingBox(),
       agenda: await agendaCard.boundingBox(),
+      meet: await meet.boundingBox(),
       finalize: await finalize.boundingBox(),
       finance: await finance.boundingBox(),
       tasks: await tasks.boundingBox(),
@@ -188,6 +194,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
 
     const nextBox = boxes.next!;
     const agendaBox = boxes.agenda!;
+    const meetBox = boxes.meet!;
     const finalizeBox = boxes.finalize!;
     const financeBox = boxes.finance!;
     const tasksBox = boxes.tasks!;
@@ -200,14 +207,17 @@ test.describe("Meu Dia — dashboard operacional", () => {
       // Compare the column cards, not the inner "Próxima sessão" badge vs the
       // Card heading (the heading is indented by ToneIcon ≈ 36px + gap).
       expect(Math.abs(agendaBox.x - nextBox.x)).toBeLessThan(48);
-      expect(finalizeBox.x).toBeGreaterThan(nextBox.x + nextBox.width * 0.4);
-      expect(finalizeBox.y).toBeLessThan(agendaBox.y);
+      expect(meetBox.x).toBeGreaterThan(nextBox.x + nextBox.width * 0.4);
+      expect(meetBox.y).toBeLessThan(agendaBox.y);
+      expect(finalizeBox.y).toBeGreaterThan(meetBox.y);
       expect(financeBox.y).toBeGreaterThan(finalizeBox.y);
       expect(tasksBox.y).toBeGreaterThan(financeBox.y);
       expect(documentsBox.y).toBeGreaterThan(tasksBox.y);
+      expect(Math.abs(meetBox.x - finalizeBox.x)).toBeLessThan(48);
       expect(Math.abs(finalizeBox.x - financeBox.x)).toBeLessThan(48);
     } else {
-      expect(finalizeBox.y).toBeGreaterThan(agendaBox.y);
+      expect(meetBox.y).toBeGreaterThan(agendaBox.y);
+      expect(finalizeBox.y).toBeGreaterThan(meetBox.y);
       expect(financeBox.y).toBeGreaterThan(finalizeBox.y);
       expect(tasksBox.y).toBeGreaterThan(financeBox.y);
       expect(documentsBox.y).toBeGreaterThan(tasksBox.y);
@@ -238,6 +248,7 @@ test.describe("Meu Dia — dashboard operacional", () => {
       ] as const) {
         await page.setViewportSize(size);
         await expect(agenda).toBeVisible();
+        await expect(meet).toBeVisible();
         const extraOverflow = await page.evaluate(
           () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
         );
@@ -246,15 +257,18 @@ test.describe("Meu Dia — dashboard operacional", () => {
         const resized = {
           next: await nextSession.boundingBox(),
           agenda: await agenda.boundingBox(),
+          meet: await meet.boundingBox(),
           finalize: await finalize.boundingBox(),
         };
         expect(resized.agenda!.y).toBeGreaterThan(resized.next!.y);
         if (size.width >= 1024) {
-          expect(resized.finalize!.x).toBeGreaterThan(
+          expect(resized.meet!.x).toBeGreaterThan(
             resized.next!.x + resized.next!.width * 0.4,
           );
+          expect(resized.finalize!.y).toBeGreaterThan(resized.meet!.y);
         } else {
-          expect(resized.finalize!.y).toBeGreaterThan(resized.agenda!.y);
+          expect(resized.meet!.y).toBeGreaterThan(resized.agenda!.y);
+          expect(resized.finalize!.y).toBeGreaterThan(resized.meet!.y);
         }
       }
 
