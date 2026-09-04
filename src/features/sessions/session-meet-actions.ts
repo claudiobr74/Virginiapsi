@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getAppointment } from "@/features/calendar/appointment-queries";
 import { getConnection } from "@/features/calendar/connection-queries";
+import { pushAppointmentToGoogleAction } from "@/features/calendar/sync-actions";
 import { isPsychologistAdmin } from "@/features/organizations/roles";
 import { getClinicalSession } from "@/features/sessions/queries";
 import type {
@@ -11,12 +13,22 @@ import type {
 import { getSessionMeetBinding } from "@/features/sessions/session-meet-queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
-import { getValidAccessToken } from "@/lib/integrations/google/connection";
-import { hasGoogleMeetSpaceScopes } from "@/lib/integrations/google/oauth";
+import {
+  getCalendarClientForOrganization,
+  getValidAccessToken,
+} from "@/lib/integrations/google/connection";
+import {
+  GoogleApiError,
+  type GoogleCalendarEvent,
+} from "@/lib/integrations/google/calendar-client";
+import {
+  inspectExistingMeet,
+  requestMeetForEvent,
+  type MeetOutcome,
+} from "@/lib/integrations/google/meet";
 import {
   GoogleMeetApiError,
   GoogleMeetClient,
-  type GoogleMeetSpace,
   type GoogleMeetTranscript,
 } from "@/lib/integrations/google/meet-client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -31,30 +43,20 @@ function isFreshCreating(updatedAt: string): boolean {
   return Number.isFinite(updated) && Date.now() - updated < CREATING_STALE_AFTER_MS;
 }
 
-async function createMeetSpaceWithBestEffortTranscription(
-  client: GoogleMeetClient,
-): Promise<{ space: GoogleMeetSpace; autoTranscriptionEnabled: boolean }> {
+function meetingCodeFromUrl(meetUrl: string): string | null {
   try {
-    const space = await client.createSpace({ autoTranscription: true });
-    return { space, autoTranscriptionEnabled: true };
-  } catch (error) {
-    // Workspace edition/admin policy can still refuse automatic transcription
-    // even when the OAuth token has the settings scope. Keep Meet usable and
-    // continue watching for a transcription started manually by the clinician.
-    if (!(error instanceof GoogleMeetApiError) || ![400, 403].includes(error.status)) {
-      throw error;
-    }
-
-    const space = await client.createSpace();
-    return { space, autoTranscriptionEnabled: false };
+    const parts = new URL(meetUrl).pathname.split("/").filter(Boolean);
+    return parts.at(-1) ?? null;
+  } catch {
+    return null;
   }
 }
 
 async function auditReadyMeet(input: {
   organizationId: string;
   sessionId: string;
-  meetSpaceName: string;
-  autoTranscriptionEnabled: boolean;
+  googleCalendarId: string;
+  googleEventId: string;
 }): Promise<void> {
   try {
     await logAuditEvent({
@@ -63,14 +65,13 @@ async function auditReadyMeet(input: {
       resourceType: "clinical_session",
       resourceId: input.sessionId,
       metadata: {
-        meetSpaceName: input.meetSpaceName,
-        autoTranscriptionEnabled: input.autoTranscriptionEnabled,
+        provider: "google_calendar",
+        googleCalendarId: input.googleCalendarId,
+        googleEventId: input.googleEventId,
+        autoTranscriptionEnabled: false,
       },
     });
   } catch {
-    // The external room and its deterministic local binding are already
-    // confirmed. An audit sink failure must never downgrade a usable Meet or
-    // cause a second room to be created on retry.
     console.error("failed to audit clinical_session.meet.create");
   }
 }
@@ -99,6 +100,96 @@ async function auditMeetTranscriptImport(input: {
   }
 }
 
+async function waitForExistingMeet(
+  client: Awaited<ReturnType<typeof getCalendarClientForOrganization>>,
+  calendarId: string,
+  eventId: string,
+  initialEvent: GoogleCalendarEvent,
+): Promise<MeetOutcome> {
+  let event = initialEvent;
+  let existing = inspectExistingMeet(event);
+  const requestId = existing.requestId ?? "existing-request";
+
+  for (let attempt = 1; existing.status === "pending" && attempt <= 3; attempt += 1) {
+    await new Promise<void>((resolve) => setTimeout(resolve, Math.min(500 * attempt, 1500)));
+    event = await client.getEvent(calendarId, eventId);
+    existing = inspectExistingMeet(event);
+  }
+
+  if (existing.status === "success") {
+    return {
+      status: "success",
+      requestId: existing.requestId ?? requestId,
+      meetUrl: existing.meetUrl,
+      event,
+    };
+  }
+  if (existing.status === "failure") {
+    return {
+      status: "failure",
+      requestId: existing.requestId ?? requestId,
+      meetUrl: null,
+      event,
+    };
+  }
+  return {
+    status: "pending",
+    requestId: existing.requestId ?? requestId,
+    meetUrl: null,
+    event,
+  };
+}
+
+async function resolveMeetForCalendarEvent(input: {
+  organizationId: string;
+  calendarId: string;
+  eventId: string;
+}): Promise<MeetOutcome> {
+  const client = await getCalendarClientForOrganization(input.organizationId);
+  const event = await client.getEvent(input.calendarId, input.eventId);
+  const existing = inspectExistingMeet(event);
+
+  if (existing.status === "success") {
+    return {
+      status: "success",
+      requestId: existing.requestId ?? "existing-conference",
+      meetUrl: existing.meetUrl,
+      event,
+    };
+  }
+
+  if (existing.status === "pending") {
+    return waitForExistingMeet(client, input.calendarId, input.eventId, event);
+  }
+
+  return requestMeetForEvent({
+    calendarId: input.calendarId,
+    eventId: input.eventId,
+    client,
+  });
+}
+
+async function createTechnicalSessionEvent(input: {
+  organizationId: string;
+  calendarId: string;
+  sessionStartedAt: string | null;
+}): Promise<GoogleCalendarEvent> {
+  const client = await getCalendarClientForOrganization(input.organizationId);
+  const now = new Date();
+  const sessionStart = input.sessionStartedAt ? new Date(input.sessionStartedAt) : now;
+  const start = Number.isFinite(sessionStart.getTime()) ? sessionStart : now;
+  const minimumEnd = new Date(now.getTime() + 15 * 60_000);
+  const normalEnd = new Date(start.getTime() + 60 * 60_000);
+  const end = normalEnd.getTime() > minimumEnd.getTime() ? normalEnd : minimumEnd;
+
+  return client.insertEvent(input.calendarId, {
+    summary: "Sessão VirgíniaPsi",
+    description: "Evento técnico do VirgíniaPsi para videoconferência da sessão clínica.",
+    start: { dateTime: start.toISOString() },
+    end: { dateTime: end.toISOString() },
+  });
+}
+
 export async function requestMeetForSessionAction(
   sessionId: string,
 ): Promise<SessionMeetActionResult> {
@@ -118,14 +209,8 @@ export async function requestMeetForSessionAction(
   if (session.status === "finalized" || session.status === "canceled") {
     return { error: "Não é possível criar uma nova sala Meet para uma sessão encerrada." };
   }
-  if (!connection || connection.status !== "connected") {
-    return { error: "Conecte sua conta Google nas configurações para criar o Meet." };
-  }
-  if (!hasGoogleMeetSpaceScopes(connection.scopes)) {
-    return {
-      error:
-        "A conexão Google precisa autorizar o Google Meet. Reconecte o Google nas configurações e tente novamente.",
-    };
+  if (!connection || connection.status !== "connected" || !connection.calendar_id) {
+    return { error: "Conecte e selecione um calendário do Google para criar o Meet." };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -135,11 +220,15 @@ export async function requestMeetForSessionAction(
     return {
       status: "ready",
       meetUrl: binding.meet_url,
-      autoTranscriptionEnabled: binding.auto_transcription_enabled,
+      autoTranscriptionEnabled: false,
     };
   }
 
-  if (binding?.status === "creating" && isFreshCreating(binding.updated_at)) {
+  if (
+    binding?.status === "creating" &&
+    isFreshCreating(binding.updated_at) &&
+    !binding.google_event_id
+  ) {
     return {
       status: "creating",
       error: "A sala do Google Meet já está sendo preparada. Tente novamente em instantes.",
@@ -151,36 +240,26 @@ export async function requestMeetForSessionAction(
       session_id: sessionId,
       organization_id: organizationId,
       status: "creating",
-      transcript_status: "not_started",
+      transcript_status: "unavailable",
     });
 
     if (claimError) {
-      // A concurrent click may have won the unique session_id claim. Re-read
-      // rather than ever creating a second room for the same clinical session.
       binding = await getSessionMeetBinding(organizationId, sessionId);
       if (binding?.status === "ready" && binding.meet_url) {
         return {
           status: "ready",
           meetUrl: binding.meet_url,
-          autoTranscriptionEnabled: binding.auto_transcription_enabled,
-        };
-      }
-      if (binding?.status === "creating" && isFreshCreating(binding.updated_at)) {
-        return {
-          status: "creating",
-          error: "A sala do Google Meet já está sendo preparada. Tente novamente em instantes.",
+          autoTranscriptionEnabled: false,
         };
       }
       if (!binding) {
         return { error: "Não foi possível reservar o vínculo desta sessão com o Google Meet." };
       }
     }
-  }
-
-  if (binding) {
+  } else {
     const { error: retryClaimError } = await supabase
       .from("session_meet_bindings")
-      .update({ status: "creating", last_error: null })
+      .update({ status: "creating", last_error: null, transcript_status: "unavailable" })
       .eq("session_id", sessionId)
       .eq("organization_id", organizationId);
     if (retryClaimError) {
@@ -188,23 +267,124 @@ export async function requestMeetForSessionAction(
     }
   }
 
+  binding = await getSessionMeetBinding(organizationId, sessionId);
+
   try {
-    const accessToken = await getValidAccessToken(organizationId);
-    const client = new GoogleMeetClient({ accessToken });
-    const { space, autoTranscriptionEnabled } =
-      await createMeetSpaceWithBestEffortTranscription(client);
+    let calendarId = binding?.google_calendar_id ?? null;
+    let eventId = binding?.google_event_id ?? null;
+    let managedAppointment = session.appointment_id
+      ? await getAppointment(organizationId, session.appointment_id)
+      : null;
+
+    if ((!calendarId || !eventId) && managedAppointment?.origin === "TESSELI") {
+      if (!managedAppointment.google_event_id) {
+        const pushed = await pushAppointmentToGoogleAction(managedAppointment.id);
+        if (pushed.error) {
+          throw new Error(pushed.error);
+        }
+        managedAppointment = await getAppointment(organizationId, managedAppointment.id);
+      }
+
+      if (managedAppointment?.google_event_id) {
+        calendarId = managedAppointment.google_calendar_id ?? connection.calendar_id;
+        eventId = managedAppointment.google_event_id;
+      }
+    }
+
+    if (!calendarId || !eventId) {
+      calendarId = connection.calendar_id;
+      const technicalEvent = await createTechnicalSessionEvent({
+        organizationId,
+        calendarId,
+        sessionStartedAt: session.started_at,
+      });
+      eventId = technicalEvent.id;
+    }
+
+    const { error: eventBindingError } = await supabase
+      .from("session_meet_bindings")
+      .update({
+        google_calendar_id: calendarId,
+        google_event_id: eventId,
+        transcript_status: "unavailable",
+        last_error: null,
+      })
+      .eq("session_id", sessionId)
+      .eq("organization_id", organizationId);
+    if (eventBindingError) {
+      throw new Error("Não foi possível vincular o evento do Google Calendar à sessão.");
+    }
+
+    const outcome = await resolveMeetForCalendarEvent({
+      organizationId,
+      calendarId,
+      eventId,
+    });
+
+    if (managedAppointment?.origin === "TESSELI") {
+      const { error: appointmentMeetError } = await supabase
+        .from("appointments")
+        .update({
+          meet_status: outcome.status,
+          meet_request_id: outcome.requestId,
+          meet_url:
+            outcome.status === "success" && outcome.meetUrl
+              ? outcome.meetUrl
+              : managedAppointment.meet_url,
+        })
+        .eq("id", managedAppointment.id)
+        .eq("organization_id", organizationId);
+      if (appointmentMeetError) {
+        throw new Error("Não foi possível atualizar o Meet do agendamento.");
+      }
+    }
+
+    if (outcome.status === "pending") {
+      await supabase
+        .from("session_meet_bindings")
+        .update({
+          status: "creating",
+          last_error: null,
+          transcript_status: "unavailable",
+        })
+        .eq("session_id", sessionId)
+        .eq("organization_id", organizationId);
+
+      revalidatePath(`/session/${sessionId}`);
+      revalidatePath("/app");
+      return {
+        status: "creating",
+        error: "O Google está preparando a sala Meet. Tente novamente em instantes.",
+      };
+    }
+
+    if (outcome.status === "failure" || !outcome.meetUrl) {
+      await supabase
+        .from("session_meet_bindings")
+        .update({
+          status: "failed",
+          last_error: "Google Calendar conference creation failed",
+          transcript_status: "unavailable",
+        })
+        .eq("session_id", sessionId)
+        .eq("organization_id", organizationId);
+      return {
+        status: "failed",
+        error: "O Google não conseguiu criar o Meet. Tente novamente.",
+      };
+    }
 
     const { error: persistError } = await supabase
       .from("session_meet_bindings")
       .update({
         status: "ready",
-        meet_space_name: space.name,
-        meeting_code: space.meetingCode,
-        meet_url: space.meetingUri,
-        auto_transcription_enabled: autoTranscriptionEnabled,
-        // Even when automatic transcription is unavailable, keep watching:
-        // the clinician may start Meet transcription manually in the call.
-        transcript_status: "awaiting_artifact",
+        google_calendar_id: calendarId,
+        google_event_id: eventId,
+        meet_space_name: null,
+        meeting_code: meetingCodeFromUrl(outcome.meetUrl),
+        meet_url: outcome.meetUrl,
+        auto_transcription_enabled: false,
+        transcript_status: "unavailable",
         last_error: null,
       })
       .eq("session_id", sessionId)
@@ -220,29 +400,31 @@ export async function requestMeetForSessionAction(
     await auditReadyMeet({
       organizationId,
       sessionId,
-      meetSpaceName: space.name,
-      autoTranscriptionEnabled,
+      googleCalendarId: calendarId,
+      googleEventId: eventId,
     });
 
     revalidatePath(`/session/${sessionId}`);
+    revalidatePath("/app");
+    revalidatePath("/app/agenda");
     return {
       status: "ready",
-      meetUrl: space.meetingUri,
-      autoTranscriptionEnabled,
+      meetUrl: outcome.meetUrl,
+      autoTranscriptionEnabled: false,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
     await supabase
       .from("session_meet_bindings")
-      .update({ status: "failed", last_error: message, transcript_status: "failed" })
+      .update({ status: "failed", last_error: message, transcript_status: "unavailable" })
       .eq("session_id", sessionId)
       .eq("organization_id", organizationId);
 
-    if (error instanceof GoogleMeetApiError && error.status === 403) {
+    if (error instanceof GoogleApiError && error.status === 403) {
       return {
         status: "failed",
         error:
-          "A conexão Google ainda não autorizou a criação direta de salas Meet. Reconecte o Google nas configurações e tente novamente.",
+          "O Google Calendar recusou a criação da videoconferência. Verifique a permissão do calendário conectado.",
       };
     }
 
@@ -266,9 +448,14 @@ export async function syncMeetTranscriptForSessionAction(
     getSessionMeetBinding(organizationId, sessionId),
   ]);
 
-  if (!session || !binding || binding.status !== "ready" || !binding.meet_space_name) {
+  if (!session || !binding || binding.status !== "ready") {
     return { status: "not_started" };
   }
+
+  if (!binding.meet_space_name) {
+    return { status: "unavailable" };
+  }
+
   if (binding.transcript_status === "imported") {
     return { status: "imported" };
   }
@@ -350,8 +537,6 @@ export async function syncMeetTranscriptForSessionAction(
         }
       }
 
-      // FILE_GENERATED can precede the entries endpoint becoming populated.
-      // Never mark the clinical artifact imported until actual speech exists.
       if (!conferenceHasEntries) {
         hasPendingArtifact = true;
       }
