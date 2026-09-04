@@ -87,6 +87,7 @@ describe("MyDayBoard — hierarquia visual", () => {
       secondary!.querySelectorAll("h2"),
     ).map((node) => node.textContent);
     expect(secondaryHeadings).toEqual([
+      "Salas Google Meet",
       "Sessões a Finalizar",
       "Pendências Financeiras",
       "Minhas Tarefas",
@@ -97,6 +98,7 @@ describe("MyDayBoard — hierarquia visual", () => {
     expect(headings[0]).toBe("Beatriz");
     expect(headings.slice(1)).toEqual([
       "Agenda de Hoje",
+      "Salas Google Meet",
       "Sessões a Finalizar",
       "Pendências Financeiras",
       "Minhas Tarefas",
