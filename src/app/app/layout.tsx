@@ -1,3 +1,5 @@
+import { AppearancePresetProvider } from "@/features/appearance/appearance-preset-provider";
+import { parseAppearancePreset } from "@/features/appearance/appearance-presets";
 import { AppShell } from "@/features/shell/app-shell";
 import { ROLE_LABELS } from "@/features/organizations/labels";
 import { getShellSettings } from "@/features/organizations/queries";
@@ -34,18 +36,21 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
     displayNameFromEmail(user.email ?? undefined);
 
   return (
-    <AppShell
-      userEmail={user.email ?? ""}
-      professionalName={professionalName}
-      professionalSubtitle={ROLE_LABELS[role]}
-      organizationName={settings?.organization_name ?? organizationName}
-      roleLabel={ROLE_LABELS[role]}
-      canSwitchOrganization={memberships.length > 1}
-      inactivityTimeoutMinutes={settings?.inactivity_timeout_minutes}
-      syncStatus={chrome.syncStatus}
-      pendingCount={chrome.pendingCount}
-    >
-      {children}
-    </AppShell>
+    <>
+      <AppearancePresetProvider preset={parseAppearancePreset(settings?.appearance_preset)} />
+      <AppShell
+        userEmail={user.email ?? ""}
+        professionalName={professionalName}
+        professionalSubtitle={ROLE_LABELS[role]}
+        organizationName={settings?.organization_name ?? organizationName}
+        roleLabel={ROLE_LABELS[role]}
+        canSwitchOrganization={memberships.length > 1}
+        inactivityTimeoutMinutes={settings?.inactivity_timeout_minutes}
+        syncStatus={chrome.syncStatus}
+        pendingCount={chrome.pendingCount}
+      >
+        {children}
+      </AppShell>
+    </>
   );
 }

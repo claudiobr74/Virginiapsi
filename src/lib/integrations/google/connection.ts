@@ -10,6 +10,7 @@ import {
 } from "@/lib/integrations/google/oauth";
 import { googleCalendarRedirectUri } from "@/lib/env/schema";
 import { getGoogleCalendarEnv } from "@/lib/env/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { firstRpcRow } from "@/lib/supabase/rpc-result";
 
@@ -24,7 +25,7 @@ interface StoredCredentials {
 async function loadCredentials(
   organizationId: string,
 ): Promise<StoredCredentials | null> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase.rpc("get_google_credentials", {
     org_id: organizationId,
   });
