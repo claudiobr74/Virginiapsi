@@ -57,8 +57,8 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
     await recordAllCaptureConsents(page);
     const sessionId = await startSession(page, patientId);
 
-    await expect(page.getByRole("heading", { name: "Transcrição em tempo real" })).toBeVisible();
-    await expect(page.getByText("Nenhum trecho transcrito ainda nesta sessão.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Transcrição" })).toBeVisible();
+    await expect(page.getByText("Nenhum trecho ainda.")).toBeVisible();
 
     const grantResponse = await page.request.post("/api/session-capture/grant", {
       data: { patientId, sessionId },
@@ -89,7 +89,7 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
 
     await page.reload();
     await expect(page.getByText("Trecho transcrito no stub Groq.")).toBeVisible();
-    await expect(page.getByText("Nenhum trecho transcrito ainda nesta sessão.")).toHaveCount(0);
+    await expect(page.getByText("Nenhum trecho ainda.")).toHaveCount(0);
   });
 
   test("transcribe-chunk via Groq stub persiste e o replay não duplica", async ({
@@ -178,7 +178,7 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
 
     await expect(page.getByText("baixando modelo")).toHaveCount(0);
     await page.getByRole("button", { name: "Iniciar transcrição" }).click();
-    await expect(page.getByText(/Gravando|Preparando|Conexão instável|Gravação local/)).toBeVisible({
+    await expect(page.getByText(/Gravando|Preparando|Conexão instável|Cópia local|Gravação local/)).toBeVisible({
       timeout: 15_000,
     });
     await page.getByRole("button", { name: "Parar transcrição" }).click();
@@ -205,13 +205,16 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
       route.abort("failed"),
     );
     await page.getByRole("button", { name: "Iniciar transcrição" }).click();
-    await expect(page.getByText(/Gravando|Preparando|Conexão instável|Gravação local/)).toBeVisible({
+    await expect(page.getByText(/Gravando|Preparando|Conexão instável|Cópia local|Gravação local/)).toBeVisible({
       timeout: 15_000,
     });
     await page.waitForTimeout(1_200);
     await page.getByRole("button", { name: "Parar transcrição" }).click();
     await expect(
-      page.getByText(/preservado|Continuar processamento|Gravação local|encerrada|indisponível/i),
+      page
+        .getByRole("button", { name: "Continuar processamento" })
+        .or(page.getByText(/Sessão encerrada|gravação local de segurança|não puderam ser preservados/i))
+        .first(),
     ).toBeVisible({ timeout: 20_000 });
 
     await page.unroute("**/api/session-capture/transcribe-chunk");
@@ -331,7 +334,7 @@ test.describe("Transcrição em sessão — grant e persistência", () => {
     ).toBeVisible({ timeout: 20_000 });
     await expect(
       page.getByText(
-        "Os trechos ainda não processados estão sendo preservados de forma criptografada neste dispositivo.",
+        /preservados de forma criptografada|ficam criptografados neste dispositivo/i,
       ),
     ).toHaveCount(0);
   });

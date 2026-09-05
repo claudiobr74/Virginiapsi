@@ -34,7 +34,7 @@ export function ImportRecordingControl({
       return;
     }
     if (file.size > IMPORT_AUDIO_MAX_BYTES) {
-      setError("Este arquivo excede o limite de 25 MB do serviço de transcrição. Divida a gravação em trechos menores.");
+      setError("Arquivo acima de 25 MB. Divida a gravação.");
       return;
     }
 
@@ -82,7 +82,7 @@ export function ImportRecordingControl({
         }),
       });
       if (!transcribeResponse.ok) {
-        setError("A transcrição da gravação importada falhou. O arquivo temporário permanece disponível para nova tentativa.");
+        setError("A transcrição da gravação importada falhou. O arquivo temporário permanece disponível.");
         return;
       }
       const body = (await transcribeResponse.json()) as {
@@ -103,6 +103,7 @@ export function ImportRecordingControl({
     <div className="flex flex-col gap-2">
       <div
         className="rounded-2xl border border-dashed border-border bg-surface/30 px-3 py-3"
+        aria-label="Importar gravação"
         onDragOver={(event) => {
           event.preventDefault();
         }}
@@ -118,9 +119,6 @@ export function ImportRecordingControl({
         }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            Importar gravação feita em outro gravador, quando a captura ao vivo não estiver disponível.
-          </p>
           <label
             className={cn(
               buttonVariants({ variant: "secondary", size: "md" }),

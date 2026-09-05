@@ -24,4 +24,12 @@ describe("Supabase server auth initialization", () => {
       expect(contents).toContain("auth: SUPABASE_SERVER_AUTH_OPTIONS");
     },
   );
+
+  it("usa cliente de login isolado e não altera o redirect com sb_flow_id", () => {
+    const contents = source("src/lib/supabase/browser.ts");
+    expect(contents).toContain("createSupabaseLoginBrowserClient");
+    expect(contents).toContain("isSingleton: false");
+    expect(contents).toContain("skipAutoInitialize: true");
+    expect(contents).toContain("appendPkceFlowIdToRedirects: false");
+  });
 });

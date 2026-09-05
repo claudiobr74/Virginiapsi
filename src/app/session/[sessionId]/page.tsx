@@ -10,14 +10,8 @@ import {
   getSessionWorkingNotes,
   listTranscriptSegments,
 } from "@/features/sessions/queries";
-import {
-  requestMeetForSessionAction,
-  syncMeetTranscriptForSessionAction,
-} from "@/features/sessions/session-meet-actions";
-import {
-  getSessionMeetBinding,
-  listSessionMeetTranscriptEntries,
-} from "@/features/sessions/session-meet-queries";
+import { requestMeetForSessionAction } from "@/features/sessions/session-meet-actions";
+import { getSessionMeetBinding } from "@/features/sessions/session-meet-queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { elapsedSecondsBetween } from "@/lib/utils/elapsed";
 
@@ -66,7 +60,6 @@ export default async function ActiveSessionPage({
     appointment,
     clinicalProfile,
     meetBinding,
-    meetTranscriptEntries,
   ] = await Promise.all([
     getSessionDpep(session.id),
     getSessionWorkingNotes(session.id),
@@ -76,7 +69,6 @@ export default async function ActiveSessionPage({
       : Promise.resolve(null),
     getPatientClinicalProfile(patient.id),
     getSessionMeetBinding(organizationId, session.id),
-    listSessionMeetTranscriptEntries(organizationId, session.id),
   ]);
 
   return (
@@ -97,9 +89,7 @@ export default async function ActiveSessionPage({
           : null
       }
       meetBinding={meetBinding}
-      meetTranscriptEntries={meetTranscriptEntries}
       requestMeetAction={requestMeetForSessionAction}
-      syncMeetTranscriptAction={syncMeetTranscriptForSessionAction}
       initialElapsedSeconds={
         session.started_at
           ? elapsedSecondsBetween(

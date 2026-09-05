@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_TRANSCRIPTION_CHUNK_MS,
+  BACKGROUND_CAPTURE_WARNING,
   SECURE_SPOOLING_MESSAGE,
   SECURE_SPOOL_UNAVAILABLE_MESSAGE,
+  STOP_WITH_SPOOL_MESSAGE,
   UNPRESERVED_STOP_MESSAGE,
   type SessionCaptureState,
   type TranscriptionBackpressure,
@@ -167,9 +169,6 @@ export function useSessionTranscription({
         return;
       }
       setLowStorageWarning(true);
-      setStatusDetail(
-        "Pouco espaço disponível no dispositivo. A gravação local de segurança pode não conseguir preservar toda a sessão.",
-      );
       setCaptureState("local_backup");
       return;
     }
@@ -179,7 +178,7 @@ export function useSessionTranscription({
       return;
     }
     if (level === "degraded") {
-      setStatusDetail("Conexão instável. Alguns trechos aguardam transcrição.");
+      setStatusDetail("Conexão instável. Trechos aguardam transcrição.");
       setCaptureState("connection_degraded");
       return;
     }
@@ -263,9 +262,7 @@ export function useSessionTranscription({
         );
       },
       () => {
-        setBackgroundWarning(
-          "A sessão precisa permanecer visível durante a transcrição. O navegador pode suspender a captura em segundo plano.",
-        );
+        setBackgroundWarning(BACKGROUND_CAPTURE_WARNING);
       },
     );
 
@@ -357,9 +354,7 @@ export function useSessionTranscription({
     grantRef.current = null;
     setCaptureState("completed");
     if (remaining > 0) {
-      setStatusDetail(
-        `Sessão encerrada. Trechos já transcritos permanecem no prontuário. ${remaining} trecho(s) preservado(s) neste dispositivo serão concluídos quando houver conexão.`,
-      );
+      setStatusDetail(STOP_WITH_SPOOL_MESSAGE);
     } else if (leftoverMemory > 0) {
       setStatusDetail(UNPRESERVED_STOP_MESSAGE);
     }

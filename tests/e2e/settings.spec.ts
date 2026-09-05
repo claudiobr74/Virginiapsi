@@ -169,12 +169,9 @@ test.describe("Configurações", () => {
     await expect(page.getByText("Citação de hoje")).toBeVisible();
     await page.getByRole("button", { name: "Ver banco de 30 citações" }).click();
     await expect(page.getByRole("heading", { name: "Banco de citações" })).toBeVisible();
-    await expect(
-      page.getByText(
-        "Escutar com presença é abrir espaço para que o outro também se escute.",
-        { exact: true },
-      ),
-    ).toBeVisible();
+    await expect(page.getByRole("dialog").getByRole("listitem").first()).toContainText(
+      "Escutar com presença é abrir espaço para que o outro também se escute.",
+    );
     await page.getByRole("button", { name: "Fechar" }).click();
 
     await page.getByRole("radio", { name: /Personalizada/ }).click();

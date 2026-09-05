@@ -243,8 +243,8 @@ export function DpepForm({
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-xs text-muted-foreground">
-          {isDirty ? "Alterações não salvas." : "Sem alterações pendentes."}
+        <span className="min-h-4 text-xs text-muted-foreground">
+          {isDirty ? "Alterações não salvas." : ""}
         </span>
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
           {!disabled ? (
@@ -309,7 +309,7 @@ export function DpepForm({
             </>
           }
         >
-          <p>O rascunho gerado só entra no prontuário depois que você salvar o DPEP.</p>
+          <p>Só entra no prontuário ao salvar o DPEP.</p>
         </ModalContent>
       </Modal>
     </form>

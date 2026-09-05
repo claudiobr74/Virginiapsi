@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MyDayBoard } from "@/features/dashboard/components/my-day-board";
 import { PHASE_AVAILABILITY, type MyDaySnapshot } from "@/features/dashboard/contracts";
@@ -70,7 +70,12 @@ function snapshot(): MyDaySnapshot {
 
 describe("MyDayBoard — hierarquia visual", () => {
   it("coloca Agenda de Hoje na coluna principal, após Próxima sessão, e os painéis na lateral", () => {
-    render(<MyDayBoard snapshot={snapshot()} />);
+    render(
+      <MyDayBoard
+        snapshot={snapshot()}
+        requestStandaloneMeetAction={vi.fn(async () => ({ meetUrl: "https://meet.google.com/abc-defg-hij" }))}
+      />,
+    );
 
     const primary = document.querySelector("[data-myday-region='primary']");
     const secondary = document.querySelector("[data-myday-region='secondary']");
@@ -82,11 +87,15 @@ describe("MyDayBoard — hierarquia visual", () => {
     expect(secondary).not.toContainElement(
       screen.getByRole("heading", { name: "Agenda de Hoje" }),
     );
+    expect(
+      screen.getByRole("button", { name: "Criar sala Google Meet" }),
+    ).toBeEnabled();
 
     const secondaryHeadings = Array.from(
       secondary!.querySelectorAll("h2"),
     ).map((node) => node.textContent);
     expect(secondaryHeadings).toEqual([
+      "Salas Google Meet",
       "Sessões a Finalizar",
       "Pendências Financeiras",
       "Minhas Tarefas",
@@ -97,10 +106,39 @@ describe("MyDayBoard — hierarquia visual", () => {
     expect(headings[0]).toBe("Beatriz");
     expect(headings.slice(1)).toEqual([
       "Agenda de Hoje",
+      "Salas Google Meet",
       "Sessões a Finalizar",
       "Pendências Financeiras",
       "Minhas Tarefas",
       "Documentos Gerados",
     ]);
+  });
+
+  it("mostra Copiar link depois de criar uma sala avulsa do Meet", async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <MyDayBoard
+        snapshot={snapshot()}
+        requestStandaloneMeetAction={vi.fn(async () => ({ meetUrl: "https://meet.google.com/abc-defg-hij" }))}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Criar sala Google Meet" }));
+
+    const copy = await screen.findByRole("button", {
+      name: "Copiar link da sala Google Meet criada",
+    });
+    expect(screen.getByRole("link", { name: "Abrir sala Google Meet criada em uma nova aba" })).toBeVisible();
+
+    fireEvent.click(copy);
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("https://meet.google.com/abc-defg-hij");
+      expect(copy).toHaveTextContent("Copiado");
+    });
   });
 });
