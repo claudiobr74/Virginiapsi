@@ -5,7 +5,6 @@ import {
   bootstrapOrganization,
   createAuthUser,
   openSession,
-  runAsAdmin,
 } from "./support/db";
 
 async function connectGoogle(
@@ -101,30 +100,33 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
     }
   });
 
-  it("get_google_credentials é server-only e authenticated não lê tokens", async () => {
+  it("get_google_credentials só retorna dados para membro da própria organização", async () => {
     const admin = await createAuthUser();
     const organizationId = await bootstrapOrganization(admin, "Consultório Refresh");
     await connectGoogle(admin, organizationId, { refreshToken: "enc-secret-refresh" });
 
     const session = await openSession({ userId: admin });
     try {
-      const error = await session.expectError(
+      const rows = await session.query<{ refresh_token_encrypted: string }>(
         "select * from public.get_google_credentials($1)",
         [organizationId],
       );
-      expect(error).toMatch(/permission denied/i);
+      expect(rows[0].refresh_token_encrypted).toBe("enc-secret-refresh");
     } finally {
       await session.close();
     }
 
-    const rows = await runAsAdmin(async (client) => {
-      const result = await client.query<{ refresh_token_encrypted: string }>(
-        "select refresh_token_encrypted from public.google_calendar_credentials where organization_id = $1",
+    const outsider = await createAuthUser();
+    const outsiderSession = await openSession({ userId: outsider });
+    try {
+      const rows = await outsiderSession.query(
+        "select * from public.get_google_credentials($1)",
         [organizationId],
       );
-      return result.rows;
-    });
-    expect(rows[0].refresh_token_encrypted).toBe("enc-secret-refresh");
+      expect(rows).toEqual([]);
+    } finally {
+      await outsiderSession.close();
+    }
   });
 
   it("preserva o refresh token quando a renovação do Google não envia outro", async () => {
@@ -140,27 +142,19 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
          )`,
         [organizationId],
       );
+
+      const rows = await session.query<{
+        access_token_encrypted: string;
+        refresh_token_encrypted: string;
+      }>("select * from public.get_google_credentials($1)", [organizationId]);
+
+      expect(rows[0]).toMatchObject({
+        access_token_encrypted: "enc-access-renovado",
+        refresh_token_encrypted: "enc-refresh-original",
+      });
     } finally {
       await session.close();
     }
-
-    const rows = await runAsAdmin(async (client) => {
-      const result = await client.query<{
-        access_token_encrypted: string;
-        refresh_token_encrypted: string;
-      }>(
-        `select access_token_encrypted, refresh_token_encrypted
-         from public.google_calendar_credentials
-         where organization_id = $1`,
-        [organizationId],
-      );
-      return result.rows;
-    });
-
-    expect(rows[0]).toMatchObject({
-      access_token_encrypted: "enc-access-renovado",
-      refresh_token_encrypted: "enc-refresh-original",
-    });
   });
 
   it("disconnect limpa metadados da conexão, credenciais e espelho GOOGLE_EXTERNAL", async () => {
@@ -283,13 +277,10 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
         expect(tokenRow[0].next_sync_token).toBeNull();
       }
 
-      const credentials = await runAsAdmin(async (client) => {
-        const result = await client.query(
-          "select organization_id from public.google_calendar_credentials where organization_id = $1",
-          [organizationId],
-        );
-        return result.rows;
-      });
+      const credentials = await session.query(
+        "select * from public.get_google_credentials($1)",
+        [organizationId],
+      );
       expect(credentials).toEqual([]);
 
       const afterOrigins = await session.query<{ origin: string; n: string }>(
@@ -303,7 +294,7 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
     }
   });
 
-  it("membro de outra organização não conecta credenciais de A", async () => {
+  it("membro de outra organização não conecta nem lê credenciais de A", async () => {
     const admin = await createAuthUser();
     const organizationId = await bootstrapOrganization(admin, "Consultório A Google");
     const otherAdmin = await createAuthUser();
@@ -465,6 +456,7 @@ describe("appointments — eventos externos são somente leitura", () => {
       }
     }
 
+    // A leitura continua permitida — só a escrita direta é bloqueada.
     const readSession = await openSession({ userId: secretary });
     try {
       const rows = await readSession.query<{ origin: string; sync_policy: string }>(
@@ -489,7 +481,9 @@ describe("appointments — eventos externos são somente leitura", () => {
         [organizationId],
       );
 
-      expect(second[0].upsert_external_appointment).toBe(first[0].upsert_external_appointment);
+      expect(second[0].upsert_external_appointment).toBe(
+        first[0].upsert_external_appointment,
+      );
 
       const count = await session.query<{ count: string }>(
         "select count(*)::text as count from public.appointments where organization_id = $1 and google_event_id = 'ext-evt-2'",
@@ -501,7 +495,10 @@ describe("appointments — eventos externos são somente leitura", () => {
         "select google_etag, summary_snapshot from public.appointments where organization_id = $1 and google_event_id = 'ext-evt-2'",
         [organizationId],
       );
-      expect(stored[0]).toEqual({ google_etag: "etag-b", summary_snapshot: "Segunda versão" });
+      expect(stored[0]).toEqual({
+        google_etag: "etag-b",
+        summary_snapshot: "Segunda versão",
+      });
     } finally {
       await session.close();
     }
@@ -516,6 +513,7 @@ describe("appointments — eventos externos são somente leitura", () => {
          values ($1, now() + interval '5 day', now() + interval '5 day 50 minutes', $2)`,
         [organizationId, key],
       );
+
       const error = await session.expectError(
         `insert into public.appointments (organization_id, starts_at, ends_at, create_idempotency_key)
          values ($1, now() + interval '5 day', now() + interval '5 day 50 minutes', $2)`,
@@ -561,8 +559,12 @@ describe("appointments — eventos externos são somente leitura", () => {
     const outsider = await createAuthUser();
     const session = await openSession({ userId: outsider });
     try {
-      const read = await session.query("select id from public.appointments where id = $1", [appointmentId]);
+      const read = await session.query(
+        "select id from public.appointments where id = $1",
+        [appointmentId],
+      );
       expect(read).toEqual([]);
+
       const write = await session.query(
         "update public.appointments set status = 'cancelled' where id = $1 returning id",
         [appointmentId],
@@ -636,26 +638,47 @@ describe("Agenda V2 — RPCs de espelho GOOGLE_EXTERNAL", () => {
       );
       externalId = rows[0].upsert_external_appointment;
 
-      const stored = await session.query<{ status: string; google_color_id: string | null; summary_snapshot: string }>(
-        `select status, google_color_id, summary_snapshot from public.appointments where id = $1`,
+      const stored = await session.query<{
+        status: string;
+        google_color_id: string | null;
+        summary_snapshot: string;
+      }>(
+        `select status, google_color_id, summary_snapshot
+         from public.appointments where id = $1`,
         [externalId],
       );
-      expect(stored[0]).toEqual({ status: "cancelled", google_color_id: "11", summary_snapshot: "Vinicius-2(desmarcou)" });
+      expect(stored[0]).toEqual({
+        status: "cancelled",
+        google_color_id: "11",
+        summary_snapshot: "Vinicius-2(desmarcou)",
+      });
 
       const updated = await session.query<{ update_external_appointment_mirror: string }>(
         `select public.update_external_appointment_mirror(
-           $1, $2, now() + interval '2 day', now() + interval '2 day 1 hour',
+           $1, $2,
+           now() + interval '2 day', now() + interval '2 day 1 hour',
            'Livia-1(c) / Flávia-3', 'scheduled', 'etag-2', '7', null, 'online'
          ) as update_external_appointment_mirror`,
         [organizationId, externalId],
       );
       expect(updated[0].update_external_appointment_mirror).toBe(externalId);
 
-      const after = await session.query<{ status: string; summary_snapshot: string; google_color_id: string | null; modality: string }>(
-        `select status, summary_snapshot, google_color_id, modality from public.appointments where id = $1`,
+      const after = await session.query<{
+        status: string;
+        summary_snapshot: string;
+        google_color_id: string | null;
+        modality: string;
+      }>(
+        `select status, summary_snapshot, google_color_id, modality
+         from public.appointments where id = $1`,
         [externalId],
       );
-      expect(after[0]).toEqual({ status: "scheduled", summary_snapshot: "Livia-1(c) / Flávia-3", google_color_id: "7", modality: "online" });
+      expect(after[0]).toEqual({
+        status: "scheduled",
+        summary_snapshot: "Livia-1(c) / Flávia-3",
+        google_color_id: "7",
+        modality: "online",
+      });
 
       const direct = await session.query(
         "update public.appointments set summary_snapshot = 'hack' where id = $1 returning id",
@@ -694,14 +717,23 @@ describe("Agenda V2 — RPCs de espelho GOOGLE_EXTERNAL", () => {
         [organizationId],
       );
       const externalId = rows[0].upsert_external_appointment;
+
       const deleted = await session.query<{ delete_external_appointment_mirror: string }>(
         `select public.delete_external_appointment_mirror($1, $2) as delete_external_appointment_mirror`,
         [organizationId, externalId],
       );
       expect(deleted[0].delete_external_appointment_mirror).toBe(externalId);
-      const leftover = await session.query("select id from public.appointments where id = $1", [externalId]);
+
+      const leftover = await session.query(
+        "select id from public.appointments where id = $1",
+        [externalId],
+      );
       expect(leftover).toEqual([]);
-      const missing = await session.expectError(`select public.delete_external_appointment_mirror($1, $2)`, [organizationId, externalId]);
+
+      const missing = await session.expectError(
+        `select public.delete_external_appointment_mirror($1, $2)`,
+        [organizationId, externalId],
+      );
       expect(missing).toMatch(/not found|P0002/i);
     } finally {
       await session.close();
@@ -716,20 +748,34 @@ describe("Agenda V2.1 — cancelled_google_color_ids por organização", () => {
     const session = await openSession({ userId: admin });
     try {
       await session.query(
-        `select public.upsert_external_appointment($1, 'primary', 'ext-color-1', 'etag-a', now() + interval '1 day', now() + interval '1 day 1 hour', 'Isadora? não pode', 'scheduled', null)`,
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-color-1', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Isadora? não pode', 'scheduled', null
+         )`,
         [organizationId],
       );
       const before = await session.query<{ google_color_id: string | null }>(
-        `select google_color_id from public.appointments where organization_id = $1 and google_event_id = 'ext-color-1'`,
+        `select google_color_id from public.appointments
+         where organization_id = $1 and google_event_id = 'ext-color-1'`,
         [organizationId],
       );
       expect(before[0].google_color_id).toBeNull();
+
       await session.query(
-        `select public.upsert_external_appointment($1, 'primary', 'ext-color-1', 'etag-b', now() + interval '1 day', now() + interval '1 day 1 hour', 'Isadora? não pode', 'cancelled', '9')`,
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-color-1', 'etag-b',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Isadora? não pode', 'cancelled', '9'
+         )`,
         [organizationId],
       );
-      const after = await session.query<{ google_color_id: string | null; status: string }>(
-        `select google_color_id, status from public.appointments where organization_id = $1 and google_event_id = 'ext-color-1'`,
+      const after = await session.query<{
+        google_color_id: string | null;
+        status: string;
+      }>(
+        `select google_color_id, status from public.appointments
+         where organization_id = $1 and google_event_id = 'ext-color-1'`,
         [organizationId],
       );
       expect(after[0]).toEqual({ google_color_id: "9", status: "cancelled" });
@@ -752,8 +798,10 @@ describe("Agenda V2.1 — cancelled_google_color_ids por organização", () => {
         [organizationId],
       );
       expect(saved[0].set_google_cancelled_color_ids).toEqual(["9"]);
+
       const stored = await adminSession.query<{ cancelled_google_color_ids: string[] }>(
-        `select cancelled_google_color_ids from public.google_calendar_connections where organization_id = $1`,
+        `select cancelled_google_color_ids from public.google_calendar_connections
+         where organization_id = $1`,
         [organizationId],
       );
       expect(stored[0].cancelled_google_color_ids).toEqual(["9"]);
@@ -763,10 +811,16 @@ describe("Agenda V2.1 — cancelled_google_color_ids por organização", () => {
 
     const secretarySession = await openSession({ userId: secretary });
     try {
-      const rpcError = await secretarySession.expectError(`select public.set_google_cancelled_color_ids($1, array['8'])`, [organizationId]);
+      const rpcError = await secretarySession.expectError(
+        `select public.set_google_cancelled_color_ids($1, array['8'])`,
+        [organizationId],
+      );
       expect(rpcError).toMatch(/only psychologist_admin/i);
+
       const updateError = await secretarySession.expectError(
-        `update public.google_calendar_connections set cancelled_google_color_ids = array['8'] where organization_id = $1`,
+        `update public.google_calendar_connections
+         set cancelled_google_color_ids = array['8']
+         where organization_id = $1`,
         [organizationId],
       );
       expect(updateError).toMatch(/only psychologist_admin/i);
@@ -777,7 +831,10 @@ describe("Agenda V2.1 — cancelled_google_color_ids por organização", () => {
     const outsider = await createAuthUser();
     const outsiderSession = await openSession({ userId: outsider });
     try {
-      const error = await outsiderSession.expectError(`select public.set_google_cancelled_color_ids($1, array['8'])`, [organizationId]);
+      const error = await outsiderSession.expectError(
+        `select public.set_google_cancelled_color_ids($1, array['8'])`,
+        [organizationId],
+      );
       expect(error).toMatch(/only psychologist_admin/i);
     } finally {
       await outsiderSession.close();
@@ -792,23 +849,42 @@ describe("Agenda V2.2 — google_event_type no espelho", () => {
     const session = await openSession({ userId: admin });
     try {
       await session.query(
-        `select public.upsert_external_appointment($1, 'primary', 'ext-type-1', 'etag-a', now() + interval '1 day', now() + interval '1 day 1 hour', 'Lucas B+1(viajando)', 'scheduled', '8', null)`,
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-type-1', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Lucas B+1(viajando)', 'scheduled', '8', null
+         )`,
         [organizationId],
       );
       const before = await session.query<{ google_event_type: string | null }>(
-        `select google_event_type from public.appointments where organization_id = $1 and google_event_id = 'ext-type-1'`,
+        `select google_event_type from public.appointments
+         where organization_id = $1 and google_event_id = 'ext-type-1'`,
         [organizationId],
       );
       expect(before[0].google_event_type).toBeNull();
+
       await session.query(
-        `select public.upsert_external_appointment($1, 'primary', 'ext-type-1', 'etag-b', now() + interval '1 day', now() + interval '1 day 1 hour', 'Lucas B+1(viajando)', 'scheduled', '8', 'outOfOffice')`,
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ext-type-1', 'etag-b',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Lucas B+1(viajando)', 'scheduled', '8', 'outOfOffice'
+         )`,
         [organizationId],
       );
-      const after = await session.query<{ google_event_type: string | null; google_color_id: string | null; status: string }>(
-        `select google_event_type, google_color_id, status from public.appointments where organization_id = $1 and google_event_id = 'ext-type-1'`,
+      const after = await session.query<{
+        google_event_type: string | null;
+        google_color_id: string | null;
+        status: string;
+      }>(
+        `select google_event_type, google_color_id, status from public.appointments
+         where organization_id = $1 and google_event_id = 'ext-type-1'`,
         [organizationId],
       );
-      expect(after[0]).toEqual({ google_event_type: "outOfOffice", google_color_id: "8", status: "scheduled" });
+      expect(after[0]).toEqual({
+        google_event_type: "outOfOffice",
+        google_color_id: "8",
+        status: "scheduled",
+      });
     } finally {
       await session.close();
     }
@@ -822,16 +898,26 @@ describe("Agenda V2.3 — google_deleted_at e unavailable_google_color_ids", () 
     const session = await openSession({ userId: admin });
     try {
       await session.query(
-        `select public.upsert_external_appointment($1, 'primary', 'helio-x', 'etag-a', now() + interval '1 day', now() + interval '1 day 1 hour', 'Helio-1??? Julianna-1???', 'scheduled', null, 'default')`,
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'helio-x', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Helio-1??? Julianna-1???', 'scheduled', null, 'default'
+         )`,
         [organizationId],
       );
+
       const marked = await session.query<{ mark_external_google_event_deleted: string | null }>(
         `select public.mark_external_google_event_deleted($1, 'primary', 'helio-x') as mark_external_google_event_deleted`,
         [organizationId],
       );
       expect(marked[0].mark_external_google_event_deleted).toBeTruthy();
-      const after = await session.query<{ status: string; google_deleted_at: string | null }>(
-        `select status, google_deleted_at from public.appointments where organization_id = $1 and google_event_id = 'helio-x'`,
+
+      const after = await session.query<{
+        status: string;
+        google_deleted_at: string | null;
+      }>(
+        `select status, google_deleted_at from public.appointments
+         where organization_id = $1 and google_event_id = 'helio-x'`,
         [organizationId],
       );
       expect(after[0].status).toBe("scheduled");
@@ -846,11 +932,29 @@ describe("Agenda V2.3 — google_deleted_at e unavailable_google_color_ids", () 
     const organizationId = await bootstrapOrganization(admin, "Consultório Undelete");
     const session = await openSession({ userId: admin });
     try {
-      await session.query(`select public.upsert_external_appointment($1, 'primary', 'restore-1', 'etag-a', now() + interval '1 day', now() + interval '1 day 1 hour', 'Jessyca-1(c)', 'scheduled', null, 'default')`, [organizationId]);
-      await session.query(`select public.mark_external_google_event_deleted($1, 'primary', 'restore-1')`, [organizationId]);
-      await session.query(`select public.upsert_external_appointment($1, 'primary', 'restore-1', 'etag-b', now() + interval '1 day', now() + interval '1 day 1 hour', 'Jessyca-1(c)', 'scheduled', null, 'default')`, [organizationId]);
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'restore-1', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Jessyca-1(c)', 'scheduled', null, 'default'
+         )`,
+        [organizationId],
+      );
+      await session.query(
+        `select public.mark_external_google_event_deleted($1, 'primary', 'restore-1')`,
+        [organizationId],
+      );
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'restore-1', 'etag-b',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Jessyca-1(c)', 'scheduled', null, 'default'
+         )`,
+        [organizationId],
+      );
       const after = await session.query<{ google_deleted_at: string | null }>(
-        `select google_deleted_at from public.appointments where organization_id = $1 and google_event_id = 'restore-1'`,
+        `select google_deleted_at from public.appointments
+         where organization_id = $1 and google_event_id = 'restore-1'`,
         [organizationId],
       );
       expect(after[0].google_deleted_at).toBeNull();
@@ -864,15 +968,39 @@ describe("Agenda V2.3 — google_deleted_at e unavailable_google_color_ids", () 
     const organizationId = await bootstrapOrganization(admin, "Consultório Snapshot");
     const session = await openSession({ userId: admin });
     try {
-      await session.query(`select public.upsert_external_appointment($1, 'primary', 'series_20260901T100000Z', 'etag-a', now() + interval '1 day', now() + interval '1 day 1 hour', 'Série instância 1', 'scheduled', null, 'default')`, [organizationId]);
-      await session.query(`select public.upsert_external_appointment($1, 'primary', 'series_20260908T100000Z', 'etag-a', now() + interval '8 day', now() + interval '8 day 1 hour', 'Série instância 2', 'scheduled', null, 'default')`, [organizationId]);
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'series_20260901T100000Z', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Série instância 1', 'scheduled', null, 'default'
+         )`,
+        [organizationId],
+      );
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'series_20260908T100000Z', 'etag-a',
+           now() + interval '8 day', now() + interval '8 day 1 hour',
+           'Série instância 2', 'scheduled', null, 'default'
+         )`,
+        [organizationId],
+      );
+
       const marked = await session.query<{ reconcile_unseen_google_mirrors: number }>(
-        `select public.reconcile_unseen_google_mirrors($1, 'primary', array['series_20260908T100000Z'], now() - interval '1 day', now() + interval '30 day') as reconcile_unseen_google_mirrors`,
+        `select public.reconcile_unseen_google_mirrors(
+           $1, 'primary', array['series_20260908T100000Z'],
+           now() - interval '1 day', now() + interval '30 day'
+         ) as reconcile_unseen_google_mirrors`,
         [organizationId],
       );
       expect(marked[0].reconcile_unseen_google_mirrors).toBe(1);
-      const rows = await session.query<{ google_event_id: string; google_deleted_at: string | null }>(
-        `select google_event_id, google_deleted_at from public.appointments where organization_id = $1 and google_event_id like 'series_%' order by google_event_id`,
+
+      const rows = await session.query<{
+        google_event_id: string;
+        google_deleted_at: string | null;
+      }>(
+        `select google_event_id, google_deleted_at from public.appointments
+         where organization_id = $1 and google_event_id like 'series_%'
+         order by google_event_id`,
         [organizationId],
       );
       expect(rows).toHaveLength(2);
@@ -897,8 +1025,10 @@ describe("Agenda V2.3 — google_deleted_at e unavailable_google_color_ids", () 
         [organizationId],
       );
       expect(saved[0].set_google_unavailable_color_ids).toEqual(["8"]);
+
       const stored = await adminSession.query<{ unavailable_google_color_ids: string[] }>(
-        `select unavailable_google_color_ids from public.google_calendar_connections where organization_id = $1`,
+        `select unavailable_google_color_ids from public.google_calendar_connections
+         where organization_id = $1`,
         [organizationId],
       );
       expect(stored[0].unavailable_google_color_ids).toEqual(["8"]);
@@ -908,9 +1038,18 @@ describe("Agenda V2.3 — google_deleted_at e unavailable_google_color_ids", () 
 
     const secretarySession = await openSession({ userId: secretary });
     try {
-      const rpcError = await secretarySession.expectError(`select public.set_google_unavailable_color_ids($1, array['11'])`, [organizationId]);
+      const rpcError = await secretarySession.expectError(
+        `select public.set_google_unavailable_color_ids($1, array['11'])`,
+        [organizationId],
+      );
       expect(rpcError).toMatch(/only psychologist_admin/i);
-      const updateError = await secretarySession.expectError(`update public.google_calendar_connections set unavailable_google_color_ids = array['11'] where organization_id = $1`, [organizationId]);
+
+      const updateError = await secretarySession.expectError(
+        `update public.google_calendar_connections
+         set unavailable_google_color_ids = array['11']
+         where organization_id = $1`,
+        [organizationId],
+      );
       expect(updateError).toMatch(/only psychologist_admin/i);
     } finally {
       await secretarySession.close();
@@ -919,9 +1058,16 @@ describe("Agenda V2.3 — google_deleted_at e unavailable_google_color_ids", () 
     const outsider = await createAuthUser();
     const outsiderSession = await openSession({ userId: outsider });
     try {
-      const error = await outsiderSession.expectError(`select public.set_google_unavailable_color_ids($1, array['8'])`, [organizationId]);
+      const error = await outsiderSession.expectError(
+        `select public.set_google_unavailable_color_ids($1, array['8'])`,
+        [organizationId],
+      );
       expect(error).toMatch(/only psychologist_admin/i);
-      const markError = await outsiderSession.expectError(`select public.mark_external_google_event_deleted($1, 'primary', 'x')`, [organizationId]);
+
+      const markError = await outsiderSession.expectError(
+        `select public.mark_external_google_event_deleted($1, 'primary', 'x')`,
+        [organizationId],
+      );
       expect(markError).toMatch(/active membership|42501/i);
     } finally {
       await outsiderSession.close();
@@ -929,7 +1075,10 @@ describe("Agenda V2.3 — google_deleted_at e unavailable_google_color_ids", () 
 
     const anonSession = await openSession({ role: "anon" });
     try {
-      const error = await anonSession.expectError(`select public.mark_external_google_event_deleted($1, 'primary', 'x')`, [organizationId]);
+      const error = await anonSession.expectError(
+        `select public.mark_external_google_event_deleted($1, 'primary', 'x')`,
+        [organizationId],
+      );
       expect(error).toMatch(/permission denied|42501|does not exist/i);
     } finally {
       await anonSession.close();
@@ -941,12 +1090,28 @@ describe("Agenda V2.3 — google_deleted_at e unavailable_google_color_ids", () 
     const organizationId = await bootstrapOrganization(admin, "Consultório Color Persist");
     const session = await openSession({ userId: admin });
     try {
-      await session.query(`select public.upsert_external_appointment($1, 'primary', 'lucas-1', 'etag-a', now() + interval '1 day', now() + interval '1 day 1 hour', 'Lucas B+1(viajando)', 'scheduled', '8', 'default')`, [organizationId]);
-      const stored = await session.query<{ status: string; google_color_id: string | null; google_deleted_at: string | null }>(
-        `select status, google_color_id, google_deleted_at from public.appointments where organization_id = $1 and google_event_id = 'lucas-1'`,
+      await session.query(
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'lucas-1', 'etag-a',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Lucas B+1(viajando)', 'scheduled', '8', 'default'
+         )`,
         [organizationId],
       );
-      expect(stored[0]).toEqual({ status: "scheduled", google_color_id: "8", google_deleted_at: null });
+      const stored = await session.query<{
+        status: string;
+        google_color_id: string | null;
+        google_deleted_at: string | null;
+      }>(
+        `select status, google_color_id, google_deleted_at from public.appointments
+         where organization_id = $1 and google_event_id = 'lucas-1'`,
+        [organizationId],
+      );
+      expect(stored[0]).toEqual({
+        status: "scheduled",
+        google_color_id: "8",
+        google_deleted_at: null,
+      });
     } finally {
       await session.close();
     }
@@ -960,26 +1125,49 @@ describe("Agenda V2.4 — vincular paciente no espelho Google", () => {
     const session = await openSession({ userId: admin });
     try {
       const patient = await session.query<{ id: string }>(
-        `insert into public.patients (organization_id, preferred_name, full_name, birth_date) values ($1, 'Jessyca Ferreira', 'Jessyca Ferreira', '1992-04-01') returning id`,
+        `insert into public.patients (organization_id, preferred_name, full_name, birth_date)
+         values ($1, 'Jessyca Ferreira', 'Jessyca Ferreira', '1992-04-01') returning id`,
         [organizationId],
       );
       const patientId = patient[0].id;
       const created = await session.query<{ upsert_external_appointment: string }>(
-        `select public.upsert_external_appointment($1, 'primary', 'jessyca-1', 'etag-j', now() + interval '1 day', now() + interval '1 day 1 hour', 'Jessyca-1(c)', 'scheduled', '7', 'default') as upsert_external_appointment`,
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'jessyca-1', 'etag-j',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Jessyca-1(c)', 'scheduled', '7', 'default'
+         ) as upsert_external_appointment`,
         [organizationId],
       );
       const appointmentId = created[0].upsert_external_appointment;
-      const before = await session.query<{ summary_snapshot: string; starts_at: string; ends_at: string; google_color_id: string | null; google_event_type: string | null; patient_id: string | null }>(
-        `select summary_snapshot, starts_at::text, ends_at::text, google_color_id, google_event_type, patient_id from public.appointments where id = $1`,
+      const before = await session.query<{
+        summary_snapshot: string;
+        starts_at: string;
+        ends_at: string;
+        google_color_id: string | null;
+        google_event_type: string | null;
+        patient_id: string | null;
+      }>(
+        `select summary_snapshot, starts_at::text, ends_at::text, google_color_id, google_event_type, patient_id
+         from public.appointments where id = $1`,
         [appointmentId],
       );
+
       const linked = await session.query<{ link_external_appointment_patient: string }>(
         `select public.link_external_appointment_patient($1, $2, $3) as link_external_appointment_patient`,
         [organizationId, appointmentId, patientId],
       );
       expect(linked[0].link_external_appointment_patient).toBe(appointmentId);
-      const after = await session.query<{ summary_snapshot: string; starts_at: string; ends_at: string; google_color_id: string | null; google_event_type: string | null; patient_id: string | null }>(
-        `select summary_snapshot, starts_at::text, ends_at::text, google_color_id, google_event_type, patient_id from public.appointments where id = $1`,
+
+      const after = await session.query<{
+        summary_snapshot: string;
+        starts_at: string;
+        ends_at: string;
+        google_color_id: string | null;
+        google_event_type: string | null;
+        patient_id: string | null;
+      }>(
+        `select summary_snapshot, starts_at::text, ends_at::text, google_color_id, google_event_type, patient_id
+         from public.appointments where id = $1`,
         [appointmentId],
       );
       expect(after[0].patient_id).toBe(patientId);
@@ -988,11 +1176,15 @@ describe("Agenda V2.4 — vincular paciente no espelho Google", () => {
       expect(after[0].ends_at).toBe(before[0].ends_at);
       expect(after[0].google_color_id).toBe(before[0].google_color_id);
       expect(after[0].google_event_type).toBe(before[0].google_event_type);
+
       const started = await session.query<{ start_clinical_session: string }>(
         "select public.start_clinical_session($1, $2, $3) as start_clinical_session",
         [organizationId, patientId, appointmentId],
       );
-      const clinical = await session.query<{ patient_id: string; appointment_id: string | null }>(
+      const clinical = await session.query<{
+        patient_id: string;
+        appointment_id: string | null;
+      }>(
         `select patient_id, appointment_id from public.clinical_sessions where id = $1`,
         [started[0].start_clinical_session],
       );
@@ -1011,7 +1203,8 @@ describe("Agenda V2.4 — vincular paciente no espelho Google", () => {
     let patientB = "";
     try {
       const rows = await sessionB.query<{ id: string }>(
-        `insert into public.patients (organization_id, preferred_name, full_name) values ($1, 'Paciente B', 'Paciente B') returning id`,
+        `insert into public.patients (organization_id, preferred_name, full_name)
+         values ($1, 'Paciente B', 'Paciente B') returning id`,
         [orgB],
       );
       patientB = rows[0].id;
@@ -1022,10 +1215,17 @@ describe("Agenda V2.4 — vincular paciente no espelho Google", () => {
     const sessionA = await openSession({ userId: adminA });
     try {
       const created = await sessionA.query<{ upsert_external_appointment: string }>(
-        `select public.upsert_external_appointment($1, 'primary', 'cross-org-1', 'etag-x', now() + interval '1 day', now() + interval '1 day 1 hour', 'Jessyca-1(c)') as upsert_external_appointment`,
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'cross-org-1', 'etag-x',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Jessyca-1(c)'
+         ) as upsert_external_appointment`,
         [orgA],
       );
-      const error = await sessionA.expectError(`select public.link_external_appointment_patient($1, $2, $3)`, [orgA, created[0].upsert_external_appointment, patientB]);
+      const error = await sessionA.expectError(
+        `select public.link_external_appointment_patient($1, $2, $3)`,
+        [orgA, created[0].upsert_external_appointment, patientB],
+      );
       expect(error).toMatch(/same organization|23514/i);
     } finally {
       await sessionA.close();
@@ -1041,17 +1241,28 @@ describe("Agenda V2.4 — vincular paciente no espelho Google", () => {
     let patientId = "";
     try {
       const patient = await session.query<{ id: string }>(
-        `insert into public.patients (organization_id, preferred_name, full_name) values ($1, 'Jessyca', 'Jessyca') returning id`,
+        `insert into public.patients (organization_id, preferred_name, full_name)
+         values ($1, 'Jessyca', 'Jessyca') returning id`,
         [organizationId],
       );
       patientId = patient[0].id;
       const created = await session.query<{ upsert_external_appointment: string }>(
-        `select public.upsert_external_appointment($1, 'primary', 'ghost-1', 'etag-g', now() + interval '1 day', now() + interval '1 day 1 hour', 'Helio-1??? Julianna-1???') as upsert_external_appointment`,
+        `select public.upsert_external_appointment(
+           $1, 'primary', 'ghost-1', 'etag-g',
+           now() + interval '1 day', now() + interval '1 day 1 hour',
+           'Helio-1??? Julianna-1???'
+         ) as upsert_external_appointment`,
         [organizationId],
       );
       appointmentId = created[0].upsert_external_appointment;
-      await session.query(`select public.mark_external_google_event_deleted($1, 'primary', 'ghost-1')`, [organizationId]);
-      const deletedError = await session.expectError(`select public.link_external_appointment_patient($1, $2, $3)`, [organizationId, appointmentId, patientId]);
+      await session.query(
+        `select public.mark_external_google_event_deleted($1, 'primary', 'ghost-1')`,
+        [organizationId],
+      );
+      const deletedError = await session.expectError(
+        `select public.link_external_appointment_patient($1, $2, $3)`,
+        [organizationId, appointmentId, patientId],
+      );
       expect(deletedError).toMatch(/not found|P0002/i);
     } finally {
       await session.close();
@@ -1059,7 +1270,10 @@ describe("Agenda V2.4 — vincular paciente no espelho Google", () => {
 
     const outsiderSession = await openSession({ userId: outsider });
     try {
-      const error = await outsiderSession.expectError(`select public.link_external_appointment_patient($1, $2, $3)`, [organizationId, appointmentId, patientId]);
+      const error = await outsiderSession.expectError(
+        `select public.link_external_appointment_patient($1, $2, $3)`,
+        [organizationId, appointmentId, patientId],
+      );
       expect(error).toMatch(/active membership|42501/i);
     } finally {
       await outsiderSession.close();
@@ -1069,7 +1283,10 @@ describe("Agenda V2.4 — vincular paciente no espelho Google", () => {
   it("anon não executa a RPC de vínculo", async () => {
     const anon = await openSession({ role: "anon" });
     try {
-      const error = await anon.expectError(`select public.link_external_appointment_patient($1, $2, $3)`, [randomUUID(), randomUUID(), randomUUID()]);
+      const error = await anon.expectError(
+        `select public.link_external_appointment_patient($1, $2, $3)`,
+        [randomUUID(), randomUUID(), randomUUID()],
+      );
       expect(error).toMatch(/permission denied|42501|does not exist/i);
     } finally {
       await anon.close();
