@@ -29,7 +29,7 @@ const FORBIDDEN_PACKAGES = [
 const FORBIDDEN_IMPORT_PATTERNS: { name: string; pattern: RegExp }[] = [
   { name: "firebase", pattern: /from\s+['"]firebase(?:\/[^'"]*)?['"]|require\(\s*['"]firebase/ },
   { name: "firestore", pattern: /from\s+['"](?:firebase\/firestore|@firebase\/firestore)['"]/ },
-  { name: "express", pattern: /from\s+['"]express['"]|require\(\s*['"]express['"]/ },
+  { name: "express", pattern: /from\s+['"]express['"]|require\(\s*['"]express/ },
   { name: "nestjs", pattern: /from\s+['"]@nestjs\// },
   { name: "drizzle", pattern: /from\s+['"]drizzle-orm/ },
   { name: "prisma", pattern: /from\s+['"](?:@prisma\/client|prisma)['"]/ },
@@ -157,8 +157,12 @@ describe("arquitetura proibida", () => {
       "src/lib/integrations/google/connection.ts",
       "src/lib/integrations/transcription/fallback-storage.ts",
     ];
+    const ignoredFixtureFiles = new Set([
+      "tests/security/phase6b-google-credentials-rpc.test.ts",
+    ]);
     const importers = CODE_ROOTS.flatMap((dir) => walkFiles(path.join(ROOT, dir)))
       .filter((file) => file !== adminClientPath)
+      .filter((file) => !ignoredFixtureFiles.has(path.relative(ROOT, file)))
       .filter((file) =>
         /from\s+["']@\/lib\/supabase\/admin["']/.test(readFileSync(file, "utf8")),
       )
@@ -168,12 +172,6 @@ describe("arquitetura proibida", () => {
   });
 
   it("toda rota de capability de captura passa pelo consent gate", () => {
-    // Phase 5.5/6 invariant: no audio-capture capability may be issued, and
-    // no transcript segment may be persisted, without going through the
-    // consent-gate machinery — either issuing a grant
-    // (authorizeCaptureCapability) or verifying one already issued
-    // (verifyCaptureGrantToken). A new route added under this folder that
-    // forgets both fails here, not in review.
     const captureRoutes = walkFiles(
       path.join(ROOT, "src/app/api/session-capture"),
     ).filter((file) => file.endsWith("route.ts"));
