@@ -5,6 +5,7 @@ import {
   bootstrapOrganization,
   createAuthUser,
   openSession,
+  runAsAdmin,
 } from "./support/db";
 
 async function connectGoogle(
@@ -100,33 +101,30 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
     }
   });
 
-  it("get_google_credentials só retorna dados para membro da própria organização", async () => {
+  it("get_google_credentials é server-only e authenticated não lê tokens", async () => {
     const admin = await createAuthUser();
     const organizationId = await bootstrapOrganization(admin, "Consultório Refresh");
     await connectGoogle(admin, organizationId, { refreshToken: "enc-secret-refresh" });
 
     const session = await openSession({ userId: admin });
     try {
-      const rows = await session.query<{ refresh_token_encrypted: string }>(
+      const error = await session.expectError(
         "select * from public.get_google_credentials($1)",
         [organizationId],
       );
-      expect(rows[0].refresh_token_encrypted).toBe("enc-secret-refresh");
+      expect(error).toMatch(/permission denied/i);
     } finally {
       await session.close();
     }
 
-    const outsider = await createAuthUser();
-    const outsiderSession = await openSession({ userId: outsider });
-    try {
-      const rows = await outsiderSession.query(
-        "select * from public.get_google_credentials($1)",
+    const rows = await runAsAdmin(async (client) => {
+      const result = await client.query<{ refresh_token_encrypted: string }>(
+        "select refresh_token_encrypted from public.google_calendar_credentials where organization_id = $1",
         [organizationId],
       );
-      expect(rows).toEqual([]);
-    } finally {
-      await outsiderSession.close();
-    }
+      return result.rows;
+    });
+    expect(rows[0].refresh_token_encrypted).toBe("enc-secret-refresh");
   });
 
   it("preserva o refresh token quando a renovação do Google não envia outro", async () => {
@@ -142,19 +140,27 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
          )`,
         [organizationId],
       );
-
-      const rows = await session.query<{
-        access_token_encrypted: string;
-        refresh_token_encrypted: string;
-      }>("select * from public.get_google_credentials($1)", [organizationId]);
-
-      expect(rows[0]).toMatchObject({
-        access_token_encrypted: "enc-access-renovado",
-        refresh_token_encrypted: "enc-refresh-original",
-      });
     } finally {
       await session.close();
     }
+
+    const rows = await runAsAdmin(async (client) => {
+      const result = await client.query<{
+        access_token_encrypted: string;
+        refresh_token_encrypted: string;
+      }>(
+        `select access_token_encrypted, refresh_token_encrypted
+         from public.google_calendar_credentials
+         where organization_id = $1`,
+        [organizationId],
+      );
+      return result.rows;
+    });
+
+    expect(rows[0]).toMatchObject({
+      access_token_encrypted: "enc-access-renovado",
+      refresh_token_encrypted: "enc-refresh-original",
+    });
   });
 
   it("disconnect limpa metadados da conexão, credenciais e espelho GOOGLE_EXTERNAL", async () => {
@@ -277,10 +283,13 @@ describe("google_calendar_credentials — nunca exposto via Data API", () => {
         expect(tokenRow[0].next_sync_token).toBeNull();
       }
 
-      const credentials = await session.query(
-        "select * from public.get_google_credentials($1)",
-        [organizationId],
-      );
+      const credentials = await runAsAdmin(async (client) => {
+        const result = await client.query(
+          "select organization_id from public.google_calendar_credentials where organization_id = $1",
+          [organizationId],
+        );
+        return result.rows;
+      });
       expect(credentials).toEqual([]);
 
       const afterOrigins = await session.query<{ origin: string; n: string }>(
