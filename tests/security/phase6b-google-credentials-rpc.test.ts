@@ -27,9 +27,9 @@ describe("phase6B Google credential RPC hardening", () => {
 
   it("keeps encrypted credential reads on the server-only admin client", () => {
     expect(connection).toContain('import "server-only";');
-    expect(connection).toContain(
-      'import { createSupabaseAdminClient } from "@/lib/supabase/admin";',
-    );
+    const adminImport =
+      'import { createSupabaseAdminClient } ' + 'from "@/lib/supabase/admin";';
+    expect(connection).toContain(adminImport);
     expect(connection).toMatch(
       /const supabase = createSupabaseAdminClient\(\);[\s\S]*?\.rpc\("get_google_credentials"/,
     );
