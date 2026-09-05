@@ -1,0 +1,27 @@
+[data-preview-preset="sage"] { background:#fbf9f6; border-color:#eae6df; color:#1f2421; }
+[data-preview-preset="sage"] .preset-miniature-card { background:#fff; border-color:#b8d5be; }
+[data-preview-preset="sage"] .preset-miniature-title,[data-preview-preset="sage"] .preset-miniature-muted { color:#5d625e; }
+[data-preview-preset="sage"] .preset-miniature-heading { color:#1f2421; font-family:var(--font-playfair); }
+[data-preview-preset="sage"] .preset-miniature-dot,[data-preview-preset="sage"] .preset-miniature-button { background:#3a4f43; color:#fff; }
+[data-preview-preset="sage"] .preset-miniature-chip { background:#eaefea; color:#3a4f43; }
+
+[data-preview-preset="serene"] { background:#f5f7f8; border-color:#dce4e8; color:#1f2c31; }
+[data-preview-preset="serene"] .preset-miniature-card { background:#fff; border-color:#b5d2d2; }
+[data-preview-preset="serene"] .preset-miniature-title,[data-preview-preset="serene"] .preset-miniature-muted { color:#5d737b; }
+[data-preview-preset="serene"] .preset-miniature-heading { color:#1f2c31; font-family:var(--font-playfair); }
+[data-preview-preset="serene"] .preset-miniature-dot,[data-preview-preset="serene"] .preset-miniature-button { background:#355e6b; color:#fff; }
+[data-preview-preset="serene"] .preset-miniature-chip { background:#e2edf0; color:#355e6b; }
+
+[data-preview-preset="warm"] { background:#fcf7f2; border-color:#eadbd1; color:#342824; }
+[data-preview-preset="warm"] .preset-miniature-card { background:#fffdfb; border-color:#deb9c5; }
+[data-preview-preset="warm"] .preset-miniature-title,[data-preview-preset="warm"] .preset-miniature-muted { color:#766057; }
+[data-preview-preset="warm"] .preset-miniature-heading { color:#342824; font-family:var(--font-playfair); }
+[data-preview-preset="warm"] .preset-miniature-dot,[data-preview-preset="warm"] .preset-miniature-button { background:#825144; color:#fff; }
+[data-preview-preset="warm"] .preset-miniature-chip { background:#f2e3dc; color:#7d4c40; }
+
+[data-preview-preset="essential"] { background:#f7f7f5; border-color:#dedfda; color:#222320; }
+[data-preview-preset="essential"] .preset-miniature-card { background:#fff; border-color:#d1d8d2; box-shadow:none; }
+[data-preview-preset="essential"] .preset-miniature-title,[data-preview-preset="essential"] .preset-miniature-muted { color:#666963; }
+[data-preview-preset="essential"] .preset-miniature-heading { color:#222320; font-family:var(--font-inter); }
+[data-preview-preset="essential"] .preset-miniature-dot,[data-preview-preset="essential"] .preset-miniature-button { background:#3f514a; color:#fff; }
+[data-preview-preset="essential"] .preset-miniature-chip { background:#e9ece9; color:#3f514a; }
