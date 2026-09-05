@@ -66,6 +66,7 @@ describe("isolamento por papel", () => {
       expect(rows).toHaveLength(1);
       expect(Object.keys(rows[0]).sort()).toEqual(
         [
+          "appearance_preset",
           "clinic_name",
           "greeting_prefix",
           "inactivity_timeout_minutes",
@@ -79,7 +80,6 @@ describe("isolamento por papel", () => {
           "timezone",
         ].sort(),
       );
-      // Nenhum campo administrativo/financeiro na projeção.
       expect(Object.keys(rows[0])).not.toContain("secretary_finance_access");
       expect(Object.keys(rows[0])).not.toContain("pix_key");
       expect(Object.keys(rows[0])).not.toContain("tax_id");
@@ -200,7 +200,6 @@ describe("secretary_finance_access", () => {
       }
     }
 
-    // Admin não é limitado pelo setting da secretaria.
     await setSecretaryFinanceAccess(admin, organizationId, "none");
     const adminSession = await openSession({ userId: admin });
     try {
@@ -213,7 +212,6 @@ describe("secretary_finance_access", () => {
       await adminSession.close();
     }
 
-    // Quem não é membro não recebe permissão alguma.
     const outsiderSession = await openSession({ userId: outsider });
     try {
       const rows = await outsiderSession.query<{ access: string | null }>(
