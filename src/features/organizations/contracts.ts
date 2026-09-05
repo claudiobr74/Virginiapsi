@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { APPEARANCE_PRESETS } from "@/features/appearance/appearance-presets";
 
 export const ORGANIZATION_ROLES = [
   "psychologist_admin",
@@ -41,6 +42,7 @@ export const shellSettingsRowSchema = z.object({
   quote: z.string().nullable(),
   quote_mode: z.enum(["daily", "custom"]).nullable().optional().default("daily"),
   photo_path: z.string().nullable().optional().default(null),
+  appearance_preset: z.enum(APPEARANCE_PRESETS).optional().default("sage"),
 });
 
 export type ShellSettings = z.infer<typeof shellSettingsRowSchema>;
