@@ -9,16 +9,40 @@ Reduzir a superfície exposta pelo Advisor 0029 sem quebrar RLS, bootstrap, admi
 
 ## Estado observado
 
-- 41 funções em `public` são `SECURITY DEFINER` e ainda possuem `EXECUTE` para `authenticated`.
-- Todas as 41 usam `SET search_path TO ''`.
-- Após a Fase 6A, `anon` não executa as 18 funções previamente auditadas.
-- O Advisor 0029 continua correto ao sinalizar exposição via `/rest/v1/rpc/*`.
+- O inventário inicial encontrou 41 funções em `public` como `SECURITY DEFINER` executáveis por `authenticated`.
+- Todas usam `SET search_path TO ''`.
+- A Fase 6A já havia removido `anon` das funções auditadas.
+- O Advisor 0029 é tratado como sinal para revisão, não como ordem para revogar todas as RPCs.
 
-## Classificação inicial
+## Lote implementado e validado
 
-### A. RPCs potencialmente intencionais para cliente autenticado
+### `get_google_credentials(uuid)`
 
-Estas funções possuem autorização interna explícita e parecem representar operações de produto. Devem permanecer executáveis por `authenticated` até confirmação de uso e contrato:
+Foi confirmado que a leitura das credenciais Google ocorre em módulo `server-only` e pode usar o cliente administrativo. O RPC retornava material OAuth criptografado e não precisava permanecer exposto a usuários autenticados.
+
+Alteração aplicada:
+
+- `loadCredentials()` usa `createSupabaseAdminClient()` em módulo `server-only`;
+- `get_google_credentials(uuid)` mantém `SECURITY DEFINER` e `search_path=''`;
+- `EXECUTE` foi removido de `PUBLIC`, `anon` e `authenticated`;
+- `EXECUTE` permanece para `service_role`;
+- a função possui guard explícito para `service_role`;
+- `upsert_google_credentials(...)` não foi alterada, pois continua dependente do contexto autenticado e de `auth.uid()`.
+
+Validação:
+
+- foundation-gate #452: `SUCCESS` no head `ff2ca6f8a4a64b7d0e84c929e48ce43f949b7ea8`;
+- migration hospedada `phase6b_google_credentials_server_only` aplicada com sucesso;
+- ACL hospedada confirmada: `anon=false`, `authenticated=false`, `service_role=true`;
+- `SECURITY DEFINER=true`, `search_path=''` e guard `service_role` confirmados;
+- smoke em transação confirmou execução via `service_role` sem expor valores de token;
+- Security Advisor rerodado: o finding 0029 de `get_google_credentials` desapareceu.
+
+## Classificação final dos restantes
+
+### 1. Intencional — manter `authenticated` nesta atualização
+
+Operações de produto ou RPCs com call-sites autenticados conhecidos. Não alterar sem mudança funcional dedicada:
 
 - `accept_pending_invitations()`
 - `add_platform_operator(uuid)`
@@ -32,12 +56,13 @@ Estas funções possuem autorização interna explícita e parecem representar o
 - `platform_bootstrap_state()`
 - `set_google_cancelled_color_ids(uuid,text[])`
 - `set_google_unavailable_color_ids(uuid,text[])`
+- `ensure_whatsapp_templates(uuid)`
+- `patient_whatsapp_allowed(uuid,uuid)`
+- `upsert_google_credentials(uuid,text,timestamptz,text,text,text[])`
 
-A presença no Advisor 0029, isoladamente, não significa vulnerabilidade quando a execução por usuário autenticado é parte deliberada do contrato e a função valida identidade/role/tenant corretamente.
+### 2. Helpers de autorização/RLS — manter agora, arquitetura futura
 
-### B. Helpers de autorização/RLS — não revogar diretamente
-
-Estas funções formam a malha de autorização e/ou são chamadas por outras funções/policies. Revogar `authenticated` diretamente pode quebrar consultas RLS. A estratégia preferencial a avaliar é movê-las para schema não exposto, mantendo chamadas schema-qualified e privilégios estritamente necessários.
+Revogar diretamente pode quebrar policies e cadeias de autorização. A alternativa futura é migração coordenada para schema privado/não exposto:
 
 - `can_access_clinical_session(uuid,uuid)`
 - `can_access_document(uuid,uuid,document_sensitivity)`
@@ -52,17 +77,14 @@ Estas funções formam a malha de autorização e/ou são chamadas por outras fu
 - `is_org_member(uuid)`
 - `is_platform_operator()`
 - `is_psychologist_admin(uuid)`
-- `patient_whatsapp_allowed(uuid,uuid)`
 - `secretary_finance_access(uuid)`
 
-### C. Candidatos a server-only / service_role — confirmar uso antes de revogar
+### 3. Candidatos a hardening futuro — sem DDL nesta fase
 
-Estas funções parecem apoiar sincronização, credenciais, espelhamento, auditoria ou filas. São candidatas a sair da superfície `authenticated`, mas cada uma precisa de confirmação de call-site antes de DDL:
+Funções de sync, auditoria, espelhamento e fila que podem merecer boundary server-only, mas exigem mapeamento completo de call-sites e testes próprios antes de qualquer revogação:
 
 - `delete_external_appointment_mirror(uuid,uuid)`
 - `enqueue_appointment_whatsapp_reminders(uuid)`
-- `ensure_whatsapp_templates(uuid)`
-- `get_google_credentials(uuid)`
 - `link_external_appointment_patient(uuid,uuid,uuid)`
 - `log_audit_event(uuid,text,text,text,jsonb)`
 - `log_calendar_sync_event(uuid,calendar_sync_direction,text,uuid,jsonb,text,text)`
@@ -72,32 +94,16 @@ Estas funções parecem apoiar sincronização, credenciais, espelhamento, audit
 - `sync_patient_whatsapp_outbox(uuid)`
 - `update_external_appointment_mirror(uuid,uuid,timestamptz,timestamptz,text,appointment_status,text,text,uuid,consultation_modality,text)`
 - `upsert_external_appointment(uuid,text,text,text,timestamptz,timestamptz,text,appointment_status,text,text)`
-- `upsert_google_credentials(uuid,text,timestamptz,text,text,text[])`
 
-## Prioridade alta
+## Scope freeze
 
-### `get_google_credentials(uuid)`
+A Fase 6B termina no lote Google acima e na classificação dos demais RPCs. Os findings 0029 restantes não serão zerados por força nesta atualização. Nenhuma outra revogação será aplicada automaticamente.
 
-A função retorna `access_token_encrypted`, `access_token_expires_at` e `refresh_token_encrypted` para qualquer chamador que passe na verificação de membership da organização. Mesmo criptografados, tokens OAuth são material sensível e não devem ser expostos ao cliente se o fluxo real puder permanecer server-side. Antes da alteração de grants, confirmar que nenhum componente cliente depende desse RPC; se for server-only, revogar `authenticated` e manter apenas `service_role`/owner.
-
-### Funções de sincronização Google/espelho
-
-`upsert_external_appointment`, `update_external_appointment_mirror`, `mark_external_google_event_deleted`, `reconcile_unseen_google_mirrors`, `delete_external_appointment_mirror` e `log_calendar_sync_event` devem ser comparadas com os call-sites de API/server actions. Se apenas o backend as chama, devem migrar para allowlist server-only.
-
-## Estratégia proposta
-
-1. Mapear call-sites reais das 41 funções em `staging`.
-2. Criar uma allowlist explícita de RPCs legitimamente client-facing.
-3. Para server-only, revogar `authenticated` e preservar `service_role`.
-4. Para helpers de RLS, avaliar migração coordenada para schema privado/não exposto, sem quebrar policies.
-5. Executar CI completo e testes de RLS.
-6. Aplicar hosted migration somente após gate verde.
-7. Rerodar Security Advisor e smoke tests autenticados.
-
-## Não objetivos da 6B
+## Fora de escopo
 
 - mover `vector` de schema;
 - leaked-password protection;
-- corrigir os dois INFO de RLS sem policy;
+- corrigir INFO de RLS sem policy;
 - índices/performance;
+- refatorar helpers para schema privado;
 - alterar fluxos funcionais do Google Calendar, financeiro, WhatsApp ou documentos.
