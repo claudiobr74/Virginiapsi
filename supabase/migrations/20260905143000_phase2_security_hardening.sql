@@ -1,8 +1,9 @@
 -- VirgíniaPsi — Phase 2 selective security hardening.
 -- Carries only invariants confirmed missing from current staging.
 
--- 1) Inbound WhatsApp patient matching must remain service-role-only even if
--- EXECUTE grants are widened accidentally in a future migration.
+-- 1) Inbound WhatsApp patient matching and queue-processing RPCs are
+-- service-role-only. Revoke explicitly from every API role because historical
+-- migrations may have left direct grants even when PUBLIC was revoked.
 create or replace function public.match_patients_by_whatsapp_e164(p_e164 text)
 returns table (organization_id uuid, patient_id uuid)
 language plpgsql
@@ -37,9 +38,33 @@ revoke all on function public.match_patients_by_whatsapp_e164(text)
 grant execute on function public.match_patients_by_whatsapp_e164(text)
   to service_role;
 
+revoke all on function public.claim_due_whatsapp_reminders(integer)
+  from public, anon, authenticated;
+revoke all on function public.mark_whatsapp_outbox_sending(uuid)
+  from public, anon, authenticated;
+revoke all on function public.mark_whatsapp_outbox_sent(uuid, text)
+  from public, anon, authenticated;
+revoke all on function public.mark_whatsapp_outbox_failed(uuid, boolean, text)
+  from public, anon, authenticated;
+revoke all on function public.invoke_whatsapp_reminder_job()
+  from public, anon, authenticated;
+
+grant execute on function public.claim_due_whatsapp_reminders(integer)
+  to service_role;
+grant execute on function public.mark_whatsapp_outbox_sending(uuid)
+  to service_role;
+grant execute on function public.mark_whatsapp_outbox_sent(uuid, text)
+  to service_role;
+grant execute on function public.mark_whatsapp_outbox_failed(uuid, boolean, text)
+  to service_role;
+grant execute on function public.invoke_whatsapp_reminder_job()
+  to service_role;
+
 -- 2) Connection metadata tenant id is immutable. Regular members may select
 -- calendar_id/calendar_summary, but may not rewrite connection ownership,
--- account/scopes/status or sync diagnostics through the Data API.
+-- account/scopes/status, admin color mappings or sync diagnostics through the
+-- Data API. Forbidden writes must fail explicitly rather than being silently
+-- rewritten, so callers cannot believe a privileged change succeeded.
 create or replace function public.assert_google_calendar_connection_tenant()
 returns trigger
 language plpgsql
@@ -50,14 +75,25 @@ begin
   new.organization_id := old.organization_id;
 
   if not public.is_psychologist_admin(old.organization_id) then
-    new.status := old.status;
-    new.google_account_email := old.google_account_email;
-    new.scopes := old.scopes;
-    new.last_synced_at := old.last_synced_at;
-    new.last_sync_error := old.last_sync_error;
-    new.connected_by_user_id := old.connected_by_user_id;
-    new.cancelled_google_color_ids := old.cancelled_google_color_ids;
-    new.unavailable_google_color_ids := old.unavailable_google_color_ids;
+    if new.cancelled_google_color_ids is distinct from old.cancelled_google_color_ids then
+      raise exception 'only psychologist_admin may set cancelled Google color ids'
+        using errcode = '42501';
+    end if;
+
+    if new.unavailable_google_color_ids is distinct from old.unavailable_google_color_ids then
+      raise exception 'only psychologist_admin may set unavailable Google color ids'
+        using errcode = '42501';
+    end if;
+
+    if new.status is distinct from old.status
+       or new.google_account_email is distinct from old.google_account_email
+       or new.scopes is distinct from old.scopes
+       or new.last_synced_at is distinct from old.last_synced_at
+       or new.last_sync_error is distinct from old.last_sync_error
+       or new.connected_by_user_id is distinct from old.connected_by_user_id then
+      raise exception 'only psychologist_admin may update Google connection metadata'
+        using errcode = '42501';
+    end if;
   end if;
 
   return new;
