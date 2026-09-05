@@ -55,7 +55,12 @@ import {
   shouldAttachTranscriptToClosing,
 } from "@/features/sessions/ai/closing-context";
 import { SESSION_AI_EMPTY_CONTEXT_MESSAGE } from "@/features/sessions/ai/messages";
+import {
+  isAiArtifactIsolationError,
+  mapAiArtifactAppendError,
+} from "@/features/sessions/ai/artifact-integrity";
 import { AI_RATE_LIMIT_MESSAGE, consumeAiRateLimit } from "@/lib/security/rate-limit";
+import { firstRpcRow } from "@/lib/supabase/rpc-result";
 
 export type { SessionAiActionResult } from "@/features/sessions/ai/action-result";
 
@@ -550,13 +555,9 @@ const appendArtifactSchema = z.object({
 });
 
 /**
- * Human-in-the-loop: copies a `session_closing` artifact's dpepDraft into
- * session_dpep only on this explicit action, going through the same
- * optimistic-concurrency path a manual DPEP edit would
- * (docs/14-runtime-ai-architecture.md §10 "nenhum auto-commit").
- *
- * The primary clinical UX fills editable fields from the AI draft and
- * requires "Salvar DPEP". This remains available for artifact review flows.
+ * Human-in-the-loop: applies a `session_closing` artifact to DPEP only on
+ * explicit clinician action. Tenant, patient, session, artifact type and
+ * optimistic version are validated atomically by the database RPC.
  */
 export async function appendClosingArtifactToDpep(
   input: unknown,
@@ -572,49 +573,38 @@ export async function appendClosingArtifactToDpep(
     }
 
     const supabase = await createSupabaseServerClient();
-    const { data: artifact, error: artifactError } = await supabase
-      .from("ai_artifacts")
-      .select("id, type, structured_content, review_status")
-      .eq("id", parsed.data.artifactId)
-      .maybeSingle();
+    const { data: saveResult, error: saveError } = await supabase.rpc(
+      "append_verified_ai_artifact_to_session",
+      {
+        p_artifact_id: parsed.data.artifactId,
+        p_target_session_id: parsed.data.sessionId,
+        p_expected_version: parsed.data.expectedVersion,
+        p_mode: "session_closing",
+        p_include_formulation: false,
+        p_include_hypotheses: false,
+      },
+    );
 
-    if (artifactError || !artifact || artifact.type !== "session_closing") {
-      return { error: "Rascunho de IA não encontrado." };
+    if (saveError) {
+      if (isAiArtifactIsolationError(saveError.message)) {
+        await logAuditEvent({
+          organizationId,
+          action: "ai_artifact.isolation_rejected",
+          resourceType: "ai_artifact",
+          resourceId: parsed.data.artifactId,
+          metadata: {
+            target_session_id: parsed.data.sessionId,
+            mode: "session_closing",
+          },
+        });
+      }
+      return { error: mapAiArtifactAppendError(saveError.message) };
     }
-    if (artifact.review_status !== "pending") {
-      return { error: "Este rascunho já foi revisado." };
-    }
 
-    const dpepDraft = (
-      artifact.structured_content as { dpepDraft?: Record<string, string> }
-    ).dpepDraft;
-
-    const { data: saveResult, error: saveError } = await supabase.rpc("save_session_dpep", {
-      p_session_id: parsed.data.sessionId,
-      org_id: organizationId,
-      p_expected_version: parsed.data.expectedVersion,
-      p_demand: dpepDraft?.demanda ?? null,
-      p_procedures: dpepDraft?.procedimentos ?? null,
-      p_evolution: dpepDraft?.evolucao ?? null,
-      p_plan: dpepDraft?.plano ?? null,
-    });
-
-    const rows = (saveResult ?? []) as { new_version: number }[];
-    if (saveError || rows.length === 0) {
+    const row = firstRpcRow<{ new_version: number }>(saveResult);
+    if (!row) {
       return { error: "Não foi possível salvar — a sessão pode ter sido alterada. Recarregue." };
     }
-
-    await supabase
-      .from("ai_artifacts")
-      .update({ review_status: "appended" })
-      .eq("id", parsed.data.artifactId);
-
-    await logAuditEvent({
-      organizationId,
-      action: "ai_artifact.appended_to_dpep",
-      resourceType: "clinical_session",
-      resourceId: parsed.data.sessionId,
-    });
 
     revalidatePath(`/session/${parsed.data.sessionId}`);
     return { artifactId: parsed.data.artifactId };
