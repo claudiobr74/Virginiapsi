@@ -23,7 +23,12 @@ import {
   appendSupervisorArtifactSchema,
   supervisorFormSchema,
 } from "@/features/supervisor/contracts";
+import {
+  isAiArtifactIsolationError,
+  mapAiArtifactAppendError,
+} from "@/features/sessions/ai/artifact-integrity";
 import { AI_RATE_LIMIT_MESSAGE, consumeAiRateLimit } from "@/lib/security/rate-limit";
+import { firstRpcRow } from "@/lib/supabase/rpc-result";
 
 export interface SupervisorActionResult {
   error?: string;
@@ -191,9 +196,8 @@ export async function runSupervisorAssist(input: unknown): Promise<SupervisorAct
 
 /**
  * Human-in-the-loop "botão explícito para anexar conteúdo selecionado ao
- * prontuário" (prompts/07-supervisor-ai.md): appends the synthesis and/or
- * hypotheses into a chosen session's clinical working notes, through the
- * same optimistic-concurrency path a manual edit would use.
+ * prontuário". A escrita clínica é atômica e validada no banco: tenant,
+ * paciente, sessão, tipo do artefato e versão otimista são conferidos juntos.
  */
 export async function appendSupervisorArtifact(input: unknown): Promise<SupervisorActionResult> {
   const { organizationId, role } = await requireOrgContext();
@@ -206,67 +210,38 @@ export async function appendSupervisorArtifact(input: unknown): Promise<Supervis
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data: artifact, error: artifactError } = await supabase
-    .from("ai_artifacts")
-    .select("id, type, structured_content, review_status")
-    .eq("id", parsed.data.artifactId)
-    .maybeSingle();
-
-  if (artifactError || !artifact || artifact.type !== "supervisor") {
-    return { error: "Rascunho de supervisão não encontrado." };
-  }
-  if (artifact.review_status !== "pending") {
-    return { error: "Este rascunho já foi revisado." };
-  }
-
-  const content = artifact.structured_content as {
-    clinicalSynthesis?: string;
-    hypotheses?: { hypothesis: string }[];
-  };
-
-  const currentNotes = await getSessionWorkingNotes(parsed.data.targetSessionId);
-  const appendedFormulation = parsed.data.fields.formulation
-    ? [currentNotes?.formulation, `[Supervisor IA] ${content.clinicalSynthesis ?? ""}`]
-        .filter(Boolean)
-        .join("\n\n")
-    : currentNotes?.formulation ?? null;
-  const appendedHypotheses = parsed.data.fields.hypotheses
-    ? [
-        currentNotes?.hypotheses,
-        (content.hypotheses ?? []).map((h) => `[Supervisor IA] ${h.hypothesis}`).join("\n"),
-      ]
-        .filter(Boolean)
-        .join("\n\n")
-    : currentNotes?.hypotheses ?? null;
-
   const { data: saveResult, error: saveError } = await supabase.rpc(
-    "save_session_working_notes",
+    "append_verified_ai_artifact_to_session",
     {
-      p_session_id: parsed.data.targetSessionId,
-      org_id: organizationId,
+      p_artifact_id: parsed.data.artifactId,
+      p_target_session_id: parsed.data.targetSessionId,
       p_expected_version: parsed.data.expectedVersion,
-      p_formulation: appendedFormulation,
-      p_hypotheses: appendedHypotheses,
-      p_working_observations: currentNotes?.working_observations ?? null,
+      p_mode: "supervisor",
+      p_include_formulation: parsed.data.fields.formulation,
+      p_include_hypotheses: parsed.data.fields.hypotheses,
     },
   );
 
-  const rows = (saveResult ?? []) as { new_version: number }[];
-  if (saveError || rows.length === 0) {
-    return { error: "Não foi possível salvar — a sessão pode ter sido alterada. Recarregue." };
+  if (saveError) {
+    if (isAiArtifactIsolationError(saveError.message)) {
+      await logAuditEvent({
+        organizationId,
+        action: "ai_artifact.isolation_rejected",
+        resourceType: "ai_artifact",
+        resourceId: parsed.data.artifactId,
+        metadata: {
+          target_session_id: parsed.data.targetSessionId,
+          mode: "supervisor",
+        },
+      });
+    }
+    return { error: mapAiArtifactAppendError(saveError.message) };
   }
 
-  await supabase
-    .from("ai_artifacts")
-    .update({ review_status: "appended" })
-    .eq("id", parsed.data.artifactId);
-
-  await logAuditEvent({
-    organizationId,
-    action: "ai_artifact.appended_to_working_notes",
-    resourceType: "clinical_session",
-    resourceId: parsed.data.targetSessionId,
-  });
+  const row = firstRpcRow<{ new_version: number }>(saveResult);
+  if (!row) {
+    return { error: "Não foi possível salvar — a sessão pode ter sido alterada. Recarregue." };
+  }
 
   revalidatePath(`/session/${parsed.data.targetSessionId}`);
   return { artifactId: parsed.data.artifactId };

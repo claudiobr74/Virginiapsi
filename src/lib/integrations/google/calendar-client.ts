@@ -30,14 +30,26 @@ export interface ConferenceData {
   conferenceId?: string;
 }
 
+export type GoogleCalendarEventType =
+  | "default"
+  | "outOfOffice"
+  | "focusTime"
+  | "workingLocation"
+  | "birthday"
+  | "fromGmail"
+  | (string & {});
+
 export interface GoogleCalendarEvent {
   id: string;
   etag?: string;
   status?: string;
   summary?: string;
+  colorId?: string;
+  eventType?: GoogleCalendarEventType;
   start?: { dateTime?: string; date?: string; timeZone?: string };
   end?: { dateTime?: string; date?: string; timeZone?: string };
   conferenceData?: ConferenceData;
+  hangoutLink?: string;
   htmlLink?: string;
 }
 
@@ -135,7 +147,12 @@ export class GoogleCalendarClient {
 
   async listEvents(
     calendarId: string,
-    options: { timeMin: string; timeMax: string; pageToken?: string } = {
+    options: {
+      timeMin: string;
+      timeMax: string;
+      pageToken?: string;
+      showDeleted?: boolean;
+    } = {
       timeMin: "",
       timeMax: "",
     },
@@ -147,8 +164,9 @@ export class GoogleCalendarClient {
           timeMin: options.timeMin,
           timeMax: options.timeMax,
           pageToken: options.pageToken,
+          showDeleted: options.showDeleted ? true : undefined,
           singleEvents: true,
-          orderBy: "startTime",
+          orderBy: options.showDeleted ? undefined : "startTime",
         },
       },
     );

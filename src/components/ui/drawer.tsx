@@ -4,6 +4,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils/cn";
+import { toneHeaderClass, type SurfaceTone } from "@/lib/ui/surface-tone";
 
 export const Drawer = DialogPrimitive.Root;
 export const DrawerTrigger = DialogPrimitive.Trigger;
@@ -29,12 +30,13 @@ export interface DrawerContentProps
   title: string;
   description?: string;
   footer?: React.ReactNode;
+  tone?: SurfaceTone;
 }
 
 export const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DrawerContentProps
->(({ className, title, description, footer, children, ...props }, ref) => (
+>(({ className, title, description, footer, tone = "neutral", children, ...props }, ref) => (
   <DialogPrimitive.Portal>
     <DrawerOverlay />
     <DialogPrimitive.Content
@@ -46,7 +48,12 @@ export const DrawerContent = React.forwardRef<
       )}
       {...props}
     >
-      <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+      <div
+        className={cn(
+          "flex items-start justify-between gap-4 border-b px-6 py-5",
+          tone === "neutral" ? "border-border bg-card" : toneHeaderClass(tone, "border-b"),
+        )}
+      >
         <div className="flex flex-col gap-1">
           <DialogPrimitive.Title className="font-serif text-lg italic font-bold text-foreground">
             {title}

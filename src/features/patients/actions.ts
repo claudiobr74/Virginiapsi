@@ -21,6 +21,7 @@ import {
   createSignedUploadUrl,
   removeFile,
 } from "@/lib/documents/storage";
+import { classifyStorageFailure } from "@/lib/documents/storage-failure";
 import { buildStoragePath } from "@/lib/documents/storage-meta";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -236,7 +237,12 @@ export async function requestPortraitUploadUrlAction(input: {
   try {
     const { token } = await createSignedUploadUrl(DOCUMENT_BUCKETS.patientAttachments, path);
     return { path, token };
-  } catch {
+  } catch (error) {
+    console.error("[patient-photo] signed upload failed", {
+      code: classifyStorageFailure(error).code,
+      bucket: DOCUMENT_BUCKETS.patientAttachments,
+      stage: "create_signed_upload_url",
+    });
     return { error: "Não foi possível preparar o envio da foto agora." };
   }
 }

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { parsePublicEnv } from "@/lib/env/schema";
+import { SUPABASE_SERVER_AUTH_OPTIONS } from "@/lib/supabase/server-auth-options";
 
 const PROTECTED_PREFIXES = [
   "/app",
@@ -24,6 +25,7 @@ export async function proxy(request: NextRequest) {
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
+      auth: SUPABASE_SERVER_AUTH_OPTIONS,
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -42,7 +44,8 @@ export async function proxy(request: NextRequest) {
   );
 
   // Do not add logic between client creation and getUser(): it must be the
-  // first call so the refreshed session cookies are captured correctly.
+  // first explicit auth call so refreshed session cookies are captured
+  // correctly without racing eager server-client initialization.
   let user = null;
   try {
     const result = await supabase.auth.getUser();

@@ -1,4 +1,8 @@
 import type { AppointmentRow } from "@/features/calendar/contracts";
+import {
+  isRenderedAgendaAppointment,
+  isValidCountableSession,
+} from "@/features/calendar/google-event-status";
 
 const FALLBACK_TIME_ZONE = "America/Sao_Paulo";
 
@@ -67,28 +71,70 @@ export function buildDayTimelineHours(
 }
 
 export function summarizeDayAppointments(appointments: AppointmentRow[]) {
-  const visible = appointments.filter((appointment) => appointment.status !== "cancelled");
+  const valid = appointments.filter(isValidCountableSession);
   return {
-    total: visible.length,
-    confirmed: visible.filter((appointment) => appointment.status === "confirmed").length,
-    scheduled: visible.filter((appointment) => appointment.status === "scheduled").length,
-    external: visible.filter((appointment) => appointment.origin === "GOOGLE_EXTERNAL").length,
+    total: valid.length,
+    confirmed: valid.filter((appointment) => appointment.status === "confirmed").length,
+    scheduled: valid.filter((appointment) => appointment.status === "scheduled").length,
+    external: valid.filter((appointment) => appointment.origin === "GOOGLE_EXTERNAL").length,
   };
 }
 
+export function googleConnectionIsLive(
+  connection: { status: string } | null | undefined,
+): boolean {
+  return connection?.status === "connected" || connection?.status === "error";
+}
+
+/**
+ * Shared Agenda + Meu Dia visibility.
+ * Connected (or error) → TESSELI + GOOGLE_EXTERNAL.
+ * Disconnected / absent → TESSELI only.
+ */
+export function visibleAppointments<
+  T extends {
+    origin: AppointmentRow["origin"];
+    status?: AppointmentRow["status"];
+    summary_snapshot?: string | null;
+    summarySnapshot?: string | null;
+    google_deleted_at?: string | null;
+    googleDeletedAt?: string | null;
+  },
+>(
+  appointments: T[],
+  googleConnectionStatus: { status: string } | null | undefined,
+): T[] {
+  const scoped = googleConnectionIsLive(googleConnectionStatus)
+    ? appointments
+    : appointments.filter((appointment) => appointment.origin !== "GOOGLE_EXTERNAL");
+  return scoped.filter((appointment) =>
+    isRenderedAgendaAppointment({
+      status: appointment.status ?? "scheduled",
+      origin: appointment.origin,
+      summary_snapshot: appointment.summary_snapshot,
+      summarySnapshot: appointment.summarySnapshot,
+      google_deleted_at: appointment.google_deleted_at,
+      googleDeletedAt: appointment.googleDeletedAt,
+    }),
+  );
+}
+
+/** Alias kept for existing Agenda call sites. */
+export const visibleAgendaAppointments = visibleAppointments;
+
 export function monthCellStats(appointments: AppointmentRow[]) {
-  const visible = appointments.filter((appointment) => appointment.status !== "cancelled");
+  const valid = appointments.filter(isValidCountableSession);
   return {
-    count: visible.length,
-    hasOnline: visible.some(
+    count: valid.length,
+    hasOnline: valid.some(
       (appointment) =>
         appointment.origin !== "GOOGLE_EXTERNAL" && appointment.modality === "online",
     ),
-    hasInPerson: visible.some(
+    hasInPerson: valid.some(
       (appointment) =>
         appointment.origin !== "GOOGLE_EXTERNAL" &&
         (appointment.modality === "in_person" || appointment.modality === "hybrid"),
     ),
-    hasExternal: visible.some((appointment) => appointment.origin === "GOOGLE_EXTERNAL"),
+    hasExternal: valid.some((appointment) => appointment.origin === "GOOGLE_EXTERNAL"),
   };
 }

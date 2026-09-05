@@ -1,21 +1,22 @@
-import { FileText } from "lucide-react";
+import { FilePlus2, FileText } from "lucide-react";
+import Link from "next/link";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
-import { DocumentsLibrary } from "@/features/documents/components/documents-library";
-import { TemplatesPanel } from "@/features/documents/components/templates-panel";
-import { listDocuments, listTemplates } from "@/features/documents/queries";
+import { DocumentStudioHome } from "@/features/documents/components/document-studio-home";
+import { listTemplateFavorites } from "@/features/documents/branding-queries";
+import { listDocuments } from "@/features/documents/queries";
 import { listPatients } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 
-export const metadata = { title: "Centro de Documentos — VirgíniaPsi" };
+export const metadata = { title: "Documentos — VirgíniaPsi" };
 
 export default async function DocumentsPage() {
-  const { organizationId, role } = await requireOrgContext();
+  const { organizationId, role, user } = await requireOrgContext();
 
-  const [templates, documents, patients] = await Promise.all([
-    listTemplates(organizationId),
+  const [documents, patients, favorites] = await Promise.all([
     listDocuments(organizationId),
     listPatients(organizationId),
+    listTemplateFavorites(organizationId, user.id).catch(() => []),
   ]);
   const patientNames = Object.fromEntries(
     patients.map((patient) => [patient.id, patient.preferred_name]),
@@ -25,28 +26,24 @@ export default async function DocumentsPage() {
     <PageContainer>
       <PageHeader
         icon={FileText}
-        title="Centro de Documentos"
-        subtitle="Modelos, versões e PDFs — visibilidade por classificação administrativa/clínica"
+        title="Documentos"
+        subtitle="Escolher, escrever e finalizar"
+        actions={
+          <Link
+            href="/app/documents/new"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
+          >
+            <FilePlus2 className="size-4" aria-hidden />
+            Novo documento
+          </Link>
+        }
       />
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(16rem,320px)_1fr]">
-        {role === "psychologist_admin" ? (
-          <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-3 font-serif text-lg font-bold italic text-foreground">Modelos</h2>
-            <TemplatesPanel templates={templates} />
-          </section>
-        ) : (
-          <section className="rounded-3xl border border-border bg-card p-5 text-sm text-muted-foreground shadow-sm">
-            Modelos são gerenciados pela psicóloga administradora.
-          </section>
-        )}
-
-        <DocumentsLibrary
-          documents={documents}
-          patientNames={patientNames}
-          templateCount={templates.length}
-        />
-      </div>
+      <DocumentStudioHome
+        documents={documents}
+        patientNames={patientNames}
+        favorites={favorites}
+        isAdmin={role === "psychologist_admin"}
+      />
     </PageContainer>
   );
 }

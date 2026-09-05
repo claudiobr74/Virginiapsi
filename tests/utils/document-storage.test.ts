@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   SIGNED_URL_TTL_SECONDS,
   buildStoragePath,
+  isOrgScopedStoragePath,
   sha256Hex,
 } from "@/lib/documents/storage-meta";
 
@@ -30,6 +31,15 @@ describe("buildStoragePath", () => {
     const first = buildStoragePath("org", "res", "a.txt");
     const second = buildStoragePath("org", "res", "a.txt");
     expect(first).not.toBe(second);
+  });
+});
+
+describe("isOrgScopedStoragePath", () => {
+  it("aceita prefixo do tenant e rejeita path de outro org ou traversal", () => {
+    expect(isOrgScopedStoragePath("org-a", "org-a/logos/x.png")).toBe(true);
+    expect(isOrgScopedStoragePath("org-a", null)).toBe(true);
+    expect(isOrgScopedStoragePath("org-a", "org-b/logos/x.png")).toBe(false);
+    expect(isOrgScopedStoragePath("org-a", "org-a/../org-b/x.png")).toBe(false);
   });
 });
 

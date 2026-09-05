@@ -1,3 +1,4 @@
+import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import type { AppointmentRow } from "@/features/calendar/contracts";
 import { monthCellStats } from "@/features/calendar/display";
 import { cn } from "@/lib/utils/cn";
@@ -36,19 +37,21 @@ export function MonthView({
   days,
   appointmentsByDay,
   today,
+  now,
   onSelectDay,
 }: {
   days: string[];
   appointmentsByDay: Map<string, AppointmentRow[]>;
   today: string;
+  now?: Date;
   onSelectDay: (day: string) => void;
 }) {
   const blanks = leadingBlankDays(days[0]);
   const overflow = trailingOverflowDays(days[0], days.length);
 
   return (
-    <div className="overflow-hidden rounded-[16px] border border-border bg-card">
-      <div className="grid grid-cols-7 border-b border-border text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="overflow-hidden rounded-[16px] border border-border bg-card shadow-card">
+      <div className="grid grid-cols-7 border-b border-border bg-surface/50 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {WEEKDAY_LABELS.map((label) => (
           <span key={label} className="px-2 py-3">
             {label}
@@ -63,9 +66,11 @@ export function MonthView({
           />
         ))}
         {days.map((day) => {
-          const stats = monthCellStats(appointmentsByDay.get(day) ?? []);
+          const dayAppointments = appointmentsByDay.get(day) ?? [];
           const isToday = day === today;
           const dayNumber = Number(day.split("-")[2]);
+          const visiblePills = dayAppointments.slice(0, 4);
+          const validCount = monthCellStats(dayAppointments).count;
 
           return (
             <button
@@ -73,8 +78,8 @@ export function MonthView({
               type="button"
               onClick={() => onSelectDay(day)}
               className={cn(
-                "flex min-h-[108px] flex-col items-start gap-2 border-b border-r border-border p-3 text-left transition-colors hover:bg-surface/60",
-                isToday && "bg-sage-light/70",
+                "flex min-h-[108px] flex-col items-start gap-1.5 border-b border-r border-border p-3 text-left transition-colors hover:bg-surface/60",
+                isToday && "bg-tone-agenda",
               )}
             >
               <div className="flex w-full items-start justify-between gap-2">
@@ -92,21 +97,31 @@ export function MonthView({
                   </span>
                 ) : null}
               </div>
-              {stats.count > 0 ? (
+              {dayAppointments.length > 0 ? (
                 <>
-                  <p className="text-[13px] text-muted-foreground">
-                    {sessionCountLabel(stats.count)}
-                  </p>
-                  <span className="flex gap-1" aria-hidden>
-                    {stats.hasOnline ? (
-                      <span className="size-1.5 rounded-full bg-sage-700" />
-                    ) : null}
-                    {stats.hasInPerson ? (
-                      <span className="size-1.5 rounded-full bg-accent" />
-                    ) : null}
-                    {stats.hasExternal ? (
-                      <span className="size-1.5 rounded-full bg-sage-mid" />
-                    ) : null}
+                  {validCount > 0 ? (
+                    <p className="text-[13px] text-muted-foreground">
+                      {sessionCountLabel(validCount)}
+                    </p>
+                  ) : null}
+                  <span className="flex w-full flex-col gap-1">
+                    {visiblePills.map((appointment) => {
+                      const visual = getAppointmentVisualStatus(appointment, now);
+                      return (
+                        <span
+                          key={appointment.id}
+                          data-appointment-visual={visual.tone}
+                          data-appointment-origin={appointment.origin}
+                          style={visual.style}
+                          className={cn(
+                            "w-full break-words rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-foreground",
+                            visual.className,
+                          )}
+                        >
+                          {appointment.summary_snapshot ?? "Consulta"}
+                        </span>
+                      );
+                    })}
                   </span>
                 </>
               ) : null}

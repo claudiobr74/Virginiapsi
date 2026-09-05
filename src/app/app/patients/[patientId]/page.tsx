@@ -145,7 +145,7 @@ export default async function PatientHubPage({
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="flex flex-col gap-5">
           {canAccessClinical ? (
-            <PatientHubSection title="Objetivos Terapêuticos">
+            <PatientHubSection title="Objetivos Terapêuticos" tone="clinical">
               {clinicalProfile?.therapy_goals?.trim() ? (
                 <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
                   {clinicalProfile.therapy_goals}
@@ -158,7 +158,7 @@ export default async function PatientHubPage({
             </PatientHubSection>
           ) : null}
           {canAccessClinical ? (
-            <PatientHubSection title="Última Evolução Clínica">
+            <PatientHubSection title="Última Evolução Clínica" tone="clinical">
               {lastDpep?.evolution?.trim() ? (
                 <>
                   <p className="font-mono text-[11px] text-muted-foreground">
@@ -175,7 +175,7 @@ export default async function PatientHubPage({
               )}
             </PatientHubSection>
           ) : null}
-          <PatientHubSection title="Dados do Paciente">
+          <PatientHubSection title="Dados do Paciente" tone="clinical">
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
             <Field label="Nome completo" value={patient.full_name} />
             <Field label="CPF" value={formatCpfDisplay(patient.cpf)} mono />
@@ -227,11 +227,11 @@ export default async function PatientHubPage({
         <div className="flex flex-col gap-5">
           {canAccessClinical ? (
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-[16px] border border-border bg-card p-4">
+              <div className="rounded-[16px] border border-tone-agenda-border bg-tone-agenda p-4 shadow-card">
                 <p className="text-[13px] text-muted-foreground">Sessões realizadas</p>
                 <p className="font-serif text-[28px] font-bold text-foreground">{finalized.length}</p>
               </div>
-              <div className="rounded-[16px] border border-border bg-card p-4">
+              <div className="rounded-[16px] border border-tone-clinical-border bg-tone-clinical p-4 shadow-card">
                 <p className="text-[13px] text-muted-foreground">Última sessão</p>
                 <p className="font-serif text-lg font-bold text-foreground">{lastSessionLabel}</p>
               </div>
@@ -254,7 +254,7 @@ export default async function PatientHubPage({
               {MODALITY_LABELS[patient.modality]}
             </p>
           </div>
-          <PatientHubSection title="Adesão & Plano">
+          <PatientHubSection title="Adesão & Plano" tone="agenda">
             {activePlan && finance.access !== "none" ? (
               <div className="flex flex-col gap-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
@@ -300,7 +300,7 @@ export default async function PatientHubPage({
             )}
           </PatientHubSection>
 
-          <PatientHubSection title="Pendências">
+          <PatientHubSection title="Pendências" tone="tasks">
             {finance.access !== "none" &&
             finance.charges.filter((charge) =>
               ["pending", "partially_paid", "overdue"].includes(charge.row.status),
@@ -320,6 +320,7 @@ export default async function PatientHubPage({
 
       <PatientHubSection
         title="WhatsApp"
+        tone="documents"
         description="Consentimento, canal, modelos e lembretes 24h/2h. Confirmação de agenda por resposta só ocorre com SIM explícito."
       >
         <WhatsappPanel patientId={patient.id} snapshot={whatsapp} />
@@ -330,6 +331,7 @@ export default async function PatientHubPage({
   const recordPanel = canAccessClinical ? (
     <PatientHubSection
       title="Acompanhamento"
+      tone="clinical"
         description="Queixa, histórico e notas clínicas — visível apenas para a profissional responsável."
       actions={
         <Button asChild variant="secondary" size="sm">
@@ -350,6 +352,7 @@ export default async function PatientHubPage({
   const planPanel = canAccessClinical ? (
     <PatientHubSection
       title="Plano Terapêutico"
+      tone="agenda"
       description="Objetivos, esquemas e crenças — visível apenas para a profissional responsável."
     >
       <ClinicalProfileForm
@@ -363,6 +366,7 @@ export default async function PatientHubPage({
   const sessionsPanel = (
     <PatientHubSection
       title="Registro Histórico de Prontuário"
+      tone="clinical"
       description="Sessões clínicas, DPEP e transcrição — apenas a profissional responsável."
     >
       {clinicalSessions.length > 0 ? (
@@ -381,6 +385,7 @@ export default async function PatientHubPage({
     <div className="flex flex-col gap-6">
       <PatientHubSection
         title="Documentos"
+        tone="documents"
         description="Laudos, atestados, recibos e outros — visibilidade por classificação administrativa/clínica."
       >
         <PatientDocumentsPanel
@@ -392,6 +397,7 @@ export default async function PatientHubPage({
       </PatientHubSection>
       <PatientHubSection
         title="Anexos"
+        tone="documents"
         description="Arquivos do paciente — visibilidade por classificação administrativa/clínica."
       >
         <PatientAttachmentsPanel
@@ -404,7 +410,7 @@ export default async function PatientHubPage({
   );
 
   const financePanel = (
-    <PatientHubSection title="Extrato Financeiro">
+    <PatientHubSection title="Extrato Financeiro" tone="finance">
       <PatientStatementBlock access={finance.access} charges={finance.charges} />
     </PatientHubSection>
   );
@@ -416,6 +422,7 @@ export default async function PatientHubPage({
         <PatientHubSection
           id="consentimentos"
           title="Consentimentos de gravação, transcrição e IA"
+          tone="clinical"
           description="Exigidos antes de capturar áudio ou usar apoio de IA na sessão."
         >
           <ConsentPanel
@@ -428,6 +435,7 @@ export default async function PatientHubPage({
       <PatientHubSection
         id="tcle"
         title="Gestão de TCLE"
+        tone="clinical"
         description="Aceite, revogação e histórico do Termo de Consentimento Livre e Esclarecido e dos termos de serviço."
       >
         <TclePanel

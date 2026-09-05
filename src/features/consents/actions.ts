@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import {
   CONSENT_TYPE_LABELS,
   MINIMAL_CONSENT_VERSION,
+  TRANSCRIPTION_CONSENT_VERSION,
   recordConsentSchema,
 } from "@/features/consents/contracts";
 import { isClinicalPractitioner } from "@/features/organizations/roles";
@@ -51,7 +52,10 @@ export async function recordConsentAction(
       patient_id: parsed.data.patientId,
       type: parsed.data.type,
       title: CONSENT_TYPE_LABELS[parsed.data.type],
-      version: MINIMAL_CONSENT_VERSION,
+      version:
+        parsed.data.type === "session_transcription"
+          ? TRANSCRIPTION_CONSENT_VERSION
+          : MINIMAL_CONSENT_VERSION,
       status: "accepted",
       accepted_ip_hash: await acceptanceIpHash(),
       guardian_authorization: parsed.data.guardianAuthorization,
@@ -70,7 +74,13 @@ export async function recordConsentAction(
     action: "consent.record",
     resourceType: "consent",
     resourceId: data.id as string,
-    metadata: { type: parsed.data.type, version: MINIMAL_CONSENT_VERSION },
+    metadata: {
+      type: parsed.data.type,
+      version:
+        parsed.data.type === "session_transcription"
+          ? TRANSCRIPTION_CONSENT_VERSION
+          : MINIMAL_CONSENT_VERSION,
+    },
   });
 
   revalidatePath(`/app/patients/${parsed.data.patientId}`);

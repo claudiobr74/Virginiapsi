@@ -24,6 +24,8 @@ export interface SlidingWindowLimiterOptions {
 
 export const RATE_LIMITS = {
   captureGrant: { limit: 30, windowMs: 60_000 },
+  // 15s chunks ≈ 4 req/min; headroom covers retries and a short overlap.
+  transcribeChunk: { limit: 30, windowMs: 60_000 },
   aiActions: { limit: 20, windowMs: 60_000 },
 } as const;
 
@@ -68,6 +70,7 @@ export function createSlidingWindowLimiter(
 }
 
 export const captureGrantLimiter = createSlidingWindowLimiter(RATE_LIMITS.captureGrant);
+export const transcribeChunkLimiter = createSlidingWindowLimiter(RATE_LIMITS.transcribeChunk);
 export const aiActionLimiter = createSlidingWindowLimiter(RATE_LIMITS.aiActions);
 
 export function clientIpFromHeaders(headers: Headers): string {
@@ -89,6 +92,13 @@ export function clientIpFromHeaders(headers: Headers): string {
 
 export function consumeCaptureGrantRateLimit(ip: string): RateLimitResult {
   return captureGrantLimiter.consume(`capture-grant:${ip}`);
+}
+
+export function consumeTranscribeChunkRateLimit(
+  organizationId: string,
+  sessionId: string,
+): RateLimitResult {
+  return transcribeChunkLimiter.consume(`transcribe-chunk:${organizationId}:${sessionId}`);
 }
 
 export function consumeAiRateLimit(organizationId: string, userId: string): RateLimitResult {

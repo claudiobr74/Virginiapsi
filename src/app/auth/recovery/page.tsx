@@ -11,7 +11,7 @@ export default function RecoveryPage() {
   return (
     <AuthScreen>
       <div className="flex flex-col items-center gap-2 text-center">
-        <Logo variant="stacked" width={96} priority />
+        <Logo variant="stacked" width={180} priority />
         <h1 className="mt-2 font-serif text-2xl font-bold leading-tight text-foreground">
           Recuperar senha
         </h1>

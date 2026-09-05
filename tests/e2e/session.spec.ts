@@ -29,7 +29,7 @@ test.describe("Sessão clínica ativa", () => {
       page.getByRole("heading", { name: "Área de Trabalho Clínico" }),
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Transcrição" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Session AI" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Apoio de IA" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Finalizar atendimento" })).toBeVisible();
   });
 
@@ -126,7 +126,7 @@ test.describe("Persistência de transcrição — enforcement server-side", () =
         sequence: 0,
         text: "Texto que não deveria ser salvo",
         isFinal: true,
-        provider: "local-webgpu",
+        provider: "groq-batch",
       },
     });
     expect(response.status()).toBe(403);
@@ -152,7 +152,7 @@ test.describe("Persistência de transcrição — enforcement server-side", () =
         sequence: 0,
         text: "Não deveria valer para outra sessão",
         isFinal: true,
-        provider: "local-webgpu",
+        provider: "groq-batch",
       },
     });
     expect(response.status()).toBe(403);

@@ -20,10 +20,10 @@ Este documento fecha o achado `LGPD-P1-004` da auditoria pré-implementação. E
 | Supabase | Todo o dado estruturado do produto (Postgres, Auth, Storage) | Persistência, autenticação, armazenamento de arquivo | Produção **Virginiapsi**: **us-east-1** (`kgfcgxagixiynlcewept`). Staging deste schema (D2): **ainda não existe**. Projeto Serenita us-west-2 não faz parte deste schema (`docs/26-go-live.md`). | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
 | Google (Calendar/Meet) | Nome do paciente + `PAC-###` (no título do evento), horário, modalidade | Agenda externa oficial e videochamada | Global (Google Workspace/Cloud) | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
 | Twilio | Número de telefone, conteúdo de template de mensagem | Confirmação e lembrete de consulta via WhatsApp | EUA | ⚠ VALIDAÇÃO JURÍDICA HUMANA |
-| Groq — **somente se o fallback de transcrição for habilitado** | Áudio bruto da sessão (apenas no fallback) | Transcrição de fala em texto quando o dispositivo não sustenta a transcrição local | EUA | ⚠ VALIDAÇÃO JURÍDICA HUMANA — dado de saúde, exige atenção redobrada |
+| Groq | Áudio bruto da sessão (chunks ao vivo em memória; arquivo importado temporário) | Transcrição de fala em texto (`whisper-large-v3-turbo`) | EUA | ⚠ VALIDAÇÃO JURÍDICA HUMANA — dado de saúde, exige atenção redobrada. ZDR: **NOT_VERIFIED** |
 | Google (Gemini) | Contexto clínico minimizado — nunca áudio bruto, nunca DPEP completo indiscriminado | Supervisor IA, Session AI, Knowledge | Global (Google Cloud) | ⚠ VALIDAÇÃO JURÍDICA HUMANA — dado de saúde |
 
-**No caminho padrão de transcrição nenhum suboperador recebe áudio de sessão**: o modelo roda no dispositivo da profissional (`docs/22-transcription-provider-decision.md`). A linha do Groq só se aplica a organizações que habilitarem explicitamente o fallback — habilitar o fallback muda o inventário e exige nova versão de consentimento.
+**Caminho ao vivo:** dispositivo → VirgíniaPsi (`transcribe-chunk`) → Groq → texto no Postgres. O áudio não é persistido no Storage. **Offline:** ciphertext AES-GCM no IndexedDB do dispositivo até reconectar. **Importação:** arquivo → Storage privado temporário → Groq → texto → apagar objeto. Consentimento anterior (`minimo-2026-08`) que prometia “áudio não sai do dispositivo” **não autoriza** este fluxo; versão vigente `minimo-2026-09-groq` + TCLE `tcle-2026-09-v3`. Aceites antigos não são reescritos.
 
 Todo suboperador desta lista precisa estar nomeado no TCLE antes da Fase 6 entrar em uso com paciente real. Adição de novo suboperador no futuro exige atualização do TCLE e nova versão de consentimento (`consents.version`).
 
@@ -31,7 +31,9 @@ Todo suboperador desta lista precisa estar nomeado no TCLE antes da Fase 6 entra
 
 | Classe | Prazo padrão | Onde é configurado | Rationale |
 |---|---|---|---|
-| Áudio bruto de fallback (`session-audio-fallback`) | 7 dias após transcrição bem-sucedida, eliminação automática | `practice_settings.session_audio_fallback_retention_days` | O áudio não tem valor após virar texto; é o dado de maior sensibilidade e maior custo de exposição em caso de vazamento. No caminho local não existe áudio persistido: ele é consumido em memória no dispositivo |
+| Áudio bruto ao vivo | Não persistido (memória da request) | — | Descartado após Groq + ACK |
+| Áudio importado (`session-audio-fallback`) | Até transcrição persistida + rotina residual (7 dias) | `practice_settings.session_audio_fallback_retention_days` | Apagar após sucesso; manter em falha para retry |
+| Spool local criptografado | Até ACK da transcrição | IndexedDB do dispositivo | AES-GCM; nunca plaintext em web storage |
 | Segmentos de transcrição (`session_transcript_segments`) | Acompanha o prontuário por padrão; organização pode fixar prazo menor | `practice_settings.transcript_retention_policy` / `transcript_retention_fixed_days` | Transcrição é insumo do DPEP; uma vez incorporada ao registro clínico, sua retenção deveria seguir a mesma regra |
 | Prontuário/DPEP/working notes | Mínimo 5 anos (configurável só para cima) | `practice_settings.clinical_record_minimum_retention_years` | Guarda mínima de prontuário psicológico conforme norma profissional aplicável — ⚠ VALIDAÇÃO JURÍDICA HUMANA para confirmar o número exato e a norma vigente na data da Fase 6 |
 | `ai_runs` / `ai_artifacts` (metadata) | Acompanha o prontuário | — | Metadata de execução de IA é parte do histórico clínico para fins de auditoria técnica |
@@ -78,7 +80,7 @@ Não há ainda um canal público de “fale sobre privacidade” além do consul
 
 O texto final do TCLE (Fase 9, usando o registro mínimo de consentimento da Fase 5.5) deve nomear, no mínimo:
 - os suboperadores da seção 2, em linguagem acessível;
-- como o áudio é transcrito: no caminho padrão, no próprio dispositivo, sem sair dele; se a organização habilitar o fallback, que o áudio é processado por serviço de transcrição fora do país e eliminado após uso conforme seção 3;
+- como o áudio é transcrito: durante a sessão, trechos são enviados com segurança ao Groq para gerar o texto; se a conexão cair, trechos podem ficar criptografados neste dispositivo até a transcrição continuar; gravação importada usa armazenamento temporário privado e é apagada após o texto ser gravado;
 - que apoio de IA (Supervisor/Session AI) processa contexto clínico minimizado, nunca decide sozinho, e todo resultado passa por revisão humana antes de entrar no prontuário;
 - os prazos de retenção da seção 3, em linguagem acessível;
 - como exercer os direitos da seção 5.

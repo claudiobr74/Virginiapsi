@@ -38,8 +38,7 @@ export interface DiagnosticsInput {
     lastError: string | null;
   };
   transcription: {
-    localDefault: boolean;
-    fallbackConfigured: boolean;
+    groqConfigured: boolean;
   };
   gemini: {
     configured: boolean;
@@ -83,9 +82,9 @@ export function buildIntegrationDiagnostics(
       ? "ok"
       : "attention";
 
-  const transcriptionHealth: IntegrationHealth = input.transcription.fallbackConfigured
+  const transcriptionHealth: IntegrationHealth = input.transcription.groqConfigured
     ? "ok"
-    : "attention";
+    : "missing";
 
   const geminiHealth: IntegrationHealth = input.gemini.configured ? "ok" : "missing";
 
@@ -123,11 +122,11 @@ export function buildIntegrationDiagnostics(
       {
         key: "transcription",
         label: "Transcrição",
-        configured: true,
+        configured: input.transcription.groqConfigured,
         health: transcriptionHealth,
-        summary: input.transcription.fallbackConfigured
-          ? "Padrão no dispositivo; fallback de áudio habilitado para este ambiente."
-          : "Padrão no dispositivo. Fallback de áudio não habilitado.",
+        summary: input.transcription.groqConfigured
+          ? "Transcrição em tempo real via Groq configurada neste ambiente."
+          : "Chave Groq ausente — a transcrição ao vivo não está disponível neste ambiente.",
         lastSuccessAt: null,
         lastError: null,
       },

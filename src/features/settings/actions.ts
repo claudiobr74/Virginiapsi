@@ -26,11 +26,19 @@ import {
   getPracticeSettings,
   previewPatientElimination,
 } from "@/features/settings/queries";
+import {
+  isProfessionalPhotoMimeType,
+  isProfessionalPhotoStoragePath,
+  professionalPhotoFilename,
+  PROFESSIONAL_PHOTO_MAX_BYTES,
+} from "@/features/settings/professional-photo";
 import { logAuditEvent } from "@/lib/audit/log-audit-event";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
-import { DOCUMENT_BUCKETS, removeFile } from "@/lib/documents/storage";
-import { SIGNED_URL_TTL_SECONDS } from "@/lib/documents/storage-meta";
+import { DOCUMENT_BUCKETS, createSignedUploadUrl, removeFile } from "@/lib/documents/storage";
+import { classifyStorageFailure } from "@/lib/documents/storage-failure";
+import { SIGNED_URL_TTL_SECONDS, buildStoragePath } from "@/lib/documents/storage-meta";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizeOptionalCnpj, normalizeOptionalCpf } from "@/lib/utils/brazil-tax-id";
 
 function revalidateSettings() {
   revalidatePath("/app/settings");
@@ -74,6 +82,110 @@ export async function updateProfileAction(input: unknown): Promise<SettingsActio
   return { id: ctx.user.id };
 }
 
+export async function requestProfessionalPhotoUploadUrlAction(input: {
+  mimeType: string;
+}): Promise<SettingsActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return ctx;
+  if (!isProfessionalPhotoMimeType(input.mimeType)) {
+    return { error: "Use uma imagem JPEG, PNG ou WebP." };
+  }
+
+  const path = buildStoragePath(
+    ctx.organizationId,
+    "professional",
+    professionalPhotoFilename(input.mimeType),
+  );
+  if (!isProfessionalPhotoStoragePath(ctx.organizationId, path)) {
+    return { error: "Caminho de upload inválido." };
+  }
+
+  try {
+    const { token } = await createSignedUploadUrl(DOCUMENT_BUCKETS.practiceAssets, path);
+    return { path, token };
+  } catch (error) {
+    console.error("[professional-photo] signed upload failed", {
+      code: classifyStorageFailure(error).code,
+      bucket: DOCUMENT_BUCKETS.practiceAssets,
+      stage: "create_signed_upload_url",
+    });
+    return { error: "Não foi possível preparar o envio da foto agora." };
+  }
+}
+
+export async function confirmProfessionalPhotoUploadAction(input: {
+  storagePath: string;
+  mimeType: string;
+  byteSize: number;
+}): Promise<SettingsActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return ctx;
+  if (!isProfessionalPhotoMimeType(input.mimeType)) {
+    return { error: "Use uma imagem JPEG, PNG ou WebP." };
+  }
+  if (input.byteSize <= 0 || input.byteSize > PROFESSIONAL_PHOTO_MAX_BYTES) {
+    return { error: "A foto deve ter no máximo 5 MB." };
+  }
+  if (!isProfessionalPhotoStoragePath(ctx.organizationId, input.storagePath)) {
+    return { error: "Caminho de upload inválido." };
+  }
+
+  const current = await getPracticeSettings(ctx.organizationId);
+  const previousPath = current?.photo_path ?? null;
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("practice_settings")
+    .update({ photo_path: input.storagePath })
+    .eq("organization_id", ctx.organizationId);
+
+  if (error) {
+    return { error: "Não foi possível salvar a foto agora." };
+  }
+
+  if (previousPath && previousPath !== input.storagePath) {
+    await removeFile(DOCUMENT_BUCKETS.practiceAssets, previousPath);
+  }
+
+  await logAuditEvent({
+    organizationId: ctx.organizationId,
+    action: "settings.professional_photo.update",
+    resourceType: "practice_settings",
+    resourceId: ctx.organizationId,
+  });
+  revalidateSettings();
+  return { id: ctx.organizationId };
+}
+
+export async function clearProfessionalPhotoAction(): Promise<SettingsActionResult> {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return ctx;
+
+  const current = await getPracticeSettings(ctx.organizationId);
+  const previousPath = current?.photo_path ?? null;
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("practice_settings")
+    .update({ photo_path: null })
+    .eq("organization_id", ctx.organizationId);
+
+  if (error) {
+    return { error: "Não foi possível remover a foto agora." };
+  }
+
+  if (previousPath) {
+    await removeFile(DOCUMENT_BUCKETS.practiceAssets, previousPath);
+  }
+
+  await logAuditEvent({
+    organizationId: ctx.organizationId,
+    action: "settings.professional_photo.clear",
+    resourceType: "practice_settings",
+    resourceId: ctx.organizationId,
+  });
+  revalidateSettings();
+  return { id: ctx.organizationId };
+}
+
 export async function updateClinicAction(input: unknown): Promise<SettingsActionResult> {
   const ctx = await requireAdmin();
   if ("error" in ctx) return ctx;
@@ -101,7 +213,8 @@ export async function updateClinicAction(input: unknown): Promise<SettingsAction
         professional_name: emptyToNull(parsed.data.professionalName),
         subtitle: emptyToNull(parsed.data.subtitle),
         crp: emptyToNull(parsed.data.crp),
-        tax_id: emptyToNull(parsed.data.taxId),
+        professional_cpf: normalizeOptionalCpf(parsed.data.professionalCpf),
+        company_cnpj: normalizeOptionalCnpj(parsed.data.companyCnpj),
         pix_key: emptyToNull(parsed.data.pixKey),
         clinic_name: emptyToNull(parsed.data.clinicName),
         company_name: emptyToNull(parsed.data.companyName),
@@ -131,12 +244,20 @@ export async function updateAppearanceAction(input: unknown): Promise<SettingsAc
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
   const supabase = await createSupabaseServerClient();
+  const patch: {
+    greeting_prefix: string | null;
+    quote_mode: "daily" | "custom";
+    quote?: string | null;
+  } = {
+    greeting_prefix: emptyToNull(parsed.data.greetingPrefix),
+    quote_mode: parsed.data.quoteMode,
+  };
+  if (parsed.data.quoteMode === "custom") {
+    patch.quote = emptyToNull(parsed.data.quote);
+  }
   const { error } = await supabase
     .from("practice_settings")
-    .update({
-      greeting_prefix: emptyToNull(parsed.data.greetingPrefix),
-      quote: emptyToNull(parsed.data.quote),
-    })
+    .update(patch)
     .eq("organization_id", ctx.organizationId);
   if (error) {
     return { error: "Não foi possível salvar a aparência." };

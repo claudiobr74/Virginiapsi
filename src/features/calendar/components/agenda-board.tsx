@@ -16,8 +16,15 @@ import {
   todayInTimeZone,
   type AgendaView,
 } from "@/features/calendar/date-window";
-import { formatAgendaLongDate, formatAgendaMonthLabel } from "@/features/calendar/display";
+import {
+  formatAgendaLongDate,
+  formatAgendaMonthLabel,
+  visibleAppointments as filterVisibleAppointments,
+} from "@/features/calendar/display";
+import { applyOrgAgendaColorPolicies } from "@/features/calendar/google-event-status";
 import { syncGoogleCalendarAction } from "@/features/calendar/sync-actions";
+import { useAgendaClock } from "@/features/calendar/use-agenda-clock";
+import { civilDateInTimeZone } from "@/lib/utils/timezone";
 import type { PatientRow } from "@/features/patients/contracts";
 import { pageHeading } from "@/lib/brand";
 
@@ -78,16 +85,30 @@ export function AgendaBoard({
   const today = todayInTimeZone(timeZone);
   const openFromQuery = searchParams.get("new") === "1";
 
+  const visibleAppointments = useMemo(
+    () =>
+      applyOrgAgendaColorPolicies(
+        filterVisibleAppointments(appointments, connection),
+        connection,
+      ),
+    [appointments, connection],
+  );
+  const endsAtList = useMemo(
+    () => visibleAppointments.map((appointment) => appointment.ends_at),
+    [visibleAppointments],
+  );
+  const now = useAgendaClock(endsAtList);
+
   const appointmentsByDay = useMemo(() => {
     const map = new Map<string, AppointmentRow[]>();
-    for (const appointment of appointments) {
-      const day = appointment.starts_at.slice(0, 10);
+    for (const appointment of visibleAppointments) {
+      const day = civilDateInTimeZone(appointment.starts_at, timeZone);
       const list = map.get(day) ?? [];
       list.push(appointment);
       map.set(day, list);
     }
     return map;
-  }, [appointments]);
+  }, [visibleAppointments, timeZone]);
 
   function pushParams(nextView: AgendaView, nextDate: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -150,6 +171,7 @@ export function AgendaBoard({
           appointments={appointmentsByDay.get(referenceDate) ?? []}
           timeZone={timeZone}
           isAdmin={canStartSession}
+          now={now}
           onSelect={setSelectedAppointment}
         />
       ) : view === "week" ? (
@@ -159,6 +181,7 @@ export function AgendaBoard({
           timeZone={timeZone}
           today={today}
           isAdmin={canStartSession}
+          now={now}
           onSelect={setSelectedAppointment}
         />
       ) : (
@@ -166,6 +189,7 @@ export function AgendaBoard({
           days={window.days}
           appointmentsByDay={appointmentsByDay}
           today={today}
+          now={now}
           onSelectDay={(day) => pushParams("day", day)}
         />
       )}
@@ -188,6 +212,7 @@ export function AgendaBoard({
         }}
         patients={patients}
         defaultDate={dialogState.date}
+        timeZone={timeZone}
         appointment={openFromQuery ? undefined : dialogState.appointment}
         onSaved={() => router.refresh()}
       />
@@ -197,13 +222,14 @@ export function AgendaBoard({
         timeZone={timeZone}
         googleConnected={canSync}
         isAdmin={canStartSession}
+        now={now}
         onClose={() => setSelectedAppointment(null)}
         onEdit={() => {
           if (!selectedAppointment) return;
           setDialogState({
             open: true,
             appointment: selectedAppointment,
-            date: selectedAppointment.starts_at.slice(0, 10),
+            date: civilDateInTimeZone(selectedAppointment.starts_at, timeZone),
           });
           setSelectedAppointment(null);
         }}

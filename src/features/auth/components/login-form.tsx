@@ -33,7 +33,10 @@ export function LoginForm() {
     defaultValues: { email: "", password: "" },
   });
 
-  const queryError = toAuthQueryErrorMessage(searchParams.get("error"));
+  const queryError = toAuthQueryErrorMessage(
+    searchParams.get("error"),
+    searchParams.get("diag"),
+  );
   const visibleError = formError ?? queryError;
 
   const onSubmit = handleSubmit(async (values) => {

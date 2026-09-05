@@ -24,6 +24,8 @@ export const DOCUMENT_BUCKETS = {
   clinicalDocuments: "clinical-documents",
   patientAttachments: "patient-attachments",
   consents: "consents",
+  documentBranding: "document-branding",
+  practiceAssets: "practice-assets",
 } as const;
 export type DocumentBucket = (typeof DOCUMENT_BUCKETS)[keyof typeof DOCUMENT_BUCKETS];
 
@@ -69,6 +71,15 @@ export async function createSignedDownloadUrl(
     throw new Error(`failed to create signed download url: ${error?.message}`);
   }
   return data.signedUrl;
+}
+
+export async function downloadFile(bucket: DocumentBucket, path: string): Promise<Uint8Array> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.storage.from(bucket).download(path);
+  if (error || !data) {
+    throw new Error(`failed to download ${bucket}/${path}: ${error?.message}`);
+  }
+  return new Uint8Array(await data.arrayBuffer());
 }
 
 export async function removeFile(bucket: DocumentBucket, path: string): Promise<void> {

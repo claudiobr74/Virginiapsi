@@ -111,6 +111,50 @@ describe("selectNextSession", () => {
     const now = Date.parse("2026-08-20T18:00:00.000Z");
     expect(selectNextSession([past], now)).toBeNull();
   });
+
+  it("pula desmarcou mesmo com horário futuro", () => {
+    const cancelled = appointment({
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      status: "scheduled",
+      summarySnapshot: "Vinicius-2(desmarcou)",
+      startsAt: "2026-08-20T14:00:00.000Z",
+      endsAt: "2026-08-20T14:50:00.000Z",
+    });
+    const next = appointment({
+      id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      startsAt: "2026-08-20T15:00:00.000Z",
+      endsAt: "2026-08-20T15:50:00.000Z",
+    });
+    const now = Date.parse("2026-08-20T12:00:00.000Z");
+    expect(selectNextSession([cancelled, next], now)?.id).toBe(next.id);
+  });
+
+  it("pula indisponível colorId 8 e deleted", () => {
+    const unavailable = appointment({
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      origin: "GOOGLE_EXTERNAL",
+      summarySnapshot: "Lucas B+1(viajando)",
+      googleColorId: "8",
+      unavailableGoogleColorIds: ["8"],
+      startsAt: "2026-08-20T13:00:00.000Z",
+      endsAt: "2026-08-20T13:50:00.000Z",
+    });
+    const deleted = appointment({
+      id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      origin: "GOOGLE_EXTERNAL",
+      summarySnapshot: "Helio-1??? Julianna-1???",
+      googleDeletedAt: "2026-09-01T03:00:00.000Z",
+      startsAt: "2026-08-20T13:30:00.000Z",
+      endsAt: "2026-08-20T14:20:00.000Z",
+    });
+    const next = appointment({
+      id: "abababab-abab-4aba-8aba-abababababab",
+      startsAt: "2026-08-20T15:00:00.000Z",
+      endsAt: "2026-08-20T15:50:00.000Z",
+    });
+    const now = Date.parse("2026-08-20T12:00:00.000Z");
+    expect(selectNextSession([unavailable, deleted, next], now)?.id).toBe(next.id);
+  });
 });
 
 describe("buildWhatsAppReminderUrl", () => {

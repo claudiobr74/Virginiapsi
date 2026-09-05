@@ -1,3 +1,4 @@
+import { WalletCards } from "lucide-react";
 import Link from "next/link";
 import { DashboardWidget } from "@/features/dashboard/components/dashboard-widget";
 import type { ChargeView } from "@/features/finance/contracts";
@@ -8,6 +9,8 @@ export function FinancialPendingPanel({ charges }: { charges: ChargeView[] }) {
     <DashboardWidget
       id="finance-pending-heading"
       title="Pendências Financeiras"
+      tone="finance"
+      icon={<WalletCards />}
       actions={
         <Link href="/app/finance" className="text-sm font-semibold text-primary hover:underline">
           Abrir financeiro

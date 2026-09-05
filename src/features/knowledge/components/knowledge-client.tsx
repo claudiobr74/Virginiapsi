@@ -2,6 +2,7 @@
 
 import { BookOpen } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Card } from "@/components/ui/card";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
 import { CollectionsPanel } from "@/features/knowledge/components/collections-panel";
@@ -60,13 +61,7 @@ export function KnowledgeConsole({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(16rem,380px)_1fr]">
         <section className="flex flex-col gap-6">
-          <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-1 font-serif text-lg font-bold italic text-foreground">
-              Biblioteca de fontes
-            </h2>
-            <p className="mb-4 text-xs text-muted-foreground">
-              Coleções temáticas e arquivos do consultório — nunca dados de paciente.
-            </p>
+          <Card headed tone="knowledge" title="Biblioteca de fontes" description="Coleções temáticas e arquivos do consultório — nunca dados de paciente.">
             <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
               Coleções
             </h3>
@@ -75,23 +70,22 @@ export function KnowledgeConsole({
               selectedCollectionIds={selectedCollectionIds}
               onToggle={toggleCollection}
             />
-          </div>
-          <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-            <h3 className="mb-3 font-serif text-lg font-bold italic text-foreground">Fontes</h3>
+          </Card>
+          <Card headed tone="knowledge" title="Fontes">
             <SourceUploadForm collectionId={selectedCollectionIds[0]} />
             <div className="mt-4">
               <SourcesList sources={sources} />
             </div>
-          </div>
+          </Card>
         </section>
 
-        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
+        <Card tone="knowledge" className="sm:p-6">
           <KnowledgeModesPanel
             selectedCollectionIds={selectedCollectionIds}
             sources={sources}
             patients={patients}
           />
-        </section>
+        </Card>
       </div>
     </PageContainer>
   );
@@ -107,7 +101,7 @@ function StatCard({
   hint: string;
 }) {
   return (
-    <div className="rounded-3xl border border-border bg-card p-4 shadow-sm">
+    <div className="rounded-[20px] border border-tone-knowledge-border bg-tone-knowledge p-4 shadow-card">
       <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 font-serif text-2xl font-semibold italic text-foreground">{value}</p>
       <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>

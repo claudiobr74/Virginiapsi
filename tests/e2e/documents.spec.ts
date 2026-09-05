@@ -39,6 +39,7 @@ test.describe("Documentos", () => {
   test("admin cria um modelo na página de Documentos", async ({ page }) => {
     await loginViaUi(page);
     await page.goto("/app/documents");
+    await page.getByRole("link", { name: "Gerenciar modelos" }).click();
 
     const name = `Atestado padrão E2E ${Date.now()}`;
     await page.getByPlaceholder("Nome do modelo").fill(name);

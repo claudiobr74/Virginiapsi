@@ -10,13 +10,23 @@
 // param, which would leak into access logs).
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
+export const DEFAULT_GEMINI_TIMEOUT_MS = 45_000;
+
 export class GeminiApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly providerCode?: string,
   ) {
     super(message);
     this.name = "GeminiApiError";
+  }
+}
+
+export class GeminiTimeoutError extends GeminiApiError {
+  constructor() {
+    super("Gemini request timed out", 408);
+    this.name = "GeminiTimeoutError";
   }
 }
 
@@ -25,11 +35,51 @@ export interface GeminiStructuredRequest {
   systemInstruction: string;
   userContent: string;
   responseJsonSchema: unknown;
+  timeoutMs?: number;
 }
 
 export interface GeminiClientOptions {
   apiKey: string;
   fetchImpl?: typeof fetch;
+}
+
+export interface GeminiTextRequest {
+  model: string;
+  systemInstruction: string;
+  userContent: string;
+}
+
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const name = "name" in error ? String((error as { name?: unknown }).name) : "";
+  return name === "AbortError" || name === "TimeoutError";
+}
+
+/** Reads provider status code only — never the error message body. */
+async function throwGeminiHttpError(response: Response): Promise<never> {
+  let providerCode: string | undefined;
+  try {
+    const body = (await response.json()) as { error?: { status?: unknown } };
+    if (typeof body.error?.status === "string") {
+      const status = body.error.status.trim().slice(0, 64);
+      if (/^[A-Z0-9_]+$/.test(status)) {
+        providerCode = status;
+      }
+    }
+  } catch {
+    // Body is unused. Never attach provider text to the thrown error.
+  }
+  throw new GeminiApiError(`Gemini request failed: ${response.status}`, response.status, providerCode);
+}
+
+/** Accepts raw JSON or a markdown-fenced JSON payload from the model. */
+export function parseGeminiJsonText(text: string): unknown {
+  const trimmed = text.trim();
+  const fence = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const payload = (fence ? fence[1] : trimmed).trim();
+  return JSON.parse(payload);
 }
 
 export class GeminiClient {
@@ -48,6 +98,63 @@ export class GeminiClient {
    * "Resposta malformada falha fechada").
    */
   async generateStructured(request: GeminiStructuredRequest): Promise<unknown> {
+    const timeoutMs = request.timeoutMs ?? DEFAULT_GEMINI_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await this.fetchImpl(
+        `${GEMINI_BASE_URL}/models/${request.model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "x-goog-api-key": this.apiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: request.systemInstruction }] },
+            contents: [{ role: "user", parts: [{ text: request.userContent }] }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseJsonSchema: request.responseJsonSchema,
+            },
+          }),
+          signal: controller.signal,
+        },
+      );
+
+      if (!response.ok) {
+        await throwGeminiHttpError(response);
+      }
+
+      const body = (await response.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new GeminiApiError("Gemini response had no text part", response.status);
+      }
+
+      try {
+        return parseGeminiJsonText(text);
+      } catch {
+        throw new GeminiApiError("Gemini response was not valid JSON", response.status);
+      }
+    } catch (error) {
+      if (error instanceof GeminiApiError) {
+        throw error;
+      }
+      if (isAbortError(error)) {
+        throw new GeminiTimeoutError();
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /** Plain-text generateContent (document studio drafting — still parsed by the caller). */
+  async generateText(request: GeminiTextRequest): Promise<string> {
     const response = await this.fetchImpl(
       `${GEMINI_BASE_URL}/models/${request.model}:generateContent`,
       {
@@ -59,16 +166,12 @@ export class GeminiClient {
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: request.systemInstruction }] },
           contents: [{ role: "user", parts: [{ text: request.userContent }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseJsonSchema: request.responseJsonSchema,
-          },
         }),
       },
     );
 
     if (!response.ok) {
-      throw new GeminiApiError(`Gemini request failed: ${response.status}`, response.status);
+      await throwGeminiHttpError(response);
     }
 
     const body = (await response.json()) as {
@@ -78,11 +181,6 @@ export class GeminiClient {
     if (!text) {
       throw new GeminiApiError("Gemini response had no text part", response.status);
     }
-
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new GeminiApiError("Gemini response was not valid JSON", response.status);
-    }
+    return text;
   }
 }

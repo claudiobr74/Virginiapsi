@@ -1,0 +1,240 @@
+import { describe, expect, it } from "vitest";
+import {
+  getAppointmentPresentation,
+  getAppointmentVisualStatus,
+  offersClinicalAppointmentActions,
+} from "@/features/calendar/appointment-visual";
+import type { AppointmentStatus } from "@/features/calendar/contracts";
+
+const NOW = new Date("2026-08-18T12:00:00.000Z");
+
+function presentation(
+  extras: {
+    status?: AppointmentStatus;
+    origin?: "TESSELI" | "GOOGLE_EXTERNAL";
+    summary?: string;
+    endsAt: string;
+    patientId?: string | null;
+  },
+) {
+  return getAppointmentPresentation({
+    appointment: {
+      status: extras.status ?? "scheduled",
+      origin: extras.origin ?? "TESSELI",
+      ends_at: extras.endsAt,
+      summary_snapshot: extras.summary ?? null,
+      patient_id: extras.patientId ?? "33333333-3333-4333-8333-333333333333",
+    },
+    now: NOW,
+  });
+}
+
+describe("getAppointmentPresentation — fixtures reais", () => {
+  it("Ana Cláudia-1(c) futuro → VERDE", () => {
+    const result = presentation({
+      summary: "Ana Cláudia-1(c)",
+      endsAt: "2026-08-18T18:00:00.000Z",
+    });
+    expect(result.visualState).toBe("active");
+    expect(result.backgroundColor).toBe("#EAF6ED");
+    expect(result.textColor).toBe("#357047");
+    expect(result.isCancelled).toBe(false);
+  });
+
+  it("Livia-1(c) / Flávia-3 futuro → VERDE", () => {
+    const result = presentation({
+      summary: "Livia-1(c) / Flávia-3",
+      endsAt: "2026-08-18T19:00:00.000Z",
+    });
+    expect(result.visualState).toBe("active");
+    expect(result.backgroundColor).toBe("#EAF6ED");
+  });
+
+  it("Vinicius-2(desmarcou) futuro → VERMELHO", () => {
+    const result = presentation({
+      summary: "Vinicius-2(desmarcou)",
+      endsAt: "2026-08-18T18:00:00.000Z",
+    });
+    expect(result.visualState).toBe("cancelled");
+    expect(result.backgroundColor).toBe("#FCEEEE");
+    expect(result.isCancelled).toBe(true);
+  });
+
+  it("Giovanna (desmarcou) futuro → VERMELHO", () => {
+    const result = presentation({
+      summary: "Giovanna (desmarcou)",
+      endsAt: "2026-08-18T18:00:00.000Z",
+    });
+    expect(result.visualState).toBe("cancelled");
+    expect(result.backgroundColor).toBe("#FCEEEE");
+  });
+
+  it("Helio (c) com ends_at < now → AZUL", () => {
+    const result = presentation({
+      summary: "Helio (c)",
+      endsAt: "2026-08-18T11:00:00.000Z",
+    });
+    expect(result.visualState).toBe("completed");
+    expect(result.backgroundColor).toBe("#EDF4FC");
+    expect(result.isPast).toBe(true);
+    expect(result.isCancelled).toBe(false);
+  });
+
+  it("cancelado com ends_at < now permanece VERMELHO", () => {
+    const result = presentation({
+      status: "cancelled",
+      summary: "Evento cancelado",
+      endsAt: "2026-08-18T08:00:00.000Z",
+    });
+    expect(result.visualState).toBe("cancelled");
+    expect(result.backgroundColor).toBe("#FCEEEE");
+  });
+
+  it("GOOGLE_EXTERNAL futuro scheduled é verde, sem cinza", () => {
+    const result = presentation({
+      origin: "GOOGLE_EXTERNAL",
+      summary: "Reunião do conselho regional",
+      endsAt: "2026-08-18T18:00:00.000Z",
+      patientId: null,
+    });
+    expect(result.visualState).toBe("active");
+    expect(result.backgroundColor).toBe("#EAF6ED");
+    expect(result.badgeLabel).toBe("Google");
+  });
+
+  it("GOOGLE_EXTERNAL desmarcou é vermelho", () => {
+    const result = presentation({
+      origin: "GOOGLE_EXTERNAL",
+      summary: "Vinicius-2(desmarcou)",
+      endsAt: "2026-08-18T18:00:00.000Z",
+      patientId: null,
+    });
+    expect(result.visualState).toBe("cancelled");
+    expect(result.backgroundColor).toBe("#FCEEEE");
+    expect(result.badgeLabel).toBe("Google");
+  });
+
+  it("Isadora? não pode sem colorId configurado permanece verde", () => {
+    const result = presentation({
+      origin: "GOOGLE_EXTERNAL",
+      summary: "Isadora? não pode",
+      endsAt: "2026-08-18T22:00:00.000Z",
+      patientId: null,
+    });
+    expect(result.visualState).toBe("active");
+    expect(result.backgroundColor).toBe("#EAF6ED");
+  });
+
+  it("indisponível pela cor da organização permanece vermelho depois do horário", () => {
+    const result = getAppointmentPresentation({
+      appointment: {
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        ends_at: "2026-08-18T08:00:00.000Z",
+        summary_snapshot: "Thatiane+1(plantão)",
+        google_color_id: "8",
+        unavailable_google_color_ids: ["8"],
+        patient_id: null,
+      },
+      now: NOW,
+    });
+    expect(result.visualState).toBe("unavailable");
+    expect(result.backgroundColor).toBe("#FCEEEE");
+    expect(result.statusLabel).toBe("Indisponível");
+  });
+
+  it("não usa colorId nem origem para o preenchimento", () => {
+    const visual = getAppointmentVisualStatus(
+      {
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        ends_at: "2026-08-18T18:00:00.000Z",
+        patient_id: null,
+      },
+      NOW,
+    );
+    expect(visual.borderStyle).toBe("solid");
+    expect(visual.style.borderStyle).toBe("solid");
+    expect(visual.badge).toBe("Google");
+    expect(visual.className).toBe("agenda-status-surface");
+    expect(visual.style.backgroundColor).toBe("var(--agenda-active-bg)");
+    expect(visual.style.borderLeftWidth).toBe(4);
+    expect(visual.dotClassName).toBe("bg-[#34A853]");
+  });
+});
+
+describe("offersClinicalAppointmentActions", () => {
+  it("GOOGLE_EXTERNAL ativo sem paciente oferece Atender", () => {
+    expect(
+      offersClinicalAppointmentActions({
+        origin: "GOOGLE_EXTERNAL",
+        patient_id: null,
+        status: "scheduled",
+        summary_snapshot: "Jessyca-1(c)",
+        ends_at: "2026-08-18T18:00:00.000Z",
+      }, NOW),
+    ).toBe(true);
+  });
+
+  it("TESSELI com paciente oferece Atender", () => {
+    expect(
+      offersClinicalAppointmentActions({
+        origin: "TESSELI",
+        patient_id: "33333333-3333-4333-8333-333333333333",
+        status: "scheduled",
+        ends_at: "2026-08-18T18:00:00.000Z",
+      }, NOW),
+    ).toBe(true);
+  });
+
+  it("GOOGLE_EXTERNAL completed (azul) oferece Atender", () => {
+    expect(
+      offersClinicalAppointmentActions({
+        origin: "GOOGLE_EXTERNAL",
+        patient_id: null,
+        status: "scheduled",
+        summary_snapshot: "Jessyca-1(c)",
+        ends_at: "2026-08-18T11:00:00.000Z",
+      }, NOW),
+    ).toBe(true);
+  });
+
+  it("cancelado não oferece Atender", () => {
+    expect(
+      offersClinicalAppointmentActions({
+        origin: "GOOGLE_EXTERNAL",
+        patient_id: null,
+        status: "scheduled",
+        summary_snapshot: "Giovanna (desmarcou)",
+        ends_at: "2026-08-18T18:00:00.000Z",
+      }, NOW),
+    ).toBe(false);
+  });
+
+  it("indisponível colorId 8 não oferece Atender", () => {
+    expect(
+      offersClinicalAppointmentActions({
+        origin: "GOOGLE_EXTERNAL",
+        patient_id: null,
+        status: "scheduled",
+        summary_snapshot: "Isadora? não pode",
+        google_color_id: "8",
+        unavailable_google_color_ids: ["8"],
+        ends_at: "2026-08-18T18:00:00.000Z",
+      }, NOW),
+    ).toBe(false);
+  });
+
+  it("google_deleted_at não oferece Atender", () => {
+    expect(
+      offersClinicalAppointmentActions({
+        origin: "GOOGLE_EXTERNAL",
+        patient_id: null,
+        status: "scheduled",
+        summary_snapshot: "Helio-1??? Julianna-1???",
+        google_deleted_at: "2026-08-18T03:00:00.000Z",
+        ends_at: "2026-08-18T18:00:00.000Z",
+      }, NOW),
+    ).toBe(false);
+  });
+});

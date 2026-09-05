@@ -4,9 +4,12 @@ import {
   formatAgendaLongDate,
   formatAgendaMonthLabel,
   formatHourLabel,
+  googleConnectionIsLive,
   hourInTimeZone,
   monthCellStats,
   summarizeDayAppointments,
+  visibleAgendaAppointments,
+  visibleAppointments,
 } from "@/features/calendar/display";
 import type { AppointmentRow } from "@/features/calendar/contracts";
 
@@ -93,6 +96,24 @@ describe("summarizeDayAppointments", () => {
     ]);
     expect(summary).toEqual({ total: 3, confirmed: 1, scheduled: 2, external: 1 });
   });
+
+  it("não conta desmarcou mesmo com status scheduled", () => {
+    const summary = summarizeDayAppointments([
+      stubAppointment({
+        starts_at: "2026-08-18T12:00:00.000Z",
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Vinicius-2(desmarcou)",
+      }),
+      stubAppointment({
+        starts_at: "2026-08-18T13:00:00.000Z",
+        status: "scheduled",
+        origin: "TESSELI",
+        summary_snapshot: "Ana Cláudia-1(c)",
+      }),
+    ]);
+    expect(summary.total).toBe(1);
+  });
 });
 
 describe("monthCellStats", () => {
@@ -129,5 +150,101 @@ describe("monthCellStats", () => {
       hasInPerson: true,
       hasExternal: true,
     });
+  });
+});
+
+describe("visibleAppointments", () => {
+  it("é a mesma função da Agenda e do Meu Dia", () => {
+    expect(visibleAppointments).toBe(visibleAgendaAppointments);
+  });
+
+  it("esconde GOOGLE_EXTERNAL quando a Agenda está desconectada", () => {
+    const appointments = [
+      stubAppointment({
+        starts_at: "2026-08-18T12:00:00.000Z",
+        status: "scheduled",
+        origin: "TESSELI",
+      }),
+      stubAppointment({
+        id: "33333333-3333-4333-8333-333333333333",
+        starts_at: "2026-08-18T15:00:00.000Z",
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+      }),
+    ];
+
+    expect(
+      visibleAppointments(appointments, { status: "disconnected" }).map((row) => row.origin),
+    ).toEqual(["TESSELI"]);
+    expect(visibleAppointments(appointments, null).map((row) => row.origin)).toEqual([
+      "TESSELI",
+    ]);
+    expect(
+      visibleAppointments(appointments, { status: "connected" }).map((row) => row.origin),
+    ).toEqual(["TESSELI", "GOOGLE_EXTERNAL"]);
+    expect(
+      visibleAgendaAppointments(appointments, { status: "connected" }).map((row) => row.origin),
+    ).toEqual(["TESSELI", "GOOGLE_EXTERNAL"]);
+  });
+
+  it("googleConnectionIsLive é false quando desconectado — query da Agenda deve ser managedOnly", () => {
+    expect(googleConnectionIsLive({ status: "disconnected" })).toBe(false);
+    expect(googleConnectionIsLive(null)).toBe(false);
+    expect(googleConnectionIsLive({ status: "connected" })).toBe(true);
+    expect(googleConnectionIsLive({ status: "error" })).toBe(true);
+  });
+
+  it("esconde mirror com google_deleted_at (Hélio fantasma)", () => {
+    const appointments = [
+      stubAppointment({
+        starts_at: "2026-09-01T12:00:00.000Z",
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Jessyca-1(c)",
+      }),
+      stubAppointment({
+        id: "44444444-4444-4444-8444-444444444444",
+        starts_at: "2026-09-01T13:00:00.000Z",
+        status: "cancelled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Helio-1??? Julianna-1???",
+        google_deleted_at: "2026-09-01T03:00:00.000Z",
+      }),
+    ];
+    const visible = visibleAppointments(appointments, { status: "connected" });
+    expect(visible.map((row) => row.summary_snapshot)).toEqual(["Jessyca-1(c)"]);
+  });
+});
+
+describe("contadores V2.3", () => {
+  it("não conta unavailable colorId 8 nem deleted", () => {
+    const summary = summarizeDayAppointments([
+      stubAppointment({
+        starts_at: "2026-09-01T12:00:00.000Z",
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Jessyca-1(c)",
+        google_color_id: null,
+        unavailable_google_color_ids: ["8"],
+      }),
+      stubAppointment({
+        id: "55555555-5555-4555-8555-555555555555",
+        starts_at: "2026-09-01T13:00:00.000Z",
+        status: "scheduled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Lucas B+1(viajando)",
+        google_color_id: "8",
+        unavailable_google_color_ids: ["8"],
+      }),
+      stubAppointment({
+        id: "66666666-6666-4666-8666-666666666666",
+        starts_at: "2026-09-01T14:00:00.000Z",
+        status: "cancelled",
+        origin: "GOOGLE_EXTERNAL",
+        summary_snapshot: "Helio-1??? Julianna-1???",
+        google_deleted_at: "2026-09-01T03:00:00.000Z",
+      }),
+    ]);
+    expect(summary.total).toBe(1);
   });
 });

@@ -7,18 +7,47 @@ const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v2/userinfo";
 
-// Calendar scopes only — Calendar connection is intentionally independent
-// from Supabase login/Google social sign-in (MASTER_PROMPT.md #9).
+// Workspace scopes used by the explicit Calendar/Meet connection. This is
+// intentionally independent from Supabase login/Google social sign-in
+// (MASTER_PROMPT.md #9). The Meet scopes let the app create persistent spaces
+// owned by a clinical session and configure automatic transcription when the
+// user's Workspace edition/admin policy allows it.
+export const GOOGLE_MEET_SPACE_SCOPES = [
+  "https://www.googleapis.com/auth/meetings.space.created",
+  "https://www.googleapis.com/auth/meetings.space.settings",
+] as const;
+
 export const GOOGLE_CALENDAR_SCOPES = [
   "https://www.googleapis.com/auth/calendar",
+  ...GOOGLE_MEET_SPACE_SCOPES,
   "https://www.googleapis.com/auth/userinfo.email",
 ] as const;
+
+export function parseGrantedGoogleScopes(scope: string | undefined): string[] | undefined {
+  if (!scope?.trim()) {
+    return undefined;
+  }
+  return scope.trim().split(/\s+/);
+}
+
+export function hasGoogleMeetSpaceScopes(scopes: readonly string[]): boolean {
+  return GOOGLE_MEET_SPACE_SCOPES.every((scope) => scopes.includes(scope));
+}
 
 export interface OAuthStatePayload {
   organizationId: string;
   userId: string;
   nonce: string;
   issuedAt: number;
+  /** Whitelisted return surface after Google redirects back. */
+  returnTo?: "agenda" | "settings";
+  /**
+   * Origin where the authenticated VirgíniaPsi session started the flow.
+   * It is signed together with the user/org and validated again before use.
+   * This lets a canonical Google callback hand the single-use code back to a
+   * Vercel preview without trying to share host-scoped Supabase cookies.
+   */
+  returnOrigin?: string;
 }
 
 /**
@@ -75,7 +104,17 @@ export function verifyOAuthState(
     return { valid: false, reason: "malformed" };
   }
 
-  if (now - payload.issuedAt > STATE_MAX_AGE_MS) {
+  if (
+    typeof payload.organizationId !== "string" ||
+    typeof payload.userId !== "string" ||
+    typeof payload.nonce !== "string" ||
+    typeof payload.issuedAt !== "number" ||
+    !Number.isFinite(payload.issuedAt)
+  ) {
+    return { valid: false, reason: "malformed" };
+  }
+
+  if (now - payload.issuedAt > STATE_MAX_AGE_MS || payload.issuedAt > now + 60_000) {
     return { valid: false, reason: "expired" };
   }
 
@@ -109,7 +148,7 @@ export interface TokenResponse {
   access_token: string;
   expires_in: number;
   refresh_token?: string;
-  scope: string;
+  scope?: string;
   token_type: string;
 }
 

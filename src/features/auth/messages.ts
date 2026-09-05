@@ -20,8 +20,25 @@ export const GOOGLE_AUTH_UNAVAILABLE =
 export const GOOGLE_AUTH_REDIRECT_DENIED =
   "O Google recusou o retorno ao VirgíniaPsi. No Google Cloud, o endereço de redirecionamento precisa ser o callback do Supabase, não o do site.";
 
-export const AUTH_CALLBACK_FAILED =
-  "Não foi possível concluir o login com Google. Se a tela do Google mostrou erro 400, o endereço de retorno ainda não está cadastrado no Google Cloud.";
+export const AUTH_CALLBACK_FAILED = "Não foi possível concluir o login com Google.";
+
+const SAFE_DIAGNOSTIC_ID = /^[A-Za-z0-9:_-]{8,128}$/;
+
+export function sanitizeAuthDiagnosticId(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed || !SAFE_DIAGNOSTIC_ID.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+export function toAuthCallbackFailedMessage(diagnosticId?: string | null): string {
+  const id = sanitizeAuthDiagnosticId(diagnosticId);
+  if (!id) {
+    return AUTH_CALLBACK_FAILED;
+  }
+  return `${AUTH_CALLBACK_FAILED} Código de diagnóstico: ${id}`;
+}
 
 export function toLoginErrorMessage(): string {
   return LOGIN_INVALID_CREDENTIALS;
@@ -46,12 +63,15 @@ export function toGoogleAuthErrorMessage(message: string | undefined): string {
   return AUTH_GENERIC_ERROR;
 }
 
-export function toAuthQueryErrorMessage(code: string | null): string | null {
+export function toAuthQueryErrorMessage(
+  code: string | null,
+  diagnosticId?: string | null,
+): string | null {
   if (!code) {
     return null;
   }
   if (code === "auth_callback_failed" || code === "auth_callback_missing_code") {
-    return AUTH_CALLBACK_FAILED;
+    return toAuthCallbackFailedMessage(diagnosticId);
   }
   return AUTH_GENERIC_ERROR;
 }

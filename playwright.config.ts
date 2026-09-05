@@ -16,13 +16,13 @@ const sharedEnv = {
   SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY ?? "sb_secret_e2e_stub_placeholder",
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "e2e-google-client-id",
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? "e2e-google-client-secret",
-  GOOGLE_OAUTH_REDIRECT_URI:
-    process.env.GOOGLE_OAUTH_REDIRECT_URI ??
-    `http://127.0.0.1:${port}/api/integrations/google/callback`,
   GOOGLE_TOKEN_ENCRYPTION_KEY:
     process.env.GOOGLE_TOKEN_ENCRYPTION_KEY ?? "e2e-google-token-encryption-key",
   SESSION_CAPTURE_SECRET:
     process.env.SESSION_CAPTURE_SECRET ?? "e2e-session-capture-secret-placeholder",
+  GROQ_API_KEY: process.env.GROQ_API_KEY ?? "e2e-groq-api-key-placeholder",
+  GROQ_TRANSCRIPTION_STUB_URL: `http://127.0.0.1:${authStubPort}/groq/openai/v1/audio/transcriptions`,
+  GROQ_TRANSCRIPTION_MODEL: process.env.GROQ_TRANSCRIPTION_MODEL ?? "whisper-large-v3-turbo",
   TWILIO_ACCOUNT_SID:
     process.env.TWILIO_ACCOUNT_SID ?? "AC00000000000000000000000000000000",
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN ?? "e2e-twilio-auth-token",
@@ -66,7 +66,17 @@ export default defineConfig({
   projects: [
     {
       name: "desktop-chromium",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        permissions: ["microphone", "camera"],
+        launchOptions: {
+          args: [
+            "--use-fake-ui-for-media-stream",
+            "--use-fake-device-for-media-stream",
+          ],
+        },
+      },
     },
     {
       name: "mobile-chromium",
@@ -76,7 +86,25 @@ export default defineConfig({
         isMobile: true,
         hasTouch: true,
         deviceScaleFactor: 3,
+        permissions: ["microphone", "camera"],
+        launchOptions: {
+          args: [
+            "--use-fake-ui-for-media-stream",
+            "--use-fake-device-for-media-stream",
+          ],
+        },
       },
     },
+    // WebKit is opt-in: Chromium fake-media flags are invalid there, and CI
+    // only installs Chromium. `E2E_WEBKIT=1 pnpm test:e2e:webkit`.
+    ...(process.env.E2E_WEBKIT === "1"
+      ? [
+          {
+            name: "desktop-webkit",
+            testMatch: /session-transcription\.spec\.ts/,
+            use: { ...devices["Desktop Safari"], viewport: { width: 1440, height: 900 } },
+          },
+        ]
+      : []),
   ],
 });

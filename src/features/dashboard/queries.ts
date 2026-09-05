@@ -2,7 +2,6 @@ import "server-only";
 
 import {
   DEFAULT_GREETING_PREFIX,
-  DEFAULT_QUOTE,
   PHASE_AVAILABILITY,
   myDayAppointmentSchema,
   practiceTaskSchema,
@@ -15,6 +14,11 @@ import {
 } from "@/features/dashboard/contracts";
 import type { OrganizationRole, ShellSettings } from "@/features/organizations/contracts";
 import { ROLE_LABELS } from "@/features/organizations/labels";
+import { getProfessionalPhotoUrl } from "@/features/settings/queries";
+import {
+  quoteCivilDate,
+  resolvePsychologyQuote,
+} from "@/features/appearance/daily-quote";
 import { listRecentDocuments } from "@/features/documents/queries";
 import { getFinanceAccess, listCharges, listPayments, buildChargeViews } from "@/features/finance/queries";
 import { todayIsoDate } from "@/features/finance/contracts";
@@ -22,6 +26,10 @@ import { monthReceiptsCents } from "@/features/dashboard/metrics";
 import { listPatients } from "@/features/patients/queries";
 import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { computeAgendaWindow, todayInTimeZone } from "@/features/calendar/date-window";
+import { getConnection } from "@/features/calendar/connection-queries";
+import { googleConnectionIsLive, visibleAppointments } from "@/features/calendar/display";
+import { countValidAgendaSessions, applyOrgAgendaColorPolicies } from "@/features/calendar/google-event-status";
+import type { AppointmentStatus } from "@/features/calendar/contracts";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface AppointmentJoinRow {
@@ -32,6 +40,9 @@ interface AppointmentJoinRow {
   modality: string;
   origin: string;
   summary_snapshot: string | null;
+  google_color_id: string | null;
+  google_event_type: string | null;
+  google_deleted_at: string | null;
   meet_url: string | null;
   meet_status: string;
   patient_id: string | null;
@@ -59,6 +70,9 @@ function toMyDayAppointment(row: AppointmentJoinRow): MyDayAppointment {
     modality: row.modality,
     origin: row.origin,
     summarySnapshot: row.summary_snapshot,
+    googleColorId: row.google_color_id,
+    googleEventType: row.google_event_type,
+    googleDeletedAt: row.google_deleted_at,
     meetUrl: row.meet_url,
     meetStatus: row.meet_status,
     patientId: row.patient_id,
@@ -68,31 +82,47 @@ function toMyDayAppointment(row: AppointmentJoinRow): MyDayAppointment {
   });
 }
 
-async function listTodayManagedAppointments(
+async function listTodayAppointments(
   organizationId: string,
   timezone: string,
 ): Promise<MyDayAppointment[]> {
   const today = todayInTimeZone(timezone);
   const window = computeAgendaWindow("day", today, timezone);
   const supabase = await createSupabaseServerClient();
+  const connection = await getConnection(organizationId).catch(
+    (): null => null,
+  );
+  const managedOnly = !googleConnectionIsLive(connection);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, status, modality, origin, summary_snapshot, meet_url, meet_status, patient_id, patients(preferred_name, public_code, phone)",
+      "id, starts_at, ends_at, status, modality, origin, summary_snapshot, google_color_id, google_event_type, google_deleted_at, meet_url, meet_status, patient_id, patients(preferred_name, public_code, phone)",
     )
     .eq("organization_id", organizationId)
-    .eq("origin", "TESSELI")
-    .neq("status", "cancelled")
+    .is("google_deleted_at", null)
     .lt("starts_at", window.toIso)
-    .gt("ends_at", window.fromIso)
-    .order("starts_at", { ascending: true });
+    .gt("ends_at", window.fromIso);
 
-  if (error) {
-    throw new Error(`failed to load today's appointments: ${error.message}`);
+  if (managedOnly) {
+    query = query.eq("origin", "TESSELI");
   }
 
-  return (data as AppointmentJoinRow[] | null)?.map(toMyDayAppointment) ?? [];
+  const { data, error } = await query.order("starts_at", { ascending: true });
+
+  if (error) {
+    return [];
+  }
+
+  const rows = applyOrgAgendaColorPolicies(
+    (data as AppointmentJoinRow[] | null)?.map(toMyDayAppointment) ?? [],
+    connection,
+  ).map((row) => ({
+    ...row,
+    cancelledGoogleColorIds: row.cancelled_google_color_ids,
+    unavailableGoogleColorIds: row.unavailable_google_color_ids,
+  }));
+  return visibleAppointments(rows, connection);
 }
 
 interface SessionJoinRow {
@@ -166,19 +196,44 @@ async function countWeekSessions(
   const today = todayInTimeZone(timezone);
   const window = computeAgendaWindow("week", today, timezone);
   const supabase = await createSupabaseServerClient();
-  const { count, error } = await supabase
+  const connection = await getConnection(organizationId).catch((): null => null);
+  const managedOnly = !googleConnectionIsLive(connection);
+
+  let query = supabase
     .from("appointments")
-    .select("id", { count: "exact", head: true })
+    .select("id, status, origin, summary_snapshot, google_color_id, google_event_type, google_deleted_at, starts_at, ends_at")
     .eq("organization_id", organizationId)
-    .eq("origin", "TESSELI")
-    .neq("status", "cancelled")
+    .is("google_deleted_at", null)
     .gte("starts_at", window.fromIso)
     .lt("starts_at", window.toIso);
 
+  if (managedOnly) {
+    query = query.eq("origin", "TESSELI");
+  }
+
+  const { data, error } = await query;
   if (error) {
     return 0;
   }
-  return count ?? 0;
+
+  const rows = applyOrgAgendaColorPolicies(
+    ((data as Array<{
+      status: string;
+      origin: "TESSELI" | "GOOGLE_EXTERNAL";
+      summary_snapshot: string | null;
+      google_color_id?: string | null;
+      google_event_type?: string | null;
+      google_deleted_at?: string | null;
+      starts_at?: string;
+      ends_at?: string;
+    }> | null) ?? []).map((row) => ({
+      ...row,
+      status: row.status as AppointmentStatus,
+    })),
+    connection,
+  );
+  const visible = visibleAppointments(rows, connection);
+  return countValidAgendaSessions(visible);
 }
 
 export async function getMyDaySnapshot(input: {
@@ -190,7 +245,7 @@ export async function getMyDaySnapshot(input: {
 }): Promise<MyDaySnapshot> {
   const [timeline, tasks, documents, sessionsToFinalize, patients, sessionsThisWeek] =
     await Promise.all([
-      listTodayManagedAppointments(input.organizationId, input.timezone),
+      listTodayAppointments(input.organizationId, input.timezone),
       listOpenTasks(input.organizationId),
       listRecentDocuments(input.organizationId),
       isClinicalPractitioner(input.role)
@@ -202,7 +257,11 @@ export async function getMyDaySnapshot(input: {
 
   const greetingPrefix =
     input.settings?.greeting_prefix?.trim() || DEFAULT_GREETING_PREFIX;
-  const quote = input.settings?.quote?.trim() || DEFAULT_QUOTE;
+  const quote = resolvePsychologyQuote({
+    mode: input.settings?.quote_mode,
+    customQuote: input.settings?.quote,
+    timeZone: input.timezone,
+  });
 
   const access = await getFinanceAccess(input.organizationId, input.role);
   let financialPending: MyDaySnapshot["financialPending"] = [];
@@ -230,7 +289,12 @@ export async function getMyDaySnapshot(input: {
       professionalName: input.professionalName,
       quote,
     },
+    professionalPhotoUrl: await getProfessionalPhotoUrl(
+      input.organizationId,
+      input.settings?.photo_path,
+    ),
     timezone: input.timezone,
+    quoteCivilDate: quoteCivilDate(input.timezone),
     roleLabel: ROLE_LABELS[input.role],
     clinicName: input.settings?.clinic_name?.trim() || null,
     canStartSession: isClinicalPractitioner(input.role),
@@ -249,6 +313,7 @@ export async function getMyDaySnapshot(input: {
     phases: PHASE_AVAILABILITY,
     metrics: {
       sessionsThisWeek,
+      sessionsToday: countValidAgendaSessions(timeline),
       activePatients: patients.filter((patient) => patient.status === "active").length,
       clinicalPendencies: sessionsToFinalize.length + tasks.length,
       monthReceiptsCents: monthReceiptsCentsValue,

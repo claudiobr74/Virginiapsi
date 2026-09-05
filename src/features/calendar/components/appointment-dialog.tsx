@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import {
   createAppointmentAction,
   rescheduleAppointmentAction,
+  retryGoogleSyncAction,
 } from "@/features/calendar/appointment-actions";
 import {
   APPOINTMENT_MODALITY_VALUES,
@@ -19,22 +20,26 @@ import {
 } from "@/features/calendar/contracts";
 import { MODALITY_LABELS } from "@/features/patients/contracts";
 import type { PatientRow } from "@/features/patients/contracts";
+import { civilDateInTimeZone, civilTimeInTimeZone } from "@/lib/utils/timezone";
 
 export interface AppointmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   patients: Pick<PatientRow, "id" | "preferred_name" | "public_code">[];
   defaultDate: string;
+  timeZone: string;
   appointment?: AppointmentRow;
   onSaved: () => void;
 }
 
 function defaultValues(
   defaultDate: string,
+  timeZone: string,
   appointment?: AppointmentRow,
 ): AppointmentFormValues {
   if (!appointment) {
     return {
+      title: "",
       patientId: "",
       date: defaultDate,
       startTime: "09:00",
@@ -46,12 +51,13 @@ function defaultValues(
 
   const starts = new Date(appointment.starts_at);
   const ends = new Date(appointment.ends_at);
-  const durationMinutes = Math.round((ends.getTime() - starts.getTime()) / 60_000);
+  const durationMinutes = Math.max(10, Math.round((ends.getTime() - starts.getTime()) / 60_000));
 
   return {
+    title: appointment.summary_snapshot ?? "",
     patientId: appointment.patient_id ?? "",
-    date: appointment.starts_at.slice(0, 10),
-    startTime: appointment.starts_at.slice(11, 16),
+    date: civilDateInTimeZone(appointment.starts_at, timeZone),
+    startTime: civilTimeInTimeZone(appointment.starts_at, timeZone),
     durationMinutes: String(durationMinutes),
     modality: appointment.modality,
     createMeet: false,
@@ -63,21 +69,25 @@ export function AppointmentDialog({
   onOpenChange,
   patients,
   defaultDate,
+  timeZone,
   appointment,
   onSaved,
 }: AppointmentDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [conflict, setConflict] = useState(false);
+  const [syncRetryId, setSyncRetryId] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     setError,
+    setValue,
+    getValues,
     reset,
     formState: { errors },
   } = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentFormSchema),
-    values: defaultValues(defaultDate, appointment),
+    values: defaultValues(defaultDate, timeZone, appointment),
   });
 
   function submit(values: AppointmentFormValues, force: boolean) {
@@ -94,8 +104,14 @@ export function AppointmentDialog({
         setError("root", { message: result.error });
         return;
       }
+      if (result.syncError && result.appointmentId) {
+        setSyncRetryId(result.appointmentId);
+        setError("root", { message: result.syncError });
+        return;
+      }
 
       setConflict(false);
+      setSyncRetryId(null);
       reset();
       onSaved();
       onOpenChange(false);
@@ -107,17 +123,40 @@ export function AppointmentDialog({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent
-        title={appointment ? "Remarcar consulta" : "Nova consulta"}
-        description="Nome Sobrenome • PAC-### aparece automaticamente na agenda."
+        title={appointment ? "Editar agendamento" : "Novo agendamento"}
+        description="O título aparece na Agenda exatamente como informado."
       >
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           {errors.root ? (
-            <p
+            <div
               role="alert"
-              className="rounded-xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed"
+              className="flex flex-col gap-2 rounded-xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed"
             >
-              {errors.root.message}
-            </p>
+              <p>{errors.root.message}</p>
+              {syncRetryId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  isLoading={isPending}
+                  onClick={() => {
+                    startTransition(async () => {
+                      const result = await retryGoogleSyncAction(syncRetryId);
+                      if (result.error) {
+                        setError("root", { message: result.error });
+                        return;
+                      }
+                      setSyncRetryId(null);
+                      reset();
+                      onSaved();
+                      onOpenChange(false);
+                    });
+                  }}
+                >
+                  Tentar novamente
+                </Button>
+              ) : null}
+            </div>
           ) : null}
 
           {conflict ? (
@@ -136,11 +175,25 @@ export function AppointmentDialog({
           ) : null}
 
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor="title">Título</Label>
+            <Input id="title" {...register("title")} />
+            {errors.title ? <p className="text-xs text-failed">{errors.title.message}</p> : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="patientId">Paciente (opcional)</Label>
             <select
               id="patientId"
               className="h-11 rounded-xl border border-border bg-input px-3.5 text-sm text-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              {...register("patientId")}
+              {...register("patientId", {
+                onChange: (event) => {
+                  const id = event.target.value;
+                  const patient = patients.find((row) => row.id === id);
+                  if (patient && !getValues("title").trim()) {
+                    setValue("title", patient.preferred_name, { shouldValidate: true });
+                  }
+                },
+              })}
             >
               <option value="">Sem paciente vinculado</option>
               {patients.map((patient) => (
@@ -155,9 +208,7 @@ export function AppointmentDialog({
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="date">Data</Label>
               <Input id="date" type="date" {...register("date")} />
-              {errors.date ? (
-                <p className="text-xs text-failed">{errors.date.message}</p>
-              ) : null}
+              {errors.date ? <p className="text-xs text-failed">{errors.date.message}</p> : null}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="startTime">Horário</Label>

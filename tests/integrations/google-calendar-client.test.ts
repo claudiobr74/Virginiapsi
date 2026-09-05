@@ -46,6 +46,45 @@ describe("GoogleCalendarClient", () => {
     expect(parsed.searchParams.get("orderBy")).toBe("startTime");
   });
 
+  it("listEvents preserva colorId devolvido pela API", async () => {
+    const fetchImpl = mockFetch(async () =>
+      jsonResponse({
+        items: [
+          {
+            id: "evt-isadora",
+            summary: "Isadora? não pode",
+            status: "confirmed",
+            colorId: "9",
+            eventType: "default",
+          },
+        ],
+      }),
+    );
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+    const page = await client.listEvents("primary", {
+      timeMin: "2026-09-01T00:00:00.000Z",
+      timeMax: "2026-09-02T00:00:00.000Z",
+    });
+    expect(page.items[0]?.colorId).toBe("9");
+    expect(page.items[0]?.eventType).toBe("default");
+    expect(page.items[0]?.summary).toBe("Isadora? não pode");
+  });
+
+  it("listEvents com showDeleted não envia orderBy", async () => {
+    const fetchImpl = mockFetch(async () => jsonResponse({ items: [] }));
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+
+    await client.listEvents("primary", {
+      timeMin: "2026-01-01T00:00:00.000Z",
+      timeMax: "2026-01-31T00:00:00.000Z",
+      showDeleted: true,
+    });
+
+    const parsed = new URL(fetchImpl.mock.calls[0][0]);
+    expect(parsed.searchParams.get("showDeleted")).toBe("true");
+    expect(parsed.searchParams.get("orderBy")).toBeNull();
+  });
+
   it("insertEvent envia conferenceDataVersion=1 quando solicitado", async () => {
     const fetchImpl = mockFetch(async () =>
       jsonResponse({ id: "evt-1", summary: "Consulta" }),
@@ -111,5 +150,22 @@ describe("GoogleCalendarClient", () => {
     expect(url).toBe(
       "https://www.googleapis.com/calendar/v3/calendars/consultorio%40example.com/events/evt%2Fwith%2Fslash",
     );
+  });
+
+  it("getEvent preserva eventType devolvido pela API", async () => {
+    const fetchImpl = mockFetch(async () =>
+      jsonResponse({
+        id: "evt-lucas",
+        summary: "Lucas B+1(viajando)",
+        status: "confirmed",
+        colorId: "8",
+        eventType: "outOfOffice",
+      }),
+    );
+    const client = new GoogleCalendarClient({ accessToken: "token-abc", fetchImpl });
+    const event = await client.getEvent("primary", "evt-lucas");
+    expect(event.eventType).toBe("outOfOffice");
+    expect(event.colorId).toBe("8");
+    expect(event.summary).toBe("Lucas B+1(viajando)");
   });
 });

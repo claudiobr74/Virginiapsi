@@ -32,7 +32,7 @@ export default async function OnboardingPage() {
   return (
     <AuthScreen>
       <div className="flex flex-col items-center gap-4 text-center">
-        <Logo variant="stacked" width={120} priority />
+        <Logo variant="stacked" width={220} priority />
         {canCreateClinic ? (
           <>
             <h1 className="font-serif text-2xl font-bold text-foreground">

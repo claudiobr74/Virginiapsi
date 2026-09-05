@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 export const PORTRAIT_MAX_BYTES = 5 * 1024 * 1024;
 
 export const PORTRAIT_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -14,7 +16,7 @@ export function isPortraitMimeType(value: string): value is PortraitMimeType {
 }
 
 export function portraitFilename(mimeType: PortraitMimeType): string {
-  return `portrait.${PORTRAIT_MIME_EXTENSION[mimeType]}`;
+  return `portrait-${randomUUID()}.${PORTRAIT_MIME_EXTENSION[mimeType]}`;
 }
 
 /**

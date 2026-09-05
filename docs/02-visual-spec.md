@@ -58,7 +58,7 @@ Cores semânticas podem usar vermelho, azul e âmbar para erro/confirmado/atenç
 - botões: 8 px (`rounded-lg`)
 - badges: 6–8 px / pill quando status
 - logo/avatar: circular no perfil; mark com ratio do PNG
-- sombras: discretas; card normal `shadow-sm`, modal `shadow-2xl`
+- sombras: discretas; card normal `shadow-card` (`0 2px 8px rgba(31, 42, 44, 0.04)`), hover clicável `shadow-card-hover`, modal `shadow-2xl`
 
 ## Shell desktop
 
@@ -118,13 +118,32 @@ Esta seção é normativa, não descritiva: define os primitivos de UI que exist
 | `ConfirmDialog` | confirmação destrutiva (excluir, cancelar, estornar) | `window.confirm` ou modal de confirmação próprio |
 | `StatusBadge` | badge de status, cores conforme seção Status acima | badge com classes de cor hardcoded por tela |
 | `Button` | primary / secondary / destructive / ghost, conforme seção acima | `<button>` com classes de estilo completo repetidas |
+| `Card` | superfície tonal Clinical Pastel (`tone`, `headed`, ícone) | `bg-[#…]` ou cards coloridos locais por tela |
+
+### Clinical Pastel (V2)
+
+A função do bloco define a família de cor. Tokens centrais em `src/app/globals.css`:
+
+- Agenda / sessões: `--tone-agenda-*` (sage pastel)
+- Clínico: `--tone-clinical-*` (lavender)
+- Financeiro: `--tone-finance-*` (peach)
+- Tarefas: `--tone-tasks-*` (amber)
+- Documentos: `--tone-documents-*` (mist)
+- Conhecimento / IA: `--tone-knowledge-*` (teal)
+- Configurações: `--tone-settings-*` (sand)
+
+Tons aceitáveis em `Card` / `DashboardWidget`: `neutral | agenda | clinical | finance | tasks | documents | knowledge | settings`.
+
+Não usar verde `#34A853`, azul `#1A73E8` ou vermelho `#D93025` como superfície inteira dos cards da Agenda. Superfícies usam `--agenda-*-bg/border/accent/text` (pastel). As cores fortes ficam em `--status-active`, `--status-completed` e `--status-cancelled` para acentos pequenos (dot, kicker, faixa de 4px).
+
+Sombra padrão: `--elevation-card`. Hover clicável: `--elevation-card-hover` + `translateY(-1px)`, respeitando `prefers-reduced-motion`.
 
 ### Regra de enforcement
 
 - Toda tela nova consome estes componentes; não os recria com Tailwind solto, mesmo que o resultado visual pareça idêntico.
 - Se uma tela precisar de uma variação genuína (não coberta pela prop da API atual), a extensão é uma prop nova no componente canônico, nunca uma cópia local do componente.
 - PR que introduz modal, drawer, empty state, loading state, campo de busca ou confirmação sem usar o primitivo correspondente falha revisão, independente de estar visualmente correto.
-- Gate da Fase 1: os onze componentes acima existem, têm Storybook ou página de referência mínima, e cobrem os estados de todas as variantes desta especificação (Status, Botão, Modal, Drawer) antes de qualquer outra fase começar a consumi-los.
+- Gate da Fase 1: os primitivos acima existem, têm página de referência mínima em `/design-system`, e cobrem os estados de todas as variantes desta especificação (Status, Botão, Modal, Drawer) antes de qualquer outra fase começar a consumi-los.
 
 ### Botão primary
 
@@ -196,22 +215,26 @@ Esta seção é normativa, não descritiva: define os primitivos de UI que exist
 
 ## Logo — asset oficial
 
-O arquivo oficial do **símbolo** é:
+O arquivo oficial da marca (símbolo + wordmark **VirgíniaPsi** no mesmo PNG) é:
 
-`public/brand/virginia-psi-mark.png`
+`public/brand/source/virginia-psi-lockup-original.png` (arquivo-fonte, byte-identical ao PNG enviado)
 
-O wordmark **VirgíniaPsi** é composto na UI (`BrandWordmark`): “Virgínia” em navy `#1F2A44` e “Psi” em gradiente lavanda→roxo. Não redesenhar o PNG do símbolo.
+`public/brand/virginia-psi-lockup-transparent.png` (asset de exibição)
 
-Esse PNG deve ser usado **exatamente como fornecido**. Ele é a fonte de verdade para o símbolo (Psi em folhas teal/lavanda).
+O lockup completo (símbolo + wordmark **VirgíniaPsi**) deve aparecer em todas as menções da logo. Não sobrepor `BrandWordmark` nem outro texto da marca.
 
 É proibido:
 - redesenhar ou gerar uma nova logo a partir de descrição textual;
 - converter para SVG ou vetorizar;
-- recortar, recolorir ou adaptar o PNG para dark mode;
-- aplicar filtros, sombras, bordas ou efeitos à própria imagem;
-- comprimir ou reprocessar de modo destrutivo.
+- recortar, recolorir o foreground, alterar dimensões ou adaptar o desenho para dark mode;
+- aplicar filtros, sombras, bordas, clip-path, `mix-blend-mode` ou placa cream no wrapper;
+- apagar o arquivo-fonte arquivado.
+
+A única alteração permitida no asset de exibição é converter o fundo off-white **conectado às bordas** para alpha 0 (flood fill determinístico). Contadores internos e cores do desenho permanecem. `LOGO_SRC` aponta para o PNG transparente.
 
 Na interface, apenas o **container de exibição** pode ser redimensionado. Preserve a razão de aspecto, use `object-fit: contain` e mantenha a imagem íntegra.
+
+O arquivo-fonte continua RGB opaco. O asset de exibição é RGBA, com o matte das bordas em alpha 0, para light, dark e fundos pastel sem workaround de blend.
 
 ## Critério de fidelidade
 

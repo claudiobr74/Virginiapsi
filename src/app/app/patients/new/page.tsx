@@ -6,8 +6,26 @@ import { requireOrgContext } from "@/lib/auth/require-org-context";
 
 export const metadata: Metadata = { title: "Cadastrar Paciente — VirgíniaPsi" };
 
-export default async function NewPatientPage() {
+function safeAppReturnTo(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  if (value !== "/app" && !value.startsWith("/app/")) {
+    return null;
+  }
+  if (value.includes("://") || value.startsWith("//") || value.includes("\\")) {
+    return null;
+  }
+  return value;
+}
+
+export default async function NewPatientPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ returnTo?: string }>;
+}) {
   const { organizationId, role } = await requireOrgContext();
+  const params = await searchParams;
   const canAssign = isPsychologistAdmin(role) || isSecretary(role);
   const assignablePsychologists = canAssign
     ? await listAssignablePsychologists(organizationId)
@@ -17,6 +35,7 @@ export default async function NewPatientPage() {
     <PatientForm
       canAssignResponsible={canAssign}
       assignablePsychologists={assignablePsychologists}
+      afterCreateHref={safeAppReturnTo(params.returnTo)}
     />
   );
 }

@@ -11,7 +11,6 @@ import {
 } from "@/features/calendar/date-window";
 import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
-import { peekGoogleCalendarRedirectUri } from "@/lib/env/server";
 
 export const metadata: Metadata = { title: "Agenda — VirgíniaPsi" };
 
@@ -39,7 +38,6 @@ export default async function AgendaPage({
   );
 
   const googleStatus = typeof params.google === "string" ? params.google : undefined;
-  const calendarRedirectUri = peekGoogleCalendarRedirectUri();
 
   return (
     <PageContainer>
@@ -55,18 +53,8 @@ export default async function AgendaPage({
           role="alert"
           className="rounded-2xl border border-failed/30 bg-failed-bg px-4 py-3 text-sm text-failed"
         >
-          Não foi possível conectar o Google Calendar. O endereço de retorno da
-          Agenda é diferente do login. Cadastre no Google Cloud
-          {calendarRedirectUri ? (
-            <>
-              :{" "}
-              <code className="break-all rounded-md bg-white/70 px-1.5 py-0.5 text-xs">
-                {calendarRedirectUri}
-              </code>
-            </>
-          ) : (
-            " o endereço deste site com /api/integrations/google/callback."
-          )}
+          Não foi possível conectar o Google Calendar. Tente novamente no domínio
+          oficial do VirgíniaPsi.
         </p>
       ) : null}
 

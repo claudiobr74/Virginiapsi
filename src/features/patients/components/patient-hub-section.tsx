@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { SectionHeader } from "@/components/ui/section-header";
+import { Card, type CardTone } from "@/components/ui/card";
 
 export function PatientHubSection({
   id,
@@ -7,20 +7,29 @@ export function PatientHubSection({
   description,
   actions,
   children,
+  tone = "neutral",
+  icon,
 }: {
   id?: string;
   title: string;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
+  tone?: CardTone;
+  icon?: ReactNode;
 }) {
   return (
-    <section
-      id={id}
-      className="flex scroll-mt-24 flex-col gap-4 rounded-3xl border border-border bg-card p-6"
-    >
-      <SectionHeader title={title} description={description} actions={actions} />
-      {children}
+    <section id={id} className="scroll-mt-24">
+      <Card
+        tone={tone}
+        headed
+        icon={icon}
+        title={title}
+        description={description}
+        action={actions}
+      >
+        {children}
+      </Card>
     </section>
   );
 }

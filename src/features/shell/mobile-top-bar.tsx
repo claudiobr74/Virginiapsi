@@ -6,9 +6,9 @@ import { Logo } from "@/components/ui/logo";
 
 export function MobileTopBar({ onMenuClick }: { onMenuClick: () => void }) {
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 lg:hidden">
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-background/80 px-4 py-3 backdrop-blur-sm lg:hidden">
       <Link href="/app" className="min-w-0" aria-label="VirgíniaPsi — início">
-        <Logo variant="inline" width={28} />
+        <Logo variant="inline" width={140} />
       </Link>
       <button
         type="button"

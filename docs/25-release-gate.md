@@ -29,7 +29,7 @@ G0 (2026-08-25): `GET /login` em `serena-psi-beta.vercel.app` respondeu **200** 
 
 - Error boundaries (`src/app/error.tsx`, `src/app/global-error.tsx`) e `not-found.tsx` com primitivos canônicos. Mensagens genéricas; o `error` não é logado (pode carregar contexto operacional).
 - Skip-link “Ir para o conteúdo principal” no `AppShell` → `#conteudo-principal`. Sessão em modo foco também expõe `<main id="conteudo-principal">`.
-- Headers globais: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy` (microfone só `self`). COEP/COOP permanecem só em `/session/:sessionId`. Sem CSP estrito que quebre o App Router.
+- Headers globais: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy` (câmera e microfone só `self`). COEP/COOP **não** são mais exigidos na rota da sessão (ASR local removido). Sem CSP estrito que quebre o App Router.
 - Rate limit **best-effort por instância** (Map in-memory): 30/min por IP nos endpoints de grant (`/api/session-capture/grant`, `upload-grant`); 20/min por organização+usuário nas server actions de Supervisor, Session AI e Knowledge. **Não** é cota global de cluster.
 - Teto de body: webhooks Twilio 32 KiB; JSON de grant/segmento 64 KiB; metadata de transcribe 16 KiB. Segmentos ao vivo **não** compartilham o rate limit de grant.
 - Sem Cron na Vercel: `vercel.json` só declara `framework: nextjs` (o preset do projeto estava `null` e o Preview READY 404-ava em todas as rotas). Scheduler continua `pg_cron`/`pg_net`.
@@ -40,7 +40,7 @@ G0 (2026-08-25): `GET /login` em `serena-psi-beta.vercel.app` respondeu **200** 
 Todas as chaves de `docs/09-env-contract.md` precisam existir no Vercel (Production e Preview, com URLs de callback distintas) **e** no Vault do Supabase para o scheduler:
 
 - Browser: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_APP_URL` (HTTPS canônico, com `https://`; host sem esquema quebra o build).
-- Server: `SUPABASE_SECRET_KEY`, Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` de produção, `GOOGLE_TOKEN_ENCRYPTION_KEY`), `SESSION_CAPTURE_SECRET`, Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, e **um** de `TWILIO_WHATSAPP_FROM` / `TWILIO_MESSAGING_SERVICE_SID` quando o envio for habilitado), `GEMINI_API_KEY` + modelos, `CRON_SECRET`.
+- Server: `SUPABASE_SECRET_KEY`, Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_TOKEN_ENCRYPTION_KEY`), `SESSION_CAPTURE_SECRET`, Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, e **um** de `TWILIO_WHATSAPP_FROM` / `TWILIO_MESSAGING_SERVICE_SID` quando o envio for habilitado), `GEMINI_API_KEY` + modelos, `CRON_SECRET`.
 - Opcional: `GROQ_API_KEY` só se o fallback de transcrição for habilitado.
 - Vault: `tesseli_app_url` = `NEXT_PUBLIC_APP_URL` de produção; `tesseli_cron_secret` = mesmo valor de `CRON_SECRET`. Sem valores em migration.
 
@@ -54,7 +54,7 @@ SSO desligado. `vercel.json` força `framework: nextjs` (o preset do dashboard e
 
 O que ainda falta:
 
-1. Login Google: no cliente OAuth do Google Cloud, cadastrar `https://<ref>.supabase.co/auth/v1/callback`. Agenda: `{origem-do-Preview}/api/integrations/google/callback` no mesmo cliente, API Google Calendar **Ativar**, e o Gmail da clínica na lista de testadores (modo Testing). Depois do OAuth, o Tesseli tenta selecionar o calendário principal e puxar 30 dias; se a API estiver desligada, a modal mostra o erro em vez de “Carregando…”.
+1. Login Google: no cliente OAuth do Google Cloud, cadastrar `https://<ref>.supabase.co/auth/v1/callback`. Agenda: `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback` no mesmo cliente (domínio canônico, nunca Preview), API Google Calendar **Ativar**, e o Gmail da clínica na lista de testadores (modo Testing). Depois do OAuth, o Tesseli tenta selecionar o calendário principal e puxar 30 dias; se a API estiver desligada, a modal mostra o erro em vez de “Carregando…”.
 2. `TWILIO_WHATSAPP_FROM` / Messaging Service podem permanecer vazios.
 3. **Não** criar Cron Jobs na Vercel.
 4. Só promover Production depois de merge da Fase 13 (não o `main` SerenaPsi).

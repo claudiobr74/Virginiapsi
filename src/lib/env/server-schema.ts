@@ -6,14 +6,13 @@
 import { z } from "zod";
 import {
   coalesceAppUrl,
+  envIssueKeyNames,
   formatEnvIssues,
-  normalizeGoogleOAuthRedirectUri,
+  googleCalendarRedirectUri,
   publicEnvSchema,
-  resolveGoogleCalendarRedirectUri,
 } from "@/lib/env/schema";
 
 const nonEmpty = z.string().trim().min(1);
-const httpUrl = z.string().trim().url();
 const optionalNonEmpty = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
   nonEmpty.optional(),
@@ -23,7 +22,6 @@ export const serverEnvSchema = publicEnvSchema.extend({
   SUPABASE_SECRET_KEY: nonEmpty.startsWith("sb_secret_"),
   GOOGLE_CLIENT_ID: nonEmpty,
   GOOGLE_CLIENT_SECRET: nonEmpty,
-  GOOGLE_OAUTH_REDIRECT_URI: z.preprocess(normalizeGoogleOAuthRedirectUri, httpUrl),
   GOOGLE_TOKEN_ENCRYPTION_KEY: nonEmpty,
   SESSION_CAPTURE_SECRET: nonEmpty,
   TWILIO_ACCOUNT_SID: nonEmpty,
@@ -31,15 +29,16 @@ export const serverEnvSchema = publicEnvSchema.extend({
   // Sender *or* Messaging Service — required only at send time.
   TWILIO_WHATSAPP_FROM: optionalNonEmpty,
   TWILIO_MESSAGING_SERVICE_SID: optionalNonEmpty,
-  // Optional on purpose: transcription runs on-device by default, so the app
-  // is fully functional without a transcription provider. This key only exists
-  // for organizations that enable the fallback
-  // (docs/22-transcription-provider-decision.md).
+  // Optional at boot so Agenda/Settings still load if Groq is not provisioned.
+  // Live transcription reads the isolated `groqTranscriptionEnvSchema` instead.
   GROQ_API_KEY: nonEmpty.optional(),
+  GROQ_TRANSCRIPTION_MODEL: optionalNonEmpty,
+  GROQ_TRANSCRIPTION_TIMEOUT_MS: optionalNonEmpty,
   GEMINI_API_KEY: nonEmpty,
   GEMINI_MODEL_SESSION: nonEmpty,
   GEMINI_MODEL_SUPERVISOR: nonEmpty,
   GEMINI_MODEL_KNOWLEDGE: nonEmpty,
+  GEMINI_MODEL_DOCUMENTS: optionalNonEmpty,
   GEMINI_EMBEDDING_MODEL: nonEmpty,
   CRON_SECRET: nonEmpty,
 });
@@ -52,20 +51,48 @@ export const googleCalendarEnvSchema = publicEnvSchema
   .extend({
     GOOGLE_CLIENT_ID: nonEmpty,
     GOOGLE_CLIENT_SECRET: nonEmpty,
-    GOOGLE_OAUTH_REDIRECT_URI: z.preprocess(
-      normalizeGoogleOAuthRedirectUri,
-      httpUrl,
-    ),
     GOOGLE_TOKEN_ENCRYPTION_KEY: nonEmpty,
   });
 
 export type GoogleCalendarEnv = z.infer<typeof googleCalendarEnvSchema>;
 
+/** Storage/admin client — independent from Google, Twilio, Gemini and Cron. */
+export const supabaseAdminEnvSchema = publicEnvSchema
+  .pick({ NEXT_PUBLIC_SUPABASE_URL: true })
+  .extend({
+    SUPABASE_SECRET_KEY: nonEmpty.startsWith("sb_secret_"),
+  });
+
+export type SupabaseAdminEnv = z.infer<typeof supabaseAdminEnvSchema>;
+
+/** Capture grant signing/verification — independent from Twilio, Google, Gemini and Cron. */
+export const sessionCaptureEnvSchema = z.object({
+  SESSION_CAPTURE_SECRET: nonEmpty,
+});
+
+export type SessionCaptureEnv = z.infer<typeof sessionCaptureEnvSchema>;
+
+/** Groq Speech-to-Text — independent from Twilio, Google, Gemini and Cron. */
+export const groqTranscriptionEnvSchema = z.object({
+  GROQ_API_KEY: nonEmpty,
+  GROQ_TRANSCRIPTION_MODEL: optionalNonEmpty,
+  GROQ_TRANSCRIPTION_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(120_000).optional(),
+});
+
+export type GroqTranscriptionEnv = z.infer<typeof groqTranscriptionEnvSchema>;
+
+/** Session AI (DPEP/live/preparation) — independent from Twilio, Calendar, Groq and Cron. */
+export const sessionAiEnvSchema = z.object({
+  GEMINI_API_KEY: nonEmpty,
+  GEMINI_MODEL_SESSION: nonEmpty,
+});
+
+export type SessionAiEnv = z.infer<typeof sessionAiEnvSchema>;
+
 export const SERVER_ONLY_ENV_KEYS = [
   "SUPABASE_SECRET_KEY",
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
-  "GOOGLE_OAUTH_REDIRECT_URI",
   "GOOGLE_TOKEN_ENCRYPTION_KEY",
   "SESSION_CAPTURE_SECRET",
   "TWILIO_ACCOUNT_SID",
@@ -73,10 +100,13 @@ export const SERVER_ONLY_ENV_KEYS = [
   "TWILIO_WHATSAPP_FROM",
   "TWILIO_MESSAGING_SERVICE_SID",
   "GROQ_API_KEY",
+  "GROQ_TRANSCRIPTION_MODEL",
+  "GROQ_TRANSCRIPTION_TIMEOUT_MS",
   "GEMINI_API_KEY",
   "GEMINI_MODEL_SESSION",
   "GEMINI_MODEL_SUPERVISOR",
   "GEMINI_MODEL_KNOWLEDGE",
+  "GEMINI_MODEL_DOCUMENTS",
   "GEMINI_EMBEDDING_MODEL",
   "CRON_SECRET",
 ] as const;
@@ -93,7 +123,6 @@ function readServerEnvFromProcess(): EnvSource {
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-    GOOGLE_OAUTH_REDIRECT_URI: process.env.GOOGLE_OAUTH_REDIRECT_URI,
     GOOGLE_TOKEN_ENCRYPTION_KEY: process.env.GOOGLE_TOKEN_ENCRYPTION_KEY,
     SESSION_CAPTURE_SECRET: process.env.SESSION_CAPTURE_SECRET,
     TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
@@ -101,10 +130,13 @@ function readServerEnvFromProcess(): EnvSource {
     TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM,
     TWILIO_MESSAGING_SERVICE_SID: process.env.TWILIO_MESSAGING_SERVICE_SID,
     GROQ_API_KEY: process.env.GROQ_API_KEY,
+    GROQ_TRANSCRIPTION_MODEL: process.env.GROQ_TRANSCRIPTION_MODEL,
+    GROQ_TRANSCRIPTION_TIMEOUT_MS: process.env.GROQ_TRANSCRIPTION_TIMEOUT_MS,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     GEMINI_MODEL_SESSION: process.env.GEMINI_MODEL_SESSION,
     GEMINI_MODEL_SUPERVISOR: process.env.GEMINI_MODEL_SUPERVISOR,
     GEMINI_MODEL_KNOWLEDGE: process.env.GEMINI_MODEL_KNOWLEDGE,
+    GEMINI_MODEL_DOCUMENTS: process.env.GEMINI_MODEL_DOCUMENTS,
     GEMINI_EMBEDDING_MODEL: process.env.GEMINI_EMBEDDING_MODEL,
     CRON_SECRET: process.env.CRON_SECRET,
   };
@@ -117,10 +149,27 @@ export function parseServerEnv(
   const parsed = serverEnvSchema.safeParse({
     ...source,
     NEXT_PUBLIC_APP_URL: appUrl,
-    GOOGLE_OAUTH_REDIRECT_URI: resolveGoogleCalendarRedirectUri(
-      source.GOOGLE_OAUTH_REDIRECT_URI,
-      appUrl,
-    ),
+  });
+  if (!parsed.success) {
+    throw new Error(formatEnvIssues(parsed.error));
+  }
+  return parsed.data;
+}
+
+function canonicalCalendarAppUrl(source: EnvSource): string | undefined {
+  const raw = source.NEXT_PUBLIC_APP_URL;
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return undefined;
+  }
+  return raw;
+}
+
+export function parseSupabaseAdminEnv(
+  source: EnvSource = readServerEnvFromProcess(),
+): SupabaseAdminEnv {
+  const parsed = supabaseAdminEnvSchema.safeParse({
+    NEXT_PUBLIC_SUPABASE_URL: source.NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_SECRET_KEY: source.SUPABASE_SECRET_KEY,
   });
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
@@ -131,16 +180,25 @@ export function parseServerEnv(
 export function parseGoogleCalendarEnv(
   source: EnvSource = readServerEnvFromProcess(),
 ): GoogleCalendarEnv {
-  const appUrl = coalesceAppUrl(source.NEXT_PUBLIC_APP_URL, source.VERCEL_URL);
   const parsed = googleCalendarEnvSchema.safeParse({
-    NEXT_PUBLIC_APP_URL: appUrl,
+    NEXT_PUBLIC_APP_URL: canonicalCalendarAppUrl(source),
     GOOGLE_CLIENT_ID: source.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: source.GOOGLE_CLIENT_SECRET,
-    GOOGLE_OAUTH_REDIRECT_URI: resolveGoogleCalendarRedirectUri(
-      source.GOOGLE_OAUTH_REDIRECT_URI,
-      appUrl,
-    ),
     GOOGLE_TOKEN_ENCRYPTION_KEY: source.GOOGLE_TOKEN_ENCRYPTION_KEY,
+  });
+  if (!parsed.success) {
+    throw new Error(formatEnvIssues(parsed.error));
+  }
+  // Validates the callback can be derived and never uses a tesseli hostname.
+  googleCalendarRedirectUri(parsed.data.NEXT_PUBLIC_APP_URL);
+  return parsed.data;
+}
+
+export function parseSessionCaptureEnv(
+  source: EnvSource = readServerEnvFromProcess(),
+): SessionCaptureEnv {
+  const parsed = sessionCaptureEnvSchema.safeParse({
+    SESSION_CAPTURE_SECRET: source.SESSION_CAPTURE_SECRET,
   });
   if (!parsed.success) {
     throw new Error(formatEnvIssues(parsed.error));
@@ -148,15 +206,50 @@ export function parseGoogleCalendarEnv(
   return parsed.data;
 }
 
-/** Resolves the Calendar OAuth callback without requiring the full server env. */
-export function peekGoogleCalendarRedirectUri(
+export function parseGroqTranscriptionEnv(
   source: EnvSource = readServerEnvFromProcess(),
-): string | undefined {
-  const appUrl = coalesceAppUrl(source.NEXT_PUBLIC_APP_URL, source.VERCEL_URL);
-  return resolveGoogleCalendarRedirectUri(
-    source.GOOGLE_OAUTH_REDIRECT_URI,
-    appUrl,
-  );
+): GroqTranscriptionEnv {
+  const parsed = groqTranscriptionEnvSchema.safeParse({
+    GROQ_API_KEY: source.GROQ_API_KEY,
+    GROQ_TRANSCRIPTION_MODEL: source.GROQ_TRANSCRIPTION_MODEL,
+    GROQ_TRANSCRIPTION_TIMEOUT_MS: source.GROQ_TRANSCRIPTION_TIMEOUT_MS,
+  });
+  if (!parsed.success) {
+    throw new Error(formatEnvIssues(parsed.error));
+  }
+  return parsed.data;
+}
+
+export function parseSessionAiEnv(
+  source: EnvSource = readServerEnvFromProcess(),
+): SessionAiEnv {
+  const parsed = sessionAiEnvSchema.safeParse({
+    GEMINI_API_KEY: source.GEMINI_API_KEY,
+    GEMINI_MODEL_SESSION: source.GEMINI_MODEL_SESSION,
+  });
+  if (!parsed.success) {
+    throw new Error(formatEnvIssues(parsed.error));
+  }
+  return parsed.data;
+}
+
+/** Classified Session AI env read — key names only, never values. */
+export function readSessionAiEnv(
+  source: EnvSource = readServerEnvFromProcess(),
+):
+  | { ok: true; env: SessionAiEnv }
+  | { ok: false; missingKeys: string[] } {
+  const parsed = sessionAiEnvSchema.safeParse({
+    GEMINI_API_KEY: source.GEMINI_API_KEY,
+    GEMINI_MODEL_SESSION: source.GEMINI_MODEL_SESSION,
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      missingKeys: envIssueKeyNames(new Error(formatEnvIssues(parsed.error))),
+    };
+  }
+  return { ok: true, env: parsed.data };
 }
 
 function presentEnvValue(value: string | undefined): boolean {

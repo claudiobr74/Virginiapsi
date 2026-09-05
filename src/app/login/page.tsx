@@ -21,7 +21,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <AuthScreen>
       <div className="flex flex-col items-center gap-4 text-center">
-        <Logo variant="stacked" width={120} priority />
+        <Logo variant="stacked" width={220} priority />
         <h1 className="text-sm font-normal text-muted-foreground">{PRODUCT_LOGIN_TAGLINE}</h1>
       </div>
 

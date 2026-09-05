@@ -11,7 +11,7 @@ export default function UpdatePasswordPage() {
   return (
     <AuthScreen>
       <div className="flex flex-col items-center gap-2 text-center">
-        <Logo width={160} priority />
+        <Logo width={220} priority />
         <h1 className="mt-4 font-serif text-[28px] italic font-medium leading-tight text-foreground">
           Definir nova senha
         </h1>

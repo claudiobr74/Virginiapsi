@@ -130,6 +130,35 @@ test.describe("Cadastro de paciente", () => {
     await expect(page.getByRole("heading", { name: "Foto Teste" })).toBeVisible();
     await expect(page.getByRole("img", { name: "Foto de Foto Teste" })).toBeVisible();
   });
+
+  test("captura pela câmera no editar, mostra preview e persiste após reload", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["camera"]);
+    await loginViaUi(page);
+    await page.goto("/app/patients/new");
+    await page.getByLabel("Nome preferencial").fill("Camera Teste");
+    await page.getByLabel("Nome completo").fill("Camera Teste da Silva");
+    await page.getByRole("button", { name: "Cadastrar paciente" }).click();
+    await page.waitForURL(/\/app\/patients\/[0-9a-f-]+$/);
+    await page.getByRole("link", { name: "Editar Dados" }).click();
+    await page.waitForURL(/\/app\/patients\/[0-9a-f-]+\/edit$/);
+
+    await page.getByRole("button", { name: "Tirar foto" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "Tirar foto" })).toBeVisible();
+    const capture = dialog.getByRole("button", { name: "Capturar" });
+    await expect(capture).toBeEnabled({ timeout: 15_000 });
+    await capture.click();
+    await expect(page.getByRole("img", { name: /Foto de Camera Teste/ })).toBeVisible();
+
+    await page.getByRole("button", { name: "Salvar alterações" }).click();
+    await page.waitForURL(/\/app\/patients\/[0-9a-f-]+$/);
+    await expect(page.getByRole("img", { name: "Foto de Camera Teste" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("img", { name: "Foto de Camera Teste" })).toBeVisible();
+  });
 });
 
 test.describe("Patient Hub — isolamento clínico", () => {

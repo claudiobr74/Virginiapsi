@@ -70,7 +70,7 @@ export function LockScreen({ userEmail, onUnlock }: LockScreenProps) {
     >
       <div className="w-full max-w-[480px] rounded-3xl border border-border bg-card p-8 text-center shadow-2xl sm:p-10">
         <div className="flex flex-col items-center gap-3">
-          <Logo width={140} />
+          <Logo width={200} />
           <span className="flex size-11 items-center justify-center rounded-2xl bg-surface text-sage-700">
             <Lock className="size-5" aria-hidden />
           </span>
