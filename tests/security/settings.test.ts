@@ -283,4 +283,225 @@ describe("settings — exports, equipe, retenção e eliminação", () => {
     }
   });
 
+  it("admin grava photo_path do próprio tenant; CHECK bloqueia outro org; secretária não atualiza", async () => {
+    const validPath = `${organizationId}/professional/c0ffee00-portrait.jpg`;
+    const adminSession = await openSession({ userId: admin });
+    try {
+      const updated = await adminSession.query<{ photo_path: string }>(
+        `update public.practice_settings
+         set photo_path = $2
+         where organization_id = $1
+         returning photo_path`,
+        [organizationId, validPath],
+      );
+      expect(updated[0].photo_path).toBe(validPath);
+
+      const checkError = await adminSession.expectError(
+        `update public.practice_settings
+         set photo_path = $2
+         where organization_id = $1`,
+        [organizationId, "33333333-3333-4333-8333-333333333333/professional/evil.jpg"],
+      );
+      expect(checkError).toMatch(/photo_path_tenant_prefix|check constraint/i);
+    } finally {
+      await adminSession.close();
+    }
+
+    const secretarySession = await openSession({ userId: secretary });
+    try {
+      const updatedBySecretary = await secretarySession.query(
+        `update public.practice_settings set photo_path = $2 where organization_id = $1 returning photo_path`,
+        [organizationId, `${organizationId}/professional/secretary.jpg`],
+      );
+      expect(updatedBySecretary).toEqual([]);
+
+      const shell = await secretarySession.query<{ photo_path: string | null }>(
+        "select photo_path from public.organization_shell_settings($1)",
+        [organizationId],
+      );
+      expect(shell[0].photo_path).toBe(validPath);
+    } finally {
+      await secretarySession.close();
+    }
+  });
+
+  it("bucket practice-assets existe, é privado, e storage.objects não tem policy aberta", async () => {
+    const session = await openSession({ userId: admin });
+    try {
+      const buckets = await session.query<{ id: string; public: boolean }>(
+        "select id, public from storage.buckets where id = 'practice-assets'",
+      );
+      expect(buckets).toHaveLength(1);
+      expect(buckets[0].public).toBe(false);
+      const insertError = await session.expectError(
+        `insert into storage.objects (bucket_id, name, owner)
+         values ('practice-assets', $1, $2)`,
+        [`${organizationId}/professional/secret.jpg`, admin],
+      );
+      expect(insertError).toMatch(/row-level security/i);
+      const selectRows = await session.query(
+        `select id from storage.objects where bucket_id = 'practice-assets'`,
+      );
+      expect(selectRows).toEqual([]);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it("backfill de tax_id por comprimento de dígitos não apaga legado nem sobrescreve colunas novas", async () => {
+    const adminSession = await openSession({ userId: admin });
+    try {
+      await adminSession.query(
+        `update public.practice_settings
+         set tax_id = '529.982.247-25', professional_cpf = null, company_cnpj = null
+         where organization_id = $1`,
+        [organizationId],
+      );
+      await adminSession.query(
+        `update public.practice_settings
+         set professional_cpf = regexp_replace(tax_id, '\\D', '', 'g')
+         where professional_cpf is null
+           and length(regexp_replace(coalesce(tax_id, ''), '\\D', '', 'g')) = 11
+           and organization_id = $1`,
+        [organizationId],
+      );
+      const afterCpf = await adminSession.query<{
+        professional_cpf: string;
+        tax_id: string;
+      }>(
+        `select professional_cpf, tax_id from public.practice_settings where organization_id = $1`,
+        [organizationId],
+      );
+      expect(afterCpf[0].professional_cpf).toBe("52998224725");
+      expect(afterCpf[0].tax_id).toBe("529.982.247-25");
+
+      await adminSession.query(
+        `update public.practice_settings
+         set professional_cpf = '39053344705', tax_id = '529.982.247-25'
+         where organization_id = $1`,
+        [organizationId],
+      );
+      await adminSession.query(
+        `update public.practice_settings
+         set professional_cpf = regexp_replace(tax_id, '\\D', '', 'g')
+         where professional_cpf is null
+           and length(regexp_replace(coalesce(tax_id, ''), '\\D', '', 'g')) = 11
+           and organization_id = $1`,
+        [organizationId],
+      );
+      const preserved = await adminSession.query<{ professional_cpf: string }>(
+        `select professional_cpf from public.practice_settings where organization_id = $1`,
+        [organizationId],
+      );
+      expect(preserved[0].professional_cpf).toBe("39053344705");
+
+      await adminSession.query(
+        `update public.practice_settings
+         set tax_id = '00.000.000/0000-00', company_cnpj = null
+         where organization_id = $1`,
+        [organizationId],
+      );
+      await adminSession.query(
+        `update public.practice_settings
+         set company_cnpj = regexp_replace(tax_id, '\\D', '', 'g')
+         where company_cnpj is null
+           and length(regexp_replace(coalesce(tax_id, ''), '\\D', '', 'g')) = 14
+           and organization_id = $1`,
+        [organizationId],
+      );
+      const afterCnpj = await adminSession.query<{ company_cnpj: string }>(
+        `select company_cnpj from public.practice_settings where organization_id = $1`,
+        [organizationId],
+      );
+      expect(afterCnpj[0].company_cnpj).toBe("00000000000000");
+    } finally {
+      await adminSession.close();
+    }
+  });
+
+  it("admin grava CPF/CNPJ e quote_mode; CHECK rejeita formato; secretária não atualiza; outro tenant não altera", async () => {
+    const adminSession = await openSession({ userId: admin });
+    try {
+      const defaults = await adminSession.query<{ quote_mode: string }>(
+        `select quote_mode from public.practice_settings where organization_id = $1`,
+        [organizationId],
+      );
+      expect(defaults[0].quote_mode).toBe("daily");
+
+      const updated = await adminSession.query<{
+        professional_cpf: string;
+        company_cnpj: string;
+        quote_mode: string;
+      }>(
+        `update public.practice_settings
+         set professional_cpf = '52998224725',
+             company_cnpj = '11222333000181',
+             quote_mode = 'custom'
+         where organization_id = $1
+         returning professional_cpf, company_cnpj, quote_mode`,
+        [organizationId],
+      );
+      expect(updated[0].professional_cpf).toBe("52998224725");
+      expect(updated[0].company_cnpj).toBe("11222333000181");
+      expect(updated[0].quote_mode).toBe("custom");
+
+      const cpfError = await adminSession.expectError(
+        `update public.practice_settings set professional_cpf = '123' where organization_id = $1`,
+        [organizationId],
+      );
+      expect(cpfError).toMatch(/professional_cpf_digits|check constraint/i);
+
+      const modeError = await adminSession.expectError(
+        `update public.practice_settings set quote_mode = 'random' where organization_id = $1`,
+        [organizationId],
+      );
+      expect(modeError).toMatch(/quote_mode_check|check constraint/i);
+    } finally {
+      await adminSession.close();
+    }
+
+    const secretarySession = await openSession({ userId: secretary });
+    try {
+      const updatedBySecretary = await secretarySession.query(
+        `update public.practice_settings
+         set professional_cpf = '00000000000', quote_mode = 'daily'
+         where organization_id = $1
+         returning professional_cpf`,
+        [organizationId],
+      );
+      expect(updatedBySecretary).toEqual([]);
+    } finally {
+      await secretarySession.close();
+    }
+
+    const outsiderSession = await openSession({ userId: outsider });
+    try {
+      const crossed = await outsiderSession.query(
+        `update public.practice_settings
+         set company_cnpj = '99999999999999'
+         where organization_id = $1
+         returning company_cnpj`,
+        [organizationId],
+      );
+      expect(crossed).toEqual([]);
+    } finally {
+      await outsiderSession.close();
+    }
+  });
+
+  it("anon não altera professional_cpf, company_cnpj nem quote_mode", async () => {
+    const anonSession = await openSession({ role: "anon" });
+    try {
+      const error = await anonSession.expectError(
+        `update public.practice_settings
+         set professional_cpf = '52998224725', company_cnpj = '11222333000181', quote_mode = 'custom'
+         where organization_id = $1`,
+        [organizationId],
+      );
+      expect(error).toMatch(/permission denied|row-level security|violates/i);
+    } finally {
+      await anonSession.close();
+    }
+  });
+
 });

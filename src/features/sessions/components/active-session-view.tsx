@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ChevronDown, ExternalLink } from "lucide-react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,11 @@ import { DpepForm } from "@/features/sessions/components/dpep-form";
 import { FinalizeSessionWizard } from "@/features/sessions/components/finalize-session-wizard";
 import { SessionAiPanel } from "@/features/sessions/components/session-ai-panel";
 import { SessionElapsedTimer } from "@/features/sessions/components/session-elapsed-timer";
+import { SessionFeatureErrorBoundary } from "@/features/sessions/components/session-feature-error-boundary";
+import {
+  SessionMeetAction,
+  type SessionMeetRequestAction,
+} from "@/features/sessions/components/session-meet-action";
 import { TranscriptPanel } from "@/features/sessions/components/transcript-panel";
 import { WorkingNotesForm } from "@/features/sessions/components/working-notes-form";
 import {
@@ -18,12 +23,12 @@ import {
   type SessionWorkingNotesRow,
   type TranscriptSegmentRow,
 } from "@/features/sessions/contracts";
-import { formatInTimeZone } from "@/lib/utils/timezone";
+import type { SessionMeetBindingRow } from "@/features/sessions/session-meet-contracts";
 import { elapsedSecondsBetween, formatElapsedHms } from "@/lib/utils/elapsed";
+import { formatInTimeZone } from "@/lib/utils/timezone";
 
 export type SessionAppointmentContext = {
   modalityLabel: string;
-  meetUrl: string | null;
 };
 
 export function ActiveSessionView({
@@ -36,6 +41,8 @@ export function ActiveSessionView({
   workingNotes,
   transcriptSegments,
   appointment,
+  meetBinding,
+  requestMeetAction,
   initialElapsedSeconds,
 }: {
   session: ClinicalSessionRow;
@@ -47,6 +54,8 @@ export function ActiveSessionView({
   workingNotes: SessionWorkingNotesRow | null;
   transcriptSegments: TranscriptSegmentRow[];
   appointment: SessionAppointmentContext | null;
+  meetBinding: SessionMeetBindingRow | null;
+  requestMeetAction?: SessionMeetRequestAction;
   initialElapsedSeconds: number;
 }) {
   const router = useRouter();
@@ -129,17 +138,13 @@ export function ActiveSessionView({
               initialElapsedSeconds={initialElapsedSeconds}
               className="text-base text-attention"
             />
-            {appointment?.meetUrl ? (
-              <a
-                href={appointment.meetUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground hover:bg-sage-light/40"
-              >
-                Meet
-                <ExternalLink className="size-3.5" aria-hidden />
-              </a>
-            ) : null}
+            <SessionMeetAction
+              sessionId={session.id}
+              meetUrl={meetBinding?.status === "ready" ? meetBinding.meet_url : null}
+              status={meetBinding?.status ?? null}
+              canCreate={!isFinalized}
+              requestMeetAction={requestMeetAction}
+            />
             {!isFinalized ? <FinalizeSessionWizard sessionId={session.id} /> : null}
           </div>
         </div>
@@ -153,8 +158,8 @@ export function ActiveSessionView({
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
               {isFinalized
-                ? "O DPEP abaixo é o registro estruturado desta sessão. Nada entra no prontuário sem revisão humana."
-                : "Área de trabalho clínico em tempo real. O DPEP abaixo permanece o registro estruturado — nada entra no prontuário sem revisão humana."}
+                ? "Registro estruturado desta sessão."
+                : "Nada entra no prontuário sem revisão."}
             </p>
             {isFinalized ? (
               <div className="mt-4 flex flex-wrap gap-2">
@@ -183,24 +188,27 @@ export function ActiveSessionView({
 
           <section className="rounded-2xl border border-border bg-card p-6">
             <h2 className="mb-4 font-serif text-lg font-bold text-foreground">DPEP</h2>
-            <DpepForm
-              sessionId={session.id}
-              dpep={dpep}
-              version={session.version}
-              disabled={isFinalized}
-              onSaved={refreshAfterSave}
-            />
+            <SessionFeatureErrorBoundary>
+              <DpepForm
+                sessionId={session.id}
+                dpep={dpep}
+                version={session.version}
+                disabled={isFinalized}
+                onSaved={refreshAfterSave}
+              />
+            </SessionFeatureErrorBoundary>
           </section>
         </div>
 
         <aside className="flex w-full flex-col gap-6 border-t border-border bg-card px-4 py-6 sm:px-8 lg:w-[480px] lg:shrink-0 lg:border-l lg:border-t-0">
           <section className="flex flex-col gap-3">
             <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Transcrição em tempo real
+              Transcrição
             </h2>
             <TranscriptPanel
               sessionId={session.id}
               patientId={session.patient_id}
+              organizationId={session.organization_id}
               initialSegments={transcriptSegments}
               disabled={isFinalized}
               feedClassName="max-h-72 lg:max-h-[min(28rem,calc(100dvh-22rem))]"
@@ -220,12 +228,10 @@ export function ActiveSessionView({
           ) : null}
 
           <section className="rounded-2xl border border-border bg-background p-5">
-            <h2 className="mb-4 font-serif text-lg font-bold text-foreground">Session AI</h2>
-            <SessionAiPanel
-              sessionId={session.id}
-              version={session.version}
-              onDpepAppended={refreshAfterSave}
-            />
+            <h2 className="mb-4 font-serif text-lg font-bold text-foreground">Apoio de IA</h2>
+            <SessionFeatureErrorBoundary>
+              <SessionAiPanel sessionId={session.id} />
+            </SessionFeatureErrorBoundary>
           </section>
         </aside>
       </div>

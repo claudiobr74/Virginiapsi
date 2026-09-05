@@ -7,7 +7,6 @@
     "node": ">=22"
   },
   "scripts": {
-    "postinstall": "node scripts/copy-onnx-wasm.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -17,6 +16,7 @@
     "test:watch": "vitest",
     "test:security": "vitest run --config vitest.security.config.ts",
     "test:e2e": "playwright test",
+    "test:e2e:webkit": "E2E_WEBKIT=1 playwright test --project=desktop-webkit",
     "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
     "scan:architecture": "vitest run tests/architecture",
     "scan:client-bundle": "node scripts/check-client-bundle-secrets.mjs",
@@ -24,7 +24,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
-    "@huggingface/transformers": "^4.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.4",
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-label": "^2.1.1",

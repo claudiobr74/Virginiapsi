@@ -41,7 +41,7 @@ export function NavLink({
             : "font-medium text-deep-neutral hover:bg-surface",
       )}
     >
-      <Icon className="size-[18px] shrink-0" aria-hidden />
+      <Icon className="size-5 shrink-0" aria-hidden />
       {item.label}
     </Link>
   );

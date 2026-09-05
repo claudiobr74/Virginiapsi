@@ -58,7 +58,7 @@ Tela mais operacional do produto.
 
 Conteúdos:
 
-- saudação personalizável, nome da profissional e frase curta;
+- saudação personalizável, foto profissional junto ao nome e citação do dia (rotação automática às 00:00 no fuso do consultório, ou texto personalizado);
 - próxima sessão em destaque;
 - linha do tempo de hoje;
 - status de confirmação;
@@ -325,9 +325,9 @@ Subabas:
 
 Seções:
 
-- Meu Perfil
-- Consultório
-- Aparência
+- Meu Perfil — nome de exibição e upload da foto profissional (aparece no Meu Dia, junto ao nome)
+- Consultório — identidade profissional, CPF e CNPJ em campos separados (ambos opcionais)
+- Aparência — citação do dia em rotação automática (30 frases do produto) ou texto personalizado
 - Segurança
 - Equipe e Acessos
 - Integrações

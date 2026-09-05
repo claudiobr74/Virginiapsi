@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractPlaceholders, renderTemplate } from "@/lib/documents/render-template";
+import { extractPlaceholders, hasUnresolvedPlaceholders, renderTemplate } from "@/lib/documents/render-template";
 
 describe("renderTemplate", () => {
   it("substitui placeholders conhecidos", () => {
@@ -51,5 +51,20 @@ describe("extractPlaceholders", () => {
 
   it("retorna vazio quando não há placeholders", () => {
     expect(extractPlaceholders("Texto sem variáveis.")).toEqual([]);
+  });
+});
+
+describe("hasUnresolvedPlaceholders", () => {
+  it("bloqueia emissão quando resta {{variável}}", () => {
+    expect(hasUnresolvedPlaceholders("Cidade: {{organization.city}}")).toBe(true);
+    expect(hasUnresolvedPlaceholders("Texto integralmente preenchido.")).toBe(false);
+  });
+
+  it("pode ser chamado duas vezes (não deixa lastIndex preso)", () => {
+    const text = "Restou {{patient.full_name}} no corpo.";
+    expect(hasUnresolvedPlaceholders(text)).toBe(true);
+    expect(hasUnresolvedPlaceholders(text)).toBe(true);
+    expect(hasUnresolvedPlaceholders("ok")).toBe(false);
+    expect(hasUnresolvedPlaceholders("ok")).toBe(false);
   });
 });

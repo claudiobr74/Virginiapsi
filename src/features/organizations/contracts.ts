@@ -39,6 +39,8 @@ export const shellSettingsRowSchema = z.object({
   session_duration_minutes: z.number().int().positive(),
   greeting_prefix: z.string().nullable(),
   quote: z.string().nullable(),
+  quote_mode: z.enum(["daily", "custom"]).nullable().optional().default("daily"),
+  photo_path: z.string().nullable().optional().default(null),
 });
 
 export type ShellSettings = z.infer<typeof shellSettingsRowSchema>;

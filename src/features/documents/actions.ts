@@ -8,11 +8,12 @@ import {
   createTemplateSchema,
   registerAttachmentSchema,
   saveDraftSchema,
+  signDocumentSchema,
   type DocumentKind,
   type DocumentSensitivity,
 } from "@/features/documents/contracts";
 import { buildDocumentVariables } from "@/features/documents/variables";
-import { renderTemplate } from "@/lib/documents/render-template";
+import { hasUnresolvedPlaceholders, renderTemplate } from "@/lib/documents/render-template";
 import { generateDocumentPdf } from "@/lib/documents/generate-pdf";
 import {
   DOCUMENT_BUCKETS,
@@ -52,6 +53,9 @@ export async function createTemplateAction(input: unknown): Promise<DocumentActi
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
+  const forced = forcedSensitivity(parsed.data.documentKind);
+  const defaultSensitivity = forced ?? parsed.data.defaultSensitivity;
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("document_templates")
@@ -59,7 +63,7 @@ export async function createTemplateAction(input: unknown): Promise<DocumentActi
       organization_id: organizationId,
       name: parsed.data.name,
       document_kind: parsed.data.documentKind,
-      default_sensitivity: parsed.data.defaultSensitivity,
+      default_sensitivity: defaultSensitivity,
       body_template: parsed.data.bodyTemplate,
     })
     .select("id")
@@ -205,6 +209,9 @@ export async function issueDocumentAction(documentId: string): Promise<DocumentA
   const version = await getLatestVersion(documentId);
   if (!version) {
     return { error: "Nenhuma versão para emitir." };
+  }
+  if (hasUnresolvedPlaceholders(version.body_snapshot)) {
+    return { error: "Há placeholders não resolvidos ({{variável}}). Complete-os antes de emitir." };
   }
 
   const pdfBytes = await generateDocumentPdf({
@@ -438,3 +445,40 @@ export async function requestAttachmentDownloadUrlAction(
     return { error: "Não foi possível gerar o link de download agora." };
   }
 }
+
+export async function signDocumentAction(input: unknown): Promise<DocumentActionResult> {
+  const { organizationId, role } = await requireOrgContext();
+  if (!isClinicalPractitioner(role)) {
+    return { error: "Somente a profissional responsável registra a confirmação eletrônica." };
+  }
+  const parsed = signDocumentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+  const document = await getDocument(organizationId, parsed.data.documentId);
+  if (!document) {
+    return { error: "Documento não encontrado." };
+  }
+  if (document.status !== "issued" && document.status !== "signature_pending") {
+    return { error: "Só é possível confirmar um documento já emitido." };
+  }
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("documents")
+    .update({ status: "signed" })
+    .eq("id", document.id)
+    .eq("organization_id", organizationId);
+  if (error) {
+    return { error: "Não foi possível registrar a confirmação agora." };
+  }
+  await logAuditEvent({
+    organizationId,
+    action: "document_signature_registered",
+    resourceType: "document",
+    resourceId: document.id,
+    metadata: { method: "virginiapsi_internal" },
+  });
+  revalidatePath(`/app/documents/${document.id}`);
+  return { id: document.id };
+}
+

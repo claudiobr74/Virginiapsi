@@ -12,7 +12,7 @@ export default function SignupPage() {
   return (
     <AuthScreen>
       <div className="flex flex-col items-center gap-4 text-center">
-        <Logo variant="stacked" width={120} priority />
+        <Logo variant="stacked" width={220} priority />
         <h1 className="font-serif text-2xl font-bold text-foreground">Criar conta</h1>
         <p className="text-sm text-muted-foreground">
           O cadastro não cria um consultório. Depois do login, você entra por

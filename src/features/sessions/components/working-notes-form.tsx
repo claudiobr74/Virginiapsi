@@ -81,10 +81,7 @@ export function WorkingNotesForm({
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-      <p className="text-xs text-muted-foreground">
-        Área de trabalho clínico separada do DPEP e dos dados administrativos. Nunca visível à
-        secretaria — acesso e retenção seguem finalidade e normas profissionais aplicáveis.
-      </p>
+      <p className="text-xs text-muted-foreground">Não visível à secretaria.</p>
 
       {errors.root ? (
         <p
@@ -118,9 +115,9 @@ export function WorkingNotesForm({
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {isDirty ? "Alterações não salvas." : "Sem alterações pendentes."}
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-h-4 text-xs text-muted-foreground">
+          {isDirty ? "Alterações não salvas." : ""}
         </span>
         <Button type="submit" variant="secondary" isLoading={isPending} disabled={disabled}>
           Salvar área clínica

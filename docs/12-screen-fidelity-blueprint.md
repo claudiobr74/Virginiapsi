@@ -52,7 +52,7 @@ Cards passam a largura total com margins 12–16 px. Modais complexos podem ocup
 
 ## 4. Meu Dia
 
-Primeiro bloco: PageHeader Tesseli e saudação. Em seguida, um card de “Próxima sessão” visualmente prioritário, sem parecer alerta. Mostrar horário em JetBrains Mono ou Inter tabular, paciente, modalidade, confirmação, WhatsApp e Meet quando cabível.
+Primeiro bloco: saudação com a foto circular da profissional à esquerda do nome (quando houver; senão, inicial em círculo sage). Em seguida, um card de “Próxima sessão” visualmente prioritário, sem parecer alerta. Mostrar horário em JetBrains Mono ou Inter tabular, paciente, modalidade, confirmação, WhatsApp e Meet quando cabível.
 
 Abaixo, organizar a rotina em seções respiradas:
 - Linha do tempo de hoje;
@@ -160,9 +160,9 @@ Valores usam alinhamento/tabular. Estados atrasado/pendente usam âmbar/vermelho
 ## 14. Configurações
 
 Navegação interna por seções:
-- Meu Perfil;
-- Consultório;
-- Aparência;
+- Meu Perfil (foto profissional + nome de exibição);
+- Consultório (CPF profissional e CNPJ do consultório separados);
+- Aparência (citação do dia automática ou personalizada);
 - Segurança;
 - Equipe e Acessos;
 - Integrações;
@@ -175,9 +175,9 @@ Zona de Risco fica visualmente separada no final, com confirmações fortes.
 
 ## 15. Marca VirgíniaPsi
 
-Usar obrigatoriamente o símbolo oficial `public/brand/virginia-psi-mark.png` e o wordmark composto na UI.
+Usar obrigatoriamente o lockup de exibição `public/brand/virginia-psi-lockup-transparent.png` (símbolo + wordmark no mesmo arquivo). O arquivo-fonte arquivado em `public/brand/source/virginia-psi-lockup-original.png` permanece byte-identical ao PNG enviado.
 
-Não criar placeholder, SVG reinterpretado ou variação de cor do PNG. A imagem deve permanecer íntegra. Para adequação responsiva, modifique somente dimensões do container e preserve a razão de aspecto com `object-fit: contain`.
+Não criar placeholder, SVG reinterpretado, blend ou variação de cor do desenho. Para adequação responsiva, modifique somente dimensões do container e preserve a razão de aspecto com `object-fit: contain`.
 
 ## Gate visual por rota
 

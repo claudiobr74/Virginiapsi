@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  GROQ_TRANSCRIPTION_MODEL,
+  DEFAULT_GROQ_TRANSCRIPTION_MODEL,
   GroqApiError,
+  GroqTimeoutError,
   GroqTranscriptionClient,
 } from "@/lib/integrations/transcription/groq-client";
 import { mockFetch } from "./support/mock-fetch";
@@ -23,8 +24,9 @@ describe("GroqTranscriptionClient", () => {
     expect(init?.method).toBe("POST");
     expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer groq-key");
     const form = init?.body as FormData;
-    expect(form.get("model")).toBe(GROQ_TRANSCRIPTION_MODEL);
+    expect(form.get("model")).toBe(DEFAULT_GROQ_TRANSCRIPTION_MODEL);
     expect(form.get("language")).toBe("pt");
+    expect(form.get("temperature")).toBe("0");
     expect(form.get("file")).toBeInstanceOf(Blob);
   });
 
@@ -46,5 +48,18 @@ describe("GroqTranscriptionClient", () => {
     const [, init] = fetchImpl.mock.calls[0];
     const form = init?.body as FormData;
     expect(form.get("language")).toBeNull();
+  });
+
+  it("mapeia abort de timeout para GroqTimeoutError retryable", async () => {
+    const fetchImpl = mockFetch(async () => {
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      throw error;
+    });
+    const client = new GroqTranscriptionClient({ apiKey: "groq-key", fetchImpl });
+
+    await expect(client.transcribe(new Blob(["x"]), "a.webm")).rejects.toBeInstanceOf(
+      GroqTimeoutError,
+    );
   });
 });

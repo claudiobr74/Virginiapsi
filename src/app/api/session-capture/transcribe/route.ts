@@ -6,11 +6,23 @@ import { isClinicalPractitioner } from "@/features/organizations/roles";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getServerEnv } from "@/lib/env/server";
-import { GroqTranscriptionClient } from "@/lib/integrations/transcription/groq-client";
-import { FALLBACK_AUDIO_BUCKET } from "@/lib/integrations/transcription/fallback-storage";
+import { createGroqTranscriptionClient } from "@/lib/integrations/transcription/create-groq-client";
+import { GroqApiError } from "@/lib/integrations/transcription/groq-client";
+import {
+  deleteImportedAudioObject,
+  FALLBACK_AUDIO_BUCKET,
+} from "@/lib/integrations/transcription/fallback-storage";
+import {
+  extensionFromFilename,
+  filenameForAudioMime,
+  isGroqSupportedAudioMime,
+} from "@/lib/integrations/transcription/groq-audio";
+import { IMPORT_AUDIO_MAX_BYTES } from "@/features/sessions/transcription/constants";
 import { BODY_LIMIT_BYTES, readLimitedJson } from "@/lib/security/request-limits";
 import { invalidJsonResponse, payloadTooLargeResponse } from "@/lib/security/http-responses";
+
+export const runtime = "nodejs";
+export const maxDuration = 120;
 
 const bodySchema = z.object({
   grant: z.string().min(1),
@@ -19,16 +31,14 @@ const bodySchema = z.object({
   storagePath: z.string().min(1),
   sequence: z.number().int().nonnegative(),
   startMs: z.number().int().nonnegative(),
+  filename: z.string().trim().max(180).optional(),
 });
 
 /**
- * Server-side batch transcription for the optional Groq fallback: the
- * browser already uploaded the audio directly to Storage via the signed
- * upload grant, so this endpoint only downloads it (service-role, same
- * bucket with zero direct grants), sends it to Groq, and persists the
- * result as a normal transcript segment. It runs the *same* grant
- * verification as the local-path persistence endpoint — a fallback upload
- * grant authorizes transcribing that one object, nothing else.
+ * External recording import: the browser uploaded audio to private Storage
+ * via a consent-gated signed URL. This route downloads it (service-role),
+ * sends it to Groq, persists the transcript, then deletes the temporary
+ * object. Live capture never uses this path.
  */
 export async function POST(request: NextRequest) {
   const limited = await readLimitedJson(request, BODY_LIMIT_BYTES.jsonTranscribeMetadata);
@@ -58,11 +68,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "scope_mismatch" }, { status: 403 });
   }
 
-  const env = getServerEnv();
-  if (!env.GROQ_API_KEY) {
+  let groq;
+  try {
+    groq = createGroqTranscriptionClient();
+  } catch {
     return NextResponse.json(
-      { error: "fallback_not_configured", message: "Fallback de transcrição não habilitado." },
-      { status: 400 },
+      {
+        error: "transcription_not_configured",
+        message: "A transcrição não está configurada neste ambiente.",
+      },
+      { status: 503 },
     );
   }
 
@@ -75,18 +90,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "download_failed" }, { status: 500 });
   }
 
+  if (audioFile.size > IMPORT_AUDIO_MAX_BYTES) {
+    return payloadTooLargeResponse();
+  }
+
+  const mimeType = audioFile.type || "application/octet-stream";
+  const filename =
+    parsed.data.filename && extensionFromFilename(parsed.data.filename)
+      ? parsed.data.filename
+      : filenameForAudioMime(isGroqSupportedAudioMime(mimeType) ? mimeType : "audio/webm");
+
   const arrayBuffer = await audioFile.arrayBuffer();
   const sha256 = createHash("sha256").update(Buffer.from(arrayBuffer)).digest("hex");
 
-  const groq = new GroqTranscriptionClient({ apiKey: env.GROQ_API_KEY });
   let transcription;
   try {
-    transcription = await groq.transcribe(audioFile, "session-audio.webm", { language: "pt" });
-  } catch {
-    return NextResponse.json({ error: "transcription_failed" }, { status: 502 });
+    transcription = await groq.transcribe(audioFile, filename, { language: "pt", temperature: 0 });
+  } catch (error) {
+    const status = error instanceof GroqApiError && error.status === 429 ? 429 : 502;
+    return NextResponse.json({ error: "transcription_failed" }, { status });
   }
 
-  const text = transcription.text?.trim();
+  const text = transcription.text?.trim() ?? "";
   const durationMs = Math.round((transcription.duration ?? 0) * 1000);
   const supabase = await createSupabaseServerClient();
 
@@ -101,7 +126,12 @@ export async function POST(request: NextRequest) {
   });
 
   if (!text) {
-    return NextResponse.json({ ok: true, text: "" });
+    await deleteImportedAudioObject(parsed.data.storagePath);
+    return NextResponse.json({
+      ok: true,
+      already_processed: false,
+      segment: null,
+    });
   }
 
   const { error: insertError } = await supabase.from("session_transcript_segments").insert({
@@ -119,5 +149,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "persist_failed" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, text });
+  await deleteImportedAudioObject(parsed.data.storagePath);
+
+  return NextResponse.json({
+    ok: true,
+    already_processed: insertError?.code === "23505",
+    segment: {
+      sequence: parsed.data.sequence,
+      text,
+      startMs: parsed.data.startMs,
+      endMs: parsed.data.startMs + durationMs,
+      provider: "groq-batch",
+    },
+  });
 }

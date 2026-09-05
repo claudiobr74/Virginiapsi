@@ -8,8 +8,77 @@
 // project remains pending.
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { crc32, deflateSync } from "node:zlib";
 
 const PORT = Number(process.env.AUTH_STUB_PORT ?? 54331);
+const STUB_ORIGIN = `http://127.0.0.1:${PORT}`;
+const storageObjects = new Map();
+
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length);
+  const typeBuf = Buffer.from(type);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([typeBuf, data])) >>> 0);
+  return Buffer.concat([len, typeBuf, data, crc]);
+}
+
+/** Warm stylized portrait — must not match the sage initial fallback. */
+function e2ePortraitPng(size = 128) {
+  const raw = Buffer.alloc(size * (1 + size * 3));
+  const radius = size / 2 - 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  for (let y = 0; y < size; y++) {
+    const row = y * (1 + size * 3);
+    raw[row] = 0;
+    for (let x = 0; x < size; x++) {
+      const dx = x + 0.5 - cx;
+      const dy = y + 0.5 - cy;
+      const inside = dx * dx + dy * dy <= radius * radius;
+      const i = row + 1 + x * 3;
+      if (!inside) {
+        raw[i] = 245;
+        raw[i + 1] = 247;
+        raw[i + 2] = 242;
+        continue;
+      }
+      const hair = y < size * 0.42 || (y < size * 0.55 && Math.abs(dx) > size * 0.28);
+      const leftEye = (x - size * 0.38) ** 2 + (y - size * 0.52) ** 2 < (size * 0.035) ** 2;
+      const rightEye = (x - size * 0.62) ** 2 + (y - size * 0.52) ** 2 < (size * 0.035) ** 2;
+      const mouth =
+        y > size * 0.68 &&
+        y < size * 0.73 &&
+        Math.abs(dx) < size * 0.12;
+      if (leftEye || rightEye || mouth) {
+        raw[i] = 62;
+        raw[i + 1] = 38;
+        raw[i + 2] = 58;
+      } else if (hair) {
+        raw[i] = 92;
+        raw[i + 1] = 58;
+        raw[i + 2] = 122;
+      } else {
+        raw[i] = 232;
+        raw[i + 1] = 176;
+        raw[i + 2] = 148;
+      }
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0);
+  ihdr.writeUInt32BE(size, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(raw)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+const E2E_PORTRAIT_PNG = e2ePortraitPng();
 
 function makeUser(email, fullName) {
   return {
@@ -67,6 +136,9 @@ function defaultPracticeSettings(organizationId, extras = {}) {
     monthly_goal: extras.monthly_goal ?? null,
     photo_path: null,
     signature_path: null,
+    professional_cpf: extras.professional_cpf ?? null,
+    company_cnpj: extras.company_cnpj ?? null,
+    quote_mode: extras.quote_mode ?? "daily",
     inactivity_timeout_minutes: extras.inactivity_timeout_minutes ?? 15,
     secretary_finance_access: extras.secretary_finance_access ?? "none",
     session_audio_fallback_retention_days:
@@ -314,6 +386,20 @@ for (const name of ["Supervisor Um", "Supervisor Dois", "Supervisor Tres"]) {
     birth_date: "1982-01-01",
   });
 }
+
+const PORTRAIT_PATIENT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+seedPatient(ADMIN_ORG_ID, {
+  id: PORTRAIT_PATIENT_ID,
+  preferred_name: "Retrato Com Foto",
+  full_name: "Retrato Com Foto Paciente",
+  birth_date: "1994-04-04",
+  photo_path: `${ADMIN_ORG_ID}/${PORTRAIT_PATIENT_ID}/portrait-e2e.png`,
+});
+
+const professionalSettings = practiceSettingsByOrg.get(ADMIN_ORG_ID);
+if (professionalSettings) {
+  professionalSettings.photo_path = `${ADMIN_ORG_ID}/portrait-e2e.png`;
+}
 clinicalProfiles.set(
   [...patientsByOrg.get(ADMIN_ORG_ID).values()][0].id,
   {
@@ -419,6 +505,10 @@ const documentsByOrg = new Map();
 const documentVersionsByOrg = new Map();
 /** organizationId -> Map<fileId, row> */
 const documentFilesByOrg = new Map();
+const documentBrandingByOrg = new Map();
+const documentLogosByOrg = new Map();
+const documentFavoritesByOrg = new Map();
+const documentDeliveryByOrg = new Map();
 /** organizationId -> Map<attachmentId, row> */
 const patientAttachmentsByOrg = new Map();
 /** organizationId -> Map<fileId, row> */
@@ -438,8 +528,8 @@ const financialClosingsByOrg = new Map();
 /** organizationId -> Map<exportId, row> */
 const logicalExportsByOrg = new Map();
 
-const FORCED_CLINICAL_KINDS = new Set(["laudo", "relatorio", "atestado", "encaminhamento"]);
-const FORCED_ADMINISTRATIVE_KINDS = new Set(["recibo"]);
+const FORCED_CLINICAL_KINDS = new Set(["laudo", "relatorio", "atestado", "encaminhamento", "parecer"]);
+const FORCED_ADMINISTRATIVE_KINDS = new Set(["recibo", "autorizacao", "requerimento", "protocolo"]);
 
 function isSensitivityVisible(role, sensitivity) {
   return isClinicalRole(role) || sensitivity === "administrative";
@@ -543,7 +633,7 @@ function refreshChargeStatus(charge) {
 }
 
 function seedAppointment(organizationId, overrides) {
-  const id = randomUUID();
+  const id = overrides.id ?? randomUUID();
   const now = new Date().toISOString();
   const appointment = {
     id,
@@ -560,6 +650,7 @@ function seedAppointment(organizationId, overrides) {
     meet_url: null,
     meet_status: "none",
     summary_snapshot: null,
+    google_deleted_at: null,
     sync_status: "synced",
     create_idempotency_key: randomUUID(),
     created_at: now,
@@ -581,13 +672,15 @@ function getConnection(organizationId) {
       scopes: [],
       last_synced_at: null,
       last_sync_error: null,
+      cancelled_google_color_ids: [],
+      unavailable_google_color_ids: [],
     }
   );
 }
 
-// Seed: one appointment today at 09:00 America/Sao_Paulo (TESSELI) and one
-// external Google event later the same day, so the default day view (today)
-// has something to render without any navigation. Sao Paulo has observed no
+// Seed: TESSELI + Google events on today's São Paulo civil date. Future slots
+// are relative to now so Agenda V2 green/blue (ends_at vs clock) does not
+// flake after a fixed 22:00/23:00 local wall time. São Paulo has observed no
 // DST since 2019 (fixed UTC-3), so the offset below is always correct.
 function todaySaoPauloDateStr() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -600,31 +693,165 @@ function todaySaoPauloDateStr() {
   return `${map.year}-${map.month}-${map.day}`;
 }
 
-{
-  const today = todaySaoPauloDateStr();
-  const starts = new Date(`${today}T09:00:00-03:00`);
-  const ends = new Date(starts.getTime() + 50 * 60 * 1000);
-  const [beatriz] = patientsByOrg.get(ADMIN_ORG_ID).values();
-
-  seedAppointment(ADMIN_ORG_ID, {
-    patient_id: beatriz.id,
-    starts_at: starts.toISOString(),
-    ends_at: ends.toISOString(),
-    summary_snapshot: `${beatriz.full_name} • ${beatriz.public_code}`,
-  });
-
-  const externalStart = new Date(`${today}T11:00:00-03:00`);
-  const externalEnd = new Date(externalStart.getTime() + 60 * 60 * 1000);
-  seedAppointment(ADMIN_ORG_ID, {
-    origin: "GOOGLE_EXTERNAL",
-    managed_by_tesseli: false,
-    google_calendar_id: "primary",
-    google_event_id: "external-evt-1",
-    summary_snapshot: "Reunião do conselho regional",
-    starts_at: externalStart.toISOString(),
-    ends_at: externalEnd.toISOString(),
-  });
+function futureRangeOnCivilDay(today, leadMinutes, durationMinutes) {
+  const nowMs = Date.now();
+  const dayEndMs = new Date(`${today}T23:59:50-03:00`).getTime();
+  const durationMs = durationMinutes * 60 * 1000;
+  let startMs = nowMs + leadMinutes * 60 * 1000;
+  let endMs = startMs + durationMs;
+  if (endMs > dayEndMs) {
+    endMs = dayEndMs;
+    startMs = Math.max(nowMs + 15_000, endMs - durationMs);
+  }
+  if (endMs <= nowMs) {
+    startMs = nowMs + 15_000;
+    endMs = startMs + durationMs;
+  }
+  return {
+    starts_at: new Date(startMs).toISOString(),
+    ends_at: new Date(endMs).toISOString(),
+  };
 }
+
+function pastRangeOnCivilDay(today, durationMinutes) {
+  const nowMs = Date.now();
+  const dayStartMs = new Date(`${today}T00:00:00-03:00`).getTime();
+  const durationMs = durationMinutes * 60 * 1000;
+  let endMs = nowMs - 30_000;
+  let startMs = endMs - durationMs;
+  if (startMs < dayStartMs) {
+    startMs = dayStartMs;
+    endMs = Math.min(nowMs - 5_000, startMs + durationMs);
+  }
+  if (endMs <= startMs) {
+    endMs = startMs + 60_000;
+  }
+  return {
+    starts_at: new Date(startMs).toISOString(),
+    ends_at: new Date(endMs).toISOString(),
+  };
+}
+
+const E2E_AGENDA_FIXTURE_IDS = {
+  beatrizFuture: "aaaaaaaa-0001-4000-8000-000000000001",
+  consultaB: "aaaaaaaa-0001-4000-8000-000000000002",
+  consultaC: "aaaaaaaa-0001-4000-8000-000000000003",
+  desmarcou: "aaaaaaaa-0001-4000-8000-000000000004",
+  googleExternal: "aaaaaaaa-0001-4000-8000-000000000005",
+};
+
+/** When true, the Google fixture is the next countable session today. */
+let preferGoogleNextSession = false;
+
+function upsertFixtureTimes(organizationId, id, fields, createOverrides) {
+  const table = getOrCreateOrgMap(appointmentsByOrg, organizationId);
+  const existing = table.get(id);
+  if (existing) {
+    Object.assign(existing, fields, { updated_at: new Date().toISOString() });
+    return existing;
+  }
+  return seedAppointment(organizationId, { id, ...createOverrides, ...fields });
+}
+
+function ensureTodayAgendaFixtures(organizationId) {
+  const today = todaySaoPauloDateStr();
+  const patients = patientsByOrg.get(organizationId);
+  if (!patients) {
+    return;
+  }
+  const [beatriz] = patients.values();
+  const beatrizLead = preferGoogleNextSession ? 90 : 20;
+  const googleLead = preferGoogleNextSession ? 12 : 75;
+  const futureBeatriz = futureRangeOnCivilDay(today, beatrizLead, 40);
+  const past = pastRangeOnCivilDay(today, 50);
+  const futureGoogle = futureRangeOnCivilDay(today, googleLead, 45);
+  const cancelledStart = new Date(`${today}T15:00:00-03:00`);
+  const desmarcouStart = new Date(`${today}T16:30:00-03:00`);
+
+  upsertFixtureTimes(
+    organizationId,
+    E2E_AGENDA_FIXTURE_IDS.beatrizFuture,
+    {
+      starts_at: futureBeatriz.starts_at,
+      ends_at: futureBeatriz.ends_at,
+      patient_id: beatriz.id,
+      summary_snapshot: `${beatriz.full_name} • ${beatriz.public_code}`,
+    },
+    { status: "scheduled" },
+  );
+  upsertFixtureTimes(
+    organizationId,
+    E2E_AGENDA_FIXTURE_IDS.consultaB,
+    {
+      starts_at: past.starts_at,
+      ends_at: past.ends_at,
+      patient_id: beatriz.id,
+      summary_snapshot: "Consulta B — realizada",
+    },
+    { status: "scheduled" },
+  );
+  upsertFixtureTimes(
+    organizationId,
+    E2E_AGENDA_FIXTURE_IDS.consultaC,
+    {
+      starts_at: cancelledStart.toISOString(),
+      ends_at: new Date(cancelledStart.getTime() + 50 * 60 * 1000).toISOString(),
+      patient_id: beatriz.id,
+      summary_snapshot: "Consulta C — cancelada",
+    },
+    { status: "cancelled" },
+  );
+  upsertFixtureTimes(
+    organizationId,
+    E2E_AGENDA_FIXTURE_IDS.desmarcou,
+    {
+      starts_at: desmarcouStart.toISOString(),
+      ends_at: new Date(desmarcouStart.getTime() + 50 * 60 * 1000).toISOString(),
+      summary_snapshot: "Vinicius-2(desmarcou)",
+    },
+    {},
+  );
+  upsertFixtureTimes(
+    organizationId,
+    E2E_AGENDA_FIXTURE_IDS.googleExternal,
+    {
+      starts_at: futureGoogle.starts_at,
+      ends_at: futureGoogle.ends_at,
+      summary_snapshot: "Reunião do conselho regional",
+    },
+    {
+      origin: "GOOGLE_EXTERNAL",
+      managed_by_tesseli: false,
+      google_calendar_id: "primary",
+      google_event_id: "external-evt-1",
+    },
+  );
+}
+
+ensureTodayAgendaFixtures(ADMIN_ORG_ID);
+
+seedAppointment(ADMIN_ORG_ID, {
+  patient_id: PORTRAIT_PATIENT_ID,
+  origin: "GOOGLE_EXTERNAL",
+  managed_by_tesseli: false,
+  google_calendar_id: "primary",
+  google_event_id: "linked-portrait-evt",
+  starts_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+  ends_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000 + 50 * 60 * 1000).toISOString(),
+  status: "scheduled",
+  summary_snapshot: "Sessão Google vinculada",
+});
+seedAppointment(ADMIN_ORG_ID, {
+  patient_id: PORTRAIT_PATIENT_ID,
+  origin: "GOOGLE_EXTERNAL",
+  managed_by_tesseli: false,
+  google_calendar_id: "primary",
+  google_event_id: "linked-portrait-evt-next",
+  starts_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+  ends_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000 + 50 * 60 * 1000).toISOString(),
+  status: "scheduled",
+  summary_snapshot: "Sessão Google futura",
+});
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -782,6 +1009,38 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === "/groq/openai/v1/audio/transcriptions" && req.method === "POST") {
+    await readBody(req);
+    json(res, 200, { text: "Trecho transcrito no stub Groq.", language: "pt", duration: 1.5 });
+    return;
+  }
+
+  // Playwright-only hook: toggle the seeded admin Google connection so Meu Dia
+  // and Agenda can share the same visibility rule (connected → TESSELI +
+  // GOOGLE_EXTERNAL). Always reset to disconnected in the test `finally`.
+  if (pathname === "/e2e/google-connection" && req.method === "POST") {
+    const body = await readBody(req);
+    const status = body.status === "connected" ? "connected" : "disconnected";
+    preferGoogleNextSession = status === "connected" && body.nextSession === "google";
+    if (status === "disconnected") {
+      preferGoogleNextSession = false;
+      const table = appointmentsByOrg.get(ADMIN_ORG_ID);
+      const google = table?.get(E2E_AGENDA_FIXTURE_IDS.googleExternal);
+      if (google) {
+        google.patient_id = null;
+      }
+    }
+    const current = getConnection(ADMIN_ORG_ID);
+    connectionsByOrg.set(ADMIN_ORG_ID, {
+      ...current,
+      status,
+      calendar_id: status === "connected" ? current.calendar_id ?? "primary" : current.calendar_id,
+      calendar_summary: status === "connected" ? current.calendar_summary ?? "Agenda principal" : current.calendar_summary,
+    });
+    json(res, 200, { organization_id: ADMIN_ORG_ID, status });
+    return;
+  }
+
   // ------------------------------------------- Storage (Fase 8/9) ---
   // Minimal stand-ins for the Storage endpoints the admin/browser clients
   // call — just enough to exercise upload/download UI flows end to end.
@@ -790,9 +1049,13 @@ const server = createServer(async (req, res) => {
   if (pathname.startsWith("/storage/v1/object/upload/sign/") && req.method === "POST") {
     const objectPath = pathname.replace("/storage/v1/object/upload/sign/", "");
     await readBody(req);
+    const signedUrl = `${STUB_ORIGIN}/storage/v1/object/upload/sign/${objectPath}?token=fake-upload-token`;
     json(res, 200, {
       url: `/object/upload/sign/${objectPath}?token=fake-upload-token`,
+      signedUrl,
+      signedURL: signedUrl,
       token: "fake-upload-token",
+      path: objectPath,
     });
     return;
   }
@@ -801,12 +1064,49 @@ const server = createServer(async (req, res) => {
   // is a separate POST) — different HTTP method on the same path prefix.
   if (pathname.startsWith("/storage/v1/object/upload/sign/") && req.method === "PUT") {
     const objectPath = pathname.replace("/storage/v1/object/upload/sign/", "");
+    const chunks = [];
     await new Promise((resolve) => {
-      req.on("data", () => {});
+      req.on("data", (chunk) => chunks.push(chunk));
       req.on("end", resolve);
+    });
+    storageObjects.set(objectPath, {
+      bytes: Buffer.concat(chunks),
+      type: req.headers["content-type"] || "application/octet-stream",
     });
     json(res, 200, { Key: objectPath });
     return;
+  }
+
+  if (
+    pathname.startsWith("/storage/v1/object/") &&
+    req.method === "GET" &&
+    !pathname.startsWith("/storage/v1/object/sign/") &&
+    !pathname.startsWith("/storage/v1/object/upload/")
+  ) {
+    const objectPath = pathname
+      .replace("/storage/v1/object/", "")
+      .replace(/^authenticated\//, "");
+    const stored = storageObjects.get(objectPath);
+    res.writeHead(200, {
+      "Content-Type": stored?.type || "audio/webm",
+      "Cache-Control": "no-store",
+      ...CORS_HEADERS,
+    });
+    res.end(stored?.bytes ?? Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]));
+    return;
+  }
+
+  if (pathname.startsWith("/storage/v1/object/sign/") && req.method === "GET") {
+    const objectPath = pathname.replace("/storage/v1/object/sign/", "");
+    if (/\.(png|jpe?g|webp)$/i.test(objectPath)) {
+      res.writeHead(200, {
+        "Content-Type": "image/png",
+        "Cache-Control": "no-store",
+        ...CORS_HEADERS,
+      });
+      res.end(E2E_PORTRAIT_PNG);
+      return;
+    }
   }
 
   if (pathname.startsWith("/storage/v1/object/sign/") && req.method === "POST") {
@@ -827,6 +1127,8 @@ const server = createServer(async (req, res) => {
   }
 
   if (pathname.startsWith("/storage/v1/object/") && req.method === "DELETE") {
+    const objectPath = pathname.replace("/storage/v1/object/", "");
+    storageObjects.delete(objectPath);
     await readBody(req);
     json(res, 200, []);
     return;
@@ -1048,8 +1350,10 @@ const server = createServer(async (req, res) => {
         session_duration_minutes:
           practiceSettingsByOrg.get(body.org_id)?.session_duration_minutes ??
           organization.session_duration_minutes,
+        photo_path: practiceSettingsByOrg.get(body.org_id)?.photo_path ?? null,
         greeting_prefix: practiceSettingsByOrg.get(body.org_id)?.greeting_prefix ?? null,
         quote: practiceSettingsByOrg.get(body.org_id)?.quote ?? null,
+        quote_mode: practiceSettingsByOrg.get(body.org_id)?.quote_mode ?? "daily",
       },
     ]);
     return;
@@ -1445,6 +1749,9 @@ const server = createServer(async (req, res) => {
     } else {
       const organizationId = parseEqFilter(searchParams.get("organization_id"));
       if (organizationId && orgIds.has(organizationId)) {
+        if (organizationId === ADMIN_ORG_ID) {
+          ensureTodayAgendaFixtures(organizationId);
+        }
         const table = appointmentsByOrg.get(organizationId) ?? new Map();
         rows = applyOrder(
           [...table.values()].filter((row) => matchesFilters(row, searchParams)),
@@ -1511,6 +1818,10 @@ const server = createServer(async (req, res) => {
       const table = appointmentsByOrg.get(orgId);
       if (table?.has(idFilter)) {
         const current = table.get(idFilter);
+        if (current.origin === "GOOGLE_EXTERNAL") {
+          json(res, 200, wantsSingleObject(req) ? { message: "not found" } : []);
+          return;
+        }
         updated = { ...current, ...body, id: current.id, updated_at: new Date().toISOString() };
         table.set(idFilter, updated);
         break;
@@ -1522,6 +1833,35 @@ const server = createServer(async (req, res) => {
       return;
     }
     json(res, 200, wantsSingleObject(req) ? updated : [updated]);
+    return;
+  }
+
+  if (pathname === "/rest/v1/appointments" && req.method === "DELETE") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const idFilter = parseEqFilter(searchParams.get("id"));
+    let deleted = null;
+    for (const orgId of (memberships.get(user.id) ?? []).map((m) => m.organization_id)) {
+      const table = appointmentsByOrg.get(orgId);
+      if (table?.has(idFilter)) {
+        const current = table.get(idFilter);
+        if (current.origin === "GOOGLE_EXTERNAL") {
+          json(res, 200, wantsSingleObject(req) ? { message: "not found" } : []);
+          return;
+        }
+        deleted = current;
+        table.delete(idFilter);
+        break;
+      }
+    }
+    if (!deleted) {
+      json(res, wantsSingleObject(req) ? 406 : 200, wantsSingleObject(req) ? { message: "not found" } : []);
+      return;
+    }
+    json(res, 200, wantsSingleObject(req) ? deleted : [deleted]);
     return;
   }
 
@@ -1575,6 +1915,93 @@ const server = createServer(async (req, res) => {
       return;
     }
     json(res, 200, randomUUID());
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/update_external_appointment_mirror" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const organizationId = body.org_id;
+    const isMember = (memberships.get(user.id) ?? []).some(
+      (row) => row.active && row.organization_id === organizationId,
+    );
+    const table = appointmentsByOrg.get(organizationId);
+    const current = table?.get(body.p_appointment_id);
+    if (!isMember || !current || current.origin !== "GOOGLE_EXTERNAL") {
+      json(res, 400, { message: "external appointment mirror not found" });
+      return;
+    }
+    const updated = {
+      ...current,
+      starts_at: body.p_starts_at ?? current.starts_at,
+      ends_at: body.p_ends_at ?? current.ends_at,
+      summary_snapshot: body.p_summary_snapshot ?? current.summary_snapshot,
+      status: body.p_status ?? current.status,
+      google_etag: body.p_google_etag ?? current.google_etag,
+      google_color_id: body.p_google_color_id ?? current.google_color_id,
+      patient_id: body.p_patient_id ?? current.patient_id,
+      modality: body.p_modality ?? current.modality,
+      sync_status: "synced",
+    };
+    table.set(current.id, updated);
+    json(res, 200, current.id);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/link_external_appointment_patient" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const organizationId = body.org_id;
+    const isMember = (memberships.get(user.id) ?? []).some(
+      (row) => row.active && row.organization_id === organizationId,
+    );
+    const table = appointmentsByOrg.get(organizationId);
+    const current = table?.get(body.p_appointment_id);
+    const patient = patientsByOrg.get(organizationId)?.get(body.p_patient_id);
+    if (!isMember) {
+      json(res, 400, { message: "external appointment link requires an active membership" });
+      return;
+    }
+    if (!patient || patient.organization_id !== organizationId) {
+      json(res, 400, { message: "appointment patient must belong to the same organization" });
+      return;
+    }
+    if (!current || current.origin !== "GOOGLE_EXTERNAL" || current.google_deleted_at) {
+      json(res, 400, { message: "external appointment not found" });
+      return;
+    }
+    table.set(current.id, { ...current, patient_id: body.p_patient_id });
+    json(res, 200, current.id);
+    return;
+  }
+
+  if (pathname === "/rest/v1/rpc/delete_external_appointment_mirror" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    const organizationId = body.org_id;
+    const isMember = (memberships.get(user.id) ?? []).some(
+      (row) => row.active && row.organization_id === organizationId,
+    );
+    const table = appointmentsByOrg.get(organizationId);
+    const current = table?.get(body.p_appointment_id);
+    if (!isMember || !current || current.origin !== "GOOGLE_EXTERNAL") {
+      json(res, 400, { message: "external appointment mirror not found" });
+      return;
+    }
+    table.delete(current.id);
+    json(res, 200, current.id);
     return;
   }
 
@@ -2185,6 +2612,29 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === "/rest/v1/session_meet_bindings" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    // The active-session smoke test starts without a Meet binding. Mutations
+    // are covered by component/integration tests and RLS by the real-Postgres
+    // security suite rather than by this non-security stub.
+    json(res, 200, []);
+    return;
+  }
+
+  if (pathname === "/rest/v1/session_meet_transcript_entries" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(res, 401, { message: "invalid JWT" });
+      return;
+    }
+    json(res, 200, []);
+    return;
+  }
+
   if (pathname === "/rest/v1/session_transcript_segments" && req.method === "GET") {
     const user = bearerUser(req);
     if (!user) {
@@ -2769,6 +3219,22 @@ const server = createServer(async (req, res) => {
       canceled_at: null,
       created_at: now,
       updated_at: now,
+      system_template_key: body.system_template_key ?? null,
+      visual_profile: body.visual_profile ?? "clinica",
+      logo_mode: body.logo_mode ?? "clinic_default",
+      logo_align: body.logo_align ?? "left",
+      logo_size: body.logo_size ?? "medium",
+      recipient_name: body.recipient_name ?? null,
+      purpose: body.purpose ?? null,
+      structured_data: body.structured_data ?? {},
+      drafting_mode: body.drafting_mode ?? "manual",
+      length_preset: body.length_preset ?? "completo",
+      tone: body.tone ?? "tecnico_clinico",
+      cover_enabled: body.cover_enabled ?? false,
+      layout_format: body.layout_format ?? "tradicional",
+      reviewed_by: null,
+      reviewed_at: null,
+      review_sha256: null,
     };
     getOrCreateOrgMap(documentsByOrg, body.organization_id).set(row.id, row);
     return json(res, 201, wantsSingleObject(req) ? row : [row]);
@@ -2838,6 +3304,8 @@ const server = createServer(async (req, res) => {
       version: body.version,
       body_snapshot: body.body_snapshot,
       variables_snapshot: body.variables_snapshot ?? {},
+      sections_snapshot: body.sections_snapshot ?? [],
+      content_sha256: body.content_sha256 ?? null,
       created_by: user.id,
       created_at: new Date().toISOString(),
     };
@@ -2879,6 +3347,136 @@ const server = createServer(async (req, res) => {
       ...body,
     };
     getOrCreateOrgMap(documentFilesByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_branding" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const row = organizationId ? documentBrandingByOrg.get(organizationId) : null;
+    if (wantsSingleObject(req)) {
+      if (!row) {
+        return json(res, 406, {
+          code: "PGRST116",
+          message: "JSON object requested, multiple (or no) rows returned",
+          details: "Results contain 0 rows",
+        });
+      }
+      return json(res, 200, row);
+    }
+    return json(res, 200, row ? [row] : []);
+  }
+
+  if (pathname === "/rest/v1/document_branding" && (req.method === "POST" || req.method === "PATCH" || req.method === "PUT")) {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = body.organization_id || parseEqFilter(searchParams.get("organization_id"));
+    if (membershipRole(user.id, organizationId) !== "psychologist_admin") {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const current = documentBrandingByOrg.get(organizationId) ?? { organization_id: organizationId };
+    const row = { ...current, ...body, organization_id: organizationId };
+    documentBrandingByOrg.set(organizationId, row);
+    return json(res, 200, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_logos" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const role = organizationId ? membershipRole(user.id, organizationId) : null;
+    if (!organizationId || !role) return json(res, 200, []);
+    return json(res, 200, [...(documentLogosByOrg.get(organizationId)?.values() ?? [])]);
+  }
+
+  if (pathname === "/rest/v1/document_logos" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    if (membershipRole(user.id, body.organization_id) !== "psychologist_admin") {
+      return json(res, 403, { message: "row-level security policy violation" });
+    }
+    const row = {
+      id: randomUUID(),
+      is_default: false,
+      created_at: new Date().toISOString(),
+      ...body,
+    };
+    getOrCreateOrgMap(documentLogosByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_template_favorites" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const rows = [...(documentFavoritesByOrg.get(organizationId)?.values() ?? [])].filter(
+      (row) => row.user_id === user.id,
+    );
+    return json(res, 200, rows);
+  }
+
+  if (pathname === "/rest/v1/document_template_favorites" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const row = { ...body, user_id: user.id, created_at: new Date().toISOString() };
+    const key = `${row.user_id}:${row.template_key}`;
+    getOrCreateOrgMap(documentFavoritesByOrg, body.organization_id).set(key, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_template_favorites" && req.method === "DELETE") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const organizationId = parseEqFilter(searchParams.get("organization_id"));
+    const templateKey = parseEqFilter(searchParams.get("template_key"));
+    const table = documentFavoritesByOrg.get(organizationId);
+    if (table) table.delete(`${user.id}:${templateKey}`);
+    return json(res, 204, null);
+  }
+
+  if (pathname === "/rest/v1/document_delivery" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const documentId = parseEqFilter(searchParams.get("document_id"));
+    const rows = [];
+    for (const table of documentDeliveryByOrg.values()) {
+      for (const row of table.values()) {
+        if (row.document_id === documentId) rows.push(row);
+      }
+    }
+    return json(res, 200, rows);
+  }
+
+  if (pathname === "/rest/v1/document_delivery" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const row = { id: randomUUID(), created_at: new Date().toISOString(), created_by: user.id, ...body };
+    getOrCreateOrgMap(documentDeliveryByOrg, body.organization_id).set(row.id, row);
+    return json(res, 201, wantsSingleObject(req) ? row : [row]);
+  }
+
+  if (pathname === "/rest/v1/document_external_signature_metadata" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    return json(res, 200, []);
+  }
+
+  if (pathname === "/rest/v1/document_external_signature_metadata" && req.method === "POST") {
+    const user = bearerUser(req);
+    const body = await readBody(req);
+    if (!user) return json(res, 401, { message: "invalid JWT" });
+    const row = {
+      id: randomUUID(),
+      created_at: new Date().toISOString(),
+      registered_at: new Date().toISOString(),
+      created_by: user.id,
+      ...body,
+    };
     return json(res, 201, wantsSingleObject(req) ? row : [row]);
   }
 

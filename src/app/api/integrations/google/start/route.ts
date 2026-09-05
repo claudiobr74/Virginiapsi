@@ -1,44 +1,66 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireUser } from "@/lib/auth/require-user";
-import { isLoopbackHttpUrl } from "@/lib/env/schema";
 import { getGoogleCalendarEnv } from "@/lib/env/server";
-import { buildAuthorizationUrl } from "@/lib/integrations/google/oauth";
+import {
+  buildAuthorizationUrl,
+  verifyOAuthState,
+} from "@/lib/integrations/google/oauth";
+import { resolveGoogleCalendarOAuthStart } from "@/lib/integrations/google/oauth-start";
 
-function redirectAgendaError(request: NextRequest) {
-  return NextResponse.redirect(new URL("/app/agenda?google=error", request.url));
+function redirectAgendaError(request: NextRequest, detail = "invalid_state") {
+  const url = new URL("/app/agenda", request.url);
+  url.searchParams.set("google", "error");
+  url.searchParams.set("google_detail", detail);
+  return NextResponse.redirect(url);
 }
 
 /**
- * Only ever reached via a redirect from startGoogleConnectionAction(), which
- * already enforced the psychologist_admin check and signed the `state`. This
- * route still requires a real authenticated session on its own — never trust
- * that the redirect chain alone proves authorization.
+ * startGoogleConnectionAction() is the authenticated/admin boundary. It signs
+ * user + organization + return origin into a short-lived HMAC state before the
+ * browser can leave the authenticated host. A Vercel preview may then hand
+ * that signed state to the canonical host used by Google without attempting
+ * to share Supabase cookies between hostnames.
  */
 export async function GET(request: NextRequest) {
-  await requireUser();
-
   const state = request.nextUrl.searchParams.get("state");
   if (!state) {
-    return redirectAgendaError(request);
+    return redirectAgendaError(request, "missing_state");
   }
 
   let env;
   try {
     env = getGoogleCalendarEnv();
   } catch {
-    return redirectAgendaError(request);
+    return redirectAgendaError(request, "invalid_env");
   }
 
-  if (
-    isLoopbackHttpUrl(env.GOOGLE_OAUTH_REDIRECT_URI) &&
-    !isLoopbackHttpUrl(request.nextUrl.origin)
-  ) {
-    return redirectAgendaError(request);
+  const verified = verifyOAuthState(state, env.GOOGLE_TOKEN_ENCRYPTION_KEY);
+  if (!verified.valid || !verified.payload) {
+    return redirectAgendaError(request, verified.reason ?? "invalid_state");
+  }
+
+  let decision;
+  try {
+    decision = resolveGoogleCalendarOAuthStart({
+      canonicalAppUrl: env.NEXT_PUBLIC_APP_URL,
+      requestOrigin: request.nextUrl.origin,
+    });
+  } catch {
+    return redirectAgendaError(request, "invalid_env");
+  }
+
+  if (decision.type === "redirect_to_canonical") {
+    const canonicalStart = new URL(decision.url);
+    canonicalStart.searchParams.set("state", state);
+    return NextResponse.redirect(canonicalStart);
+  }
+
+  if (decision.type !== "authorize") {
+    return redirectAgendaError(request, "invalid_redirect_uri");
   }
 
   const authorizationUrl = buildAuthorizationUrl({
     clientId: env.GOOGLE_CLIENT_ID,
-    redirectUri: env.GOOGLE_OAUTH_REDIRECT_URI,
+    redirectUri: decision.redirectUri,
     state,
   });
 

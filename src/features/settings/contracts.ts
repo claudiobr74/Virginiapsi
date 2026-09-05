@@ -4,7 +4,10 @@ import {
   SECRETARY_FINANCE_ACCESS_VALUES,
   type SecretaryFinanceAccess,
 } from "@/features/organizations/contracts";
+import type { ConnectionRow } from "@/features/calendar/contracts";
 import type { IntegrationDiagnostics } from "@/features/settings/diagnostics";
+import { QUOTE_MODES } from "@/features/appearance/psychology-quotes";
+import { isValidCnpj, isValidCpf } from "@/lib/utils/brazil-tax-id";
 
 export const LOGICAL_EXPORT_SCOPES = ["organization", "patient"] as const;
 export type LogicalExportScope = (typeof LOGICAL_EXPORT_SCOPES)[number];
@@ -45,7 +48,18 @@ export const clinicFormSchema = z.object({
   professionalName: z.string().trim().max(160).optional().or(z.literal("")),
   subtitle: z.string().trim().max(160).optional().or(z.literal("")),
   crp: z.string().trim().max(40).optional().or(z.literal("")),
-  taxId: z.string().trim().max(20).optional().or(z.literal("")),
+  professionalCpf: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((value) => !value || isValidCpf(value), "CPF inválido."),
+  companyCnpj: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((value) => !value || isValidCnpj(value), "CNPJ inválido."),
   pixKey: z.string().trim().max(120).optional().or(z.literal("")),
   clinicName: z.string().trim().max(160).optional().or(z.literal("")),
   companyName: z.string().trim().max(160).optional().or(z.literal("")),
@@ -64,6 +78,7 @@ export type ClinicFormValues = z.infer<typeof clinicFormSchema>;
 
 export const appearanceFormSchema = z.object({
   greetingPrefix: z.string().trim().max(40).optional().or(z.literal("")),
+  quoteMode: z.enum(QUOTE_MODES),
   quote: z.string().trim().max(280).optional().or(z.literal("")),
 });
 export type AppearanceFormValues = z.infer<typeof appearanceFormSchema>;
@@ -126,11 +141,15 @@ export const practiceSettingsRowSchema = z.object({
   subtitle: nullableText,
   crp: nullableText,
   tax_id: nullableText,
+  professional_cpf: nullableText,
+  company_cnpj: nullableText,
   pix_key: nullableText,
   clinic_name: nullableText,
   company_name: nullableText,
   greeting_prefix: nullableText,
   quote: nullableText,
+  quote_mode: z.enum(QUOTE_MODES).optional().default("daily"),
+  photo_path: nullableText,
   session_duration_minutes: z.coerce.number().int().optional().default(50),
   monthly_goal: z.union([z.string(), z.number()]).nullable().optional().default(null),
   inactivity_timeout_minutes: z.coerce.number().int().optional().default(15),
@@ -214,15 +233,21 @@ export interface SettingsSnapshot {
   practice: PracticeSettingsRow;
   team: TeamMemberRow[];
   diagnostics: IntegrationDiagnostics;
+  googleConnection: ConnectionRow | null;
   exports: LogicalExportRow[];
   patients: { id: string; preferred_name: string; public_code: string }[];
   secretaryFinanceAccess: SecretaryFinanceAccess;
+  documentBranding?: import("@/features/documents/branding-contracts").DocumentBrandingRow | null;
+  documentLogos?: import("@/features/documents/branding-contracts").DocumentLogoRow[];
+  professionalPhotoUrl?: string | null;
 }
 
 export interface SettingsActionResult {
   error?: string;
   id?: string;
   url?: string;
+  path?: string;
+  token?: string;
 }
 
 export interface EliminationPreviewResult {

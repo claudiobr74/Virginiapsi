@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toGoogleAuthErrorMessage } from "@/features/auth/messages";
 import { GOOGLE_SIGNIN_QUERY_PARAMS, oauthCallbackRedirectTo } from "@/features/auth/oauth-redirect";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { listPkceVerifierCookieNames } from "@/features/auth/pkce-flow";
+import { createSupabaseLoginBrowserClient } from "@/lib/supabase/browser";
 
 function GoogleIcon() {
   return (
@@ -29,6 +30,13 @@ function GoogleIcon() {
   );
 }
 
+function clearStalePkceVerifierCookies() {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  for (const name of listPkceVerifierCookieNames(document.cookie)) {
+    document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax${secure}`;
+  }
+}
+
 export function GoogleAuthButton() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -36,7 +44,16 @@ export function GoogleAuthButton() {
   async function handleClick() {
     setErrorMessage(null);
     setIsLoading(true);
-    const supabase = createSupabaseBrowserClient();
+
+    // A user click starts a brand-new OAuth attempt. Remove only obsolete PKCE
+    // verifier slots so an earlier/cancelled preview login cannot be selected
+    // for the new authorization code. Auth/session cookies are untouched.
+    clearStalePkceVerifierCookies();
+
+    // Do not let browser-client initialization refresh an old session while
+    // the fresh PKCE verifier is being written. That race is visible in hosted
+    // Auth logs as bad_code_verifier / refresh_token_not_found.
+    const supabase = createSupabaseLoginBrowserClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {

@@ -10,7 +10,7 @@ export default function SetupRequiredPage() {
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
       <div className="relative z-10 w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-xl sm:p-10">
         <div className="flex flex-col items-center gap-3 text-center">
-          <Logo width={140} priority />
+          <Logo width={200} priority />
           <h1 className="font-serif text-2xl italic font-bold text-foreground">
             O consultório ainda não tem banco
           </h1>

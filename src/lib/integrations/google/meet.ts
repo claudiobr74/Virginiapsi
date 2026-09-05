@@ -5,12 +5,19 @@ import type {
 } from "@/lib/integrations/google/calendar-client";
 
 export type MeetOutcomeStatus = "pending" | "success" | "failure";
+export type ExistingMeetStatus = "none" | MeetOutcomeStatus;
 
 export interface MeetOutcome {
   status: MeetOutcomeStatus;
   requestId: string;
   meetUrl: string | null;
   event: GoogleCalendarEvent;
+}
+
+export interface ExistingMeetState {
+  status: ExistingMeetStatus;
+  requestId: string | null;
+  meetUrl: string | null;
 }
 
 /**
@@ -34,23 +41,51 @@ function extractMeetUrl(event: GoogleCalendarEvent): string | null {
   const entryPoint = event.conferenceData?.entryPoints?.find(
     (point) => point.entryPointType === "video",
   );
-  return entryPoint?.uri ?? null;
+  return entryPoint?.uri ?? event.hangoutLink ?? null;
+}
+
+/**
+ * Inspects the Google event before any new createRequest is issued. This is
+ * the idempotency/recovery boundary used by the UI hotfix: if Google already
+ * has a real conference, reuse it; if creation is still pending, wait/recheck
+ * instead of requesting a second room.
+ */
+export function inspectExistingMeet(event: GoogleCalendarEvent): ExistingMeetState {
+  const request = event.conferenceData?.createRequest;
+  const meetUrl = extractMeetUrl(event);
+
+  if (meetUrl) {
+    return {
+      status: "success",
+      requestId: request?.requestId ?? null,
+      meetUrl,
+    };
+  }
+
+  if (!request) {
+    return { status: "none", requestId: null, meetUrl: null };
+  }
+
+  if (request.status?.statusCode === "failure") {
+    return { status: "failure", requestId: request.requestId, meetUrl: null };
+  }
+
+  return { status: "pending", requestId: request.requestId, meetUrl: null };
 }
 
 function toOutcome(event: GoogleCalendarEvent, requestId: string): MeetOutcome {
-  const statusCode = event.conferenceData?.createRequest?.status?.statusCode;
+  const existing = inspectExistingMeet(event);
 
-  if (statusCode === "success") {
-    const meetUrl = extractMeetUrl(event);
-    // A "success" status without an actual video entry point is not a real
-    // success — never fabricate a URL, surface it as pending/unresolved
-    // instead so the caller retries the re-fetch rather than persisting null.
-    return meetUrl
-      ? { status: "success", requestId, meetUrl, event }
-      : { status: "pending", requestId, meetUrl: null, event };
+  if (existing.status === "success") {
+    return {
+      status: "success",
+      requestId,
+      meetUrl: existing.meetUrl,
+      event,
+    };
   }
 
-  if (statusCode === "failure") {
+  if (existing.status === "failure") {
     return { status: "failure", requestId, meetUrl: null, event };
   }
 

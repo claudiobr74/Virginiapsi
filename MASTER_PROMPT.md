@@ -33,7 +33,7 @@ A auditoria pré-implementação é parte obrigatória do processo Tesseli.
 8. Não aceite JWT apenas por decode. Não crie token sintético/unsigned. No servidor use primitives oficiais do Supabase Auth para validar a sessão/usuário.
 9. Google Login e Google Calendar são conexões independentes. A conta usada para Calendar pode ser diferente da conta de login.
 10. Não gere links Google Meet falsos. Meet nasce de `conferenceData.createRequest` com `conferenceSolutionKey.type="hangoutsMeet"`, `conferenceDataVersion=1`, requestId novo e tratamento pending/success/failure.
-11. O fluxo de áudio nunca envia arquivo/base64 grande por Vercel. A transcrição padrão roda no dispositivo e o áudio não sai dele; o fallback opcional usa upload direto ao Supabase Storage somente após consent-gated signed upload grant, e o servidor trabalha com URL/objeto. Ver `docs/22-transcription-provider-decision.md`.
+11. O fluxo ao vivo envia chunks curtos (não arquivos de 100 MB) para o backend; o browser nunca chama Groq. Importação grande usa signed upload privado. Ver `docs/22-transcription-provider-decision.md`.
 12. Dados clínicos não podem aparecer em logs, mensagens de erro, analytics ou payloads administrativos da Secretaria.
 13. Mudanças clínicas relevantes e operações sensíveis devem ter auditoria.
 14. Sem “TODO silencioso”: se algo depende de credencial externa, implemente adapter, teste sem segredo real quando possível e documente exatamente o gate externo pendente.
@@ -53,7 +53,7 @@ Use a versão estável atual disponível no momento da implementação e registr
 - Zod para contratos e validação
 - Google APIs via OAuth 2.0 server-side
 - Twilio SDK no servidor
-- Transcrição local no navegador (ONNX/WebGPU com fallback WASM); Groq apenas como adapter de fallback opcional
+- Transcrição ao vivo via Groq (`whisper-large-v3-turbo`); spool IndexedDB AES-GCM; importação de gravação. Sem ASR local.
 - Google GenAI SDK no servidor
 - Supabase pgvector para busca semântica
 - Vitest para unit/integration leves
@@ -149,11 +149,11 @@ Banco/Auth/Storage são a fonte de verdade. RLS é obrigatória e testada.
 
 ### Transcrição
 
-- padrão local-first: o modelo roda no dispositivo e o áudio não sai da máquina;
-- browser solicita ao Tesseli um grant de captura de vida curta antes de ativar o microfone;
-- salvar apenas texto final/metadata por chunks, recusando segmento sem grant válido;
-- recuperação de captura sem duplicar segmentos;
-- fallback opcional (Groq) por upload direto privado ao Supabase Storage, nunca base64 via função Vercel;
+- padrão Groq ao vivo: MediaRecorder → `transcribe-chunk` → persistir texto → ACK;
+- browser solicita um grant de captura antes de ativar o microfone;
+- UI confirma trecho só após ACK; replay não duplica `(session_id, sequence)`;
+- spool AES-GCM no dispositivo se a API falhar de forma prolongada;
+- importação por arquivo usa Storage temporário privado e apaga o objeto após persistir;
 - diarização é capacidade opcional do provider; sem ela, não inventar falante.
 
 ### Gemini / Runtime AI

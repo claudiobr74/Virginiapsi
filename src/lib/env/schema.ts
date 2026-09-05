@@ -34,31 +34,58 @@ export function normalizePublicAppUrl(value: unknown): unknown {
   return next;
 }
 
-const CALENDAR_OAUTH_CALLBACK_PATH = "/api/integrations/google/callback";
+export const GOOGLE_CALENDAR_OAUTH_CALLBACK_PATH =
+  "/api/integrations/google/callback";
 
 /**
- * Calendar OAuth (not Auth login). Operators often paste the app origin or
- * `/auth/callback`. Google then rejects the token exchange or the start
- * action throws and the Agenda error boundary swallows the module.
+ * Calendar OAuth callback is always `{NEXT_PUBLIC_APP_URL}/api/integrations/google/callback`.
+ * Never derived from VERCEL_URL, Preview hostnames, or a separate env var.
  */
-export function normalizeGoogleOAuthRedirectUri(value: unknown): unknown {
-  const coerced = normalizePublicAppUrl(value);
+export function googleCalendarRedirectUri(appUrl: string): string {
+  const coerced = normalizePublicAppUrl(appUrl);
   if (typeof coerced !== "string" || !coerced) {
-    return coerced;
+    throw new Error(
+      "Invalid environment configuration: NEXT_PUBLIC_APP_URL. Values are not logged. See docs/09-env-contract.md.",
+    );
   }
 
+  let parsed: URL;
   try {
+    parsed = new URL(coerced);
+  } catch {
+    throw new Error(
+      "Invalid environment configuration: NEXT_PUBLIC_APP_URL. Values are not logged. See docs/09-env-contract.md.",
+    );
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(
+      "Invalid environment configuration: NEXT_PUBLIC_APP_URL. Values are not logged. See docs/09-env-contract.md.",
+    );
+  }
+
+  if (parsed.hostname.toLowerCase().includes("tesseli")) {
+    throw new Error(
+      "Invalid environment configuration: NEXT_PUBLIC_APP_URL. Values are not logged. See docs/09-env-contract.md.",
+    );
+  }
+
+  return `${parsed.origin}${GOOGLE_CALENDAR_OAUTH_CALLBACK_PATH}`;
+}
+
+export function httpOriginOf(value: string): string | null {
+  try {
+    const coerced = normalizePublicAppUrl(value);
+    if (typeof coerced !== "string" || !coerced) {
+      return null;
+    }
     const parsed = new URL(coerced);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return coerced;
+      return null;
     }
-    const path = parsed.pathname.replace(/\/$/, "") || "/";
-    if (path === "/" || path === "/auth/callback" || path === "/login") {
-      return `${parsed.origin}${CALENDAR_OAUTH_CALLBACK_PATH}`;
-    }
-    return `${parsed.origin}${parsed.pathname}`;
+    return parsed.origin;
   } catch {
-    return coerced;
+    return null;
   }
 }
 
@@ -116,35 +143,6 @@ export function coalesceAppUrl(
     return fromVercel;
   }
   return fromApp ?? fromVercel;
-}
-
-/**
- * Empty or localhost Calendar redirect on a Vercel host is rewritten to
- * `{appUrl}/api/integrations/google/callback`. Local `pnpm dev` keeps localhost.
- */
-export function resolveGoogleCalendarRedirectUri(
-  redirectUri: string | undefined,
-  appUrl: string | undefined,
-): string | undefined {
-  const normalized = normalizeGoogleOAuthRedirectUri(redirectUri);
-  const usable =
-    typeof normalized === "string" && isUsableHttpUrl(normalized)
-      ? normalized
-      : undefined;
-
-  const appIsPublic = Boolean(appUrl && isUsableHttpUrl(appUrl) && !isLoopbackHttpUrl(appUrl));
-  if (usable && !(appIsPublic && isLoopbackHttpUrl(usable))) {
-    return usable;
-  }
-
-  if (appUrl && isUsableHttpUrl(appUrl)) {
-    const derived = normalizeGoogleOAuthRedirectUri(appUrl);
-    return typeof derived === "string" && isUsableHttpUrl(derived)
-      ? derived
-      : undefined;
-  }
-
-  return usable;
 }
 
 export const publicEnvSchema = z.object({

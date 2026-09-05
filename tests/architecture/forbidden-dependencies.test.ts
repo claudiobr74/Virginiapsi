@@ -116,6 +116,9 @@ describe("arquitetura proibida", () => {
     const adminClient = readFileSync(adminClientPath, "utf8");
     expect(adminClient).toMatch(/^import "server-only";/);
 
+    expect(adminClient).toMatch(/getSupabaseAdminEnv/);
+    expect(adminClient).not.toMatch(/getServerEnv/);
+
     // A secret key contorna a RLS, então cada consumidor futuro precisa ser
     // adicionado aqui de propósito — nunca por acidente de import.
     //
@@ -180,7 +183,7 @@ describe("arquitetura proibida", () => {
         `${path.relative(ROOT, file)} não chama o consent gate`,
       ).toBe(true);
       expect(
-        source.includes("readLimitedJson"),
+        source.includes("readLimitedJson") || source.includes("contentLengthExceeds"),
         `${path.relative(ROOT, file)} não aplica teto de payload`,
       ).toBe(true);
     }
@@ -221,13 +224,17 @@ describe("arquitetura proibida", () => {
   });
 
   it("preserva o arquivo oficial da logo sem alteração de bytes", () => {
-    const logoPath = path.join(ROOT, "public/brand/virginia-psi-mark.png");
-    const digest = createHash("sha256")
-      .update(readFileSync(logoPath))
-      .digest("hex");
-    expect(digest).toBe(
-      "a8295a09c1686e3727712c5ff08a9d2ac474e86b38e06fd6782252f13541e8e4",
-    );
+    const original = "d23c0e4095b37c4cd7c6cc2695fbc376bd13ace939c7b5e75d651c6dc1575184";
+    const files = [
+      "public/brand/virginia-psi-mark.png",
+      "public/brand/source/virginia-psi-lockup-original.png",
+    ];
+    for (const relative of files) {
+      const digest = createHash("sha256")
+        .update(readFileSync(path.join(ROOT, relative)))
+        .digest("hex");
+      expect(digest, relative).toBe(original);
+    }
   });
 
   it("mantém a estrutura de features exigida pelo master prompt", () => {
@@ -258,5 +265,33 @@ describe("arquitetura proibida", () => {
     expect(existsSync(path.join(ROOT, "src/lib/ai/contracts"))).toBe(true);
     expect(existsSync(path.join(ROOT, "src/components/ui"))).toBe(true);
     expect(existsSync(path.join(ROOT, "supabase/migrations"))).toBe(true);
+  });
+
+  it("não declara ASR local no package.json nem o script ONNX", () => {
+    const pkg = JSON.parse(
+      readFileSync(path.join(ROOT, "package.json"), "utf8"),
+    ) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
+    expect(pkg.dependencies?.["@huggingface/transformers"]).toBeUndefined();
+    expect(pkg.devDependencies?.["@huggingface/transformers"]).toBeUndefined();
+    expect(pkg.scripts?.postinstall ?? "").not.toMatch(/copy-onnx/);
+    expect(existsSync(path.join(ROOT, "scripts/copy-onnx-wasm.mjs"))).toBe(false);
+    expect(existsSync(path.join(ROOT, "src/features/sessions/transcription/local-pipeline.ts"))).toBe(
+      false,
+    );
+  });
+
+  it("caminho ao vivo não grava áudio no Storage", () => {
+    const source = readFileSync(
+      path.join(ROOT, "src/app/api/session-capture/transcribe-chunk/route.ts"),
+      "utf8",
+    );
+    expect(source).toContain("consumeTranscribeChunkRateLimit");
+    expect(source).not.toContain("createSupabaseAdminClient");
+    expect(source).not.toContain("FALLBACK_AUDIO_BUCKET");
+    expect(source).not.toContain(".storage");
   });
 });

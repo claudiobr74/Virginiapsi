@@ -5,8 +5,10 @@ import { decryptToken, encryptToken } from "@/lib/integrations/google/crypto";
 import {
   exchangeCodeForTokens,
   fetchGoogleUserInfo,
+  parseGrantedGoogleScopes,
   refreshAccessToken,
 } from "@/lib/integrations/google/oauth";
+import { googleCalendarRedirectUri } from "@/lib/env/schema";
 import { getGoogleCalendarEnv } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { firstRpcRow } from "@/lib/supabase/rpc-result";
@@ -36,7 +38,13 @@ async function loadCredentials(
 
 async function persistCredentials(
   organizationId: string,
-  tokens: { accessToken: string; expiresAt: Date; refreshToken?: string; email?: string },
+  tokens: {
+    accessToken: string;
+    expiresAt: Date;
+    refreshToken: string;
+    email?: string;
+    scopes?: string[];
+  },
 ): Promise<void> {
   const env = getGoogleCalendarEnv();
   const supabase = await createSupabaseServerClient();
@@ -45,13 +53,12 @@ async function persistCredentials(
     org_id: organizationId,
     p_access_token_encrypted: encryptToken(tokens.accessToken, env.GOOGLE_TOKEN_ENCRYPTION_KEY),
     p_access_token_expires_at: tokens.expiresAt.toISOString(),
-    p_refresh_token_encrypted: tokens.refreshToken
-      ? encryptToken(tokens.refreshToken, env.GOOGLE_TOKEN_ENCRYPTION_KEY)
-      : // upsert_google_credentials() keeps the existing refresh token when
-        // this is null — Google only reissues one on first consent.
-        (null as unknown as string),
+    p_refresh_token_encrypted: encryptToken(
+      tokens.refreshToken,
+      env.GOOGLE_TOKEN_ENCRYPTION_KEY,
+    ),
     p_google_account_email: tokens.email ?? null,
-    p_scopes: null,
+    p_scopes: tokens.scopes ?? null,
   });
 
   if (error) {
@@ -95,10 +102,13 @@ export async function getValidAccessToken(organizationId: string): Promise<strin
     clientSecret: env.GOOGLE_CLIENT_SECRET,
   });
 
+  // Google normally omits refresh_token during an access-token refresh.
+  // Preserve the current token unless Google explicitly rotates it.
   await persistCredentials(organizationId, {
     accessToken: refreshed.access_token,
     expiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
-    refreshToken: refreshed.refresh_token,
+    refreshToken: refreshed.refresh_token ?? refreshToken,
+    scopes: parseGrantedGoogleScopes(refreshed.scope),
   });
 
   return refreshed.access_token;
@@ -126,7 +136,7 @@ export async function completeGoogleConnection(
     code: input.code,
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
-    redirectUri: env.GOOGLE_OAUTH_REDIRECT_URI,
+    redirectUri: googleCalendarRedirectUri(env.NEXT_PUBLIC_APP_URL),
   });
 
   if (!tokens.refresh_token) {
@@ -143,6 +153,7 @@ export async function completeGoogleConnection(
     expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
     refreshToken: tokens.refresh_token,
     email: userInfo.email,
+    scopes: parseGrantedGoogleScopes(tokens.scope),
   });
 
   return { email: userInfo.email };

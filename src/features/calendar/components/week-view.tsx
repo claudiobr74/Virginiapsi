@@ -1,3 +1,4 @@
+import { getAppointmentVisualStatus } from "@/features/calendar/appointment-visual";
 import { AppointmentCard } from "@/features/calendar/components/appointment-card";
 import type { AppointmentRow } from "@/features/calendar/contracts";
 import { formatHourLabel, hourInTimeZone } from "@/features/calendar/display";
@@ -26,6 +27,7 @@ export function WeekView({
   timeZone,
   today,
   isAdmin = false,
+  now,
   onSelect,
 }: {
   days: string[];
@@ -33,13 +35,14 @@ export function WeekView({
   timeZone: string;
   today: string;
   isAdmin?: boolean;
+  now?: Date;
   onSelect: (appointment: AppointmentRow) => void;
 }) {
   const hours = weekHours();
 
   return (
     <>
-      <div className="hidden overflow-x-auto rounded-[16px] border border-border bg-card lg:block">
+      <div className="hidden overflow-x-auto rounded-[16px] border border-border bg-card shadow-card lg:block">
         <div
           className="min-w-[960px]"
           style={{
@@ -54,8 +57,8 @@ export function WeekView({
               <div
                 key={`head-${day}`}
                 className={cn(
-                  "border-b border-l border-border px-3 py-3",
-                  isToday && "bg-sage-light/40",
+                  "border-b border-l border-border bg-surface/50 px-3 py-3",
+                  isToday && "bg-tone-agenda",
                 )}
               >
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -81,6 +84,7 @@ export function WeekView({
               today={today}
               appointmentsByDay={appointmentsByDay}
               timeZone={timeZone}
+              now={now}
               onSelect={onSelect}
             />
           ))}
@@ -123,6 +127,7 @@ export function WeekView({
                       timeZone={timeZone}
                       isAdmin={isAdmin}
                       compact
+                      now={now}
                       onClick={() => onSelect(appointment)}
                     />
                   ))}
@@ -142,6 +147,7 @@ function HourRow({
   today,
   appointmentsByDay,
   timeZone,
+  now,
   onSelect,
 }: {
   hour: number;
@@ -149,6 +155,7 @@ function HourRow({
   today: string;
   appointmentsByDay: Map<string, AppointmentRow[]>;
   timeZone: string;
+  now?: Date;
   onSelect: (appointment: AppointmentRow) => void;
 }) {
   return (
@@ -174,6 +181,7 @@ function HourRow({
                   key={appointment.id}
                   appointment={appointment}
                   timeZone={timeZone}
+                  now={now}
                   onSelect={onSelect}
                 />
               ))}
@@ -188,34 +196,34 @@ function HourRow({
 function WeekAppointmentChip({
   appointment,
   timeZone,
+  now,
   onSelect,
 }: {
   appointment: AppointmentRow;
   timeZone: string;
+  now?: Date;
   onSelect: (appointment: AppointmentRow) => void;
 }) {
-  const isExternal = appointment.origin === "GOOGLE_EXTERNAL";
-  const isOnline = appointment.modality === "online";
+  const visual = getAppointmentVisualStatus(appointment, now);
   const starts = formatInTimeZone(appointment.starts_at, timeZone);
   const ends = formatInTimeZone(appointment.ends_at, timeZone);
 
   return (
     <button
       type="button"
+      data-appointment-visual={visual.tone}
+      data-appointment-origin={appointment.origin}
+      style={visual.style}
       onClick={() => onSelect(appointment)}
       className={cn(
-        "w-full rounded-lg border px-2 py-1.5 text-left",
-        isExternal
-          ? "border-dashed border-border bg-surface"
-          : isOnline
-            ? "border-sage/40 bg-sage-light/80"
-            : "border-accent/30 bg-soft-amber",
+        "card-interactive w-full min-w-0 rounded-md px-2 py-1.5 text-left",
+        visual.className,
       )}
     >
-      <p className="font-mono text-[10px] text-muted-foreground">
+      <p className="font-mono text-[10px] font-semibold">
         {starts} – {ends}
       </p>
-      <p className="truncate text-xs font-semibold text-foreground">
+      <p className="break-words text-xs font-semibold leading-snug text-foreground">
         {appointment.summary_snapshot ?? "Sem paciente"}
       </p>
     </button>

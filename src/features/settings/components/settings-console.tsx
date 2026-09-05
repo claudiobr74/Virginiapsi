@@ -7,6 +7,7 @@ import {
   Download,
   MessageCircle,
   Mic,
+  Quote,
   Sparkles,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -14,19 +15,24 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ConnectionPanel } from "@/features/calendar/components/connection-panel";
 import { SECRETARY_FINANCE_ACCESS_LABELS } from "@/features/finance/contracts";
 import { ROLE_LABELS } from "@/features/organizations/labels";
 import {
   createExportDownloadUrlAction,
   confirmEliminationAction,
+  clearProfessionalPhotoAction,
+  confirmProfessionalPhotoUploadAction,
   inviteMemberAction,
   previewEliminationAction,
   requestLogicalExportAction,
+  requestProfessionalPhotoUploadUrlAction,
   setMemberActiveAction,
   updateAppearanceAction,
   updateClinicAction,
@@ -35,13 +41,31 @@ import {
   updateSecurityAction,
 } from "@/features/settings/actions";
 import type { SettingsSnapshot } from "@/features/settings/contracts";
+import { ProfessionalPhotoField } from "@/features/settings/components/professional-photo-field";
+import { BrandingSettingsPanel } from "@/features/documents/components/branding-settings-panel";
 import type { IntegrationHealth } from "@/features/settings/diagnostics";
 import { expectedEliminationPhrase } from "@/features/settings/elimination";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils/cn";
+import {
+  cnpjInputValue,
+  cpfInputValue,
+} from "@/lib/utils/brazil-tax-id";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import {
+  PSYCHOLOGY_QUOTES,
+  type QuoteMode,
+} from "@/features/appearance/psychology-quotes";
+import {
+  quoteCivilDate,
+  resolvePsychologyQuote,
+} from "@/features/appearance/daily-quote";
+import { DailyQuoteRefresh } from "@/features/appearance/daily-quote-refresh";
 
 const TABS = [
   { id: "profile", label: "Meu Perfil" },
   { id: "clinic", label: "Consultório" },
+  { id: "documents", label: "Documentos" },
   { id: "appearance", label: "Aparência" },
   { id: "security", label: "Segurança" },
   { id: "team", label: "Equipe e Acessos" },
@@ -105,13 +129,21 @@ function healthBadge(health: IntegrationHealth): {
   return { status: "attention", label: "Atenção" };
 }
 
-export function SettingsConsole({ snapshot }: { snapshot: SettingsSnapshot }) {
-  const [tab, setTab] = useState<TabId>("profile");
+export function SettingsConsole({
+  snapshot,
+  initialTab,
+}: {
+  snapshot: SettingsSnapshot;
+  initialTab?: string;
+}) {
+  const [tab, setTab] = useState<TabId>(
+    TABS.some((item) => item.id === initialTab) ? (initialTab as TabId) : "profile",
+  );
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(14rem,16.25rem)_minmax(0,1fr)] lg:items-start">
       <div
-        className="flex gap-1 overflow-x-auto rounded-3xl border border-border bg-card p-2 shadow-sm [scrollbar-width:none] lg:flex-col lg:overflow-visible lg:p-4 [&::-webkit-scrollbar]:hidden"
+        className="flex gap-1 overflow-x-auto rounded-[20px] border border-border bg-card p-2 shadow-card [scrollbar-width:none] lg:flex-col lg:overflow-visible lg:p-4 [&::-webkit-scrollbar]:hidden"
         role="tablist"
         aria-label="Seções de configurações"
       >
@@ -143,6 +175,22 @@ export function SettingsConsole({ snapshot }: { snapshot: SettingsSnapshot }) {
       <div className="min-w-0">
         {tab === "profile" ? <ProfileSection snapshot={snapshot} /> : null}
         {tab === "clinic" ? <ClinicSection snapshot={snapshot} /> : null}
+        {tab === "documents" ? (
+          <BrandingSettingsPanel
+            branding={snapshot.documentBranding ?? null}
+            logos={snapshot.documentLogos ?? []}
+            fallback={{
+              organizationName: snapshot.organization.name,
+              professionalName: snapshot.practice.professional_name || snapshot.profile.fullName,
+              professionalTitle: snapshot.practice.subtitle,
+              crp: snapshot.practice.crp,
+              clinicName: snapshot.practice.clinic_name,
+              email: snapshot.profile.email,
+              legalName: snapshot.practice.company_name,
+              taxId: snapshot.practice.company_cnpj,
+            }}
+          />
+        ) : null}
         {tab === "appearance" ? <AppearanceSection snapshot={snapshot} /> : null}
         {tab === "security" ? <SecuritySection snapshot={snapshot} /> : null}
         {tab === "team" ? <TeamSection snapshot={snapshot} /> : null}
@@ -158,12 +206,48 @@ function ProfileSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const displayName = snapshot.profile.fullName || snapshot.practice.professional_name || "Profissional";
+
+  function persistPhoto(file: File) {
+    setMessage(null);
+    startTransition(async () => {
+      const grant = await requestProfessionalPhotoUploadUrlAction({ mimeType: file.type });
+      if (grant.error || !grant.path || !grant.token) {
+        setMessage(grant.error ?? "Não foi possível preparar o envio da foto.");
+        return;
+      }
+      const supabase = createSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from("practice-assets")
+        .uploadToSignedUrl(grant.path, grant.token, file);
+      if (uploadError) {
+        setMessage("Não foi possível enviar a foto agora.");
+        return;
+      }
+      const confirmed = await confirmProfessionalPhotoUploadAction({
+        storagePath: grant.path,
+        mimeType: file.type,
+        byteSize: file.size,
+      });
+      setMessage(confirmed.error ?? "Foto profissional atualizada.");
+      if (!confirmed.error) router.refresh();
+    });
+  }
+
+  function removePhoto() {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await clearProfessionalPhotoAction();
+      setMessage(result.error ?? "Foto profissional removida.");
+      if (!result.error) router.refresh();
+    });
+  }
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="agenda">
       <SectionHeader
         title="Meu Perfil"
-        description="Nome de exibição da profissional autenticada. A senha é alterada pelo fluxo de recuperação."
+        description="Nome de exibição e foto da profissional. A foto aparece no Meu Dia, junto ao nome. A senha é alterada pelo fluxo de recuperação."
       />
       <form
         className="mt-4 grid gap-4 sm:grid-cols-2"
@@ -180,6 +264,13 @@ function ProfileSection({ snapshot }: { snapshot: SettingsSnapshot }) {
           });
         }}
       >
+        <ProfessionalPhotoField
+          name={displayName}
+          currentPhotoUrl={snapshot.professionalPhotoUrl}
+          disabled={isPending}
+          onFileChange={persistPhoto}
+          onRemove={removePhoto}
+        />
         <Field label="E-mail">
           <Input value={snapshot.profile.email} readOnly />
         </Field>
@@ -199,7 +290,7 @@ function ProfileSection({ snapshot }: { snapshot: SettingsSnapshot }) {
           </Button>
         </div>
       </form>
-    </section>
+    </Card>
   );
 }
 
@@ -210,7 +301,7 @@ function ClinicSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const p = snapshot.practice;
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="clinical">
       <SectionHeader
         title="Consultório"
         description="Identidade profissional, duração padrão de sessão e dados fiscais administrativos."
@@ -228,7 +319,8 @@ function ClinicSection({ snapshot }: { snapshot: SettingsSnapshot }) {
               professionalName: String(form.get("professionalName") ?? ""),
               subtitle: String(form.get("subtitle") ?? ""),
               crp: String(form.get("crp") ?? ""),
-              taxId: String(form.get("taxId") ?? ""),
+              professionalCpf: String(form.get("professionalCpf") ?? ""),
+              companyCnpj: String(form.get("companyCnpj") ?? ""),
               pixKey: String(form.get("pixKey") ?? ""),
               clinicName: String(form.get("clinicName") ?? ""),
               companyName: String(form.get("companyName") ?? ""),
@@ -255,8 +347,23 @@ function ClinicSection({ snapshot }: { snapshot: SettingsSnapshot }) {
         <Field label="CRP">
           <Input name="crp" defaultValue={p.crp ?? ""} />
         </Field>
-        <Field label="CPF/CNPJ">
-          <Input name="taxId" defaultValue={p.tax_id ?? ""} />
+        <Field label="CPF profissional">
+          <Input
+            name="professionalCpf"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="000.000.000-00"
+            defaultValue={cpfInputValue(p.professional_cpf)}
+          />
+        </Field>
+        <Field label="CNPJ do consultório">
+          <Input
+            name="companyCnpj"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="00.000.000/0000-00"
+            defaultValue={cnpjInputValue(p.company_cnpj)}
+          />
         </Field>
         <Field label="Chave Pix">
           <Input name="pixKey" defaultValue={p.pix_key ?? ""} />
@@ -288,7 +395,7 @@ function ClinicSection({ snapshot }: { snapshot: SettingsSnapshot }) {
           <Message value={message} />
         </div>
       </form>
-    </section>
+    </Card>
   );
 }
 
@@ -296,12 +403,27 @@ function AppearanceSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [quoteMode, setQuoteMode] = useState<QuoteMode>(
+    snapshot.practice.quote_mode === "custom" ? "custom" : "daily",
+  );
+  const [customQuote, setCustomQuote] = useState(snapshot.practice.quote ?? "");
+  const [bankOpen, setBankOpen] = useState(false);
+
+  const todayQuote = resolvePsychologyQuote({
+    mode: quoteMode,
+    customQuote,
+    timeZone: snapshot.organization.timezone,
+  });
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="finance">
+      <DailyQuoteRefresh
+        timeZone={snapshot.organization.timezone}
+        serverCivilDate={quoteCivilDate(snapshot.organization.timezone)}
+      />
       <SectionHeader
         title="Aparência"
-        description="Saudação do Início, citação e tema claro/escuro neste dispositivo."
+        description="Saudação do Início, citação do dia e tema claro/escuro neste dispositivo."
       />
       <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3">
         <div>
@@ -319,7 +441,8 @@ function AppearanceSection({ snapshot }: { snapshot: SettingsSnapshot }) {
           startTransition(async () => {
             const result = await updateAppearanceAction({
               greetingPrefix: String(form.get("greetingPrefix") ?? ""),
-              quote: String(form.get("quote") ?? ""),
+              quoteMode,
+              quote: customQuote,
             });
             setMessage(result.error ?? "Aparência atualizada.");
             if (!result.error) router.refresh();
@@ -333,15 +456,95 @@ function AppearanceSection({ snapshot }: { snapshot: SettingsSnapshot }) {
             placeholder="Olá"
           />
         </Field>
-        <Field label="Citação">
-          <Input name="quote" defaultValue={snapshot.practice.quote ?? ""} />
-        </Field>
+
+        <fieldset className="flex flex-col gap-3">
+          <legend className="text-xs font-bold uppercase tracking-wide text-deep-neutral">
+            Citação do dia
+          </legend>
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+            <input
+              type="radio"
+              name="quoteMode"
+              className="mt-1"
+              checked={quoteMode === "daily"}
+              onChange={() => setQuoteMode("daily")}
+            />
+            <span>
+              <span className="block text-sm font-semibold text-foreground">
+                Rotação automática
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                Uma nova reflexão é exibida todos os dias às 00:00, no fuso do consultório.
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+            <input
+              type="radio"
+              name="quoteMode"
+              className="mt-1"
+              checked={quoteMode === "custom"}
+              onChange={() => setQuoteMode("custom")}
+            />
+            <span className="text-sm font-semibold text-foreground">Personalizada</span>
+          </label>
+        </fieldset>
+
+        {quoteMode === "daily" ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-deep-neutral">
+              Citação de hoje
+            </p>
+            <p className="flex items-start gap-2 rounded-2xl border border-tone-tasks-border bg-card px-4 py-3 text-sm text-foreground">
+              <Quote className="mt-0.5 size-4 shrink-0 text-tone-tasks-icon" aria-hidden />
+              <span>{todayQuote}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">Próxima atualização: amanhã, 00:00</p>
+            <Button type="button" variant="secondary" size="sm" className="self-start" onClick={() => setBankOpen(true)}>
+              Ver banco de 30 citações
+            </Button>
+          </div>
+        ) : (
+          <Field label="Citação personalizada">
+            <Input
+              name="quote"
+              value={customQuote}
+              maxLength={280}
+              onChange={(event) => setCustomQuote(event.target.value)}
+            />
+          </Field>
+        )}
+
         <Button type="submit" isLoading={isPending} className="self-start">
           Salvar aparência
         </Button>
         <Message value={message} />
       </form>
-    </section>
+
+      <Drawer open={bankOpen} onOpenChange={setBankOpen}>
+        <DrawerContent
+          title="Banco de citações"
+          description="30 reflexões do produto, sem atribuição a terceiros. A rotação diária percorre esta lista."
+        >
+          <ol className="flex flex-col gap-3">
+            {PSYCHOLOGY_QUOTES.map((quote, index) => (
+              <li
+                key={quote}
+                className="flex items-start gap-2 rounded-xl border border-tone-tasks-border bg-card px-3 py-3 text-sm text-foreground"
+              >
+                <Quote className="mt-0.5 size-4 shrink-0 text-tone-tasks-icon" aria-hidden />
+                <span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>{" "}
+                  {quote}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </DrawerContent>
+      </Drawer>
+    </Card>
   );
 }
 
@@ -351,7 +554,7 @@ function SecuritySection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="documents">
       <SectionHeader
         title="Segurança"
         description="Bloqueio por inatividade e permissão financeira da secretaria (enforcement no banco)."
@@ -402,7 +605,7 @@ function SecuritySection({ snapshot }: { snapshot: SettingsSnapshot }) {
         </Button>
         <Message value={message} />
       </form>
-    </section>
+    </Card>
   );
 }
 
@@ -412,7 +615,7 @@ function TeamSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="settings">
       <SectionHeader
         title="Equipe e Acessos"
         description="Convite por e-mail exige conta já cadastrada. O último admin ativo não pode ser removido."
@@ -489,16 +692,17 @@ function TeamSection({ snapshot }: { snapshot: SettingsSnapshot }) {
       <div className="mt-3">
         <Message value={message} />
       </div>
-    </section>
+    </Card>
   );
 }
 
 function IntegrationsSection({ snapshot }: { snapshot: SettingsSnapshot }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [showTechnical, setShowTechnical] = useState(false);
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5">
+    <Card tone="knowledge">
       <SectionHeader
         title="Integrações"
         description="Status real, sem revelar chaves, tokens ou identificadores secretos."
@@ -508,41 +712,49 @@ function IntegrationsSection({ snapshot }: { snapshot: SettingsSnapshot }) {
             variant="secondary"
             size="sm"
             isLoading={isPending}
-            onClick={() => startTransition(() => router.refresh())}
+            onClick={() => {
+              setShowTechnical(true);
+              startTransition(() => router.refresh());
+            }}
           >
             Diagnosticar
           </Button>
         }
       />
-      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-        {snapshot.diagnostics.integrations.map((item) => {
-          const badge = healthBadge(item.health);
-          const Icon = INTEGRATION_ICONS[item.key];
-          return (
-            <li key={item.key} className="rounded-2xl border border-border px-4 py-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-9 items-center justify-center rounded-xl bg-sage-light/40 text-primary">
-                    <Icon className="size-4" aria-hidden />
-                  </span>
-                  <h3 className="font-semibold">{item.label}</h3>
-                </div>
-                <StatusBadge status={badge.status} label={badge.label} />
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">{item.summary}</p>
-              {item.lastSuccessAt ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Último sucesso: {new Date(item.lastSuccessAt).toLocaleString("pt-BR")}
-                </p>
-              ) : null}
-              {item.lastError ? (
-                <p className="mt-1 text-xs text-failed">{item.lastError}</p>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+      <div className="mt-4 flex flex-col gap-3">
+        <ConnectionPanel connection={snapshot.googleConnection} canManage />
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {snapshot.diagnostics.integrations
+            .filter((item) => showTechnical || item.key !== "google")
+            .map((item) => {
+              const badge = healthBadge(item.health);
+              const Icon = INTEGRATION_ICONS[item.key];
+              return (
+                <li key={item.key} className="rounded-2xl border border-border px-4 py-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <span className="flex size-9 items-center justify-center rounded-xl bg-sage-light/40 text-primary">
+                        <Icon className="size-4" aria-hidden />
+                      </span>
+                      <h3 className="font-semibold">{item.label}</h3>
+                    </div>
+                    <StatusBadge status={badge.status} label={badge.label} />
+                  </div>
+                  <p className="mt-3 text-sm text-muted-foreground">{item.summary}</p>
+                  {item.lastSuccessAt ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Último sucesso: {new Date(item.lastSuccessAt).toLocaleString("pt-BR")}
+                    </p>
+                  ) : null}
+                  {item.lastError ? (
+                    <p className="mt-1 text-xs text-failed">{item.lastError}</p>
+                  ) : null}
+                </li>
+              );
+            })}
+        </ul>
+      </div>
+    </Card>
   );
 }
 
@@ -554,7 +766,7 @@ function BackupSection({ snapshot }: { snapshot: SettingsSnapshot }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-3xl border border-border bg-card p-5">
+      <Card tone="settings">
         <SectionHeader
           title="Backup da plataforma"
           description="A recuperação de desastre é o backup do projeto Supabase (PITR/backups gerenciados). O VirgíniaPsi não implementa DR próprio e não usa Google Drive."
@@ -562,9 +774,9 @@ function BackupSection({ snapshot }: { snapshot: SettingsSnapshot }) {
         <p className="mt-3 text-sm text-muted-foreground">
           Operadores configuram retenção e restauração no painel Supabase. A exportação abaixo é portabilidade lógica, não substituto de backup.
         </p>
-      </section>
+      </Card>
 
-      <section className="rounded-3xl border border-border bg-card p-5">
+      <Card tone="settings">
         <SectionHeader
           title="Exportação lógica VirgíniaPsi"
           description="Pacote ZIP versionado (manifest.json + JSON/CSV + hashes SHA-256), gerado neste servidor e baixado por URL assinada de curta duração."
@@ -669,7 +881,7 @@ function BackupSection({ snapshot }: { snapshot: SettingsSnapshot }) {
             ))}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

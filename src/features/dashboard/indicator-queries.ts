@@ -18,6 +18,9 @@ import { listPatients } from "@/features/patients/queries";
 import type { OrganizationRole } from "@/features/organizations/contracts";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addCents } from "@/lib/finance/money";
+import { isValidCountableSession, applyOrgAgendaColorPolicies } from "@/features/calendar/google-event-status";
+import { getConnection } from "@/features/calendar/connection-queries";
+import type { AppointmentOrigin, AppointmentStatus } from "@/features/calendar/contracts";
 
 export interface WeeklyPoint {
   label: string;
@@ -47,6 +50,28 @@ interface AppointmentMetricRow {
   starts_at: string;
   ends_at: string;
   status: string;
+  origin?: AppointmentOrigin;
+  summary_snapshot?: string | null;
+  google_color_id?: string | null;
+  google_event_type?: string | null;
+  google_deleted_at?: string | null;
+  cancelled_google_color_ids?: string[];
+  unavailable_google_color_ids?: string[];
+}
+
+function isCountableMetricRow(row: AppointmentMetricRow): boolean {
+  return isValidCountableSession({
+    status: row.status as AppointmentStatus,
+    origin: row.origin,
+    summary_snapshot: row.summary_snapshot,
+    google_color_id: row.google_color_id,
+    google_event_type: row.google_event_type,
+    google_deleted_at: row.google_deleted_at,
+    cancelled_google_color_ids: row.cancelled_google_color_ids,
+    unavailable_google_color_ids: row.unavailable_google_color_ids,
+    starts_at: row.starts_at,
+    ends_at: row.ends_at,
+  });
 }
 
 function addDaysIso(dateStr: string, days: number): string {
@@ -75,22 +100,26 @@ export async function getIndicatorSnapshot(
   const lookbackStart = addDaysIso(today, -56);
 
   const supabase = await createSupabaseServerClient();
-  const [{ data, error }, patients, access] = await Promise.all([
+  const [{ data, error }, patients, access, connection] = await Promise.all([
     supabase
       .from("appointments")
-      .select("starts_at, ends_at, status")
+      .select("starts_at, ends_at, status, origin, summary_snapshot, google_color_id, google_event_type, google_deleted_at")
       .eq("organization_id", organizationId)
-      .eq("origin", "TESSELI")
+      .is("google_deleted_at", null)
       .gte("starts_at", `${lookbackStart}T00:00:00.000Z`),
     listPatients(organizationId),
     getFinanceAccess(organizationId, role),
+    getConnection(organizationId).catch((): null => null),
   ]);
 
-  const appointments = (error ? [] : (data as AppointmentMetricRow[] | null) ?? []).map(
-    (row) => ({
-      ...row,
-      date: isoDateInTimeZone(row.starts_at, timezone),
-    }),
+  const appointments = applyOrgAgendaColorPolicies(
+    (error ? [] : (data as AppointmentMetricRow[] | null) ?? []).map(
+      (row) => ({
+        ...row,
+        date: isoDateInTimeZone(row.starts_at, timezone),
+      }),
+    ),
+    connection,
   );
 
   const activePatients = patients.filter((patient) => patient.status === "active").length;
@@ -100,7 +129,7 @@ export async function getIndicatorSnapshot(
   }).length;
 
   const monthAppointments = appointments.filter(
-    (row) => row.date >= month.start && row.date <= month.end && row.status !== "cancelled",
+    (row) => row.date >= month.start && row.date <= month.end && isCountableMetricRow(row),
   );
   const completed = appointments.filter(
     (row) => row.date >= month.start && row.date <= month.end && row.status === "completed",
@@ -117,7 +146,7 @@ export async function getIndicatorSnapshot(
     const start = addDaysIso(today, -index * 7);
     const end = addDaysIso(start, 6);
     const count = appointments.filter(
-      (row) => row.date >= start && row.date <= end && row.status !== "cancelled",
+      (row) => row.date >= start && row.date <= end && isCountableMetricRow(row),
     ).length;
     weeklySessions.push({ label: `S${8 - index}`, count });
   }
@@ -143,7 +172,7 @@ export async function getIndicatorSnapshot(
     (row) =>
       row.starts_at >= week.fromIso &&
       row.starts_at < week.toIso &&
-      row.status !== "cancelled",
+      isCountableMetricRow(row),
   );
   const filledHours =
     weekAppointments.reduce((sum, row) => {

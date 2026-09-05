@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils/cn";
 const SIZE_CLASS = {
   sm: "size-10 text-sm",
   md: "size-11 text-sm",
+  card: "size-14 text-base lg:size-16",
   hub: "size-16 text-xl",
   lg: "size-24 text-2xl",
 } as const;

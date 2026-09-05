@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Trash2 } from "lucide-react";
+import { Check, CircleCheck, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,12 @@ export function TasksPanel({ tasks }: { tasks: PracticeTask[] }) {
   }
 
   return (
-    <DashboardWidget id="tasks-heading" title="Minhas Tarefas">
+    <DashboardWidget
+      id="tasks-heading"
+      title="Minhas Tarefas"
+      tone="tasks"
+      icon={<CircleCheck />}
+    >
       <form
         className="flex flex-col gap-2"
         onSubmit={(event) => {

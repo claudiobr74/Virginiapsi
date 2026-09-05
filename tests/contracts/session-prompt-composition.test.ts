@@ -87,12 +87,23 @@ describe("packContext — serialização de contexto delimitado", () => {
   it("SESSION_CLOSING inclui o transcript final rotulado como TRANSCRIPT_WINDOW", () => {
     const rendered = buildSessionClosingContext({
       organizationId: "org-1",
-      patientRef: { displayLabel: "Paciente Teste" },
+      patientRef: { displayLabel: "Paciente da sessão" },
       sessionId: "session-1",
       finalTranscriptOrSummary: "Transcrição completa da sessão.",
     });
     expect(rendered).toContain("[TRANSCRIPT_WINDOW]");
     expect(rendered).toContain("Transcrição completa da sessão.");
+  });
+
+  it("SESSION_CLOSING não inclui o nome do paciente no contexto empacotado", () => {
+    const rendered = buildSessionClosingContext({
+      organizationId: "org-1",
+      patientRef: { displayLabel: "Paciente da sessão" },
+      sessionId: "session-1",
+      finalTranscriptOrSummary: "Transcrição completa da sessão.",
+    });
+    expect(rendered).toContain("Paciente da sessão");
+    expect(rendered).not.toMatch(/Maria|Beatriz|Paciente Teste/);
   });
 
   it("prompt injection no transcript window é tratado como dado, nunca escapa o delimitador", () => {

@@ -1,9 +1,10 @@
-import { Globe, Home } from "lucide-react";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { CalendarDays, Globe, Home } from "lucide-react";
 import {
-  APPOINTMENT_STATUS_BADGE,
-  APPOINTMENT_STATUS_LABELS,
-} from "@/features/calendar/contracts";
+  getAppointmentVisualStatus,
+  myDayAppointmentToPresentationInput,
+} from "@/features/calendar/appointment-visual";
+import { GoogleOriginMark } from "@/features/calendar/components/google-origin-mark";
+import { countValidAgendaSessions } from "@/features/calendar/google-event-status";
 import { DashboardWidget } from "@/features/dashboard/components/dashboard-widget";
 import { SessionActions } from "@/features/dashboard/components/session-actions";
 import {
@@ -20,19 +21,35 @@ export function TodayTimeline({
   timeZone,
   highlightedId,
   canStartSession,
+  now,
 }: {
   appointments: MyDayAppointment[];
   timeZone: string;
   highlightedId?: string | null;
   canStartSession: boolean;
+  now?: Date;
 }) {
+  const validCount = countValidAgendaSessions(
+    appointments.map((appointment) => ({
+      status: appointment.status,
+      origin: appointment.origin,
+      summarySnapshot: appointment.summarySnapshot,
+      googleColorId: appointment.googleColorId,
+      googleEventType: appointment.googleEventType,
+      googleDeletedAt: appointment.googleDeletedAt,
+      cancelledGoogleColorIds: appointment.cancelledGoogleColorIds,
+      unavailableGoogleColorIds: appointment.unavailableGoogleColorIds,
+      endsAt: appointment.endsAt,
+    })),
+  );
+
   return (
     <DashboardWidget
       id="timeline-heading"
       title="Agenda de Hoje"
-      description={
-        appointments.length === 0 ? undefined : attendanceCountLabel(appointments.length)
-      }
+      tone="neutral"
+      icon={<CalendarDays />}
+      description={appointments.length === 0 ? undefined : attendanceCountLabel(validCount)}
       empty={appointments.length === 0}
       emptyLabel="O dia está resolvido — ou ainda livre. Abra a Agenda para marcar a próxima sessão."
     >
@@ -40,17 +57,25 @@ export function TodayTimeline({
         {appointments.map((appointment) => {
           const isNext = appointment.id === highlightedId;
           const ModalityIcon = appointment.modality === "online" ? Globe : Home;
+          const visual = getAppointmentVisualStatus(
+            myDayAppointmentToPresentationInput(appointment),
+            now,
+          );
           return (
             <li
               key={appointment.id}
+              data-appointment-visual={visual.tone}
+              data-appointment-origin={appointment.origin}
+              style={visual.style}
               className={cn(
-                "flex flex-col gap-2 border-b border-border py-3 last:border-b-0 last:pb-0",
-                isNext && "rounded-xl border-b-0 bg-sage-light/50 px-3",
+                "my-1 flex flex-col gap-2 rounded-lg px-3 py-3",
+                visual.className,
+                isNext && "agenda-event-selected",
               )}
             >
               <div className="flex min-w-0 items-center gap-3">
                 <div className="w-14 shrink-0">
-                  <p className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                  <p className="font-mono text-sm font-semibold tabular-nums">
                     {formatInTimeZone(appointment.startsAt, timeZone)}
                   </p>
                   <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -58,7 +83,7 @@ export function TodayTimeline({
                   </p>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">
+                  <p className="break-words text-sm font-semibold text-foreground">
                     {patientDisplayLabel(appointment)}
                   </p>
                   <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -66,16 +91,18 @@ export function TodayTimeline({
                       <span className="font-mono">{appointment.patientPublicCode}</span>
                     ) : null}
                     {appointment.patientPublicCode ? (
-                      <span className="size-1 shrink-0 rounded-full bg-sage" aria-hidden />
+                      <span className="size-1 shrink-0 rounded-full bg-current" aria-hidden />
                     ) : null}
                     <ModalityIcon className="size-3 shrink-0" aria-hidden />
                     <span className="truncate">{MODALITY_LABELS[appointment.modality]}</span>
                   </p>
                 </div>
-                <StatusBadge
-                  status={APPOINTMENT_STATUS_BADGE[appointment.status]}
-                  label={APPOINTMENT_STATUS_LABELS[appointment.status]}
-                />
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  {visual.badge ? <GoogleOriginMark compact /> : null}
+                  <span className="text-[10px] font-semibold uppercase tracking-wide">
+                    {visual.statusLabel}
+                  </span>
+                </div>
               </div>
               <SessionActions
                 appointment={appointment}

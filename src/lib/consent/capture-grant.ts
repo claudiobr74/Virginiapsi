@@ -9,19 +9,20 @@ export interface CaptureGrantPayload {
   organizationId: string;
   patientId: string;
   sessionId: string;
-  capability: "session_capture_grant" | "audio_fallback_upload_grant";
+  capability:
+    | "session_capture_grant"
+    | "session_remote_transcription_grant"
+    | "audio_fallback_upload_grant";
   nonce: string;
   issuedAt: number;
   expiresAt: number;
 }
 
 /**
- * The grant's TTL is generous (4h) relative to Deepgram's old 30s
- * provider-token model on purpose: there is no external provider credential
- * in the local transcription path whose leak-blast-radius needs limiting.
- * The grant's job is to prove the consent gate ran before capture started
- * and to scope persistence to one session — not to rate-limit a live
- * websocket handshake (docs/22-transcription-provider-decision.md §5).
+ * TTL covers a typical clinical session (~60 min) plus delayed recovery
+ * after reconnect without requiring a new consent gate mid-session.
+ * Audio still never leaves the browser until a granted live chunk is posted;
+ * the grant is not a Groq credential. Re-issue is always possible via /grant.
  */
 export const CAPTURE_GRANT_TTL_MS = 4 * 60 * 60 * 1000;
 

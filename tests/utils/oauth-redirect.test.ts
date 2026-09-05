@@ -41,8 +41,9 @@ describe("oauthCodeCallbackPath", () => {
     ).toBe("/auth/callback?code=abc-123");
   });
 
-  it("não encaminha sem code", () => {
-    expect(oauthCodeCallbackPath({})).toBeNull();
-    expect(oauthCodeCallbackPath({ next: "/app" })).toBeNull();
+  it("preserva sb_flow_id ao encaminhar o code", () => {
+    expect(
+      oauthCodeCallbackPath({ code: "abc-123", sb_flow_id: "flow-xyz" }),
+    ).toBe("/auth/callback?code=abc-123&sb_flow_id=flow-xyz");
   });
 });

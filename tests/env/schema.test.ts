@@ -4,17 +4,20 @@ import { describe, expect, it } from "vitest";
 import {
   coalesceAppUrl,
   envIssueKeyNames,
+  googleCalendarRedirectUri,
   isLoopbackHttpUrl,
-  normalizeGoogleOAuthRedirectUri,
   normalizePublicAppUrl,
   parsePublicEnv,
-  resolveGoogleCalendarRedirectUri,
 } from "../../src/lib/env/schema";
 import {
   parseGoogleCalendarEnv,
+  parseGroqTranscriptionEnv,
   parseServerEnv,
-  peekGoogleCalendarRedirectUri,
+  parseSessionAiEnv,
+  parseSessionCaptureEnv,
+  parseSupabaseAdminEnv,
   readIntegrationEnvFlags,
+  readSessionAiEnv,
   SERVER_ONLY_ENV_KEYS,
 } from "../../src/lib/env/server-schema";
 
@@ -31,8 +34,6 @@ const validServer = {
   SUPABASE_SECRET_KEY: "sb_secret_ci_placeholder",
   GOOGLE_CLIENT_ID: "google-client-id",
   GOOGLE_CLIENT_SECRET: "google-client-secret",
-  GOOGLE_OAUTH_REDIRECT_URI:
-    "http://localhost:3000/api/integrations/google/callback",
   GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key-placeholder",
   SESSION_CAPTURE_SECRET: "session-capture-secret-placeholder",
   TWILIO_ACCOUNT_SID: "AC00000000000000000000000000000000",
@@ -151,70 +152,16 @@ describe("contrato de ambiente", () => {
     }
   });
 
-  it("normaliza o redirect URI da Agenda (origem, login ou aspas)", () => {
-    expect(normalizeGoogleOAuthRedirectUri("preview.vercel.app")).toBe(
-      "https://preview.vercel.app/api/integrations/google/callback",
+  it("deriva o callback da Agenda só de NEXT_PUBLIC_APP_URL", () => {
+    expect(googleCalendarRedirectUri("https://dominio-oficial.vercel.app")).toBe(
+      "https://dominio-oficial.vercel.app/api/integrations/google/callback",
     );
-    expect(
-      normalizeGoogleOAuthRedirectUri("https://preview.vercel.app/auth/callback"),
-    ).toBe("https://preview.vercel.app/api/integrations/google/callback");
-    expect(
-      parseServerEnv({
-        ...validServer,
-        GOOGLE_OAUTH_REDIRECT_URI: "https://preview.vercel.app",
-      }).GOOGLE_OAUTH_REDIRECT_URI,
-    ).toBe("https://preview.vercel.app/api/integrations/google/callback");
-  });
-
-  it("deriva APP_URL e callback da Agenda a partir de VERCEL_URL", () => {
-    expect(
-      resolveGoogleCalendarRedirectUri(
-        "",
-        "https://tesseli-git-preview.vercel.app",
-      ),
-    ).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
-    );
-    expect(
-      resolveGoogleCalendarRedirectUri(
-        "http://localhost:3000/api/integrations/google/callback",
-        "https://tesseli-git-preview.vercel.app",
-      ),
-    ).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
-    );
-
-    const parsed = parseServerEnv({
-      ...validServer,
-      NEXT_PUBLIC_APP_URL: "",
-      VERCEL_URL: "tesseli-git-preview.vercel.app",
-      GOOGLE_OAUTH_REDIRECT_URI: "http://localhost:3000/api/integrations/google/callback",
-    });
-    expect(parsed.NEXT_PUBLIC_APP_URL).toBe(
-      "https://tesseli-git-preview.vercel.app",
-    );
-    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
+    expect(googleCalendarRedirectUri("http://localhost:3000")).toBe(
+      "http://localhost:3000/api/integrations/google/callback",
     );
   });
 
-  it("no Preview, localhost importado do .env vira o callback HTTPS da Vercel", () => {
-    const parsed = parseServerEnv({
-      ...validServer,
-      NEXT_PUBLIC_APP_URL: "http://localhost:3000",
-      VERCEL_URL: "tesseli-git-preview.vercel.app",
-      GOOGLE_OAUTH_REDIRECT_URI:
-        "http://localhost:3000/api/integrations/google/callback",
-    });
-    expect(parsed.NEXT_PUBLIC_APP_URL).toBe(
-      "https://tesseli-git-preview.vercel.app",
-    );
-    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
-    );
-  });
-
-  it("reconhece localhost no redirect URI", () => {
+  it("reconhece localhost em URL HTTP", () => {
     expect(isLoopbackHttpUrl("http://localhost:3000/api/integrations/google/callback")).toBe(
       true,
     );
@@ -229,40 +176,126 @@ describe("contrato de ambiente", () => {
     const parsed = parseServerEnv(validServer);
     expect(parsed.SUPABASE_SECRET_KEY).toBe("sb_secret_ci_placeholder");
     expect(parsed.NEXT_PUBLIC_APP_URL).toBe("http://localhost:3000");
-    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
-      "http://localhost:3000/api/integrations/google/callback",
+    expect("GOOGLE_OAUTH_REDIRECT_URI" in parsed).toBe(false);
+  });
+
+  it("Agenda ignora GOOGLE_OAUTH_REDIRECT_URI e VERCEL_URL", () => {
+    const parsed = parseGoogleCalendarEnv({
+      NEXT_PUBLIC_APP_URL: "https://dominio-oficial.vercel.app",
+      VERCEL_URL: "tesseli-git-preview.vercel.app",
+      GOOGLE_OAUTH_REDIRECT_URI:
+        "https://tesseli-git-cursor-fase-13-ha-153b81.vercel.app/api/integrations/google/callback",
+      GOOGLE_CLIENT_ID: "google-client-id",
+      GOOGLE_CLIENT_SECRET: "google-client-secret",
+      GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key-placeholder",
+    });
+    expect(parsed.NEXT_PUBLIC_APP_URL).toBe("https://dominio-oficial.vercel.app");
+    expect(googleCalendarRedirectUri(parsed.NEXT_PUBLIC_APP_URL)).toBe(
+      "https://dominio-oficial.vercel.app/api/integrations/google/callback",
+    );
+    expect("GOOGLE_OAUTH_REDIRECT_URI" in parsed).toBe(false);
+  });
+
+  it("valida o capture grant só com SESSION_CAPTURE_SECRET", () => {
+    const parsed = parseSessionCaptureEnv({
+      SESSION_CAPTURE_SECRET: "session-capture-secret-placeholder",
+    });
+    expect(parsed).toEqual({
+      SESSION_CAPTURE_SECRET: "session-capture-secret-placeholder",
+    });
+  });
+
+  it("rejeita SESSION_CAPTURE_SECRET ausente no parser de captura", () => {
+    expect(() => parseSessionCaptureEnv({})).toThrow(/SESSION_CAPTURE_SECRET/);
+    expect(() => parseSessionCaptureEnv({ SESSION_CAPTURE_SECRET: "   " })).toThrow(
+      /SESSION_CAPTURE_SECRET/,
     );
   });
 
-  it("expõe o callback da Agenda sem exigir o contrato servidor completo", () => {
-    expect(
-      peekGoogleCalendarRedirectUri({
-        NEXT_PUBLIC_APP_URL: "",
-        VERCEL_URL: "tesseli-git-preview.vercel.app",
-        GOOGLE_OAUTH_REDIRECT_URI:
-          "http://localhost:3000/api/integrations/google/callback",
-      }),
-    ).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
+  it("Twilio, Google, Gemini e CRON_SECRET ausentes não quebram o parser de captura", () => {
+    const parsed = parseSessionCaptureEnv({
+      SESSION_CAPTURE_SECRET: "session-capture-secret-placeholder",
+      TWILIO_ACCOUNT_SID: undefined,
+      TWILIO_AUTH_TOKEN: undefined,
+      GOOGLE_CLIENT_ID: undefined,
+      GOOGLE_CLIENT_SECRET: undefined,
+      GEMINI_API_KEY: undefined,
+      GEMINI_MODEL_SESSION: undefined,
+      CRON_SECRET: undefined,
+    });
+    expect(parsed.SESSION_CAPTURE_SECRET).toBe("session-capture-secret-placeholder");
+  });
+
+  it("getSessionCaptureEnv existe como wrapper server-only do parser isolado", () => {
+    const source = readFileSync(path.join(ROOT, "src/lib/env/server.ts"), "utf8");
+    expect(source).toContain("export function getSessionCaptureEnv");
+    expect(source).toContain("parseSessionCaptureEnv");
+  });
+
+  it("emissão e verificação do capture grant não usam getServerEnv", () => {
+    const source = readFileSync(
+      path.join(ROOT, "src/lib/consent/capability-gate.ts"),
+      "utf8",
     );
+    expect(source).toContain("getSessionCaptureEnv");
+    expect(source).not.toContain("getServerEnv");
   });
 
   it("valida a Agenda sem Twilio, Gemini nem CRON_SECRET", () => {
     const parsed = parseGoogleCalendarEnv({
-      NEXT_PUBLIC_APP_URL: "",
-      VERCEL_URL: "tesseli-git-preview.vercel.app",
+      NEXT_PUBLIC_APP_URL: "https://serena-psi-beta.vercel.app",
       GOOGLE_CLIENT_ID: "google-client-id",
       GOOGLE_CLIENT_SECRET: "google-client-secret",
-      GOOGLE_OAUTH_REDIRECT_URI:
-        "http://localhost:3000/api/integrations/google/callback",
       GOOGLE_TOKEN_ENCRYPTION_KEY: "token-encryption-key-placeholder",
     });
-    expect(parsed.NEXT_PUBLIC_APP_URL).toBe(
-      "https://tesseli-git-preview.vercel.app",
+    expect(parsed.NEXT_PUBLIC_APP_URL).toBe("https://serena-psi-beta.vercel.app");
+    expect(googleCalendarRedirectUri(parsed.NEXT_PUBLIC_APP_URL)).toBe(
+      "https://serena-psi-beta.vercel.app/api/integrations/google/callback",
     );
-    expect(parsed.GOOGLE_OAUTH_REDIRECT_URI).toBe(
-      "https://tesseli-git-preview.vercel.app/api/integrations/google/callback",
-    );
+  });
+
+  it("cliente admin de Storage valida só URL e secret key", () => {
+    const parsed = parseSupabaseAdminEnv({
+      NEXT_PUBLIC_SUPABASE_URL: validPublic.NEXT_PUBLIC_SUPABASE_URL,
+      SUPABASE_SECRET_KEY: validServer.SUPABASE_SECRET_KEY,
+    });
+    expect(parsed.NEXT_PUBLIC_SUPABASE_URL).toBe(validPublic.NEXT_PUBLIC_SUPABASE_URL);
+    expect(parsed.SUPABASE_SECRET_KEY).toBe(validServer.SUPABASE_SECRET_KEY);
+    expect("TWILIO_ACCOUNT_SID" in parsed).toBe(false);
+    expect("GEMINI_API_KEY" in parsed).toBe(false);
+    expect("GOOGLE_CLIENT_ID" in parsed).toBe(false);
+    expect("CRON_SECRET" in parsed).toBe(false);
+    expect("SESSION_CAPTURE_SECRET" in parsed).toBe(false);
+  });
+
+  it("upload de foto não exige Twilio, Gemini, Google nem CRON_SECRET", () => {
+    expect(() =>
+      parseSupabaseAdminEnv({
+        NEXT_PUBLIC_SUPABASE_URL: validPublic.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_SECRET_KEY: validServer.SUPABASE_SECRET_KEY,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      parseServerEnv({
+        ...validPublic,
+        SUPABASE_SECRET_KEY: validServer.SUPABASE_SECRET_KEY,
+      }),
+    ).toThrow(/Invalid environment configuration/);
+  });
+
+  it("cliente admin falha sem vazar a secret key", () => {
+    const secret = "sb_secret_must_not_appear_in_error";
+    try {
+      parseSupabaseAdminEnv({
+        NEXT_PUBLIC_SUPABASE_URL: "not-a-url",
+        SUPABASE_SECRET_KEY: secret,
+      });
+      throw new Error("expected parseSupabaseAdminEnv to throw");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).toMatch(/Invalid environment configuration/);
+      expect(message).not.toContain(secret);
+    }
   });
 
   it("lista só os nomes das chaves faltando, sem valores", () => {
@@ -305,9 +338,82 @@ describe("contrato de ambiente", () => {
     expect(parsed.TWILIO_MESSAGING_SERVICE_SID).toBeUndefined();
   });
 
+  it("getGroqTranscriptionEnv existe como wrapper server-only isolado", () => {
+    const source = readFileSync(path.join(ROOT, "src/lib/env/server.ts"), "utf8");
+    expect(source).toContain("export function getGroqTranscriptionEnv");
+    expect(source).toContain("parseGroqTranscriptionEnv");
+  });
+
+  it("o parser Groq exige só a chave de transcrição", () => {
+    const parsed = parseGroqTranscriptionEnv({
+      GROQ_API_KEY: "groq-key",
+      GROQ_TRANSCRIPTION_MODEL: "whisper-large-v3-turbo",
+      GROQ_TRANSCRIPTION_TIMEOUT_MS: "30000",
+    });
+    expect(parsed.GROQ_API_KEY).toBe("groq-key");
+    expect(parsed.GROQ_TRANSCRIPTION_MODEL).toBe("whisper-large-v3-turbo");
+    expect(parsed.GROQ_TRANSCRIPTION_TIMEOUT_MS).toBe(30000);
+    expect(() => parseGroqTranscriptionEnv({})).toThrow(/GROQ_API_KEY/);
+  });
+
+  it("transcribe-chunk não usa getServerEnv", () => {
+    const source = readFileSync(
+      path.join(ROOT, "src/app/api/session-capture/transcribe-chunk/route.ts"),
+      "utf8",
+    );
+    expect(source).not.toContain("getServerEnv");
+    expect(source).toContain("createGroqTranscriptionClient");
+  });
+
+  it("getSessionAiEnv existe como wrapper server-only isolado", () => {
+    const source = readFileSync(path.join(ROOT, "src/lib/env/server.ts"), "utf8");
+    expect(source).toContain("export function getSessionAiEnv");
+    expect(source).toContain("parseSessionAiEnv");
+  });
+
+  it("o parser de Session AI exige só Gemini de sessão", () => {
+    const parsed = parseSessionAiEnv({
+      GEMINI_API_KEY: "gemini-key",
+      GEMINI_MODEL_SESSION: "gemini-session-model",
+    });
+    expect(parsed.GEMINI_API_KEY).toBe("gemini-key");
+    expect(parsed.GEMINI_MODEL_SESSION).toBe("gemini-session-model");
+    expect("TWILIO_ACCOUNT_SID" in parsed).toBe(false);
+    expect("GROQ_API_KEY" in parsed).toBe(false);
+    expect("CRON_SECRET" in parsed).toBe(false);
+    expect("GOOGLE_CLIENT_ID" in parsed).toBe(false);
+    expect(() => parseSessionAiEnv({})).toThrow(/GEMINI_API_KEY/);
+  });
+
+  it("readSessionAiEnv classifica chaves ausentes sem lançar nem vazar valores", () => {
+    const missing = readSessionAiEnv({});
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) {
+      expect(missing.missingKeys).toEqual(["GEMINI_API_KEY", "GEMINI_MODEL_SESSION"]);
+    }
+
+    const secret = "AIzaSy-must-not-appear";
+    const onlyKey = readSessionAiEnv({
+      GEMINI_API_KEY: secret,
+      GEMINI_MODEL_SESSION: "",
+    });
+    expect(onlyKey.ok).toBe(false);
+    if (!onlyKey.ok) {
+      expect(onlyKey.missingKeys).toEqual(["GEMINI_MODEL_SESSION"]);
+      expect(JSON.stringify(onlyKey)).not.toContain(secret);
+    }
+  });
+
+  it("Session AI não usa getServerEnv", () => {
+    const source = readFileSync(
+      path.join(ROOT, "src/features/sessions/ai/actions.ts"),
+      "utf8",
+    );
+    expect(source).not.toContain("getServerEnv");
+    expect(source).toContain("getSessionAiEnv");
+  });
+
   it("aceita o contrato servidor sem GROQ_API_KEY", () => {
-    // A transcrição padrão roda no dispositivo: sem provider de fallback
-    // configurado o app continua completo (docs/22).
     expect(parseServerEnv(validServer).GROQ_API_KEY).toBeUndefined();
     expect(
       parseServerEnv({ ...validServer, GROQ_API_KEY: "groq-key" }).GROQ_API_KEY,
@@ -343,5 +449,17 @@ describe("contrato de ambiente", () => {
     }
 
     expect(leaks).toEqual([]);
+  });
+
+  it("não declara GOOGLE_OAUTH_REDIRECT_URI no contrato servidor", () => {
+    expect(SERVER_ONLY_ENV_KEYS).not.toContain("GOOGLE_OAUTH_REDIRECT_URI");
+  });
+
+  it("código de aplicação não lê GOOGLE_OAUTH_REDIRECT_URI", () => {
+    const files = walkFiles(path.join(ROOT, "src"));
+    const hits = files.filter((file) =>
+      readFileSync(file, "utf8").includes("GOOGLE_OAUTH_REDIRECT_URI"),
+    );
+    expect(hits.map((file) => path.relative(ROOT, file))).toEqual([]);
   });
 });

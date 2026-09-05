@@ -265,7 +265,7 @@ export function DesktopTopBar({
 
   return (
     <>
-      <header className="sticky top-0 z-20 hidden h-[72px] items-center justify-between gap-4 border-b border-border bg-card px-8 lg:flex">
+      <header className="sticky top-0 z-20 hidden h-[72px] items-center justify-between gap-4 border-b border-border bg-background/80 px-8 backdrop-blur-sm lg:flex">
         <p
           suppressHydrationWarning
           className="min-w-0 truncate font-serif text-2xl font-bold text-foreground"

@@ -1,19 +1,17 @@
 ---
-description: Session transcription architecture — on-device by default, optional server fallback.
+description: Session transcription architecture — Groq live chunks, encrypted local spool, external import.
 globs: "src/**/*transcri*,src/features/sessions/**/*,src/app/api/session-capture/**/*"
 alwaysApply: false
 ---
 # Transcrição
 
-Decisão de provider e rationale: `docs/22-transcription-provider-decision.md`.
+Decisão de provider: `docs/22-transcription-provider-decision.md`. Compatibilidade: `docs/27-transcription-v3-cross-platform.md`.
 
-- Default path is on-device transcription (ONNX/WebGPU with WASM fallback). Audio must not leave the device on this path — no upload, no provider call, nothing but model weights fetched.
-- `TranscriptionProvider` is a port with adapters. Never call a provider SDK directly from a component or route; swapping provider must cost an adapter, not a refactor.
-- The browser obtains a short-lived `session_capture_grant` from an authenticated endpoint before activating the microphone.
-- The same server-side recording/transcription ConsentState gate applies before issuing either the capture grant or any fallback signed-upload capability. Revoked/invalid consent must deny both.
-- Because the server does not sit in the audio path locally, enforcement completes at persistence: reject a transcript segment whose capture grant is missing, expired or foreign to the session.
-- The optional fallback (Groq) is only available when the organization enables it and `GROQ_API_KEY` is set. That key is server-only and never reaches the browser. With the fallback disabled, the session proceeds without transcription rather than degrading privacy silently.
-- Persist final transcript segments incrementally and idempotently; resuming capture must not duplicate text.
-- Treat interim transcript as provisional and final transcript as still fallible. Preserve ambiguity/error signals, especially for negation, names, regionalisms and technical terms.
-- Diarization is an optional provider capability. When the adapter does not support it, leave segments unlabeled — never synthesize a speaker.
-- Do not add emotion recognition from voice/face. Do not allow ASR output alone to become a definitive clinical fact or automatic safety decision.
+- Default path is live Groq transcription. The browser captures with MediaRecorder and posts chunks to `/api/session-capture/transcribe-chunk`. Do not run ONNX/Whisper/Transformers.js in the browser.
+- Prefer feature detection (MediaRecorder, MIME, IndexedDB, Web Crypto) over user-agent sniffing.
+- `GROQ_API_KEY` is server-only via `getGroqTranscriptionEnv()`. Never `NEXT_PUBLIC_GROQ_*`. Never call Groq from a client module.
+- Live audio stays in request memory. Do not write live chunks to Supabase Storage. Import may use private temporary storage and must delete after persist.
+- The browser obtains a short-lived `session_remote_transcription_grant` **before** `getUserMedia`. The same consent gate applies to import upload grants. Live Groq rejects `session_capture_grant`.
+- Persist final transcript segments incrementally and idempotently by `(session_id, sequence)`. Show text in the UI only after ACK.
+- Encrypted IndexedDB spool is the prolonged-failure backup. Never store plaintext audio in localStorage/sessionStorage/cookies. Never persist a raw AES key. If the CryptoKey cannot be persisted, classify `SECURE_SPOOL_UNAVAILABLE` (fail-closed) instead of falling back to extractable key material.
+- Diarization is optional. Do not synthesize speakers. Do not add emotion recognition. ASR is not a clinical fact.

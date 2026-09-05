@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Design system — referência mínima", () => {
-  test("lista os onze primitivos canônicos e permite interação", async ({
+  test("lista os primitivos canônicos e permite interação", async ({
     page,
   }) => {
     await page.goto("/design-system");
@@ -21,6 +21,7 @@ test.describe("Design system — referência mínima", () => {
       "Drawer",
       "ConfirmDialog",
       "PageContainer / PageHeader",
+      "Card",
     ]) {
       await expect(page.getByRole("heading", { name: title })).toBeVisible();
     }

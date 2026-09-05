@@ -14,19 +14,26 @@ import {
   type MyDayAppointment,
 } from "@/features/dashboard/contracts";
 import { meetHostLabel } from "@/features/dashboard/stats";
-import { StartSessionButton } from "@/features/sessions/components/start-session-button";
+import { offersClinicalAppointmentActions } from "@/features/calendar/appointment-visual";
+import { AttendAppointmentButton } from "@/features/calendar/components/attend-appointment-button";
+import {
+  MeetActionButton,
+  type MeetRequestAction,
+} from "@/features/calendar/components/meet-action-button";
 import { cn } from "@/lib/utils/cn";
 
 export function SessionActions({
   appointment,
   timeZone,
   canStartSession,
+  requestMeetAction,
   tone = "default",
   layout = "full",
 }: {
   appointment: MyDayAppointment;
   timeZone: string;
   canStartSession?: boolean;
+  requestMeetAction?: MeetRequestAction;
   tone?: "default" | "onPrimary";
   layout?: "full" | "hero" | "timeline";
 }) {
@@ -45,7 +52,19 @@ export function SessionActions({
           timeZone,
         )
       : null;
-  const meetReady = appointment.meetStatus === "success" && Boolean(appointment.meetUrl);
+  const canStart =
+    Boolean(canStartSession) &&
+    offersClinicalAppointmentActions({
+      origin: appointment.origin,
+      patient_id: appointment.patientId,
+      status: appointment.status,
+      summarySnapshot: appointment.summarySnapshot,
+      googleDeletedAt: appointment.googleDeletedAt,
+      googleColorId: appointment.googleColorId,
+      googleEventType: appointment.googleEventType,
+      unavailableGoogleColorIds: appointment.unavailableGoogleColorIds,
+      endsAt: appointment.endsAt,
+    });
   const canConfirm =
     appointment.origin === "TESSELI" &&
     appointment.status !== "confirmed" &&
@@ -57,7 +76,37 @@ export function SessionActions({
     appointment.status !== "cancelled" &&
     appointment.status !== "completed" &&
     appointment.status !== "no_show";
+  const meetReady = appointment.meetStatus === "success" && Boolean(appointment.meetUrl);
   const onPrimary = tone === "onPrimary";
+  const attendButton = canStart ? (
+    <AttendAppointmentButton
+      appointment={{
+        id: appointment.id,
+        origin: appointment.origin,
+        patientId: appointment.patientId,
+        status: appointment.status,
+        summarySnapshot: appointment.summarySnapshot,
+        startsAt: appointment.startsAt,
+        endsAt: appointment.endsAt,
+        googleDeletedAt: appointment.googleDeletedAt,
+        googleColorId: appointment.googleColorId,
+        googleEventType: appointment.googleEventType,
+        unavailableGoogleColorIds: appointment.unavailableGoogleColorIds,
+      }}
+      timeZone={timeZone}
+      canStartSession={Boolean(canStartSession)}
+      label="Atender"
+      size={layout === "hero" ? "lg" : "sm"}
+      className={
+        layout === "hero" && onPrimary
+          ? "rounded-[14px] bg-white px-7 text-[15px] text-primary hover:bg-white/90"
+          : layout === "timeline"
+            ? "rounded-xl"
+            : undefined
+      }
+      returnTo="/app"
+    />
+  ) : null;
   const ghostClass = onPrimary
     ? "border border-white/30 bg-transparent text-white hover:bg-white/10"
     : undefined;
@@ -88,9 +137,7 @@ export function SessionActions({
     }
   }
 
-  const hasTimelineActions = Boolean(
-    whatsappUrl || canConfirm || (canStartSession && appointment.patientId),
-  );
+  const hasTimelineActions = Boolean(whatsappUrl || canConfirm || canStart);
 
   if (layout === "timeline") {
     if (!hasTimelineActions && !error) {
@@ -122,14 +169,7 @@ export function SessionActions({
             Confirmar
           </Button>
         ) : null}
-        {canStartSession && appointment.patientId ? (
-          <StartSessionButton
-            patientId={appointment.patientId}
-            appointmentId={appointment.id}
-            label="Atender"
-            className="rounded-xl"
-          />
-        ) : null}
+        {attendButton}
       </div>
     );
   }
@@ -158,19 +198,7 @@ export function SessionActions({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        {canStartSession && appointment.patientId ? (
-          <StartSessionButton
-            patientId={appointment.patientId}
-            appointmentId={appointment.id}
-            label="Iniciar sessão"
-            size="lg"
-            className={
-              onPrimary
-                ? "rounded-[14px] bg-white px-7 text-[15px] text-primary hover:bg-white/90"
-                : undefined
-            }
-          />
-        ) : null}
+        {attendButton}
 
         {whatsappUrl ? (
           <Button asChild size={layout === "hero" ? "icon" : "sm"} variant="secondary" className={ghostClass}>
@@ -220,15 +248,16 @@ export function SessionActions({
           </Button>
         ) : null}
 
-        {layout !== "hero" && meetReady ? (
-          <Button asChild size="sm">
-            <a href={appointment.meetUrl ?? "#"} target="_blank" rel="noreferrer">
-              <Video className="size-3.5" aria-hidden />
-              Entrar no Meet
-            </a>
-          </Button>
-        ) : appointment.meetStatus === "pending" && layout !== "hero" ? (
-          <span className="self-center text-xs font-semibold text-pending">Meet em criação…</span>
+        {layout !== "hero" ? (
+          <MeetActionButton
+            appointmentId={appointment.id}
+            modality={appointment.modality}
+            origin={appointment.origin}
+            meetUrl={appointment.meetUrl}
+            meetStatus={appointment.meetStatus}
+            requestMeetAction={requestMeetAction}
+            size="sm"
+          />
         ) : null}
       </div>
 

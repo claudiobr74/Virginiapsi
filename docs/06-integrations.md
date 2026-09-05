@@ -96,53 +96,50 @@ Texto configurável no consultório, mas uso deve respeitar exigências de templ
 
 ## 3. Transcrição
 
-Decisão de provider e rationale completo em `docs/22-transcription-provider-decision.md`. Resumo: **local-first no navegador, com fallback opcional no Groq**. Deepgram não faz mais parte da arquitetura.
+Decisão de provider e rationale em `docs/22-transcription-provider-decision.md`. Compatibilidade: `docs/27-transcription-v3-cross-platform.md`. Resumo: **Groq Speech-to-Text ao vivo**, com spool IndexedDB AES-GCM e importação de gravação. Deepgram e ASR local (ONNX/WebGPU/WASM) **não** fazem parte do caminho de produção.
 
-`TranscriptionProvider` é uma porta com adapters. Provider é configuração, não arquitetura.
+`TranscriptionProvider` é uma porta. O motor ao vivo é `groq-batch`. Segmentos históricos podem ainda carregar `local-webgpu` / `local-wasm`.
 
-### Caminho padrão — local no navegador
+### Caminho padrão — ao vivo (LIVE)
 
-1. sessão clínica autenticada valida tenant/paciente e consentimentos aplicáveis;
+1. sessão clínica autenticada valida tenant/paciente e consentimentos aplicáveis (`minimo-2026-09-groq` para transcrição);
 2. se o consent gate falhar, não ativar microfone e oferecer sessão sem gravação/transcrição;
-3. o servidor emite um `session_capture_grant` de vida curta, ligado a organização/paciente/sessão;
-4. o navegador carrega o modelo local (WebGPU, com queda para WASM) e captura áudio;
-5. o áudio é transcrito no próprio dispositivo — **nenhum byte de áudio sai da máquina e nenhum suboperador o recebe**;
-6. a UI exibe o trecho em processamento como provisório;
-7. segmentos finais são persistidos incrementalmente, e o servidor **recusa persistir segmento sem grant de captura válido** — esse é o ponto real de enforcement do caminho local;
-8. retenção segue `practice_settings`.
+3. o servidor emite um `session_remote_transcription_grant` (TTL 4h: sessão típica ~60 min + recovery/reconnect), ligado a organização/paciente/sessão; o browser **não** escolhe a capability;
+4. só então o navegador chama `getUserMedia`, negocia MIME (`MediaRecorder.isTypeSupported`) e captura chunks ~15 s;
+5. cada chunk vai em `multipart/form-data` para `POST /api/session-capture/transcribe-chunk`;
+6. o servidor chama Groq em memória, persiste o texto, devolve ACK; o Blob local some só após ACK;
+7. a UI confirma o trecho somente depois do ACK (Groq + DB);
+8. áudio ao vivo **não** entra no Supabase Storage.
 
-O produto deve detectar capacidade do dispositivo e, quando não houver suporte suficiente, oferecer explicitamente o fallback ou seguir sem transcrição.
+Idempotência: `(session_id, sequence)`. Replay de lost ACK devolve `already_processed` + segmento, sem duplicar texto.
 
-A transcrição não é considerada literal/infalível. O produto deve permitir lidar com erros de nomes, negações, regionalismos e termos técnicos e não consolidar automaticamente interpretações clínicas a partir de trecho ambíguo.
+### Contingência
+
+- **Nível 2**: fila em memória, retry em timeout/429/5xx (não depender só de `navigator.onLine`).
+- **Nível 3**: spool AES-GCM no IndexedDB com CryptoKey non-extractable persistida. Sem plaintext e **sem** raw AES key no IndexedDB. Se a chave não puder ser persistida com segurança: `SECURE_SPOOL_UNAVAILABLE` (fail-closed). A transcrição online continua; a UI não afirma preservação criptografada.
+- **Nível 4**: importar gravação externa (file picker; drag-and-drop no desktop).
+
+### Importação (IMPORT)
+
+Só depois do mesmo consent gate. `audio_fallback_upload_grant` + signed upload em `session-audio-fallback` (privado, sem URL pública). Backend baixa, manda ao Groq, persiste texto, apaga o objeto. Falha no Groq mantém o temporário para retry.
+
+O bucket `session-audio-fallback` não aceita upload genérico por membership.
+
+A transcrição não é literal/infalível. Não consolidar interpretações clínicas a partir de trecho ambíguo.
 
 ### Diarização
 
-Capacidade **opcional** do provider. Quando o adapter não a oferece, a UI não inventa falante: o segmento fica sem rótulo. Quando existe, o rótulo é tão provisório quanto o texto — nunca vira fato clínico sem confirmação, e discrepância de atribuição é sinalizada, não corrigida silenciosamente.
+Capacidade **opcional** do provider. Quando o adapter não a oferece, a UI não inventa falante. Quando existe, o rótulo é provisório.
 
 ### Estados de captura
 
-- idle
-- preparing (carregando modelo/obtendo grant)
-- recording
-- degraded (transcrição indisponível, sessão segue)
-- stopping
-- completed
-- error
+idle, authorizing, requesting_microphone, recording, connection_degraded, local_backup, recovering, stopping, completed, error.
 
-Evitar duplicação de texto por sequence/segment key.
+### Groq
 
-### Fallback opcional — Groq
-
-Só quando a organização habilita explicitamente e `GROQ_API_KEY` está configurada. Nesse modo o Groq é suboperador e precisa constar do TCLE (`docs/19-lgpd-privacy.md` §2).
-
-- antes de conceder qualquer capacidade de upload, o browser solicita ao servidor um `audio_fallback_upload_grant`; o servidor revalida autenticação, tenant/paciente/sessão e o mesmo `ConsentState` de gravação/transcrição;
-- se consentimento estiver inválido/revogado, não emitir signed upload token/URL, não iniciar TUS e não permitir nova captura; a sessão continua sem gravação/transcrição;
-- o bucket `session-audio-fallback` não deve aceitar upload genérico baseado apenas na membership do usuário;
-- após gate válido, browser faz upload direto para bucket privado `session-audio-fallback` usando signed upload capability/TUS autorizada conforme tamanho;
-- chama backend com object path, mime e metadata (payload pequeno);
-- backend cria signed URL curta e pede transcrição ao Groq;
-- salva texto;
-- aplica retenção/limpeza do áudio.
+- env isolado: `getGroqTranscriptionEnv()` — `GROQ_API_KEY` (obrigatório neste parser), `GROQ_TRANSCRIPTION_MODEL` (default `whisper-large-v3-turbo`), timeout opcional;
+- nunca `NEXT_PUBLIC_GROQ_*`; o browser nunca chama `api.groq.com`;
+- ZDR: **NOT_VERIFIED**.
 
 Nunca enviar áudio completo/base64 por Vercel. A chave do provider é server-only e nunca chega ao browser.
 

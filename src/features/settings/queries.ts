@@ -15,6 +15,9 @@ import { buildIntegrationDiagnostics } from "@/features/settings/diagnostics";
 import { buildEliminationReport, type EliminationCounts } from "@/features/settings/elimination";
 import { readIntegrationEnvFlags } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getDocumentBranding, listDocumentLogos } from "@/features/documents/branding-queries";
+import { DOCUMENT_BUCKETS, createSignedDownloadUrl } from "@/lib/documents/storage";
+import { isProfessionalPhotoStoragePath } from "@/features/settings/professional-photo";
 
 function emptyNumber(value: unknown): number {
   return typeof value === "number" ? value : Number(value ?? 0);
@@ -34,6 +37,20 @@ export async function getPracticeSettings(
   }
   const parsed = practiceSettingsRowSchema.safeParse(data);
   return parsed.success ? parsed.data : null;
+}
+
+export async function getProfessionalPhotoUrl(
+  organizationId: string,
+  photoPath: string | null | undefined,
+): Promise<string | null> {
+  if (!photoPath || !isProfessionalPhotoStoragePath(organizationId, photoPath)) {
+    return null;
+  }
+  try {
+    return await createSignedDownloadUrl(DOCUMENT_BUCKETS.practiceAssets, photoPath);
+  } catch {
+    return null;
+  }
 }
 
 export async function listTeamMembers(organizationId: string): Promise<TeamMemberRow[]> {
@@ -105,27 +122,32 @@ export async function getIntegrationDiagnosticsForOrg(organizationId: string) {
     lastTwilioError(organizationId).catch(() => null),
   ]);
 
-  return buildIntegrationDiagnostics({
-    google: {
-      oauthConfigured: flags.googleOAuth,
-      connectionStatus: connection?.status ?? null,
-      accountEmail: connection?.google_account_email ?? null,
-      lastSyncedAt: connection?.last_synced_at ?? null,
-      lastError: connection?.last_sync_error ?? null,
-    },
-    twilio: {
-      accountConfigured: flags.twilioAccount,
-      senderConfigured: flags.twilioSender,
-      lastError: twilioError,
-    },
-    transcription: {
-      localDefault: true,
-      fallbackConfigured: flags.groq,
-    },
-    gemini: {
-      configured: flags.gemini,
-    },
-  });
+  const googleLive =
+    connection?.status === "connected" || connection?.status === "error";
+
+  return {
+    connection,
+    diagnostics: buildIntegrationDiagnostics({
+      google: {
+        oauthConfigured: flags.googleOAuth,
+        connectionStatus: connection?.status ?? null,
+        accountEmail: googleLive ? connection?.google_account_email ?? null : null,
+        lastSyncedAt: googleLive ? connection?.last_synced_at ?? null : null,
+        lastError: googleLive ? connection?.last_sync_error ?? null : null,
+      },
+      twilio: {
+        accountConfigured: flags.twilioAccount,
+        senderConfigured: flags.twilioSender,
+        lastError: twilioError,
+      },
+      transcription: {
+        groqConfigured: flags.groq,
+      },
+      gemini: {
+        configured: flags.gemini,
+      },
+    }),
+  };
 }
 
 export async function countEliminationRecords(
@@ -225,13 +247,13 @@ export async function getSettingsSnapshot(input: {
         senderConfigured: false,
         lastError: null,
       },
-      transcription: { localDefault: true, fallbackConfigured: false },
+      transcription: { groqConfigured: false },
       gemini: { configured: false },
     });
 
   try {
     const supabase = await createSupabaseServerClient();
-    const [{ data: org }, practice, team, diagnostics, exports, patients] =
+    const [{ data: org }, practice, team, integration, exports, patients, documentBranding, documentLogos] =
       await Promise.all([
         supabase
           .from("organizations")
@@ -247,9 +269,15 @@ export async function getSettingsSnapshot(input: {
           .select("id, preferred_name, public_code")
           .eq("organization_id", input.organizationId)
           .order("preferred_name", { ascending: true }),
+        getDocumentBranding(input.organizationId).catch(() => null),
+        listDocumentLogos(input.organizationId).catch(() => []),
       ]);
 
     const practiceRow = practice ?? defaultPracticeSettings(input.organizationId);
+    const professionalPhotoUrl = await getProfessionalPhotoUrl(
+      input.organizationId,
+      practiceRow.photo_path,
+    );
 
     return {
       profile: {
@@ -264,7 +292,8 @@ export async function getSettingsSnapshot(input: {
       },
       practice: practiceRow,
       team,
-      diagnostics,
+      diagnostics: integration.diagnostics,
+      googleConnection: integration.connection,
       exports,
       patients: (patients.data ?? []).map((patient) => ({
         id: patient.id as string,
@@ -272,6 +301,9 @@ export async function getSettingsSnapshot(input: {
         public_code: patient.public_code as string,
       })),
       secretaryFinanceAccess: practiceRow.secretary_finance_access,
+      documentBranding,
+      documentLogos,
+      professionalPhotoUrl,
     };
   } catch {
     const practiceRow = defaultPracticeSettings(input.organizationId);
@@ -289,9 +321,13 @@ export async function getSettingsSnapshot(input: {
       practice: practiceRow,
       team: [],
       diagnostics: emptyDiagnostics(),
+      googleConnection: null,
       exports: [],
       patients: [],
       secretaryFinanceAccess: practiceRow.secretary_finance_access,
+      documentBranding: null,
+      documentLogos: [],
+      professionalPhotoUrl: null,
     };
   }
 }

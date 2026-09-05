@@ -81,6 +81,7 @@ Buckets privados, por exemplo:
 - `clinical-documents`
 - `consents`
 - `patient-attachments`
+- `practice-assets` (retrato da profissional; zero policies em `storage.objects`; leitura só por signed URL)
 - `knowledge-sources`
 - `session-audio-fallback` (se ativado)
 
@@ -114,17 +115,17 @@ Links de download são signed URLs de curta duração.
 
 ## Áudio/transcrição
 
-- no caminho padrão o áudio é transcrito no dispositivo e não trafega para nenhum provider;
-- chave de provider de fallback (`GROQ_API_KEY`) é server-only e nunca vai ao browser;
-- grant de captura de vida curta por sessão autenticada, emitido somente após o consent gate;
-- servidor recusa persistir segmento de transcrição sem grant de captura válido;
-- rate limit dos endpoints de grant: 30 requisições/min por IP, janela deslizante **best-effort por instância** (`src/lib/security/rate-limit.ts`) — não é cota global de cluster na Vercel;
-- teto de body nos grants/segmentos (64 KiB), metadata de transcribe (16 KiB) e webhooks Twilio (32 KiB);
+- no caminho ao vivo o áudio sai temporariamente do dispositivo para o backend e o Groq; não é gravado no Storage nem no filesystem persistente;
+- `GROQ_API_KEY` é server-only via `getGroqTranscriptionEnv()` e nunca vai ao browser;
+- grant de captura por sessão autenticada, emitido somente após o consent gate (`session_transcription` versão `minimo-2026-09-groq`);
+- servidor recusa transcrever/persistir sem grant válido, RBAC clínico e sessão do paciente;
+- rate limit dos endpoints de grant: 30/min por IP; de `transcribe-chunk`: 30/min por organização+sessão (cabe ~4 req/min de chunks de 15 s + retries) — **best-effort por instância**;
 - rate limit das server actions de IA (Supervisor, Session AI, Knowledge): 20/min por organização + usuário, mesma janela in-memory;
-- fallback de áudio privado e temporário;
-- o bucket `session-audio-fallback` não pode ter INSERT genérico baseado apenas em membership: capacidade de upload deve ser emitida server-side somente após o mesmo consent gate de gravação/transcrição;
-- política de retenção configurável;
-- nunca base64 grande em JSON.
+- teto de body: grants/segmentos 64 KiB; metadata de transcribe 16 KiB; chunk multipart 4 MiB; webhooks Twilio 32 KiB;
+- importação usa Storage privado temporário (`session-audio-fallback`) e apaga o objeto após persistir o texto;
+- o bucket `session-audio-fallback` não pode ter INSERT genérico baseado apenas em membership;
+- spool offline: AES-GCM no IndexedDB; nunca plaintext em web storage;
+- nunca base64 grande em JSON no caminho ao vivo.
 
 ## Testes obrigatórios antes de produção
 

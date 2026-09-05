@@ -41,10 +41,4 @@ export function formatCadastroDate(
   }).format(new Date(iso));
 }
 
-export function formatCpfDisplay(value: string | null | undefined): string {
-  const digits = value?.replace(/\D/g, "") ?? "";
-  if (digits.length !== 11) {
-    return value?.trim() || "—";
-  }
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
-}
+export { formatCpfDisplay } from "@/lib/utils/brazil-tax-id";

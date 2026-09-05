@@ -11,7 +11,7 @@ Um único aplicativo Next.js no Vercel. Supabase é o backend persistente. Não 
 - componentes React;
 - Supabase browser client apenas para operações expressamente seguras por RLS;
 - comunicação com Route Handlers para integrações secretas e operações sensíveis;
-- transcrição local no dispositivo (WebGPU/WASM), iniciada somente após autorização/consentimento aplicável; o áudio não sai da máquina no caminho padrão.
+- transcrição ao vivo via Groq (chunks MediaRecorder), iniciada somente após autorização/consentimento aplicável; áudio sai temporariamente do dispositivo para o backend e o Groq, não permanece no Storage no caminho ao vivo.
 
 ### Next.js server
 
@@ -128,4 +128,4 @@ A arquitetura deve permitir futuro cliente Flutter sem refazer backend:
 
 ## Clinical AI boundary
 
-Antes de gravação/transcrição/IA clínica, o server resolve autorização, tenant e consent state. Qualquer capability que permita capturar áudio — incluindo o `session_capture_grant` do caminho local **ou** a signed upload capability do fallback — exige o mesmo gate server-side antes de ser emitida. No caminho local o servidor não intermedia o áudio, então o enforcement se completa na persistência: segmento de transcrição sem grant válido é recusado. Runtime prompts e contracts são fonte de verdade em `src/lib/ai/`; nenhuma saída clínica é auto-commit. A aplicação não automatiza avaliação psicológica/testes restritos, diagnóstico definitivo ou ajuste de medicação.
+Antes de gravação/transcrição/IA clínica, o server resolve autorização, tenant e consent state. Qualquer capability que permita capturar áudio — `session_remote_transcription_grant` (Groq ao vivo), o legado `session_capture_grant`, ou `audio_fallback_upload_grant` (importação) — exige o mesmo gate server-side antes de ser emitida. O browser só chama `getUserMedia` depois do grant remoto. `POST /api/session-capture/transcribe-chunk` recusa grants que não sejam `session_remote_transcription_grant`. Runtime prompts e contracts são fonte de verdade em `src/lib/ai/`; nenhuma saída clínica é auto-commit. A aplicação não automatiza avaliação psicológica/testes restritos, diagnóstico definitivo ou ajuste de medicação.

@@ -8,7 +8,7 @@ Always:
 - implement the Tesseli visual identity faithfully;
 - protect clinical data by RLS/RBAC;
 - separate Google Calendar OAuth from app login;
-- use Supabase Cron + Twilio outbox for 24h/2h reminders; keep transcription on-device by default and use Gemini with server-safe patterns;
+- use Supabase Cron + Twilio outbox for 24h/2h reminders; live session transcription is Groq via the VirgíniaPsi API, with Gemini for clinical AI;
 - preserve approved Session/Supervisor/Knowledge runtime prompts and their evidence boundaries;
 - verify work before declaring completion;
 - keep dependencies and backend boundaries consistent with the architecture specification.

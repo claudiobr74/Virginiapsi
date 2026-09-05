@@ -6,6 +6,8 @@ import {
   type AppointmentModality,
   type AppointmentStatus,
 } from "@/features/calendar/contracts";
+import { isValidCountableSession } from "@/features/calendar/google-event-status";
+import type { DocumentStatus } from "@/features/documents/contracts";
 
 export const PHASE_AVAILABILITY = {
   clinicalSessions: true,
@@ -30,6 +32,11 @@ export const myDayAppointmentSchema = z.object({
   patientPreferredName: z.string().nullable(),
   patientPublicCode: z.string().nullable(),
   patientPhone: z.string().nullable(),
+  googleColorId: z.string().nullable().optional(),
+  googleEventType: z.string().nullable().optional(),
+  googleDeletedAt: z.string().nullable().optional(),
+  cancelledGoogleColorIds: z.array(z.string()).optional(),
+  unavailableGoogleColorIds: z.array(z.string()).optional(),
 });
 
 export type MyDayAppointment = z.infer<typeof myDayAppointmentSchema>;
@@ -85,12 +92,13 @@ export interface RecentDocumentItem {
   id: string;
   title: string;
   documentKind: string;
-  status: "draft" | "issued" | "signed" | "canceled";
+  status: DocumentStatus;
   createdAt: string;
 }
 
 export interface MyDayMetrics {
   sessionsThisWeek: number;
+  sessionsToday: number;
   activePatients: number;
   clinicalPendencies: number;
   monthReceiptsCents: number;
@@ -98,7 +106,9 @@ export interface MyDayMetrics {
 
 export interface MyDaySnapshot {
   greeting: MyDayGreeting;
+  professionalPhotoUrl: string | null;
   timezone: string;
+  quoteCivilDate: string;
   roleLabel: string;
   clinicName: string | null;
   canStartSession: boolean;
@@ -134,14 +144,26 @@ export function patientDisplayLabel(appointment: MyDayAppointment): string {
   return appointment.summarySnapshot ?? "Sem paciente vinculado";
 }
 
-/** The next session is the first that has not yet ended; otherwise null. */
+/** The next session is the first countable one that has not yet ended; otherwise null. */
 export function selectNextSession(
   timeline: MyDayAppointment[],
   nowMs: number = Date.now(),
 ): MyDayAppointment | null {
   return (
-    timeline.find((appointment) => new Date(appointment.endsAt).getTime() > nowMs) ??
-    null
+    timeline.find(
+      (appointment) =>
+        isValidCountableSession({
+          status: appointment.status,
+          origin: appointment.origin,
+          summarySnapshot: appointment.summarySnapshot,
+          googleColorId: appointment.googleColorId,
+          googleEventType: appointment.googleEventType,
+          googleDeletedAt: appointment.googleDeletedAt,
+          cancelledGoogleColorIds: appointment.cancelledGoogleColorIds,
+          unavailableGoogleColorIds: appointment.unavailableGoogleColorIds,
+          endsAt: appointment.endsAt,
+        }) && new Date(appointment.endsAt).getTime() > nowMs,
+    ) ?? null
   );
 }
 

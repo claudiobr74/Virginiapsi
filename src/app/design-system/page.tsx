@@ -1,8 +1,9 @@
 "use client";
 
-import { FileSearch, Layers, Trash2 } from "lucide-react";
+import { ClipboardCheck, FileSearch, Layers, Trash2, WalletCards } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -55,7 +56,7 @@ export default function DesignSystemPage() {
       <PageHeader
         icon={Layers}
         title="Design System VirgíniaPsi"
-        subtitle="Referência mínima dos onze primitivos canônicos — docs/02-visual-spec.md"
+        subtitle="Referência mínima dos primitivos canônicos — docs/02-visual-spec.md"
       />
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -164,6 +165,21 @@ export default function DesignSystemPage() {
             confirmLabel="Excluir"
             onConfirm={() => setConfirmOpen(false)}
           />
+        </ComponentCard>
+
+        <ComponentCard title="Card">
+          <div className="grid gap-3">
+            <Card
+              tone="clinical"
+              icon={<ClipboardCheck />}
+              title="Sessões a Finalizar"
+            >
+              <p className="text-sm text-foreground">3 sessões</p>
+            </Card>
+            <Card headed tone="finance" icon={<WalletCards />} title="Financeiro">
+              <p className="text-sm text-muted-foreground">Conteúdo interno neutro.</p>
+            </Card>
+          </div>
         </ComponentCard>
 
         <ComponentCard title="PageContainer / PageHeader">

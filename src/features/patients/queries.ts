@@ -8,6 +8,10 @@ import {
   type PatientRow,
   type PatientStatus,
 } from "@/features/patients/contracts";
+import {
+  foldDirectorySessionBounds,
+  foldFinalizedClinicalSessionLast,
+} from "@/features/patients/session-bounds";
 import { DOCUMENT_BUCKETS, createSignedDownloadUrl } from "@/lib/documents/storage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -47,6 +51,17 @@ export async function listPatients(
   return patientRowSchema.array().parse(data ?? []);
 }
 
+function logAppointmentsBoundsError(operation: string, error: { code?: string } | null): void {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      operation,
+      errorClass: "PostgrestError",
+      errorCode: error?.code ?? null,
+    }),
+  );
+}
+
 export async function listPatientDirectory(
   organizationId: string,
   filters: PatientListFilters = {},
@@ -56,22 +71,32 @@ export async function listPatientDirectory(
     return [];
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("appointments")
-    .select("patient_id, starts_at, status")
-    .eq("organization_id", organizationId)
-    .eq("origin", "TESSELI")
-    .not("patient_id", "is", null)
-    .neq("status", "cancelled");
+  const photoUrls = await Promise.all(
+    patients.map((patient) => getPatientPortraitUrl(patient.photo_path)),
+  );
 
-  if (error) {
-    return patients.map((patient) => ({
-      patient,
-      lastSessionAt: null,
-      nextSessionAt: null,
-      pendingClinical: 0,
-    }));
+  const supabase = await createSupabaseServerClient();
+  const { data: appointmentRows, error: appointmentError } = await supabase
+    .from("appointments")
+    .select("patient_id, starts_at, status, google_deleted_at")
+    .eq("organization_id", organizationId)
+    .not("patient_id", "is", null)
+    .neq("status", "cancelled")
+    .is("google_deleted_at", null);
+
+  if (appointmentError) {
+    logAppointmentsBoundsError("list_patient_directory_appointments", appointmentError);
+  }
+
+  const { data: finalizedSessionRows, error: finalizedSessionError } = await supabase
+    .from("clinical_sessions")
+    .select("patient_id, started_at, ended_at, status")
+    .eq("organization_id", organizationId)
+    .eq("status", "finalized")
+    .not("patient_id", "is", null);
+
+  if (finalizedSessionError) {
+    logAppointmentsBoundsError("list_patient_directory_finalized_sessions", finalizedSessionError);
   }
 
   const pendingCount = new Map<string, number>();
@@ -88,35 +113,19 @@ export async function listPatientDirectory(
     pendingCount.set(patientId, (pendingCount.get(patientId) ?? 0) + 1);
   }
 
-  const now = Date.now();
-  const lastByPatient = new Map<string, string>();
-  const nextByPatient = new Map<string, string>();
-  for (const row of data ?? []) {
-    const patientId = row.patient_id as string | null;
-    const startsAt = row.starts_at as string;
-    if (!patientId || !startsAt) {
-      continue;
-    }
-    const time = new Date(startsAt).getTime();
-    if (Number.isNaN(time)) {
-      continue;
-    }
-    if (time <= now) {
-      const current = lastByPatient.get(patientId);
-      if (!current || new Date(current).getTime() < time) {
-        lastByPatient.set(patientId, startsAt);
-      }
-    } else {
-      const current = nextByPatient.get(patientId);
-      if (!current || new Date(current).getTime() > time) {
-        nextByPatient.set(patientId, startsAt);
-      }
-    }
-  }
+  const nowMs = Date.now();
+  const { lastByPatient: appointmentLastByPatient, nextByPatient } =
+    foldDirectorySessionBounds(appointmentError ? [] : (appointmentRows ?? []), nowMs);
+  const finalizedLastByPatient = foldFinalizedClinicalSessionLast(
+    finalizedSessionError ? [] : (finalizedSessionRows ?? []),
+    nowMs,
+  );
 
-  return patients.map((patient) => ({
+  return patients.map((patient, index) => ({
     patient,
-    lastSessionAt: lastByPatient.get(patient.id) ?? null,
+    photoUrl: photoUrls[index] ?? null,
+    lastSessionAt:
+      finalizedLastByPatient.get(patient.id) ?? appointmentLastByPatient.get(patient.id) ?? null,
     nextSessionAt: nextByPatient.get(patient.id) ?? null,
     pendingClinical: pendingCount.get(patient.id) ?? 0,
   }));
@@ -179,34 +188,46 @@ export async function getPatientScheduleBounds(
   patientId: string,
 ): Promise<{ lastSessionAt: string | null; nextSessionAt: string | null }> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  const { data: appointmentRows, error: appointmentError } = await supabase
     .from("appointments")
-    .select("starts_at, status")
+    .select("patient_id, starts_at, status, google_deleted_at")
     .eq("organization_id", organizationId)
     .eq("patient_id", patientId)
-    .eq("origin", "TESSELI")
     .neq("status", "cancelled")
+    .is("google_deleted_at", null)
     .order("starts_at", { ascending: true });
 
-  if (error || !data) {
-    return { lastSessionAt: null, nextSessionAt: null };
+  if (appointmentError) {
+    logAppointmentsBoundsError("get_patient_schedule_bounds_appointments", appointmentError);
   }
 
-  const now = Date.now();
-  let lastSessionAt: string | null = null;
-  let nextSessionAt: string | null = null;
-  for (const row of data) {
-    const time = new Date(row.starts_at).getTime();
-    if (Number.isNaN(time)) {
-      continue;
-    }
-    if (time <= now) {
-      lastSessionAt = row.starts_at;
-    } else if (!nextSessionAt) {
-      nextSessionAt = row.starts_at;
-    }
+  const { data: finalizedSessionRows, error: finalizedSessionError } = await supabase
+    .from("clinical_sessions")
+    .select("patient_id, started_at, ended_at, status")
+    .eq("organization_id", organizationId)
+    .eq("patient_id", patientId)
+    .eq("status", "finalized");
+
+  if (finalizedSessionError) {
+    logAppointmentsBoundsError(
+      "get_patient_schedule_bounds_finalized_sessions",
+      finalizedSessionError,
+    );
   }
-  return { lastSessionAt, nextSessionAt };
+
+  const nowMs = Date.now();
+  const { lastByPatient: appointmentLastByPatient, nextByPatient } =
+    foldDirectorySessionBounds(appointmentError ? [] : (appointmentRows ?? []), nowMs);
+  const finalizedLastByPatient = foldFinalizedClinicalSessionLast(
+    finalizedSessionError ? [] : (finalizedSessionRows ?? []),
+    nowMs,
+  );
+
+  return {
+    lastSessionAt:
+      finalizedLastByPatient.get(patientId) ?? appointmentLastByPatient.get(patientId) ?? null,
+    nextSessionAt: nextByPatient.get(patientId) ?? null,
+  };
 }
 
 export async function getPatientPortraitUrl(
