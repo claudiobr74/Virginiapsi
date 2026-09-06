@@ -13,8 +13,6 @@ const child = spawn(process.execPath, ["tests/e2e/support/auth-stub-server.mjs"]
 child.stdout?.pipe(process.stdout);
 child.stderr?.pipe(process.stderr);
 
-let preferGoogleNextSession = false;
-
 function translatedPath(pathname) {
   if (pathname === "/rest/v1/financial_charges_effective") {
     return "/rest/v1/financial_charges";
@@ -34,25 +32,8 @@ function readRequestBody(req) {
   });
 }
 
-function observeControlHook(pathname, method, body) {
-  if (pathname !== "/e2e/google-connection" || method !== "POST" || !body?.length) {
-    return;
-  }
-  try {
-    const parsed = JSON.parse(body.toString("utf8"));
-    preferGoogleNextSession =
-      parsed?.status === "connected" && parsed?.nextSession === "google";
-  } catch {
-    preferGoogleNextSession = false;
-  }
-}
-
-function stabilizeGoogleNextSession(pathname, payload, contentType) {
-  if (
-    !preferGoogleNextSession ||
-    pathname !== "/rest/v1/appointments" ||
-    !contentType.includes("application/json")
-  ) {
+function stabilizeMidnightFixtureCollision(pathname, payload, contentType) {
+  if (pathname !== "/rest/v1/appointments" || !contentType.includes("application/json")) {
     return payload;
   }
 
@@ -65,14 +46,30 @@ function stabilizeGoogleNextSession(pathname, payload, contentType) {
 
   if (!Array.isArray(rows)) return payload;
   const googleIndex = rows.findIndex((row) => row?.google_event_id === "external-evt-1");
-  if (googleIndex <= 0) return payload;
+  if (googleIndex < 0) return payload;
 
-  // The backend stub deliberately keeps today's fixtures inside the current
-  // São Paulo civil day. Near midnight that clamp can collapse multiple future
-  // starts to almost the same instant. Only when the test explicitly requests
-  // `nextSession: "google"` do we make that intended fixture ordering stable.
+  const googleStart = Date.parse(rows[googleIndex]?.starts_at ?? "");
+  if (!Number.isFinite(googleStart)) return payload;
+
+  const collidingManagedIndex = rows.findIndex((row, index) => {
+    if (index === googleIndex || row?.origin !== "TESSELI") return false;
+    if (row?.status === "cancelled" || row?.status === "no_show") return false;
+    const start = Date.parse(row?.starts_at ?? "");
+    return Number.isFinite(start) && Math.abs(start - googleStart) <= 2_000;
+  });
+
+  if (collidingManagedIndex < 0 || googleIndex < collidingManagedIndex) {
+    return payload;
+  }
+
+  // The base E2E stub clamps future fixtures to the current São Paulo civil
+  // day. In the final minutes before midnight, different requested lead times
+  // can collapse to starts only milliseconds apart. Preserve the fixture's
+  // intended Google-next scenario only for that pathological collision; all
+  // normal appointment responses remain byte-for-byte untouched.
   const [google] = rows.splice(googleIndex, 1);
-  rows.unshift(google);
+  const insertionIndex = rows.findIndex((row) => row === rows[collidingManagedIndex]);
+  rows.splice(Math.max(0, insertionIndex), 0, google);
   return Buffer.from(JSON.stringify(rows));
 }
 
@@ -95,8 +92,6 @@ const server = createServer(async (req, res) => {
 
     const method = req.method ?? "GET";
     const body = method === "GET" || method === "HEAD" ? undefined : await readRequestBody(req);
-    observeControlHook(incoming.pathname, method, body);
-
     const upstream = await fetch(`${BACKEND_ORIGIN}${incoming.pathname}${incoming.search}`, {
       method,
       headers,
@@ -109,7 +104,7 @@ const server = createServer(async (req, res) => {
     });
     const rawPayload = Buffer.from(await upstream.arrayBuffer());
     const contentType = upstream.headers.get("content-type") ?? "";
-    const payload = stabilizeGoogleNextSession(incoming.pathname, rawPayload, contentType);
+    const payload = stabilizeMidnightFixtureCollision(incoming.pathname, rawPayload, contentType);
     if (payload.length !== rawPayload.length) {
       delete responseHeaders["content-length"];
     }
