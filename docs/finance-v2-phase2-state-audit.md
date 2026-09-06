@@ -90,4 +90,4 @@ Permanece para fases posteriores:
 
 ## Critério de aprovação
 
-A Fase 2 só pode ser considerada concluída quando o `foundation-gate` estiver verde no HEAD final contendo migration, queries, UI, testes e esta documentação, e a migration for aplicada e validada no Supabase hospedado.
+A Fase 2 foi aprovada no HEAD `2599e29a39f962d687aa9e478510287e400f5675`, com `foundation-gate` #485 verde e a migration `finance_v2_phase2_state_audit` aplicada e validada no Supabase hospedado. As mudanças posteriores pertencem exclusivamente à Fase 3 em diante.
