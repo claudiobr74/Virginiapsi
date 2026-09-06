@@ -1,11 +1,78 @@
 -- VirgíniaPsi — Financeiro v2 / Fase 1.
 -- Critical financial rules only:
--- 1) a closed competence period remains immutable for charges/expenses;
+-- 1) a closed competence period remains immutable for economic charge/expense edits;
 -- 2) a later cash receipt may settle a charge from a closed competence;
--- 3) session competence follows the organization's configured timezone;
--- 4) plan + initial charge creation is atomic for prepaid/monthly plans.
+-- 3) derived payment status may refresh on an otherwise immutable closed charge;
+-- 4) session competence follows the organization's configured timezone;
+-- 5) plan + initial charge creation is atomic for prepaid/monthly plans.
 
+-- Payments are cash facts. Their paid_at date may occur after the charge's
+-- competence has been closed, so the charge competence must not lock INSERTs
+-- or void/audit UPDATEs on financial_payments.
 drop trigger if exists financial_payments_period_lock on public.financial_payments;
+
+-- Keep closed charge competences immutable, except for the status that is
+-- mechanically derived by refresh_charge_status() from non-voided payments.
+-- This exception deliberately excludes canceled/refunded transitions and any
+-- economic or descriptive field change.
+create or replace function public.assert_finance_period_open()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  competence date;
+  org uuid;
+  derived_status_only boolean := false;
+begin
+  org := coalesce(new.organization_id, old.organization_id);
+
+  if tg_table_name = 'financial_charges' then
+    competence := coalesce(new.competence_date, old.competence_date);
+
+    if tg_op = 'UPDATE' then
+      derived_status_only :=
+        old.status in ('pending', 'overdue', 'partially_paid', 'paid')
+        and new.status in ('pending', 'overdue', 'partially_paid', 'paid')
+        and new.organization_id is not distinct from old.organization_id
+        and new.patient_id is not distinct from old.patient_id
+        and new.session_id is not distinct from old.session_id
+        and new.plan_id is not distinct from old.plan_id
+        and new.origin is not distinct from old.origin
+        and new.description is not distinct from old.description
+        and new.amount is not distinct from old.amount
+        and new.due_date is not distinct from old.due_date
+        and new.competence_date is not distinct from old.competence_date
+        and new.canceled_at is not distinct from old.canceled_at
+        and new.canceled_by is not distinct from old.canceled_by
+        and new.cancel_reason is not distinct from old.cancel_reason
+        and new.nfse_requested_at is not distinct from old.nfse_requested_at
+        and new.idempotency_key is not distinct from old.idempotency_key
+        and new.created_by is not distinct from old.created_by
+        and new.created_at is not distinct from old.created_at;
+
+      if derived_status_only then
+        return new;
+      end if;
+    end if;
+  elsif tg_table_name = 'financial_payments' then
+    -- Kept for backwards safety if a deployment still has the legacy trigger.
+    -- Cash facts are intentionally governed by paid_at, not charge competence.
+    return new;
+  elsif tg_table_name = 'financial_expenses' then
+    competence := coalesce(new.due_date, old.due_date, current_date);
+  else
+    competence := current_date;
+  end if;
+
+  if competence is not null and public.finance_period_is_closed(org, competence) then
+    raise exception 'financial period is closed for this competence date'
+      using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$;
 
 create or replace function public.create_session_charge(
   p_session_id uuid,
