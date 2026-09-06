@@ -36,7 +36,9 @@ describe("Financeiro v2 — F4 integração caixa x competência", () => {
   it("exports cash one payment at a time and labels the cash date explicitly", () => {
     expect(actions).toContain('parsed.data.mode === "cash"');
     expect(actions).toContain('"Data caixa"');
-    expect(actions).toContain("for (const payment of payments)");
+    expect(actions).toContain("const rows = payments");
+    expect(actions).toContain(".map((payment) => ({ payment, cashDate:");
+    expect(actions).toContain("const paymentCents = amountCents(payment.amount)");
     expect(reports).toContain("cada pagamento real vira uma linha própria");
   });
 
