@@ -13,9 +13,12 @@ const reports = readFileSync(
 const actions = readFileSync("src/features/finance/phase4-actions.ts", "utf8");
 
 describe("Financeiro v2 — F4 integração caixa x competência", () => {
-  it("routes the finance page through the phase4 adapter and hides the legacy reports tab", () => {
+  it("routes the finance page through the phase4 adapter and preserves the native Relatórios tab", () => {
     expect(page).toContain("FinanceConsolePhase4");
-    expect(adapter).toContain('button:nth-child(4)');
+    expect(adapter).toContain('tab.textContent?.trim() === "Relatórios"');
+    expect(adapter).toContain('data-reports-active={reportsActive ? "true" : "false"}');
+    expect(adapter).toContain('[role="tablist"] + div');
+    expect(adapter).not.toContain('button:nth-child(4)');
     expect(adapter).toContain("FinanceReportsPhase4");
   });
 
