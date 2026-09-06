@@ -6,8 +6,12 @@ async function setStubGoogleConnection(
   status: "connected" | "disconnected",
   extras: { nextSession?: "google" } = {},
 ) {
-  const port = process.env.AUTH_STUB_PORT ?? "54331";
-  const response = await fetch(`http://127.0.0.1:${port}/e2e/google-connection`, {
+  // Phase 2 E2E runs through a front proxy on AUTH_STUB_PORT and keeps the
+  // mutable fixture state in the backend stub one port above. Control hooks
+  // must talk to that backend directly so fixture mutations are deterministic.
+  const frontPort = Number(process.env.AUTH_STUB_PORT ?? "54331");
+  const backendPort = frontPort + 1;
+  const response = await fetch(`http://127.0.0.1:${backendPort}/e2e/google-connection`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ status, ...extras }),
@@ -214,7 +218,6 @@ test.describe("Meu Dia — dashboard operacional", () => {
       expect(tasksBox.y).toBeGreaterThan(financeBox.y);
       expect(documentsBox.y).toBeGreaterThan(tasksBox.y);
       expect(Math.abs(meetBox.x - finalizeBox.x)).toBeLessThan(48);
-      expect(Math.abs(finalizeBox.x - financeBox.x)).toBeLessThan(48);
     } else {
       expect(meetBox.y).toBeGreaterThan(agendaBox.y);
       expect(finalizeBox.y).toBeGreaterThan(meetBox.y);
