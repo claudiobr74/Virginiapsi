@@ -41,13 +41,13 @@ async function startSession(
   }
 }
 
-describe("Financeiro v2 — F0 baseline funcional", () => {
+describe("Financeiro v2 — baseline funcional + F1 regras críticas", () => {
   let admin: string;
   let organizationId: string;
 
   beforeAll(async () => {
     admin = await createAuthUser();
-    organizationId = await bootstrapOrganization(admin, "Financeiro v2 F0");
+    organizationId = await bootstrapOrganization(admin, "Financeiro v2");
   });
 
   it("pagamento parcial atualiza cobrança e estorno restaura o saldo lógico", async () => {
@@ -209,7 +209,7 @@ describe("Financeiro v2 — F0 baseline funcional", () => {
     }
   });
 
-  it("despesa recorrente hoje persiste apenas o marcador, sem gerar lançamentos futuros", async () => {
+  it("despesa recorrente ainda persiste apenas o marcador, sem gerar lançamentos futuros", async () => {
     const db = await openSession({ userId: admin });
     try {
       const [expense] = await db.query<{ id: string; recurrence: { interval: string } }>(
@@ -232,7 +232,7 @@ describe("Financeiro v2 — F0 baseline funcional", () => {
     }
   });
 
-  it("KNOWN F0: fechamento de competência também bloqueia recebimento posterior da cobrança", async () => {
+  it("F1: competência fechada bloqueia novos fatos de competência, mas permite recebimento posterior", async () => {
     const patientId = await createPatient(admin, organizationId, {
       name: "Paciente Recebimento Tardio",
     });
@@ -252,13 +252,68 @@ describe("Financeiro v2 — F0 baseline funcional", () => {
         [organizationId],
       );
 
-      const error = await db.expectError(
+      const chargeError = await db.expectError(
+        `insert into public.financial_charges (
+           organization_id, patient_id, origin, description, amount, competence_date
+         ) values ($1, $2, 'administrative', 'Retroativo proibido', 10.00, '2026-06-25')`,
+        [organizationId, patientId],
+      );
+      expect(chargeError).toMatch(/period is closed/i);
+
+      const [payment] = await db.query<{ id: string; paid_at: string }>(
         `insert into public.financial_payments (
            organization_id, charge_id, amount, method, paid_at
-         ) values ($1, $2, 200.00, 'pix', '2026-07-05T12:00:00Z')`,
+         ) values ($1, $2, 200.00, 'pix', '2026-07-05T12:00:00Z')
+         returning id, paid_at::text as paid_at`,
         [organizationId, charge.id],
       );
-      expect(error).toMatch(/period is closed/i);
+      expect(payment.id).toBeTruthy();
+
+      const [state] = await db.query<{ status: string; paid: string }>(
+        `select c.status, coalesce(sum(p.amount) filter (where p.voided_at is null), 0)::text as paid
+           from public.financial_charges c
+           left join public.financial_payments p on p.charge_id = c.id
+          where c.id = $1 group by c.status`,
+        [charge.id],
+      );
+      expect(state.status).toBe("paid");
+      expect(state.paid).toBe("200.00");
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("F1: competência da sessão respeita o timezone configurado da organização", async () => {
+    const patientId = await createPatient(admin, organizationId, {
+      name: "Paciente Timezone",
+      fee: "300.00",
+    });
+    const db = await openSession({ userId: admin });
+    try {
+      await db.query(
+        "update public.organizations set timezone = 'America/Sao_Paulo' where id = $1",
+        [organizationId],
+      );
+      const sessionId = await startSession(admin, organizationId, patientId);
+      await db.query(
+        `update public.clinical_sessions
+            set started_at = '2026-09-06T01:30:00Z'
+          where id = $1`,
+        [sessionId],
+      );
+
+      const [result] = await db.query<{ create_session_charge: string }>(
+        "select public.create_session_charge($1, $2) as create_session_charge",
+        [sessionId, organizationId],
+      );
+      expect(result.create_session_charge).toBeTruthy();
+
+      const [charge] = await db.query<{ competence_date: string }>(
+        "select competence_date::text as competence_date from public.financial_charges where id = $1",
+        [result.create_session_charge],
+      );
+      // 01:30 UTC is still 22:30 on the previous local day in São Paulo/Goiânia.
+      expect(charge.competence_date).toBe("2026-09-05");
     } finally {
       await db.close();
     }
