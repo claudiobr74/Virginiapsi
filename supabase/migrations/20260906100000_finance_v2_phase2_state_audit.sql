@@ -34,6 +34,11 @@ begin
 end;
 $$;
 
+-- Internal trigger function only. Do not expose it through PostgREST RPC.
+revoke all on function public.assert_financial_closing_reopen_reason() from public;
+revoke all on function public.assert_financial_closing_reopen_reason() from anon;
+revoke all on function public.assert_financial_closing_reopen_reason() from authenticated;
+
 drop trigger if exists financial_closings_assert_reopen_reason on public.financial_closings;
 create trigger financial_closings_assert_reopen_reason
   before update on public.financial_closings
