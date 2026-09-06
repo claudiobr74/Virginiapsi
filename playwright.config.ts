@@ -4,6 +4,7 @@ const port = Number(process.env.E2E_PORT ?? 3000);
 const authStubPort = Number(process.env.AUTH_STUB_PORT ?? 54331);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`;
 const supabaseUrl = `http://127.0.0.1:${authStubPort}`;
+const isCi = Boolean(process.env.CI);
 
 const sharedEnv = {
   ...process.env,
@@ -37,13 +38,17 @@ const sharedEnv = {
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
-  forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
+  forbidOnly: isCi,
+  retries: isCi ? 2 : 0,
+  // Prevent an infrastructure deadlock from consuming the whole GitHub job.
+  // Individual tests still keep Playwright's normal timeout semantics; this
+  // only bounds the complete E2E run and guarantees diagnostic completion.
+  globalTimeout: isCi ? 15 * 60 * 1000 : undefined,
   // One in-memory auth stub is shared by every project. Mutable org settings
   // (e.g. secretary_finance_access) race if desktop and mobile write them at
   // the same time — serialise workers so those tests stay deterministic.
   workers: 1,
-  reporter: process.env.CI ? "github" : "list",
+  reporter: isCi ? "github" : "list",
   use: {
     baseURL,
     trace: "on-first-retry",
@@ -53,13 +58,15 @@ export default defineConfig({
       command: `node tests/e2e/support/auth-stub-server.mjs`,
       url: `${supabaseUrl}/health`,
       reuseExistingServer: false,
+      timeout: 120_000,
       env: sharedEnv,
       stdout: "pipe",
     },
     {
-      command: process.env.CI ? "pnpm start" : "pnpm dev",
+      command: isCi ? "pnpm start" : "pnpm dev",
       url: baseURL,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: !isCi,
+      timeout: 120_000,
       env: { ...sharedEnv, PORT: String(port) },
     },
   ],
