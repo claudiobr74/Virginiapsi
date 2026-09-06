@@ -13,6 +13,8 @@ const child = spawn(process.execPath, ["tests/e2e/support/auth-stub-server.mjs"]
 child.stdout?.pipe(process.stdout);
 child.stderr?.pipe(process.stderr);
 
+let preferGoogleNextSession = false;
+
 function translatedPath(pathname) {
   if (pathname === "/rest/v1/financial_charges_effective") {
     return "/rest/v1/financial_charges";
@@ -32,8 +34,25 @@ function readRequestBody(req) {
   });
 }
 
+function observeControlHook(pathname, method, body) {
+  if (pathname !== "/e2e/google-connection" || method !== "POST" || !body?.length) {
+    return;
+  }
+  try {
+    const parsed = JSON.parse(body.toString("utf8"));
+    preferGoogleNextSession =
+      parsed?.status === "connected" && parsed?.nextSession === "google";
+  } catch {
+    preferGoogleNextSession = false;
+  }
+}
+
 function stabilizeGoogleNextSession(pathname, payload, contentType) {
-  if (pathname !== "/rest/v1/appointments" || !contentType.includes("application/json")) {
+  if (
+    !preferGoogleNextSession ||
+    pathname !== "/rest/v1/appointments" ||
+    !contentType.includes("application/json")
+  ) {
     return payload;
   }
 
@@ -45,33 +64,15 @@ function stabilizeGoogleNextSession(pathname, payload, contentType) {
   }
 
   if (!Array.isArray(rows)) return payload;
-  const google = rows.find((row) => row?.google_event_id === "external-evt-1");
-  if (!google) return payload;
+  const googleIndex = rows.findIndex((row) => row?.google_event_id === "external-evt-1");
+  if (googleIndex <= 0) return payload;
 
-  // The base stub keeps all agenda fixtures on the current São Paulo civil day.
-  // Close to midnight its generic "fit inside the day" clamp can collapse
-  // relative lead times and make a TESSELI row win the next-session sort.
-  // Keep this E2E-only fixture deterministic after the backend has already
-  // applied its query filters: Google is the nearest future row, while other
-  // active TESSELI rows remain later. No application or production logic uses
-  // this proxy.
-  const now = Date.now();
-  google.starts_at = new Date(now + 30_000).toISOString();
-  google.ends_at = new Date(now + 10 * 60_000).toISOString();
-
-  let offsetMinutes = 20;
-  for (const row of rows) {
-    if (row === google) continue;
-    if (row?.origin !== "TESSELI") continue;
-    if (row?.status === "cancelled" || row?.status === "completed") continue;
-    const start = new Date(row.starts_at).getTime();
-    if (!Number.isFinite(start) || start <= now || start < now + offsetMinutes * 60_000) {
-      row.starts_at = new Date(now + offsetMinutes * 60_000).toISOString();
-      row.ends_at = new Date(now + (offsetMinutes + 40) * 60_000).toISOString();
-      offsetMinutes += 15;
-    }
-  }
-
+  // The backend stub deliberately keeps today's fixtures inside the current
+  // São Paulo civil day. Near midnight that clamp can collapse multiple future
+  // starts to almost the same instant. Only when the test explicitly requests
+  // `nextSession: "google"` do we make that intended fixture ordering stable.
+  const [google] = rows.splice(googleIndex, 1);
+  rows.unshift(google);
   return Buffer.from(JSON.stringify(rows));
 }
 
@@ -94,6 +95,8 @@ const server = createServer(async (req, res) => {
 
     const method = req.method ?? "GET";
     const body = method === "GET" || method === "HEAD" ? undefined : await readRequestBody(req);
+    observeControlHook(incoming.pathname, method, body);
+
     const upstream = await fetch(`${BACKEND_ORIGIN}${incoming.pathname}${incoming.search}`, {
       method,
       headers,
