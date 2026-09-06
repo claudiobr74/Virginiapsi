@@ -32,6 +32,49 @@ function readRequestBody(req) {
   });
 }
 
+function stabilizeGoogleNextSession(pathname, payload, contentType) {
+  if (pathname !== "/rest/v1/appointments" || !contentType.includes("application/json")) {
+    return payload;
+  }
+
+  let rows;
+  try {
+    rows = JSON.parse(payload.toString("utf8"));
+  } catch {
+    return payload;
+  }
+
+  if (!Array.isArray(rows)) return payload;
+  const google = rows.find((row) => row?.google_event_id === "external-evt-1");
+  if (!google) return payload;
+
+  // The base stub keeps all agenda fixtures on the current São Paulo civil day.
+  // Close to midnight its generic "fit inside the day" clamp can collapse
+  // relative lead times and make a TESSELI row win the next-session sort.
+  // Keep this E2E-only fixture deterministic after the backend has already
+  // applied its query filters: Google is the nearest future row, while other
+  // active TESSELI rows remain later. No application or production logic uses
+  // this proxy.
+  const now = Date.now();
+  google.starts_at = new Date(now + 30_000).toISOString();
+  google.ends_at = new Date(now + 10 * 60_000).toISOString();
+
+  let offsetMinutes = 20;
+  for (const row of rows) {
+    if (row === google) continue;
+    if (row?.origin !== "TESSELI") continue;
+    if (row?.status === "cancelled" || row?.status === "completed") continue;
+    const start = new Date(row.starts_at).getTime();
+    if (!Number.isFinite(start) || start <= now || start < now + offsetMinutes * 60_000) {
+      row.starts_at = new Date(now + offsetMinutes * 60_000).toISOString();
+      row.ends_at = new Date(now + (offsetMinutes + 40) * 60_000).toISOString();
+      offsetMinutes += 15;
+    }
+  }
+
+  return Buffer.from(JSON.stringify(rows));
+}
+
 const server = createServer(async (req, res) => {
   try {
     const incoming = new URL(req.url ?? "/", `http://127.0.0.1:${FRONT_PORT}`);
@@ -61,7 +104,12 @@ const server = createServer(async (req, res) => {
     upstream.headers.forEach((value, name) => {
       responseHeaders[name] = value;
     });
-    const payload = Buffer.from(await upstream.arrayBuffer());
+    const rawPayload = Buffer.from(await upstream.arrayBuffer());
+    const contentType = upstream.headers.get("content-type") ?? "";
+    const payload = stabilizeGoogleNextSession(incoming.pathname, rawPayload, contentType);
+    if (payload.length !== rawPayload.length) {
+      delete responseHeaders["content-length"];
+    }
     res.writeHead(upstream.status, responseHeaders);
     res.end(payload);
   } catch (error) {
