@@ -368,61 +368,29 @@ export async function createPlanAction(input: unknown): Promise<FinanceActionRes
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("financial_plans")
-    .insert({
-      organization_id: ctx.organizationId,
-      patient_id: parsed.data.patientId,
-      plan_type: parsed.data.planType,
-      total_sessions: parsed.data.totalSessions,
-      price: parsed.data.price,
-      valid_from: parsed.data.validFrom ?? null,
-      valid_until: parsed.data.validUntil ?? null,
-    })
-    .select("id")
-    .single();
+  const { data, error } = await supabase.rpc("create_financial_plan_with_initial_charge", {
+    org_id: ctx.organizationId,
+    p_patient_id: parsed.data.patientId,
+    p_plan_type: parsed.data.planType,
+    p_total_sessions: parsed.data.totalSessions ?? null,
+    p_price: parsed.data.price,
+    p_valid_from: parsed.data.validFrom ?? null,
+    p_valid_until: parsed.data.validUntil ?? null,
+    p_idempotency_key: randomUUID(),
+  });
   if (error || !data) {
     return { error: mapFinanceError(error?.message ?? "") };
   }
 
-  if (parsed.data.planType === "prepaid_package" || parsed.data.planType === "monthly") {
-    const origin = parsed.data.planType === "monthly" ? "subscription" : "plan";
-    const description =
-      parsed.data.planType === "monthly" ? "Mensalidade" : "Pacote pré-pago";
-    const { error: chargeError } = await supabase.from("financial_charges").insert({
-      organization_id: ctx.organizationId,
-      patient_id: parsed.data.patientId,
-      plan_id: data.id,
-      origin,
-      description,
-      amount: parsed.data.price,
-      due_date: parsed.data.validFrom ?? todayIsoDate(ctx.timezone),
-      competence_date: parsed.data.validFrom ?? todayIsoDate(ctx.timezone),
-      idempotency_key: randomUUID(),
-    });
-    if (chargeError) {
-      await logAuditEvent({
-        organizationId: ctx.organizationId,
-        action: "finance.plan.create",
-        resourceType: "financial_plan",
-        resourceId: data.id,
-      });
-      revalidateFinance(parsed.data.patientId);
-      return {
-        id: data.id,
-        warning: "Plano criado, mas a cobrança correspondente não foi lançada.",
-      };
-    }
-  }
-
+  const planId = data as string;
   await logAuditEvent({
     organizationId: ctx.organizationId,
     action: "finance.plan.create",
     resourceType: "financial_plan",
-    resourceId: data.id,
+    resourceId: planId,
   });
   revalidateFinance(parsed.data.patientId);
-  return { id: data.id };
+  return { id: planId };
 }
 
 export async function adjustPlanAction(input: unknown): Promise<FinanceActionResult> {
