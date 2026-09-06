@@ -55,7 +55,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `node tests/e2e/support/auth-stub-server.mjs`,
+      command: `node tests/e2e/support/auth-stub-phase2-proxy.mjs`,
       url: `${supabaseUrl}/health`,
       reuseExistingServer: false,
       timeout: 120_000,
