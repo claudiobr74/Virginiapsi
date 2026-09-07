@@ -49,14 +49,14 @@ test.describe("Financeiro", () => {
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Baixar CSV" }).click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/tesseli-financeiro-/);
+    expect(download.suggestedFilename()).toMatch(/virginiapsi-financeiro-/);
   });
 
   test("admin fecha o período mensal", async ({ page }) => {
     await loginViaUi(page);
     await openFinance(page);
     await page.getByRole("tab", { name: "Relatórios" }).click();
-    const closing = page.locator("section").filter({ hasText: "Fechamento mensal" });
+    const closing = page.locator("section").filter({ hasText: "Fechamentos" });
     await closing.getByLabel("Início").fill("2026-07-01");
     await closing.getByLabel("Fim").fill("2026-07-31");
     await closing.getByRole("button", { name: "Fechar período" }).click();
