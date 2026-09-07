@@ -60,9 +60,11 @@ test.describe("Financeiro", () => {
     await closing.getByLabel("Início").fill("2026-07-01");
     await closing.getByLabel("Fim").fill("2026-07-31");
     await closing.getByRole("button", { name: "Fechar período" }).click();
-    await expect(
-      closing.getByText("2026-07-01 a 2026-07-31 · fechado", { exact: true }),
-    ).toBeVisible();
+    const closingRow = closing
+      .locator("li")
+      .filter({ hasText: "2026-07-01 a 2026-07-31" });
+    await expect(closingRow).toContainText("Competência");
+    await expect(closingRow).toContainText("fechado");
   });
 
   test("secretária sem acesso vê a tela de bloqueio", async ({ page }) => {
