@@ -69,7 +69,7 @@ export async function getSecretaryFinanceAccessSetting(
 export async function listCharges(organizationId: string): Promise<ChargeRow[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
-    .from("financial_charges")
+    .from("financial_charges_effective")
     .select("*")
     .eq("organization_id", organizationId)
     .order("competence_date", { ascending: false });
@@ -91,7 +91,7 @@ export async function listPayments(organizationId: string): Promise<PaymentRow[]
 export async function listExpenses(organizationId: string): Promise<ExpenseRow[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
-    .from("financial_expenses")
+    .from("financial_expenses_effective")
     .select("*")
     .eq("organization_id", organizationId)
     .order("due_date", { ascending: true, nullsFirst: false });

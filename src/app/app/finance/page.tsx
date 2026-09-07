@@ -2,7 +2,7 @@ import { Wallet } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
-import { FinanceConsole } from "@/features/finance/components/finance-console";
+import { FinanceConsolePhase4 } from "@/features/finance/components/finance-console-phase4";
 import { getFinanceSnapshot } from "@/features/finance/queries";
 import { listPatients } from "@/features/patients/queries";
 import { requireOrgContext } from "@/lib/auth/require-org-context";
@@ -29,7 +29,7 @@ export default async function FinancePage() {
           description="A administradora não liberou visualização ou gestão financeira para a secretaria."
         />
       ) : (
-        <FinanceConsole
+        <FinanceConsolePhase4
           snapshot={snapshot}
           patients={patients.map((patient) => ({
             id: patient.id,

@@ -45,11 +45,11 @@ import {
   issueReceiptAction,
   payExpenseAction,
   registerPaymentAction,
-  reopenPeriodAction,
   requestNfseAction,
   updateSecretaryFinanceAccessAction,
   voidPaymentAction,
 } from "@/features/finance/actions";
+import { reopenPeriodWithReasonAction } from "@/features/finance/phase2-actions";
 import { FinanceStatCard } from "@/features/finance/components/finance-stat-card";
 import {
   chargeBadgeStatus,
@@ -69,6 +69,22 @@ type TabId = (typeof TABS)[number]["id"];
 
 const selectClass =
   "h-11 w-full rounded-xl border border-border bg-input px-3.5 text-sm text-foreground";
+
+function askReason(message: string): string | null {
+  const reason = window.prompt(message)?.trim() ?? "";
+  if (!reason) {
+    return null;
+  }
+  if (reason.length < 3) {
+    window.alert("Informe um motivo com pelo menos 3 caracteres.");
+    return null;
+  }
+  if (reason.length > 300) {
+    window.alert("O motivo deve ter no máximo 300 caracteres.");
+    return null;
+  }
+  return reason;
+}
 
 function Field({
   label,
@@ -296,11 +312,7 @@ function FinanceMonthKpis({
       !["canceled", "refunded"].includes(charge.row.status) &&
       inMonth(charge.row.competence_date),
   );
-  const overdue = openCharges.filter(
-    (charge) =>
-      charge.row.status === "overdue" ||
-      (charge.row.due_date != null && charge.row.due_date < today && charge.remainingCents > 0),
-  );
+  const overdue = openCharges.filter((charge) => charge.row.status === "overdue");
   const overdueCents = overdue.reduce((sum, charge) => sum + charge.remainingCents, 0);
   const overduePatients = new Set(
     overdue.map((charge) => charge.row.patient_id).filter(Boolean),
@@ -375,11 +387,7 @@ function TodayTab({
   );
   const toReceiveToday = dueToday.reduce((sum, charge) => sum + charge.remainingCents, 0);
   const pendingTotal = openCharges.reduce((sum, charge) => sum + charge.remainingCents, 0);
-  const overdue = openCharges.filter(
-    (charge) =>
-      charge.row.status === "overdue" ||
-      (charge.row.due_date != null && charge.row.due_date < today && charge.remainingCents > 0),
-  );
+  const overdue = openCharges.filter((charge) => charge.row.status === "overdue");
   const upcoming = openCharges
     .filter((charge) => charge.row.due_date != null && charge.row.due_date > today)
     .sort((a, b) => (a.row.due_date ?? "").localeCompare(b.row.due_date ?? ""))
@@ -523,14 +531,7 @@ function ReceivablesTab({
     .filter((charge) => ["pending", "partially_paid"].includes(charge.row.status))
     .reduce((sum, charge) => sum + charge.remainingCents, 0);
   const overdueCents = charges
-    .filter(
-      (charge) =>
-        charge.row.status === "overdue" ||
-        (charge.row.due_date != null &&
-          charge.row.due_date < today &&
-          charge.remainingCents > 0 &&
-          !["canceled", "refunded", "paid"].includes(charge.row.status)),
-    )
+    .filter((charge) => charge.row.status === "overdue")
     .reduce((sum, charge) => sum + charge.remainingCents, 0);
   const receivedCents = charges
     .filter((charge) => !["canceled", "refunded"].includes(charge.row.status))
@@ -684,7 +685,6 @@ function ChargeCard({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const late = charge.row.due_date != null && charge.row.due_date < todayIsoDate() && charge.remainingCents > 0;
 
   function run(action: () => Promise<{ error?: string; warning?: string }>) {
     setError(null);
@@ -714,9 +714,6 @@ function ChargeCard({
             status={chargeBadgeStatus(charge.row.status)}
             label={CHARGE_STATUS_LABELS[charge.row.status]}
           />
-          {late && charge.row.status === "partially_paid" ? (
-            <span className="text-xs font-semibold text-failed">em atraso</span>
-          ) : null}
         </div>
       </div>
       {charge.remainingCents > 0 && charge.row.status !== "canceled" ? (
@@ -734,36 +731,47 @@ function ChargeCard({
       ) : null}
 
       {canWrite && !compact ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {charge.row.status !== "canceled" && charge.row.status !== "refunded" ? (
+        <>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {charge.row.status !== "canceled" && charge.row.status !== "refunded" ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                isLoading={isPending}
+                onClick={() => {
+                  const reason = askReason(
+                    charge.paidCents > 0
+                      ? "Informe o motivo do estorno da cobrança:"
+                      : "Informe o motivo do cancelamento da cobrança:",
+                  );
+                  if (!reason) return;
+                  run(() =>
+                    cancelChargeAction({
+                      chargeId: charge.row.id,
+                      reason,
+                      asRefund: charge.paidCents > 0,
+                    }),
+                  );
+                }}
+              >
+                {charge.paidCents > 0 ? "Estornar" : "Cancelar"}
+              </Button>
+            ) : null}
             <Button
               type="button"
               size="sm"
-              variant="ghost"
+              variant="secondary"
               isLoading={isPending}
-              onClick={() =>
-                run(() =>
-                  cancelChargeAction({
-                    chargeId: charge.row.id,
-                    reason: "Cancelamento operacional",
-                    asRefund: charge.paidCents > 0,
-                  }),
-                )
-              }
+              onClick={() => run(() => requestNfseAction(charge.row.id))}
             >
-              {charge.paidCents > 0 ? "Estornar" : "Cancelar"}
+              {charge.row.nfse_requested_at ? "NFS-e marcada" : "Marcar solicitação de NFS-e"}
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            isLoading={isPending}
-            onClick={() => run(() => requestNfseAction(charge.row.id))}
-          >
-            {charge.row.nfse_requested_at ? "NFS-e solicitada" : "Solicitar NFS-e"}
-          </Button>
-        </div>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            NFS-e: registro administrativo; não emite nota fiscal automaticamente.
+          </p>
+        </>
       ) : null}
 
       {!compact && payments.length > 0 ? (
@@ -790,14 +798,16 @@ function ChargeCard({
                       type="button"
                       size="sm"
                       variant="ghost"
-                      onClick={() =>
+                      onClick={() => {
+                        const reason = askReason("Informe o motivo do estorno do pagamento:");
+                        if (!reason) return;
                         run(() =>
                           voidPaymentAction({
                             paymentId: payment.id,
-                            reason: "Estorno operacional",
+                            reason,
                           }),
-                        )
-                      }
+                        );
+                      }}
                     >
                       Estornar pagamento
                     </Button>
@@ -1000,55 +1010,75 @@ function ExpenseForm() {
 function ExpenseItem({ expense, canWrite }: { expense: ExpenseRow; canWrite: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const cents = centsFromCanonical(expense.amount);
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border px-4 py-3">
-      <div>
-        <p className="font-semibold">
-          {expense.category} · {expense.description}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {expense.supplier ? `${expense.supplier} · ` : ""}
-          {expense.due_date ? `vence ${expense.due_date}` : "sem vencimento"}
-          {expense.recurrence ? " · recorrente" : ""}
-        </p>
+    <li className="rounded-2xl border border-border px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold">
+            {expense.category} · {expense.description}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {expense.supplier ? `${expense.supplier} · ` : ""}
+            {expense.due_date ? `vence ${expense.due_date}` : "sem vencimento"}
+            {expense.recurrence ? " · recorrente" : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="tabular-nums font-semibold">{formatBRL(cents)}</span>
+          <StatusBadge status={expenseBadgeStatus(expense.status)} label={EXPENSE_STATUS_LABELS[expense.status]} />
+          {canWrite && expense.status !== "paid" && expense.status !== "canceled" ? (
+            <Button
+              type="button"
+              size="sm"
+              isLoading={isPending}
+              onClick={() =>
+                startTransition(async () => {
+                  setError(null);
+                  const result = await payExpenseAction(expense.id);
+                  if (result.error) {
+                    setError(result.error);
+                    return;
+                  }
+                  router.refresh();
+                })
+              }
+            >
+              Marcar paga
+            </Button>
+          ) : null}
+          {canWrite && expense.status !== "canceled" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              isLoading={isPending}
+              onClick={() => {
+                const reason = askReason("Informe o motivo do cancelamento da despesa:");
+                if (!reason) return;
+                startTransition(async () => {
+                  setError(null);
+                  const result = await cancelExpenseAction(expense.id, reason);
+                  if (result.error) {
+                    setError(result.error);
+                    return;
+                  }
+                  router.refresh();
+                });
+              }}
+            >
+              Cancelar
+            </Button>
+          ) : null}
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="tabular-nums font-semibold">{formatBRL(cents)}</span>
-        <StatusBadge status={expenseBadgeStatus(expense.status)} label={EXPENSE_STATUS_LABELS[expense.status]} />
-        {canWrite && expense.status !== "paid" && expense.status !== "canceled" ? (
-          <Button
-            type="button"
-            size="sm"
-            isLoading={isPending}
-            onClick={() =>
-              startTransition(async () => {
-                await payExpenseAction(expense.id);
-                router.refresh();
-              })
-            }
-          >
-            Marcar paga
-          </Button>
-        ) : null}
-        {canWrite && expense.status !== "canceled" ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            isLoading={isPending}
-            onClick={() =>
-              startTransition(async () => {
-                await cancelExpenseAction(expense.id, "Cancelamento operacional");
-                router.refresh();
-              })
-            }
-          >
-            Cancelar
-          </Button>
-        ) : null}
-      </div>
+      {error ? (
+        <p role="alert" className="mt-2 text-sm text-failed">
+          {error}
+        </p>
+      ) : null}
     </li>
   );
 }
@@ -1142,45 +1172,60 @@ function PlanRowItem({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const remaining =
     plan.total_sessions == null ? null : Math.max(plan.total_sessions - plan.used_sessions, 0);
   const patientName = patients.find((patient) => patient.id === plan.patient_id)?.preferred_name ?? "Paciente";
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border px-4 py-3">
-      <div>
-        <p className="font-semibold">
-          {patientName} · {PLAN_TYPE_LABELS[plan.plan_type]}
-        </p>
-        <p className="text-sm tabular-nums text-muted-foreground">
-          {plan.used_sessions} usadas
-          {plan.total_sessions != null ? ` / ${plan.total_sessions}` : ""}
-          {remaining != null ? ` · ${remaining} restantes` : ""}
-          {plan.valid_until ? ` · até ${plan.valid_until}` : ""}
-        </p>
+    <li className="rounded-2xl border border-border px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold">
+            {patientName} · {PLAN_TYPE_LABELS[plan.plan_type]}
+          </p>
+          <p className="text-sm tabular-nums text-muted-foreground">
+            {plan.used_sessions} usadas
+            {plan.total_sessions != null ? ` / ${plan.total_sessions}` : ""}
+            {remaining != null ? ` · ${remaining} restantes` : ""}
+            {plan.valid_until ? ` · até ${plan.valid_until}` : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="tabular-nums font-semibold">
+            {formatBRL(centsFromCanonical(plan.price))}
+          </span>
+          <StatusBadge status={planBadgeStatus(plan.status)} label={PLAN_STATUS_LABELS[plan.status]} />
+          {canWrite && plan.status === "active" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              isLoading={isPending}
+              onClick={() => {
+                const reason = askReason("Informe o motivo do cancelamento do plano:");
+                if (!reason) return;
+                startTransition(async () => {
+                  setError(null);
+                  const result = await cancelPlanAction(plan.id, reason);
+                  if (result.error) {
+                    setError(result.error);
+                    return;
+                  }
+                  router.refresh();
+                });
+              }}
+            >
+              Cancelar plano
+            </Button>
+          ) : null}
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="tabular-nums font-semibold">
-          {formatBRL(centsFromCanonical(plan.price))}
-        </span>
-        <StatusBadge status={planBadgeStatus(plan.status)} label={PLAN_STATUS_LABELS[plan.status]} />
-        {canWrite && plan.status === "active" ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            isLoading={isPending}
-            onClick={() =>
-              startTransition(async () => {
-                await cancelPlanAction(plan.id, "Cancelamento operacional");
-                router.refresh();
-              })
-            }
-          >
-            Cancelar plano
-          </Button>
-        ) : null}
-      </div>
+      {error ? (
+        <p role="alert" className="mt-2 text-sm text-failed">
+          {error}
+        </p>
+      ) : null}
     </li>
   );
 }
@@ -1375,12 +1420,19 @@ function ClosingForm({
                   size="sm"
                   variant="ghost"
                   isLoading={isPending}
-                  onClick={() =>
+                  onClick={() => {
+                    const reason = askReason("Informe o motivo da reabertura do período:");
+                    if (!reason) return;
+                    setError(null);
                     startTransition(async () => {
-                      await reopenPeriodAction(closing.id);
+                      const result = await reopenPeriodWithReasonAction(closing.id, reason);
+                      if (result.error) {
+                        setError(result.error);
+                        return;
+                      }
                       router.refresh();
-                    })
-                  }
+                    });
+                  }}
                 >
                   Reabrir
                 </Button>
